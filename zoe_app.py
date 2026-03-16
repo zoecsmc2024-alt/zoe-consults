@@ -34,16 +34,46 @@ def save_data(df):
 
 df = load_data()
 
-# --- 3. NAVIGATION ---
+# --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
-    st.title("Zoe Consults")
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
+    # 1. THE LOGO
+    # Ensure 'logo.jpg' is uploaded to your GitHub folder!
+    if os.path.exists("logo.jpg"):
+        st.image("logo.jpg", width=150)
+    else:
+        st.title("🏦 Zoe Consults")
+    
     st.markdown("---")
-    if not df.empty:
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Database", data=csv, file_name="zoe_database.csv", mime="text/csv")
+    
+    # 2. NAVIGATION MENU
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
+    
+    st.markdown("---")
+    
+    # 3. THE VISIBLE LOGOUT BUTTON
+    # We use a custom style here to ensure it's not invisible
+    st.markdown("""
+        <style>
+        .stButton>button {
+            width: 100%;
+            border-radius: 5px;
+            height: 3em;
+            background-color: #ef4444 !important; /* Red for Logout */
+            color: white !important;
+            font-weight: bold;
+            border: none;
+        }
+        .stButton>button:hover {
+            background-color: #dc2626 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🔓 LOGOUT"):
+        # This will trigger a refresh to the login screen
+        st.rerun()
 
-# --- 4. PAGES ---
+    st.caption("v3.2 | Kampala, UG")
 
 if choice == "📊 Daily Report":
     st.title("📊 Loan Portfolio Dashboard")
