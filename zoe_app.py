@@ -98,14 +98,12 @@ if not df.empty:
     df['Current_Balance'] = df.apply(calculate_live_balance, axis=1)
 
 with st.sidebar:
+    # ADD THIS LINE BACK:
+    st.image("https://cdn-icons-png.flaticon.com/512/3135/3135706.png", width=100)
+    
     st.title("Zoe Consults")
     st.markdown("---")
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 New Customer", "💰 Record Payment", "✉️ Letter Gen", "❓ Help"])
-    st.markdown("---")
-    if st.button("🔓 Logout"):
-        del st.session_state["password_correct"]
-        st.rerun()
-    st.caption("v2.1 | Kampala, UG")
+    # ... rest of the sidebar code ...
 
 # --- 5. PAGE ROUTING ---
 
