@@ -81,17 +81,45 @@ with st.sidebar:
         st.rerun()
     st.caption("v2.6 | Kampala, UG")
 
-# --- 6. PAGES ---
 if choice == "📊 Daily Report":
     st.title("Financial Portfolio Overview")
     if df.empty:
         st.info("No loans found.")
     else:
+        # 1. Metrics
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total Principal", f"UGX {df['Principal_UGX'].sum():,.0f}")
-        c2.metric("Portfolio Value", f"UGX {df['Current_Balance'].sum():,.0f}")
-        c3.metric("Growth", f"UGX {(df['Current_Balance'].sum() - df['Principal_UGX'].sum()):,.0f}")
+        total_p = df['Principal_UGX'].sum()
+        total_b = df['Current_Balance'].sum()
+        total_i = total_b - total_p
         
+        c1.metric("Total Principal", f"UGX {total_p:,.0f}")
+        c2.metric("Portfolio Value", f"UGX {total_b:,.0f}")
+        c3.metric("Interest Earned", f"UGX {total_i:,.0f}", delta_color="normal")
+        
+        st.markdown("---")
+        
+        # 2. THE PIE CHART
+        import plotly.express as px
+        
+        col_chart, col_space = st.columns([2, 1]) # Makes the chart a nice size
+        
+        with col_chart:
+            st.subheader("Portfolio Composition")
+            chart_data = pd.DataFrame({
+                "Category": ["Original Principal", "Interest Growth"],
+                "Amount": [total_p, total_i]
+            })
+            fig = px.pie(
+                chart_data, 
+                values='Amount', 
+                names='Category',
+                color_discrete_sequence=['#1e293b', '#10b981'], # Matching your dark theme + a success green
+                hole=0.4 # This makes it a "Donut" chart, which looks more modern
+            )
+            fig.update_layout(showlegend=True, margin=dict(t=0, b=0, l=0, r=0))
+            st.plotly_chart(fig, use_container_width=True)
+
+        # 3. Registry Table
         st.markdown("---")
         search = st.text_input("🔍 Quick Search")
         display_df = df[df['Name'].str.contains(search, case=False)] if search else df
