@@ -146,13 +146,52 @@ elif choice == "💰 Payments":
             else: st.error("Not found.")
 
 elif choice == "📄 Client Report":
-    st.title("📄 Client Statement")
+    st.title("📄 Official Loan Statement")
     if not df.empty:
+        # Client Selector
         search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
-        sel = st.selectbox("Select Client", search_list)
-        c = df[df['SN'] == sel.split(" - ")[0]].iloc[0]
-        st.markdown(f'<div class="report-card"><h2 style="text-align:center;">ZOE CONSULTS</h2><hr><p><b>Client:</b> {c["NAME"]}<br><b>NIN:</b> {c["NIN"]}<br><b>Due:</b> {c["EXPECTED_DUE_DATE"]}</p></div>', unsafe_allow_html=True)
+        selected = st.selectbox("Select Client to View Ledger", search_list)
+        sn_only = selected.split(" - ")[0]
+        c = df[df['SN'] == sn_only].iloc[0]
+
+        # 1. PROFESSIONAL HEADER
+        st.markdown(f"""
+            <div class="report-card">
+                <h2 style="text-align:center; color:#1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
+                <p style="text-align:center; color:#64748b; margin-top:0;">Loan Statement & Ledger</p>
+                <hr>
+                <table style="width:100%; font-size: 0.9em;">
+                    <tr><td><b>Client:</b> {c['NAME']}</td><td style="text-align:right;"><b>SN:</b> {c['SN']}</td></tr>
+                    <tr><td><b>NIN:</b> {c['NIN']}</td><td style="text-align:right;"><b>Contact:</b> {c['CONTACT']}</td></tr>
+                    <tr><td><b>Issued:</b> {c['DATE_OF_ISSUE']}</td><td style="text-align:right;"><b>Due:</b> {c['EXPECTED_DUE_DATE']}</td></tr>
+                </table>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 2. METRICS
+        st.write("")
         m1, m2, m3 = st.columns(3)
-        m1.metric("Principal", f"{c['LOAN_AMOUNT']:,.0f}")
-        m2.metric("Paid", f"{c['AMOUNT_PAID']:,.0f}")
-        m3.metric("Balance", f"{c['OUTSTANDING_AMOUNT']:,.0f}")
+        m1.metric("Principal Issued", f"UGX {float(c['LOAN_AMOUNT']):,.0f}")
+        m2.metric("Total Payments", f"UGX {float(c['AMOUNT_PAID']):,.0f}")
+        m3.metric("Current Balance", f"UGX {float(c['OUTSTANDING_AMOUNT']):,.0f}")
+
+        # 3. REDUCING BALANCE LEDGER
+        st.subheader("📉 Transaction History")
+        
+        # Calculation for the ledger rows
+        principal = float(c['LOAN_AMOUNT'])
+        interest_amt = principal * (float(c['INTEREST_RATE']) / 100)
+        
+        ledger_data = [
+            {"Date": c['DATE_OF_ISSUE'], "Description": "Initial Disbursement", "Debit": principal, "Credit": 0, "Balance": principal},
+            {"Date": "Month 1", "Description": f"Interest Charge ({c['INTEREST_RATE']}%)", "Debit": interest_amt, "Credit": 0, "Balance": principal + interest_amt},
+            {"Date": "To Date", "Description": "Total Collections Received", "Debit": 0, "Credit": float(c['AMOUNT_PAID']), "Balance": float(c['OUTSTANDING_AMOUNT'])}
+        ]
+        
+        st.table(pd.DataFrame(ledger_data).style.format({
+            "Debit": "{:,.0f}",
+            "Credit": "{:,.0f}",
+            "Balance": "{:,.0f}"
+        }))
+        
+        st.caption("This ledger is generated based on the current active loan terms.")
