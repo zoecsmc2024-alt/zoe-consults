@@ -205,28 +205,36 @@ if choice == "📊 Daily Report":
             return [''] * len(row)
 
         # THE CSS MASTER FIX: Forces Teal Header AND Hides the Index Column
-        st.markdown("""
-            <style>
-                /* Force Teal Header */
-                thead tr th {
-                    background-color: #00acc1 !important;
-                    color: white !important;
-                }
-                /* Hide the annoying first index column */
-                tbody th { display: none; }
-                .blank { display: none; }
-            </style>
-        """, unsafe_allow_html=True)
+        with st.sidebar:
+    # 1. LOGO & BRANDING (Fixed Alignment)
+    logo_content = ""
+    if os.path.exists("logo.jpg"):
+        import base64
+        with open("logo.jpg", "rb") as f:
+            data = base64.b64encode(f.read()).decode("utf-8")
+        logo_content = f'<img src="data:image/jpeg;base64,{data}" style="width:100%; border-radius: 50%;">'
+    else:
+        logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
 
-        display_cols = ['SN', 'NAME', 'DATE_OF_ISSUE', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
-        
-        # Using st.table ensures the row colors (Red/Green) are forced to show
-        st.table(df[display_cols].style.apply(apply_premium_styling, axis=1).format({
-            "OUTSTANDING_AMOUNT": "{:,.0f}"
-        }))
-elif choice == "👤 Onboarding":
+    st.markdown(f"""
+        <div style="text-align: center; padding: 10px;">
+            <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 150px; height: 150px;">
+                <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 2px solid #e2e8f0; margin: auto;">
+                    {logo_content}
+                </div>
+            </div>
+            <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI';">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
+        </div>
+        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
+
+# --- 4. ONBOARDING PAGE (With Excel Migration Tools) ---
+if choice == "👤 Onboarding":
     st.title("👤 New Loan / Excel Migration")
-    st.info("💡 To migrate Excel data, simply change the 'Disbursement Date' to the original date from your sheet.")
+    st.info("💡 Use 'Disbursement Date' and 'Existing Paid Amount' to migrate historical Excel data.")
     
     with st.form("onboard"):
         c1, c2 = st.columns(2)
@@ -234,42 +242,37 @@ elif choice == "👤 Onboarding":
             name = st.text_input("FULL NAME").upper()
             nin = st.text_input("NIN")
             loc = st.text_input("LOCATION")
-            emp = st.text_input("EMPLOYER")
-            # NEW: Backdate Selector
+            # NEW: Backdate Selector for Feb/March Excel data
             disbursed_date = st.date_input("DISBURSEMENT DATE", value=datetime.date.today())
             
         with c2:
             amt = st.number_input("LOAN AMOUNT (UGX)", min_value=1000)
             rate = st.number_input("MONTHLY RATE (%)", value=3)
             dur = st.number_input("DURATION (MONTHS)", min_value=1, value=1)
+            # NEW: Capture what they already paid in Excel
+            already_paid = st.number_input("EXISTING PAID AMOUNT (UGX)", min_value=0, value=0)
             
-            # Logic: Calculate Due Date based on the selected Disbursed Date
             due = disbursed_date + datetime.timedelta(days=30*dur)
             st.warning(f"Calculated Due Date: {due.strftime('%d-%b-%Y')}")
             
-        if st.form_submit_button("✅ Migrate/Save Record"):
+        if st.form_submit_button("✅ Save & Migrate"):
             new_sn = str(len(df) + 1).zfill(5)
-            # Principal + (Principal * Rate)
-            total_due = amt + (amt * (rate/100))
+            total_with_interest = amt + (amt * (rate/100))
+            current_balance = total_with_interest - already_paid
             
             new_row = pd.DataFrame([{
-                'SN': new_sn, 
-                'NAME': name, 
-                'NIN': nin, 
-                'LOCATION': loc, 
-                'EMPLOYER': emp, 
-                'DATE_OF_ISSUE': disbursed_date.strftime('%d-%b-%Y'), # Uses the backdate
+                'SN': new_sn, 'NAME': name, 'NIN': nin, 'LOCATION': loc, 
+                'DATE_OF_ISSUE': disbursed_date.strftime('%d-%b-%Y'),
                 'EXPECTED_DUE_DATE': due.strftime('%d-%b-%Y'),
-                'LOAN_AMOUNT': amt, 
-                'INTEREST_RATE': rate, 
-                'AMOUNT_PAID': 0, 
-                'OUTSTANDING_AMOUNT': total_due, 
-                'STATUS': 'Active'
+                'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 
+                'AMOUNT_PAID': already_paid, 
+                'OUTSTANDING_AMOUNT': current_balance, 
+                'STATUS': 'Active' if current_balance > 0 else 'Cleared'
             }])
             
             df = pd.concat([df, new_row], ignore_index=True)
             save_data(df)
-            st.success(f"Successfully migrated {name} to the digital registry!")
+            st.success(f"Migrated {name} successfully!")
             st.rerun()
 elif choice == "💰 Payments":
     st.title("💰 Post Payment")
