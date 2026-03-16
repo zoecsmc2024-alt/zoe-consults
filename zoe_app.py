@@ -31,10 +31,18 @@ def calculate_live_balance(row):
     return round(balance, 0) # Rounding to nearest Shilling
 
 def auto_update_status(row):
-    if row['Status'] == 'Paid Off' or row['Principal_UGX'] <= 0:
+    # Safety check: if Principal_UGX is missing, assume it's 0 to prevent crash
+    principal = row.get('Principal_UGX', 0)
+    status = row.get('Status', 'Active')
+    
+    if status == 'Paid Off' or principal <= 0:
         return 'Paid Off'
+    
     today = datetime.datetime.now()
-    days_since_payment = (today - row['Last_Payment_Date']).days
+    # Handle dates safely
+    last_pay = pd.to_datetime(row['Last_Payment_Date'])
+    days_since_payment = (today - last_pay).days
+    
     return 'Dormant' if days_since_payment > 60 else 'Active'
 
 # --- 2. LOGIN ---
