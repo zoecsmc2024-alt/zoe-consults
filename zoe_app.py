@@ -50,19 +50,34 @@ with st.sidebar:
         logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
 
     # 2. THE BRANDED HEADER (Aligned perfectly)
-    st.markdown(f"""
-        <div style="text-align: center; padding: 10px;">
-            <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 2px solid #e2e8f0;">
-                    {logo_content}
-                </div>
-            </div>
-            <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
-            <p style="color: #94a3b8; font-size: 0.8em; margin-bottom: 20px;">Micro-Lending Management</p>
-        </div>
-        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
-    """, unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    /* 1. THE SIDEBAR COLOR */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a !important; /* This is the Deep Slate */
+    }
 
+    /* 2. SIDEBAR TEXT COLORS */
+    [data-testid="stSidebar"] * {
+        color: #f8fafc !important; /* Off-white for readability */
+    }
+
+    /* 3. FIXING THE RADIO BUTTONS SELECTION COLOR */
+    div[data-testid="stMarkdownContainer"] p {
+        color: #94a3b8; /* Dimmer text for labels */
+    }
+
+    /* 4. DASHBOARD CARDS (Main Page) */
+    .report-card { 
+        background-color: #ffffff; 
+        padding: 25px; 
+        border-radius: 12px; 
+        border: 1px solid #e2e8f0; 
+        color: black; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+    }
+    </style>
+    """, unsafe_allow_html=True)
     # 3. NAVIGATION (Make sure these are indented 4 spaces from 'with')
     st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
