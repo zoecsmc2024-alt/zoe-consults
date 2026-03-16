@@ -24,56 +24,27 @@ st.markdown("""
 DB_FILE = "zoe_database.csv"
 
 def load_data():
-    # These are the "Must-Have" columns for your app to work
     required_cols = ['SN','NAME','NIN','CONTACT','LOCATION','EMPLOYER','DATE_OF_ISSUE','EXPECTED_DUE_DATE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
-    
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
-        # Check if any required columns are missing and add them if necessary
         for col in required_cols:
             if col not in df.columns:
-                df[col] = "" # Create the column with empty values if it's missing
-        
-        # Clean up the numbers
+                df[col] = ""
         df['OUTSTANDING_AMOUNT'] = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').fillna(0)
         df['SN'] = df['SN'].astype(str).str.zfill(5)
-        return df[required_cols] # Ensure they are in the right order
-    
+        return df[required_cols]
     return pd.DataFrame(columns=required_cols)
+
+# CRITICAL: This must be outside of any 'with' or 'if' blocks!
+df = load_data() 
+
 # --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    # Circular Logo Logic
-    logo_content = ""
-    if os.path.exists("logo.jpg"):
-        with open("logo.jpg", "rb") as f:
-            data = base64.b64encode(f.read()).decode("utf-8")
-        logo_content = f'<img src="data:image/jpeg;base64,{data}" style="width:120px;">'
-    else:
-        logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
-
-    st.markdown(f"""
-        <div style="text-align: center; padding: 10px;">
-            <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 2px solid #e2e8f0;">
-                    {logo_content}
-                </div>
-            </div>
-            <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI';">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
-        </div>
-        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
+    # ... (Your sidebar logo and radio button code)
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
-    
-    st.markdown("<div style='margin-top: 30px; border-top: 1px solid #334155; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
-    if not df.empty:
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 EXPORT DATABASE", data=csv, file_name="Zoe_Database.csv", mime="text/csv")
-    if st.button("🔓 SECURE LOGOUT"):
-        st.rerun()
 
 # --- 4. PAGES ---
+
 
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
