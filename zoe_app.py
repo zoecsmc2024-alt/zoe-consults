@@ -4,7 +4,7 @@ import datetime
 import os
 
 # --- 1. SETTINGS & THEMING ---
-LOGO_URL = "logo.png" 
+LOGO_URL = "logo.jpg" 
 st.set_page_config(page_title="ZoeLend IQ", page_icon="🏦", layout="wide")
 
 st.markdown("""
