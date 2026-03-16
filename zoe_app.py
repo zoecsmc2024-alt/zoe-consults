@@ -220,21 +220,52 @@ if choice == "📊 Daily Report":
 
         st.dataframe(styled_registry, use_container_width=True, hide_index=True)
 elif choice == "👤 Onboarding":
-    st.title("👤 New Loan")
+    st.title("👤 New Loan / Excel Migration")
+    st.info("💡 To migrate Excel data, simply change the 'Disbursement Date' to the original date from your sheet.")
+    
     with st.form("onboard"):
         c1, c2 = st.columns(2)
         with c1:
-            name = st.text_input("FULL NAME").upper(); nin = st.text_input("NIN")
-            loc = st.text_input("LOCATION"); emp = st.text_input("EMPLOYER")
+            name = st.text_input("FULL NAME").upper()
+            nin = st.text_input("NIN")
+            loc = st.text_input("LOCATION")
+            emp = st.text_input("EMPLOYER")
+            # NEW: Backdate Selector
+            disbursed_date = st.date_input("DISBURSEMENT DATE", value=datetime.date.today())
+            
         with c2:
-            amt = st.number_input("LOAN AMOUNT", min_value=1000)
-            rate = st.number_input("RATE (%)", value=3); dur = st.number_input("MONTHS", min_value=1, value=1)
-            due = datetime.date.today() + datetime.timedelta(days=30*dur)
-        if st.form_submit_button("✅ Save"):
+            amt = st.number_input("LOAN AMOUNT (UGX)", min_value=1000)
+            rate = st.number_input("MONTHLY RATE (%)", value=3)
+            dur = st.number_input("DURATION (MONTHS)", min_value=1, value=1)
+            
+            # Logic: Calculate Due Date based on the selected Disbursed Date
+            due = disbursed_date + datetime.timedelta(days=30*dur)
+            st.warning(f"Calculated Due Date: {due.strftime('%d-%b-%Y')}")
+            
+        if st.form_submit_button("✅ Migrate/Save Record"):
             new_sn = str(len(df) + 1).zfill(5)
-            new_row = pd.DataFrame([{'SN': new_sn, 'NAME': name, 'NIN': nin, 'LOCATION': loc, 'EMPLOYER': emp, 'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'), 'EXPECTED_DUE_DATE': due.strftime('%d-%b-%Y'), 'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': amt+(amt*(rate/100)), 'STATUS': 'Active'}])
-            df = pd.concat([df, new_row], ignore_index=True); save_data(df); st.success("Done!"); st.rerun()
-
+            # Principal + (Principal * Rate)
+            total_due = amt + (amt * (rate/100))
+            
+            new_row = pd.DataFrame([{
+                'SN': new_sn, 
+                'NAME': name, 
+                'NIN': nin, 
+                'LOCATION': loc, 
+                'EMPLOYER': emp, 
+                'DATE_OF_ISSUE': disbursed_date.strftime('%d-%b-%Y'), # Uses the backdate
+                'EXPECTED_DUE_DATE': due.strftime('%d-%b-%Y'),
+                'LOAN_AMOUNT': amt, 
+                'INTEREST_RATE': rate, 
+                'AMOUNT_PAID': 0, 
+                'OUTSTANDING_AMOUNT': total_due, 
+                'STATUS': 'Active'
+            }])
+            
+            df = pd.concat([df, new_row], ignore_index=True)
+            save_data(df)
+            st.success(f"Successfully migrated {name} to the digital registry!")
+            st.rerun()
 elif choice == "💰 Payments":
     st.title("💰 Post Payment")
     with st.form("pay"):
