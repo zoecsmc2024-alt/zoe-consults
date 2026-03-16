@@ -54,12 +54,22 @@ with st.sidebar:
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
 # --- 2. DATA ENGINE ---
 def load_data():
-    # ... (the code inside your load_data function) ...
-    return df
+    try:
+        # 1. READ THE FILE (Make sure the filename matches yours!)
+        df = pd.read_csv("zoe_database.csv") 
+        
+        # 2. PERFORM ANY CLEANUP
+        # (Ensure columns like DATE_OF_ISSUE are datetime objects)
+        df['DATE_OF_ISSUE'] = pd.to_datetime(df['DATE_OF_ISSUE'])
+        
+        # 3. NOW RETURN IT
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame() # Returns an empty table if the file is missing
 
-# THIS IS THE MISSING LINK:
-df = load_data() 
-
+# 4. CALL THE FUNCTION
+df = load_data()
 # --- 4. PAGES ---
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
