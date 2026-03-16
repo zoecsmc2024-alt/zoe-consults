@@ -127,18 +127,7 @@ if choice == "📊 Daily Report":
             return [''] * len(row)
 
         # THE CSS MASTER FIX: Forces Teal Header AND Hides the Index Column
-        st.markdown("""
-            <style>
-                /* Force Teal Header */
-                thead tr th {
-                    background-color: #00acc1 !important;
-                    color: white !important;
-                }
-                /* Hide the annoying first index column */
-                tbody th { display: none; }
-                .blank { display: none; }
-            </style>
-        """, unsafe_allow_html=True)
+        st.markdown("<style> thead tr th { background-color: #00acc1 !important; } </style>", unsafe_allow_html=True)
 
         display_cols = ['SN', 'NAME', 'DATE_OF_ISSUE', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
         
