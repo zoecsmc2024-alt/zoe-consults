@@ -157,69 +157,74 @@ elif choice == "💰 Payments":
 elif choice == "📄 Client Report":
     st.title("📄 Client Statement & Schedule")
     if not df.empty:
-        # 1. Search Selection
+        # 1. Clean Selection List
         client_options = df.apply(lambda x: f"{x['NAME']} (SN: {x['SN']})", axis=1).tolist()
         selected_option = st.selectbox("Select Client", client_options)
         
-        # 2. Extract Data
-        selected_sn = selected_option.split("(SN: ")[1].replace(")", "")
-        c = df[df['SN'] == str(selected_sn).strip()].iloc[0]
+        # 2. Safety Check for SN
+        selected_sn = str(selected_option.split("(SN: ")[1].replace(")", "")).strip()
+        c = df[df['SN'].astype(str).str.strip() == selected_sn].iloc[0]
         
-        # 3. Render the Statement (The HTML Fix)
-        # Using f-string inside st.markdown with unsafe_allow_html=True
-        report_html = f"""
-        <div style="padding:20px; border:1px solid #e2e8f0; border-radius:10px; background-color: white; color: black;">
-            <h2 style="text-align:center; color: #1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
-            <p style="text-align:center; border-bottom: 2px solid #00acee; padding-bottom:10px; margin-top:0;">OFFICIAL LOAN STATEMENT</p>
+        # 3. Data Cleaning (Crucial for the "Could not calculate" error)
+        try:
+            loan_amt = float(c['LOAN_AMOUNT'])
+            m_rate = float(c['INTEREST_RATE'])
+            months = int(c['DURATION_MONTHS'])
+            paid = float(c['AMOUNT_PAID'])
+            outstanding = float(c['OUTSTANDING_AMOUNT'])
+        except:
+            st.error("⚠️ Data Error: Please use the 'Edit' tool in the Daily Report to ensure Principal, Rate, and Duration are numbers.")
+            st.stop()
             
-            <table style="width:100%; border-collapse: collapse;">
+        # 4. Professional Statement Design
+        st.markdown(f"""
+        <div style="padding:25px; border:1px solid #e2e8f0; border-radius:12px; background-color: white; color: black; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <h2 style="text-align:center; color: #1e293b; margin-bottom: 5px;">ZOE CONSULTS LIMITED</h2>
+            <p style="text-align:center; color: #64748b; font-size: 0.9em; margin-top: 0;">Providing Financial Solutions</p>
+            <div style="height: 2px; background-color: #00acee; margin-bottom: 20px;"></div>
+            
+            <table style="width:100%; border-collapse: collapse; font-family: sans-serif;">
                 <tr>
-                    <td style="vertical-align: top;">
-                        <p style="margin:2px;"><b>Client Name:</b> {c['NAME']}</p>
-                        <p style="margin:2px;"><b>Contact:</b> {c['CONTACT']}</p>
-                        <p style="margin:2px;"><b>Status:</b> <span style="color: {'#10b981' if c['STATUS'] == 'Active' else '#ef4444'}; font-weight: bold;">{c['STATUS']}</span></p>
+                    <td style="width: 50%; vertical-align: top;">
+                        <p style="margin:2px;"><b>CLIENT:</b> {c['NAME']}</p>
+                        <p style="margin:2px;"><b>CONTACT:</b> {c['CONTACT']}</p>
+                        <p style="margin:2px;"><b>STATUS:</b> <span style="color: {'#10b981' if c['STATUS'] == 'Active' else '#ef4444'};">{c['STATUS']}</span></p>
                     </td>
-                    <td style="text-align: right; vertical-align: top;">
-                        <p style="margin:2px;"><b>SN:</b> {c['SN']}</p>
-                        <p style="margin:2px;"><b>Issue Date:</b> {pd.to_datetime(c['DATE_OF_ISSUE']).strftime('%d-%b-%Y')}</p>
-                        <p style="margin:2px;"><b>Offer No:</b> {c['OFFER_NO']}</p>
+                    <td style="width: 50%; text-align: right; vertical-align: top;">
+                        <p style="margin:2px;"><b>SERIAL NO:</b> {c['SN']}</p>
+                        <p style="margin:2px;"><b>OFFER NO:</b> {c['OFFER_NO']}</p>
+                        <p style="margin:2px;"><b>DATE:</b> {pd.to_datetime(c['DATE_OF_ISSUE']).strftime('%d-%b-%Y')}</p>
                     </td>
                 </tr>
             </table>
             
-            <hr style="border: 0.5px solid #eee; margin: 15px 0;">
-            
-            <div style="display: flex; justify-content: space-around; background-color: #f8fafc; padding: 15px; border-radius: 5px;">
+            <div style="display: flex; justify-content: space-around; background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin-top: 25px;">
                 <div style="text-align: center;">
-                    <small style="color: #64748b;">PRINCIPAL</small><br><b style="font-size: 1.1em;">UGX {float(c['LOAN_AMOUNT']):,.0f}</b>
+                    <span style="font-size: 0.8em; color: #475569;">PRINCIPAL</span><br>
+                    <span style="font-weight: bold; font-size: 1.2em;">UGX {loan_amt:,.0f}</span>
                 </div>
                 <div style="text-align: center;">
-                    <small style="color: #64748b;">TOTAL PAID</small><br><b style="color: #10b981; font-size: 1.1em;">UGX {float(c['AMOUNT_PAID']):,.0f}</b>
+                    <span style="font-size: 0.8em; color: #475569;">TOTAL PAID</span><br>
+                    <span style="font-weight: bold; font-size: 1.2em; color: #10b981;">UGX {paid:,.0f}</span>
                 </div>
                 <div style="text-align: center;">
-                    <small style="color: #64748b;">OUTSTANDING</small><br><b style="color: #ef4444; font-size: 1.1em;">UGX {float(c['OUTSTANDING_AMOUNT']):,.0f}</b>
+                    <span style="font-size: 0.8em; color: #475569;">BALANCE</span><br>
+                    <span style="font-weight: bold; font-size: 1.2em; color: #ef4444;">UGX {outstanding:,.0f}</span>
                 </div>
             </div>
         </div>
-        """
-        st.markdown(report_html, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
         
-        # 4. Repayment Schedule Logic
+        # 5. The Repayment Schedule
         st.markdown("---")
-        st.subheader("📅 Repayment Schedule")
-        
-        try:
-            # Ensure numbers are floats/ints before calculating
-            p = float(c['LOAN_AMOUNT'])
-            r = float(c['INTEREST_RATE'])
-            m = int(c['DURATION_MONTHS'])
-            
-            if m > 0:
-                sched = generate_schedule(p, r, m)
-                st.table(sched.style.format("{:,.0f}"))
-            else:
-                st.error("Loan duration must be at least 1 month.")
-        except Exception as e:
-            st.error(f"Could not calculate schedule: Check if Rate and Duration are numbers.")
+        st.subheader("📅 Monthly Repayment Schedule")
+        if months > 0:
+            try:
+                sched_df = generate_schedule(loan_amt, m_rate, months)
+                st.table(sched_df.style.format("{:,.0f}"))
+            except:
+                st.warning("Could not calculate schedule. Ensure Monthly Rate is e.g. 3 and not 0.03.")
+        else:
+            st.info("Duration is 0. Update the loan duration to see a schedule.")
     else:
-        st.info("No data found. Please onboard a client first.")
+        st.info("The registry is empty.")
