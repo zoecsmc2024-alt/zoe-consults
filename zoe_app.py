@@ -176,34 +176,36 @@ if choice == "📊 Daily Report":
         # 3. PREMIUM REGISTRY TABLE
         st.subheader("📋 Loan Registry")
         
-        # Risk Highlighting Logic
-        def highlight_risky(row):
+       # 3. PREMIUM REGISTRY TABLE (With Colorful Styling)
+        st.subheader("📋 Loan Portfolio Registry")
+
+        def apply_premium_styling(row):
+            # Logic for Risk (Overdue)
             try:
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-                if datetime.date.today() > due and row['OUTSTANDING_AMOUNT'] > 0:
-                    return ['background-color: #ffebee; color: #c62828; font-weight: bold'] * len(row)
-            except: pass
+                out = float(row['OUTSTANDING_AMOUNT'])
+                if datetime.date.today() > due and out > 0:
+                    return ['background-color: #fff1f2; color: #e11d48; border-left: 5px solid #e11d48'] * len(row)
+                
+                # Logic for Cleared (Success)
+                if row['STATUS'] == 'Cleared':
+                    return ['background-color: #f0fdf4; color: #16a34a'] * len(row)
+            except:
+                pass
             return [''] * len(row)
 
-        # Styling the dataframe
-        styled_registry = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({
-            "OUTSTANDING_AMOUNT": "{:,.0f}"
-        })
-        
-        st.dataframe(styled_registry, use_container_width=True)
+        # Updated Styling
+        styled_registry = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style\
+            .apply(apply_premium_styling, axis=1)\
+            .format({"OUTSTANDING_AMOUNT": "{:,.0f}"})\
+            .set_properties(**{
+                'font-family': 'Segoe UI',
+                'font-size': '14px',
+                'border-collapse': 'collapse',
+                'border-bottom': '1px solid #f1f5f9'
+            })
 
-        # 4. QUICK EDIT ACTION (The "Pencil" section)
-        with st.expander("✏️ Quick Modify Client"):
-            edit_sn = st.selectbox("Select Serial Number:", ["Select..."] + df['SN'].tolist())
-            if edit_sn != "Select...":
-                idx = df[df['SN'] == edit_sn].index[0]
-                with st.form("quick_edit"):
-                    st.write(f"Editing **{df.at[idx, 'NAME']}**")
-                    new_stat = st.selectbox("Update Status", ["Active", "Risky", "Cleared", "Dormant"], index=["Active", "Risky", "Cleared", "Dormant"].index(df.at[idx, 'STATUS']))
-                    if st.form_submit_button("Update Status"):
-                        df.at[idx, 'STATUS'] = new_stat
-                        save_data(df)
-                        st.success("Status Updated!"); st.rerun()
+        st.dataframe(styled_registry, use_container_width=True, hide_index=True)
 elif choice == "👤 Onboarding":
     st.title("👤 New Loan")
     with st.form("onboard"):
