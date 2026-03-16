@@ -130,16 +130,24 @@ elif choice == "👤 Onboarding":
 elif choice == "💰 Payments":
     st.title("💰 Post Payment")
     with st.form("pay"):
-        cid = st.text_input("Enter SN (e.g. 00001)")
+        # We use .strip() to remove any accidental spaces
+        cid = st.text_input("Enter SN (e.g. 00001)").strip()
         p_amt = st.number_input("Amount (UGX)", min_value=100)
+        
         if st.form_submit_button("Submit"):
+            # This makes sure we compare text to text
+            df['SN'] = df['SN'].astype(str).str.strip()
+            
             idx = df[df['SN'] == cid].index
             if not idx.empty:
                 df.at[idx[0], 'AMOUNT_PAID'] += p_amt
                 df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
                 df.at[idx[0], 'Last_Payment_Date'] = datetime.datetime.now()
-                save_data(df); st.success("Updated!"); st.rerun()
-            else: st.error("SN not found.")
+                save_data(df)
+                st.success(f"Payment of UGX {p_amt:,.0f} logged for SN {cid}!")
+                st.rerun()
+            else:
+                st.error(f"SN '{cid}' not found. Please check the Daily Report for the correct SN.")
 
 elif choice == "📄 Client Report":
     st.title("📄 Client Report")
