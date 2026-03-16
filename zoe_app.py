@@ -6,7 +6,7 @@ import os
 # --- 1. APP CONFIG & PROFESSIONAL THEMING ---
 st.set_page_config(page_title="ZoeLend IQ", page_icon="🏦", layout="wide")
 
-# This CSS fixes the invisible sidebar text and adds the banking aesthetic
+# Custom CSS to force sidebar text visibility and banking aesthetic
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
@@ -63,7 +63,6 @@ def save_data(df):
 def calculate_live_balance(row):
     if row['Status'] == 'Paid Off': return 0.0
     today = datetime.datetime.now()
-    # Monthly compounding logic
     months_diff = (today.year - row['Start_Date'].year) * 12 + (today.month - row['Start_Date'].month)
     balance = row['Principal_UGX'] * (1 + (row['Annual_Rate'] / 12)) ** max(0, months_diff)
     return round(balance, 0)
@@ -76,7 +75,7 @@ def auto_status(row):
 # --- 3. SECURITY GATE ---
 if "password_correct" not in st.session_state:
     st.title("🏦 ZoeLend IQ")
-    st.info("Authorized Personnel Only")
+    st.info("Authorized Personnel Only - Zoe Consults")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
     if st.button("Secure Login"):
@@ -87,10 +86,10 @@ if "password_correct" not in st.session_state:
             st.error("Invalid credentials.")
     st.stop()
 
-# --- 4. DASHBOARD NAVIGATION ---
+# --- 4. DATA LOADING & SIDEBAR ---
 df = load_data()
 
-# Auto-update logic
+# Process data if it exists
 if not df.empty:
     if 'Principal_USD' in df.columns:
         df = df.rename(columns={'Principal_USD': 'Principal_UGX'})
@@ -98,12 +97,19 @@ if not df.empty:
     df['Current_Balance'] = df.apply(calculate_live_balance, axis=1)
 
 with st.sidebar:
-    # ADD THIS LINE BACK:
+    # Professional Logo
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135706.png", width=100)
-    
     st.title("Zoe Consults")
     st.markdown("---")
-    # ... rest of the sidebar code ...
+    
+    # Defining 'choice' correctly here so the rest of the app can see it
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 New Customer", "💰 Record Payment", "✉️ Letter Gen", "❓ Help"])
+    
+    st.markdown("---")
+    if st.button("🔓 Logout"):
+        del st.session_state["password_correct"]
+        st.rerun()
+    st.caption("v2.2 | Kampala, UG")
 
 # --- 5. PAGE ROUTING ---
 
@@ -112,13 +118,12 @@ if choice == "📊 Daily Report":
     if df.empty:
         st.info("No active loans found. Start by adding a customer.")
     else:
-        # High-level Metrics
         c1, c2, c3 = st.columns(3)
         total_p = df['Principal_UGX'].sum()
         total_b = df['Current_Balance'].sum()
         c1.metric("Total Principal", f"UGX {total_p:,.0f}")
         c2.metric("Portfolio Value", f"UGX {total_b:,.0f}")
-        c3.metric("Total Customers", len(df))
+        c3.metric("Active Clients", len(df[df['Status'] == 'Active']))
 
         st.markdown("---")
         search = st.text_input("🔍 Search Registry", placeholder="Type name...")
@@ -141,13 +146,19 @@ elif choice == "👤 New Customer":
     with st.form("add_form", clear_on_submit=True):
         n = st.text_input("Full Name")
         a = st.number_input("Principal Amount (UGX)", min_value=1000, step=10000)
-        r = st.number_input("Annual Interest Rate (e.g. 0.25 for 25%)", format="%.2f")
+        # Simplified rate input for the boss
+        r = st.number_input("Annual Interest Rate (e.g. 0.25 for 25%)", value=0.15, format="%.2f")
         if st.form_submit_button("Confirm & Issue Loan"):
             if n:
                 new_id = (df['Customer_ID'].max() + 1) if not df.empty else 101
                 now = datetime.datetime.now()
-                new_row = pd.DataFrame([{'Customer_ID': new_id, 'Name': n, 'Principal_UGX': a, 'Annual_Rate': r, 'Start_Date': now, 'Last_Payment_Date': now, 'Status': 'Active'}])
-                save_data(pd.concat([df, new_row], ignore_index=True))
+                new_row = pd.DataFrame([{
+                    'Customer_ID': int(new_id), 'Name': n, 'Principal_UGX': float(a), 
+                    'Annual_Rate': float(r), 'Start_Date': now, 
+                    'Last_Payment_Date': now, 'Status': 'Active'
+                }])
+                df = pd.concat([df, new_row], ignore_index=True)
+                save_data(df)
                 st.success(f"Successfully issued loan to {n}!")
             else: st.warning("Please enter a name.")
 
@@ -160,6 +171,8 @@ elif choice == "💰 Record Payment":
         if not idx.empty:
             df.at[idx[0], 'Principal_UGX'] -= p_amt
             df.at[idx[0], 'Last_Payment_Date'] = datetime.datetime.now()
+            if df.at[idx[0], 'Principal_UGX'] <= 0:
+                df.at[idx[0], 'Status'] = 'Paid Off'
             save_data(df)
             st.success("Payment saved successfully!")
             st.rerun()
@@ -170,11 +183,15 @@ elif choice == "✉️ Letter Gen":
     if not df.empty:
         name = st.selectbox("Select Client", df['Name'].tolist())
         r = df[df['Name'] == name].iloc[0]
-        letter = f"Dear {r['Name']},\n\nYour current loan balance with Zoe Consults is UGX {r['Current_Balance']:,.0f}."
+        letter = f"Dear {r['Name']},\n\nYour current loan balance with Zoe Consults is UGX {r['Current_Balance']:,.0f}.\n\nIssued on: {r['Start_Date'].date()}"
         st.text_area("Agreement Summary", letter, height=200)
+    else:
+        st.info("Add a customer first to generate letters.")
 
 elif choice == "❓ Help":
     st.title("System Guide")
-    st.write("1. Add customers via 'New Customer' tab.")
-    st.write("2. Log payments via ID in 'Record Payment'.")
-    st.write("3. Status turns 'Dormant' automatically if no payment for 60 days.")
+    st.markdown("""
+    * **New Loans:** Set the Annual Rate as a decimal (0.10 = 10%).
+    * **Status:** Automatically turns 'Dormant' after 60 days of no payments.
+    * **Security:** Use the Logout button before closing the tab.
+    """)
