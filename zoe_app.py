@@ -173,29 +173,33 @@ if choice == "📊 Daily Report":
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
-       # 3. PREMIUM REGISTRY TABLE (The "True Color" Version)
+       # 3. PREMIUM REGISTRY TABLE (Fixing the NameError)
         st.subheader("📋 Loan Portfolio Registry")
 
-        def apply_colors(row):
+        # This function handles the "Red" for Overdue and "Green" for Cleared
+        def registry_style(row):
             try:
-                due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-                out = float(row['OUTSTANDING_AMOUNT'])
+                # Get current date and due date
+                due_date = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
+                today = datetime.date.today()
+                balance = float(row['OUTSTANDING_AMOUNT'])
                 
-                # Overdue = Soft Red
-                if datetime.date.today() > due and out > 0:
+                # RED: Overdue and has balance
+                if today > due_date and balance > 0:
                     return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
                 
-                # Cleared = Soft Green
+                # GREEN: Status is Cleared
                 if row['STATUS'] == 'Cleared':
                     return ['background-color: #dcfce7; color: #166534'] * len(row)
             except:
                 pass
             return [''] * len(row)
 
-        # We use st.table here because it renders CSS much more reliably than st.dataframe
-        display_df = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']]
+        # Filter the columns we want to show
+        display_cols = ['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
         
-        st.table(display_df.style.apply(apply_colors, axis=1).format({
+        # Display as a styled table (st.table handles colors better than st.dataframe)
+        st.table(df[display_cols].style.apply(registry_style, axis=1).format({
             "OUTSTANDING_AMOUNT": "{:,.0f}"
         }))
 
