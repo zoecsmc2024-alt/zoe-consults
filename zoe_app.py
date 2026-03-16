@@ -143,20 +143,76 @@ elif choice == "💰 Payments":
             else: st.error("Not found.")
 
 elif choice == "📄 Client Report":
-    st.title("📄 Official Statement")
-    if not df.empty:
-        sel = st.selectbox("Select Client", df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1))
-        c = df[df['SN'] == sel.split(" - ")[0]].iloc[0]
-        st.markdown(f'<div class="report-card"><h2 style="text-align:center;">ZOE CONSULTS</h2><hr><b>Client:</b> {c["NAME"]}<br><b>NIN:</b> {c["NIN"]}<br><b>Due:</b> {c["EXPECTED_DUE_DATE"]}</div>', unsafe_allow_html=True)
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Principal", f"{c['LOAN_AMOUNT']:,.0f}"); m2.metric("Paid", f"{c['AMOUNT_PAID']:,.0f}"); m3.metric("Balance", f"{c['OUTSTANDING_AMOUNT']:,.0f}")
+    st.title("📄 Official Loan Statement")
+    
+    if df.empty or len(df) == 0:
+        st.warning("⚠️ No clients found in the database. Please go to 'Onboarding' to add a client first.")
+    else:
+        # 1. SMART CLIENT SELECTOR
+        # We create a list of "SN - Name" for the dropdown
+        client_options = df.apply(lambda x: f"{str(x['SN']).zfill(5)} - {x['NAME']}", axis=1).tolist()
+        selected_client = st.selectbox("Select Client to View Statement", client_options)
         
-        # RESTORED LEDGER
-        st.subheader("📉 Transaction Ledger")
-        int_amt = float(c['LOAN_AMOUNT']) * (float(c['INTEREST_RATE'])/100)
-        ledger = [
-            {"Date": c['DATE_OF_ISSUE'], "Description": "Disbursement", "Debit": c['LOAN_AMOUNT'], "Credit": 0, "Balance": c['LOAN_AMOUNT']},
-            {"Date": "Month End", "Description": "Interest", "Debit": int_amt, "Credit": 0, "Balance": float(c['LOAN_AMOUNT'])+int_amt},
-            {"Date": "Current", "Description": "Payments", "Debit": 0, "Credit": c['AMOUNT_PAID'], "Balance": c['OUTSTANDING_AMOUNT']}
-        ]
-        st.table(pd.DataFrame(ledger).style.format({"Debit": "{:,.0f}", "Credit": "{:,.0f}", "Balance": "{:,.0f}"}))
+        # Extract the SN from the selection to find the right row
+        selected_sn = selected_client.split(" - ")[0]
+        
+        # Filter the dataframe to get just this one client
+        client_row = df[df['SN'].astype(str).str.zfill(5) == selected_sn]
+        
+        if not client_row.empty:
+            c = client_row.iloc[0]
+
+            # 2. THE STATEMENT HEADER (Professional Look)
+            st.markdown(f"""
+                <div class="report-card">
+                    <h2 style="text-align:center; color:#1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
+                    <p style="text-align:center; color:#64748b; margin-top:5px; font-weight:bold;">LOAN REDUCTION STATEMENT</p>
+                    <hr style="border: 0.5px solid #e2e8f0;">
+                    <table style="width:100%; font-size: 0.9em; color: #334155;">
+                        <tr>
+                            <td style="padding:5px;"><b>CLIENT:</b> {c['NAME']}</td>
+                            <td style="padding:5px; text-align:right;"><b>SN:</b> {c['SN']}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:5px;"><b>NIN:</b> {c['NIN']}</td>
+                            <td style="padding:5px; text-align:right;"><b>CONTACT:</b> {c['CONTACT']}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:5px;"><b>LOCATION:</b> {c['LOCATION']}</td>
+                            <td style="padding:5px; text-align:right;"><b>DUE DATE:</b> {c['EXPECTED_DUE_DATE']}</td>
+                        </tr>
+                    </table>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # 3. SUMMARY METRICS
+            st.write("")
+            m1, m2, m3 = st.columns(3)
+            # We use float() and format() to ensure currency looks correct
+            m1.metric("Principal Issued", f"UGX {float(c['LOAN_AMOUNT']):,.0f}")
+            m2.metric("Total Payments", f"UGX {float(c['AMOUNT_PAID']):,.0f}")
+            m3.metric("Current Balance", f"UGX {float(c['OUTSTANDING_AMOUNT']):,.0f}")
+
+            # 4. THE REDUCING BALANCE LEDGER
+            st.markdown("---")
+            st.subheader("📉 Transaction History")
+            
+            # Simple Ledger math
+            principal = float(c['LOAN_AMOUNT'])
+            interest_charge = principal * (float(c['INTEREST_RATE']) / 100)
+            
+            ledger_data = [
+                {"Date": c['DATE_OF_ISSUE'], "Description": "Loan Disbursement", "Debit": principal, "Credit": 0, "Balance": principal},
+                {"Date": "Interest Period", "Description": f"Interest Added ({c['INTEREST_RATE']}%)", "Debit": interest_charge, "Credit": 0, "Balance": principal + interest_charge},
+                {"Date": "To Date", "Description": "Total Repayments", "Debit": 0, "Credit": float(c['AMOUNT_PAID']), "Balance": float(c['OUTSTANDING_AMOUNT'])}
+            ]
+            
+            st.table(pd.DataFrame(ledger_data).style.format({
+                "Debit": "{:,.0f}",
+                "Credit": "{:,.0f}",
+                "Balance": "{:,.0f}"
+            }))
+            
+            st.caption("Note: This is a system-generated report. Interest is calculated on the initial principal.")
+        else:
+            st.error("Could not find data for the selected client.")
