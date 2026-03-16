@@ -44,14 +44,13 @@ st.markdown("""
     .stTable td, .stTable th { color: #1e293b !important; }
     thead tr th { background-color: #00acc1 !important; color: white !important; }
     </style>
-   # --- 3. SIDEBAR NAVIGATION ---
-with st.sidebar:
-    # (Your logo base64 code goes here if you want it)
-    
-    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
-    
-    # This line MUST happen before your 'if' statements below
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
+  with st.sidebar:
+    # ... logo code ...
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
+
+# ONLY AFTER the sidebar block do you start the 'if' statements
+if choice == "📊 Daily Report":
+    # ...
     
     # (Your Export Database button code goes here)
 if choice == "📊 Daily Report":
@@ -221,15 +220,13 @@ elif choice == "📄 Client Report":
 
         # 2. MAIN LOAN SUMMARY BAR (Teal Theme)
        # --- WRAP THIS SECTION IN ST.MARKDOWN ---
+# Fix for Line 228
 st.markdown("""
     <style>
     .loan-row { 
         background-color: white; 
         padding: 15px; 
-        display: flex; 
-        justify-content: space-between; 
         border-bottom: 1px solid #eee; 
-        font-size: 0.9em; 
     }
     </style>
 """, unsafe_allow_html=True)
