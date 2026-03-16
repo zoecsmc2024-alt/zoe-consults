@@ -3,85 +3,50 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import datetime
 
-# --- 1. SETTINGS & THEMING ---
+# --- 1. MENU SETTINGS (The "No-Typo" Strategy) ---
+MENU_DASHBOARD = "📊 Daily Report"
+MENU_ONBOARDING = "👤 Onboarding"
+MENU_PAYMENTS = "💰 Payments"
+MENU_REPORT = "📄 Client Report"
+
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
-st.markdown("""
-    <style>
-    [data-testid="stSidebar"] { background-color: #1e293b !important; }
-    [data-testid="stSidebar"] * { color: white !important; }
-    th { background-color: #00acee !important; color: white !important; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- 2. GOOGLE SHEETS CONNECTION ---
+# Make sure your 'Secrets' are set in Streamlit Cloud Settings!
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    df = conn.read(ttl="0")
+except Exception as e:
+    st.error("Connection Error. Check your Streamlit Secrets.")
+    df = pd.DataFrame()
 
-# --- 2. THE PERMANENT CONNECTION ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-def load_data():
-    # This reads the sheet using the 'spreadsheet' link in your Secrets
-    return conn.read(ttl="0") 
-
-def save_data(df_to_save):
-    try:
-        # We specify the worksheet name directly here for safety
-        conn.update(worksheet="Loans", data=df_to_save)
-        st.cache_data.clear()
-        return True
-    except Exception as e:
-        st.error(f"❌ Could not save to Google Sheets: {e}")
-        return False
-
-elif choice == "👤 Onboarding":
-    st.title("👤 New Loan Issue")
-    # This 'with' starts the form
-    with st.form("onboarding_form"):
-        name = st.text_input("NAME")
-        amt = st.number_input("LOAN AMOUNT", min_value=1000)
-        rate = st.number_input("MONTHLY RATE (%)", value=3)
-        
-        # THIS BUTTON MUST BE INDENTED (ALIGNED WITH 'name' and 'amt')
-        submit_button = st.form_submit_button("✅ Save to Google Sheets")
-        
-        if submit_button:
-            # Create the new row
-            new_row = pd.DataFrame([{
-                'SN': str(len(df) + 1).zfill(5),
-                'NAME': name,
-                'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'),
-                'LOAN_AMOUNT': amt,
-                'INTEREST_RATE': rate,
-                'AMOUNT_PAID': 0,
-                'OUTSTANDING_AMOUNT': amt + (amt * (rate/100)),
-                'STATUS': 'Active'
-            }])
-            # Add to the existing data and save
-            updated_df = pd.concat([df, new_row], ignore_index=True)
-            save_data(updated_df)
-            st.success("Successfully saved to Google Drive!")
-            st.rerun()
-
-# --- 3. APP LOGIC ---
-df = load_data()
-
+# --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("Zoe Consults")
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
+    choice = st.radio("Navigation", [MENU_DASHBOARD, MENU_ONBOARDING, MENU_PAYMENTS, MENU_REPORT])
 
-if choice == "📊 Daily Report":
-    st.title("📊 Live Portfolio")
+# --- 4. THE PAGES ---
+
+# PAGE A: DASHBOARD
+if choice == MENU_DASHBOARD:
+    st.title(MENU_DASHBOARD)
     if df.empty:
-        st.info("No data found.")
+        st.info("No data found in Google Sheets.")
     else:
         st.table(df)
 
-elif choice == "👤 Onboarding":
-    st.title("👤 New Loan Issue")
+# PAGE B: ONBOARDING (This is where the fix is!)
+elif choice == MENU_ONBOARDING:
+    st.title(MENU_ONBOARDING)
     with st.form("onboarding_form"):
         name = st.text_input("NAME")
         amt = st.number_input("LOAN AMOUNT", min_value=1000)
         rate = st.number_input("MONTHLY RATE (%)", value=3)
-        if st.form_submit_button("✅ Save to Google Sheets"):
-            # Create the new row
+        
+        # The button is now INSIDE the form
+        submit = st.form_submit_button("✅ Save to Google Sheets")
+        
+        if submit:
             new_row = pd.DataFrame([{
                 'SN': str(len(df) + 1).zfill(5),
                 'NAME': name,
@@ -92,24 +57,36 @@ elif choice == "👤 Onboarding":
                 'OUTSTANDING_AMOUNT': amt + (amt * (rate/100)),
                 'STATUS': 'Active'
             }])
-            # Add to the existing data and save
             updated_df = pd.concat([df, new_row], ignore_index=True)
-            save_data(updated_df)
-            st.success("Successfully saved to Google Drive!")
+            conn.update(data=updated_df)
+            st.success("Saved to Google Sheets!")
             st.rerun()
 
-elif choice == "💰 Payments":
-    st.title("💰 Post Payment")
-    with st.form("pay"):
-        sn_to_find = st.text_input("Enter SN (e.g. 00001)")
+# PAGE C: PAYMENTS
+elif choice == MENU_PAYMENTS:
+    st.title(MENU_PAYMENTS)
+    with st.form("payment_form"):
+        sn_input = st.text_input("Enter SN (e.g. 00001)")
         p_amt = st.number_input("Amount (UGX)", min_value=100)
-        if st.form_submit_button("Submit"):
-            # Ensure SNs are strings for matching
+        pay_submit = st.form_submit_button("Submit Payment")
+        
+        if pay_submit:
             df['SN'] = df['SN'].astype(str)
-            idx = df[df['SN'] == sn_to_find].index
+            idx = df[df['SN'] == sn_input.strip()].index
             if not idx.empty:
                 df.at[idx[0], 'AMOUNT_PAID'] += p_amt
                 df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
-                save_data(df)
-                st.success("Payment recorded!"); st.rerun()
-            else: st.error("SN not found.")
+                conn.update(data=df)
+                st.success("Payment recorded!")
+                st.rerun()
+            else:
+                st.error("SN not found.")
+
+# PAGE D: CLIENT REPORT
+elif choice == MENU_REPORT:
+    st.title(MENU_REPORT)
+    if not df.empty:
+        name_list = df['NAME'].unique()
+        selected_name = st.selectbox("Select Client", name_list)
+        client_data = df[df['NAME'] == selected_name].iloc[0]
+        st.write(f"**Outstanding Balance:** UGX {client_data['OUTSTANDING_AMOUNT']:,.0f}")
