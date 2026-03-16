@@ -31,16 +31,34 @@ def save_data(df_to_save):
         st.error(f"❌ Could not save to Google Sheets: {e}")
         return False
 
-# --- Inside your Onboarding page ---
-if st.form_submit_button("✅ Save to Google Sheets"):
-    # ... (Your new_row logic here) ...
-    updated_df = pd.concat([df, new_row], ignore_index=True)
-    
-    if save_data(updated_df):
-        st.success("Successfully saved to Google Drive!")
-        st.rerun()
-    else:
-        st.warning("⚠️ Data was not saved. Please check your Google Sheet 'Share' settings.")
+elif choice == "👤 Onboarding":
+    st.title("👤 New Loan Issue")
+    # This 'with' starts the form
+    with st.form("onboarding_form"):
+        name = st.text_input("NAME")
+        amt = st.number_input("LOAN AMOUNT", min_value=1000)
+        rate = st.number_input("MONTHLY RATE (%)", value=3)
+        
+        # THIS BUTTON MUST BE INDENTED (ALIGNED WITH 'name' and 'amt')
+        submit_button = st.form_submit_button("✅ Save to Google Sheets")
+        
+        if submit_button:
+            # Create the new row
+            new_row = pd.DataFrame([{
+                'SN': str(len(df) + 1).zfill(5),
+                'NAME': name,
+                'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'),
+                'LOAN_AMOUNT': amt,
+                'INTEREST_RATE': rate,
+                'AMOUNT_PAID': 0,
+                'OUTSTANDING_AMOUNT': amt + (amt * (rate/100)),
+                'STATUS': 'Active'
+            }])
+            # Add to the existing data and save
+            updated_df = pd.concat([df, new_row], ignore_index=True)
+            save_data(updated_df)
+            st.success("Successfully saved to Google Drive!")
+            st.rerun()
 
 # --- 3. APP LOGIC ---
 df = load_data()
