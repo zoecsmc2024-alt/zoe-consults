@@ -107,10 +107,18 @@ if not df.empty:
     df['Current_Balance'] = df.apply(calculate_live_balance, axis=1)
 
 with st.sidebar:
-    # This uses the LOGIC from the top of the script
-    st.image(LOGO_URL, width=120)
+    # --- SAFE LOGO LOADING ---
+    try:
+        # This tries to load your uploaded file
+        st.image(LOGO_URL, width=120)
+    except:
+        # If the file is missing, it shows a bank icon instead of crashing
+        st.header("🏦") 
+    
     st.title("Zoe Consults")
     st.markdown("---")
+    
+    # ... (rest of your sidebar code)
     
     choice = st.radio("Menu Navigation", ["📊 Daily Report", "👤 New Customer", "💰 Record Payment", "✉️ Letters"])
     
