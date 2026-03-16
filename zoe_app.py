@@ -39,22 +39,26 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
-    # 1. THE BRANDED HEADER
+    # 1. THE CIRCULAR BRANDED HEADER
     st.markdown("""
         <div style="text-align: center; padding: 10px;">
-            <div style="background-color: white; border-radius: 15px; padding: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 2px solid #e2e8f0;">
     """, unsafe_allow_html=True)
     
     if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=120)
+        st.image("logo.jpg", width=120) # We still use the same image file
     else:
+        # Fallback if no logo is found
         st.markdown("<h1 style='color: #00acc1; margin:0;'>Z</h1>", unsafe_allow_html=True)
     
     st.markdown("""
+                </div>
             </div>
             <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
             <p style="color: #94a3b8; font-size: 0.8em; margin-bottom: 20px;">Micro-Lending Management</p>
         </div>
+        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
     """, unsafe_allow_html=True)
     
     st.markdown("<div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
