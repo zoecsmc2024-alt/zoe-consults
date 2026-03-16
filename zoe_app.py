@@ -153,32 +153,25 @@ with st.sidebar:
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
     
-    if df.empty:
-        st.info("Portfolio is empty. Onboard your first client to see analytics.")
-    else:
-        # 1. TOP SUMMARY METRICS (Styled like your reference image)
-        t_principal = df['LOAN_AMOUNT'].sum()
-        t_collected = df['AMOUNT_PAID'].sum()
-        t_outstanding = df['OUTSTANDING_AMOUNT'].sum()
+    if not df.empty:
+        # --- PROFIT CALCULATOR LOGIC ---
+        # 1. Total interest expected from all loans
+        total_expected_interest = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE'] / 100)).sum()
         
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.markdown(f"""<div style="background-color: #00acc1; padding: 20px; border-radius: 10px; color: white;">
-                <p style="margin:0; font-size: 0.8em; opacity: 0.8;">TOTAL DISBURSED</p>
-                <h2 style="margin:0;">UGX {t_principal:,.0f}</h2>
-            </div>""", unsafe_allow_html=True)
-        with m2:
-            st.markdown(f"""<div style="background-color: #1e293b; padding: 20px; border-radius: 10px; color: white;">
-                <p style="margin:0; font-size: 0.8em; opacity: 0.8;">TOTAL COLLECTED</p>
-                <h2 style="margin:0;">UGX {t_collected:,.0f}</h2>
-            </div>""", unsafe_allow_html=True)
-        with m3:
-            st.markdown(f"""<div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; color: #1e293b; border: 1px solid #e2e8f0;">
-                <p style="margin:0; font-size: 0.8em; color: gray;">OUTSTANDING BALANCE</p>
-                <h2 style="margin:0; color: #00acc1;">UGX {t_outstanding:,.0f}</h2>
-            </div>""", unsafe_allow_html=True)
+        # 2. Interest actually earned (Pro-rated based on payments)
+        # We calculate the 'Profit Ratio' for each loan
+        df['profit_ratio'] = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100)) / (df['LOAN_AMOUNT'] + (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100)))
+        total_profit_earned = (df['AMOUNT_PAID'] * df['profit_ratio']).sum()
 
-        st.write("")
+        # --- METRICS DISPLAY ---
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Total Principal", f"UGX {df['LOAN_AMOUNT'].sum():,.0f}")
+        m2.metric("Total Collected", f"UGX {df['AMOUNT_PAID'].sum():,.0f}")
+        m3.metric("Outstanding", f"UGX {df['OUTSTANDING_AMOUNT'].sum():,.0f}")
+        # The New "Gold" Metric
+        m4.metric("Total Profit", f"UGX {total_profit_earned:,.0f}", help="Total interest earned from payments received so far.")
+
+        # ... (Rest of your registry table code follows)
 
         # 2. COLLECTION TREND CHART
         st.subheader("📈 Business Growth")
