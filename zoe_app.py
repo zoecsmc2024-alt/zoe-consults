@@ -173,18 +173,38 @@ if choice == "📊 Daily Report":
 
         # ... (Rest of your registry table code follows)
 
-        # 2. COLLECTION TREND CHART
-        st.subheader("📈 Business Growth")
-        df_sorted = df.copy()
-        df_sorted['DATE_OF_ISSUE'] = pd.to_datetime(df_sorted['DATE_OF_ISSUE'])
-        df_sorted = df_sorted.sort_values('DATE_OF_ISSUE')
-        df_sorted['Cumulative'] = df_sorted['AMOUNT_PAID'].cumsum()
+        # --- 2. BUSINESS GROWTH CHART (Principal vs. Profit) ---
+        st.subheader("📈 Business Growth Strategy")
         
-        fig = px.area(df_sorted, x='DATE_OF_ISSUE', y='Cumulative', 
-                      title="Cumulative Collections (UGX)",
-                      color_discrete_sequence=['#00acc1'])
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        if not df.empty:
+            # Prepare the data for a time-series view
+            chart_df = df.copy()
+            chart_df['DATE_OF_ISSUE'] = pd.to_datetime(chart_df['DATE_OF_ISSUE'])
+            chart_df = chart_df.sort_values('DATE_OF_ISSUE')
+            
+            # Calculate cumulative values
+            chart_df['Cumulative_Principal'] = chart_df['LOAN_AMOUNT'].cumsum()
+            chart_df['Cumulative_Profit'] = (chart_df['AMOUNT_PAID'] * chart_df['profit_ratio']).cumsum()
+            
+            # Melt the data so Plotly can understand the two different categories
+            plot_df = chart_df.melt(id_vars='DATE_OF_ISSUE', 
+                                    value_vars=['Cumulative_Principal', 'Cumulative_Profit'],
+                                    var_name='Type', value_name='Amount')
+            
+            # Create a beautiful Stacked Area Chart
+            fig = px.area(plot_df, 
+                          x='DATE_OF_ISSUE', 
+                          y='Amount', 
+                          color='Type',
+                          color_discrete_map={
+                              'Cumulative_Principal': '#1e293b', # Slate
+                              'Cumulative_Profit': '#00acc1'    # Zoe Teal
+                          },
+                          labels={'Amount': 'Value (UGX)', 'DATE_OF_ISSUE': 'Time'},
+                          template="simple_white")
+            
+            fig.update_layout(hovermode="x unified")
+            st.plotly_chart(fig, use_container_width=True)
 
         # 3. CONSOLIDATED PREMIUM REGISTRY (Colors Restored)
         st.subheader("📋 Loan Portfolio Registry")
