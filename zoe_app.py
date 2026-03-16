@@ -51,8 +51,7 @@ st.markdown("""
 # ONLY AFTER the sidebar block do you start the 'if' statements
 if choice == "📊 Daily Report":
     # ...
-    
-    # (Your Export Database button code goes here)
+    unsafe_allow_html=True)
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
     
