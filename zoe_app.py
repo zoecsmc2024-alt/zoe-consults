@@ -20,7 +20,8 @@ st.markdown("""
 DB_FILE = "zoe_database.csv"
 
 def load_data():
-    cols = ['SN','NAME','CONTACT','LOCATION','EMPLOYER','NEXT_OF_KIN','DATE_OF_ISSUE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
+    # Added 'NIN' to the master column list
+    cols = ['SN','NAME','NIN','CONTACT','LOCATION','EMPLOYER','NEXT_OF_KIN','DATE_OF_ISSUE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
         for c in cols:
@@ -36,124 +37,49 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
-    # 1. THE LOGO
-    # Ensure 'logo.jpg' is uploaded to your GitHub folder!
     if os.path.exists("logo.jpg"):
         st.image("logo.jpg", width=150)
     else:
         st.title("🏦 Zoe Consults")
     
     st.markdown("---")
-    
-    # 2. NAVIGATION MENU
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
-    
     st.markdown("---")
     
-    # 3. THE VISIBLE LOGOUT BUTTON
-    # We use a custom style here to ensure it's not invisible
-    st.markdown("""
-        <style>
-        .stButton>button {
-            width: 100%;
-            border-radius: 5px;
-            height: 3em;
-            background-color: #ef4444 !important; /* Red for Logout */
-            color: white !important;
-            font-weight: bold;
-            border: none;
-        }
-        .stButton>button:hover {
-            background-color: #dc2626 !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    if not df.empty:
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Database", data=csv, file_name="zoe_database.csv", mime="text/csv")
     
+    st.markdown("""<style>.stButton>button { width: 100%; background-color: #ef4444 !important; color: white !important; font-weight: bold; }</style>""", unsafe_allow_html=True)
     if st.button("🔓 LOGOUT"):
-        # This will trigger a refresh to the login screen
         st.rerun()
 
-    st.caption("v3.2 | Kampala, UG")
+# --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
     st.title("📊 Loan Portfolio Dashboard")
-    
-    if df.empty:
-        st.info("Portfolio is empty.")
-    else:
-        # --- CALCULATE TOTALS ---
-        total_principal = df['LOAN_AMOUNT'].sum()
-        # Interest is Amount to be paid minus Principal
-        # In our current logic: Interest = (Principal * Rate/100)
-        total_interest = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE'] / 100)).sum()
-        total_collected = df['AMOUNT_PAID'].sum()
-        total_outstanding = df['OUTSTANDING_AMOUNT'].sum()
-
-        # --- TOP METRICS ---
+    if not df.empty:
+        # Metrics
         m1, m2, m3 = st.columns(3)
-        m1.metric("Total Disbursed", f"UGX {total_principal:,.0f}")
-        m2.metric("Total Interest Earned", f"UGX {total_interest:,.0f}")
-        m3.metric("Total Collected", f"UGX {total_collected:,.0f}", delta=f"{total_collected:,.0f}")
-
-        # --- FINANCIAL CHART ---
-        st.subheader("💰 Portfolio Composition")
+        m1.metric("Total Disbursed", f"UGX {df['LOAN_AMOUNT'].sum():,.0f}")
+        m2.metric("Total Collected", f"UGX {df['AMOUNT_PAID'].sum():,.0f}")
+        m3.metric("Outstanding", f"UGX {df['OUTSTANDING_AMOUNT'].sum():,.0f}")
         
-        # Data for the pie chart
-        summary_data = {
-            "Category": ["Principal (Capital)", "Interest (Profit)", "Amount Paid (Liquidity)"],
-            "Amount": [total_principal, total_interest, total_collected]
-        }
-        summary_df = pd.DataFrame(summary_data)
-        
-        fig = px.pie(summary_df, values='Amount', names='Category', hole=0.5, 
-                     color_discrete_sequence=['#00acee', '#ff9900', '#10b981'],
-                     title="Capital vs Profit vs Collection")
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-        # --- REGISTRY TABLE ---
-        st.subheader("📋 Detailed Registry")
-        st.table(df[['SN', 'NAME', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.format({
-            "LOAN_AMOUNT": "{:,.0f}", 
-            "OUTSTANDING_AMOUNT": "{:,.0f}"
-        }))
-
-        # --- RESTORED EDIT TOOL (The "Pencil" Action) ---
-        st.markdown("---")
-        with st.expander("✏️ Edit Client Details"):
-            edit_sn = st.selectbox("Select SN to modify:", ["Select..."] + df['SN'].tolist())
-            if edit_sn != "Select...":
-                idx = df[df['SN'] == edit_sn].index[0]
-                with st.form("edit_client_form"):
-                    st.write(f"Editing: **{df.at[idx, 'NAME']}**")
-                    new_name = st.text_input("Name", value=df.at[idx, 'NAME'])
-                    new_loc = st.text_input("Location", value=df.at[idx, 'LOCATION'])
-                    new_emp = st.text_input("Employer", value=df.at[idx, 'EMPLOYER'])
-                    new_nok = st.text_input("Next of Kin", value=df.at[idx, 'NEXT_OF_KIN'])
-                    new_stat = st.selectbox("Status", ["Active", "Risky", "Dormant"], 
-                                           index=["Active", "Risky", "Dormant"].index(df.at[idx, 'STATUS']))
-                    
-                    if st.form_submit_button("💾 Update Record"):
-                        df.at[idx, 'NAME'] = new_name.upper()
-                        df.at[idx, 'LOCATION'] = new_loc
-                        df.at[idx, 'EMPLOYER'] = new_emp
-                        df.at[idx, 'NEXT_OF_KIN'] = new_nok
-                        df.at[idx, 'STATUS'] = new_stat
-                        save_data(df)
-                        st.success("Record updated successfully!")
-                        st.rerun()
+        # Table with NIN included
+        st.subheader("📋 Client Registry")
+        st.table(df[['SN', 'NAME', 'NIN', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.format({"LOAN_AMOUNT": "{:,.0f}", "OUTSTANDING_AMOUNT": "{:,.0f}"}))
 
 elif choice == "👤 Onboarding":
-    # ... (Keep your onboarding code here) ...
     st.title("👤 New Loan Disbursement")
     with st.form("onboard_form"):
         c1, c2 = st.columns(2)
         with c1:
             name = st.text_input("FULL NAME").upper()
+            nin = st.text_input("NIN (National ID Number)")
             loc = st.text_input("LOCATION / ADDRESS")
             emp = st.text_input("EMPLOYER / BUSINESS")
-            nok = st.text_input("NEXT OF KIN & CONTACT")
         with c2:
+            nok = st.text_input("NEXT OF KIN & CONTACT")
             contact = st.text_input("CLIENT CONTACT")
             amt = st.number_input("LOAN AMOUNT (UGX)", min_value=1000, step=50000)
             rate = st.number_input("MONTHLY RATE (%)", value=3)
@@ -161,13 +87,12 @@ elif choice == "👤 Onboarding":
         if st.form_submit_button("✅ Save & Issue Loan"):
             new_sn = str(len(df) + 1).zfill(5)
             initial_total = amt + (amt * (rate/100))
-            new_row = pd.DataFrame([{'SN': new_sn, 'NAME': name, 'CONTACT': contact, 'LOCATION': loc, 'EMPLOYER': emp, 'NEXT_OF_KIN': nok, 'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'), 'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': initial_total, 'STATUS': 'Active'}])
+            new_row = pd.DataFrame([{'SN': new_sn, 'NAME': name, 'NIN': nin, 'CONTACT': contact, 'LOCATION': loc, 'EMPLOYER': emp, 'NEXT_OF_KIN': nok, 'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'), 'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': initial_total, 'STATUS': 'Active'}])
             df = pd.concat([df, new_row], ignore_index=True)
             save_data(df)
             st.success(f"Loan Issued to {name}!"); st.rerun()
 
 elif choice == "💰 Payments":
-    # ... (Keep your payments code here) ...
     st.title("💰 Post Payment")
     with st.form("pay"):
         sn_search = st.text_input("Enter SN (e.g. 00001)").strip().zfill(5)
@@ -183,76 +108,24 @@ elif choice == "💰 Payments":
 elif choice == "📄 Client Report":
     st.title("📄 Official Loan Statement")
     if not df.empty:
-        # Client Selector
         search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
-        selected = st.selectbox("Select Client to View Ledger", search_list)
+        selected = st.selectbox("Select Client", search_list)
         sn_only = selected.split(" - ")[0]
         c = df[df['SN'] == sn_only].iloc[0]
 
-        # 1. THE PROFESSIONAL STATEMENT HEADER
         st.markdown(f"""
             <div class="report-card">
                 <h2 style="text-align:center; color:#1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
-                <p style="text-align:center; color:#64748b; margin-top:0;">Official Loan Statement</p>
-                <hr style="border: 0.5px solid #eee;">
-                <table style="width:100%; font-size: 0.9em; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding:5px;"><b>Client:</b> {c['NAME']}</td>
-                        <td style="padding:5px; text-align:right;"><b>SN:</b> {c['SN']}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:5px;"><b>Location:</b> {c['LOCATION']}</td>
-                        <td style="padding:5px; text-align:right;"><b>Employer:</b> {c['EMPLOYER']}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:5px;"><b>Next of Kin:</b> {c['NEXT_OF_KIN']}</td>
-                        <td style="padding:5px; text-align:right;"><b>Issued:</b> {c['DATE_OF_ISSUE']}</td>
-                    </tr>
+                <hr>
+                <table style="width:100%; font-size: 0.85em;">
+                    <tr><td><b>Client:</b> {c['NAME']}</td><td style="text-align:right;"><b>SN:</b> {c['SN']}</td></tr>
+                    <tr><td><b>NIN:</b> {c['NIN']}</td><td style="text-align:right;"><b>Contact:</b> {c['CONTACT']}</td></tr>
+                    <tr><td><b>Location:</b> {c['LOCATION']}</td><td style="text-align:right;"><b>Employer:</b> {c['EMPLOYER']}</td></tr>
                 </table>
             </div>
         """, unsafe_allow_html=True)
-
-        # 2. THE BIG NUMBERS
         st.write("")
         m1, m2, m3 = st.columns(3)
-        m1.metric("Original Principal", f"UGX {c['LOAN_AMOUNT']:,.0f}")
-        m2.metric("Total Paid", f"UGX {c['AMOUNT_PAID']:,.0f}", delta=f"{c['AMOUNT_PAID']}", delta_color="normal")
-        m3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
-
-        # 3. THE REDUCING BALANCE LEDGER (The missing piece!)
-        st.markdown("---")
-        st.subheader("📉 Reducing Balance Ledger")
-        
-        # We calculate the interest amount for the row
-        interest_val = float(c['LOAN_AMOUNT']) * (float(c['INTEREST_RATE']) / 100)
-        
-        ledger_data = [
-            {
-                "Date": c['DATE_OF_ISSUE'], 
-                "Description": "Principal Disbursement", 
-                "Debit (+Int)": f"{float(c['LOAN_AMOUNT']):,.0f}", 
-                "Credit (Pay)": "0", 
-                "Balance": f"{float(c['LOAN_AMOUNT']):,.0f}"
-            },
-            {
-                "Date": "Month End", 
-                "Description": f"Interest Charged ({c['INTEREST_RATE']}%)", 
-                "Debit (+Int)": f"{interest_val:,.0f}", 
-                "Credit (Pay)": "0", 
-                "Balance": f"{(float(c['LOAN_AMOUNT']) + interest_val):,.0f}"
-            },
-            {
-                "Date": "To Date", 
-                "Description": "Total Payments Received", 
-                "Debit (+Int)": "0", 
-                "Credit (Pay)": f"{float(c['AMOUNT_PAID']):,.0f}", 
-                "Balance": f"{float(c['OUTSTANDING_AMOUNT']):,.0f}"
-            }
-        ]
-        
-        st.table(pd.DataFrame(ledger_data))
-        
-        st.caption("Disclaimer: This is a system-generated statement. Interest is applied to the reducing balance monthly.")
-
-    else:
-        st.warning("No client data found. Please add a client first.")
+        m1.metric("Principal", f"UGX {c['LOAN_AMOUNT']:,.0f}")
+        m2.metric("Total Paid", f"UGX {c['AMOUNT_PAID']:,.0f}")
+        m3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}")
