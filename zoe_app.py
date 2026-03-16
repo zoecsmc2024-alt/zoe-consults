@@ -220,13 +220,19 @@ elif choice == "📄 Client Report":
         st.write("")
 
         # 2. MAIN LOAN SUMMARY BAR (Teal Theme)
-        st.markdown("""
-            <style>
-            .loan-header { background-color: #e0f7fa; color: #00838f; padding: 10px; font-weight: bold; border-bottom: 2px solid #00acc1; display: flex; justify-content: space-between; }
-            .loan-row { background-color: white; padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; font-size: 0.9em; }
-            </style>
-        """, unsafe_allow_html=True)
-
+       # --- WRAP THIS SECTION IN ST.MARKDOWN ---
+st.markdown("""
+    <style>
+    .loan-row { 
+        background-color: white; 
+        padding: 15px; 
+        display: flex; 
+        justify-content: space-between; 
+        border-bottom: 1px solid #eee; 
+        font-size: 0.9em; 
+    }
+    </style>
+""", unsafe_allow_html=True)
         st.markdown(f"""
             <div class="loan-header">
                 <span>Loan#</span><span>Principal</span><span>Interest</span><span>Due</span><span>Paid</span><span>Balance</span><span>Status</span>
