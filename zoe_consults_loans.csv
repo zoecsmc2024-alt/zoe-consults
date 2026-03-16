@@ -1,1 +1,1 @@
-Customer_ID,Name,Principal_UGX,Annual_Rate,Start_Date,Last_Payment_Date,Status
+Customer_ID,Name,Phone,NIN,Address,Next_of_Kin,Employer,Principal_UGX,Annual_Rate,Start_Date,Last_Payment_Date,Status
