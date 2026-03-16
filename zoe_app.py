@@ -37,58 +37,38 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
+    # Logo Section
     if os.path.exists("logo.jpg"):
         st.image("logo.jpg", width=150)
     else:
         st.title("🏦 Zoe Consults")
     
     st.markdown("---")
+    
+    # Navigation Menu
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
+    
     st.markdown("---")
     
+    # THE BUTTONS SECTION (Using Native Columns)
+    # This avoids the CSS conflict entirely
     if not df.empty:
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Database", data=csv, file_name="zoe_database.csv", mime="text/csv")
+        st.download_button(
+            label="📥 Download Database",
+            data=csv,
+            file_name="zoe_database.csv",
+            mime="text/csv",
+            use_container_width=True,
+            type="primary" # This makes it Blue automatically
+        )
     
-   # THE "BRUTE FORCE" VISIBILITY FIX
-    st.markdown("""
-        <style>
-        /* 1. TARGET THE DOWNLOAD BUTTON WRAPPER */
-        div.stDownloadButton > button {
-            background-color: #00acee !important;
-            color: white !important;
-            width: 100% !important;
-            border-radius: 8px !important;
-            border: 2px solid #008fcc !important;
-            font-weight: bold !important;
-            height: 3.5em !important;
-            margin-bottom: 15px !important;
-            display: flex !important;
-            visibility: visible !important;
-        }
+    st.write("") # Add some space
+    
+    if st.button("🔓 LOGOUT", use_container_width=True):
+        st.rerun()
 
-        /* 2. TARGET THE LOGOUT BUTTON WRAPPER */
-        div.stButton > button {
-            background-color: #ef4444 !important;
-            color: white !important;
-            width: 100% !important;
-            border-radius: 8px !important;
-            border: 2px solid #b91c1c !important;
-            font-weight: bold !important;
-            height: 3.5em !important;
-            display: flex !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-
-        /* 3. ENSURE TEXT IS ALWAYS VISIBLE */
-        div.stDownloadButton > button p, div.stButton > button p {
-            color: white !important;
-            font-weight: bold !important;
-            font-size: 16px !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    st.caption("v3.5 | Kampala, UG")
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
