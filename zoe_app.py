@@ -173,40 +173,31 @@ if choice == "📊 Daily Report":
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
-      # 3. PREMIUM TEAL REGISTRY
+     # 3. PREMIUM TEAL REGISTRY (Cleaned & Updated)
         st.subheader("📋 Loan Portfolio Registry")
 
-        # 1. Define the styling function (Fixes the NameError)
-        def apply_premium_styling(row):
+        # Define styling
+        def registry_style(row):
             try:
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
                 balance = float(row['OUTSTANDING_AMOUNT'])
-                # Soft Red for Overdue
                 if datetime.date.today() > due and balance > 0:
                     return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
-                # Soft Green for Cleared
                 if row['STATUS'] == 'Cleared':
                     return ['background-color: #dcfce7; color: #166534'] * len(row)
-            except:
-                pass
+            except: pass
             return [''] * len(row)
 
-        # 2. Custom CSS to force the Header to be Zoe Teal (#00acc1)
-        st.markdown("""
-            <style>
-                thead tr th {
-                    background-color: #00acc1 !important;
-                    color: white !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+        # Force Header Color
+        st.markdown("<style>thead tr th { background-color: #00acc1 !important; color: white !important; }</style>", unsafe_allow_html=True)
 
-        # 3. Display the Table
-        display_cols = ['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
-        st.table(df[display_cols].style.apply(apply_premium_styling, axis=1).format({
+        # Updated Columns: Added 'DATE_OF_ISSUE'
+        display_cols = ['SN', 'NAME', 'DATE_OF_ISSUE', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
+        
+        # DISPLAY ONLY THIS TABLE (Delete any other st.dataframe or st.table lines nearby)
+        st.table(df[display_cols].style.apply(registry_style, axis=1).format({
             "OUTSTANDING_AMOUNT": "{:,.0f}"
         }))
-
         # Updated Styling
         styled_registry = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style\
             .apply(apply_premium_styling, axis=1)\
