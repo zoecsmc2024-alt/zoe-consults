@@ -93,3 +93,65 @@ elif choice == "💰 Payments":
         if st.form_submit_button("Confirm Payment"):
             idx = df[df['SN'] == sn_search].index
             if not idx.empty:
+                df.at[idx[0], 'AMOUNT_PAID'] += p_amt
+                df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
+                save_data(df)
+                st.success(f"Logged UGX {p_amt:,.0f} for {df.at[idx[0], 'NAME']}.")
+                st.rerun()
+            else:
+                st.error("SN not found in database.")
+
+elif choice == "📄 Client Report":
+    st.title("📄 Official Loan Statement")
+    if df.empty:
+        st.warning("No clients found. Please onboard a client first.")
+    else:
+        # Search for client
+        search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
+        selected = st.selectbox("Select Client to View Report", search_list)
+        sn_only = selected.split(" - ")[0]
+        c = df[df['SN'] == sn_only].iloc[0]
+
+        # Professional Header
+        st.markdown(f"""
+            <div class="report-card">
+                <h2 style="text-align:center; color:#1e293b;">ZOE CONSULTS LIMITED</h2>
+                <p style="text-align:center; border-bottom: 2px solid #00acee; padding-bottom:5px;">LOAN REDUCTION STATEMENT</p>
+                <table style="width:100%">
+                    <tr>
+                        <td><b>Client:</b> {c['NAME']}</td>
+                        <td style="text-align:right;"><b>SN:</b> {c['SN']}</td>
+                    </tr>
+                    <tr>
+                        <td><b>Contact:</b> {c['CONTACT']}</td>
+                        <td style="text-align:right;"><b>Issued:</b> {c['DATE_OF_ISSUE']}</td>
+                    </tr>
+                </table>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Metrics
+        st.write("")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Principal Issued", f"UGX {c['LOAN_AMOUNT']:,.0f}")
+        m2.metric("Total Payments", f"UGX {c['AMOUNT_PAID']:,.0f}", delta=f"{c['AMOUNT_PAID']}")
+        m3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
+
+        # Dynamic Ledger (Reducing Balance)
+        st.subheader("📉 Reducing Balance Ledger")
+        
+        # Simple Logic for Ledger: Disbursement -> Current Standing
+        ledger_data = [
+            {"Date": c['DATE_OF_ISSUE'], "Description": "Loan Disbursement", "Debit": c['LOAN_AMOUNT'], "Credit": 0, "Balance": c['LOAN_AMOUNT']},
+            {"Date": "Month End", "Description": f"Interest Charged ({c['INTEREST_RATE']}%)", "Debit": c['LOAN_AMOUNT']*(c['INTEREST_RATE']/100), "Credit": 0, "Balance": c['LOAN_AMOUNT']*(1 + c['INTEREST_RATE']/100)},
+            {"Date": "Today", "Description": "Total Payments to Date", "Debit": 0, "Credit": c['AMOUNT_PAID'], "Balance": c['OUTSTANDING_AMOUNT']}
+        ]
+        
+        ledger_df = pd.DataFrame(ledger_data)
+        st.table(ledger_df.style.format({
+            "Debit": "{:,.0f}",
+            "Credit": "{:,.0f}",
+            "Balance": "{:,.0f}"
+        }))
+        
+        st.caption("Note: Interest is applied monthly to the remaining balance.")
