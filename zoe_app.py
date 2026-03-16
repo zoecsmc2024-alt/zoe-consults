@@ -50,42 +50,41 @@ with st.sidebar:
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Database", data=csv, file_name="zoe_database.csv", mime="text/csv")
     
-    # 3. THE VISIBLE BUTTONS (Download & Logout)
+    # THE ULTIMATE VISIBILITY FIX
     st.markdown("""
         <style>
-        /* Style for the Download Button (Primary Blue) */
-        .stDownloadButton>button {
-            width: 100%;
+        /* 1. FORCE DOWNLOAD BUTTON TO BE BLUE */
+        .stDownloadButton > button {
             background-color: #00acee !important;
             color: white !important;
-            border-radius: 8px;
-            border: none;
-            height: 3em;
-            font-weight: bold;
-            margin-bottom: 10px;
+            width: 100% !important;
+            height: 3em !important;
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            border: none !important;
+            display: block !important;
+            margin-bottom: 10px !important;
         }
-        .stDownloadButton>button:hover {
-            background-color: #008fcc !important;
-            color: white !important;
-        }
-        
-        /* Style for the Logout Button (Alert Red) */
-        .stButton>button {
-            width: 100%;
+
+        /* 2. FORCE LOGOUT BUTTON TO BE RED */
+        .stButton > button {
             background-color: #ef4444 !important;
             color: white !important;
-            border-radius: 8px;
-            border: none;
-            height: 3em;
-            font-weight: bold;
+            width: 100% !important;
+            height: 3em !important;
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            border: none !important;
+            display: block !important;
         }
-        .stButton>button:hover {
-            background-color: #dc2626 !important;
+
+        /* 3. ENSURE TEXT IS ALWAYS WHITE ON HOVER */
+        .stDownloadButton > button:hover, .stButton > button:hover {
             color: white !important;
+            opacity: 0.9;
         }
         </style>
     """, unsafe_allow_html=True)
-
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
