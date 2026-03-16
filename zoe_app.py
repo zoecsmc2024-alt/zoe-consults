@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import datetime
 import os
 
 # --- 1. SETTINGS & THEMING ---
@@ -11,46 +10,21 @@ st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
     [data-testid="stSidebar"] { background-color: #1e293b; }
-    [data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label { color: white !important; }
-    .stMetric { background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-    [data-testid="stSidebar"] .stButton > button { background-color: transparent; color: white !important; border: 2px solid white !important; font-weight: bold; width: 100%; }
-    .report-box { background-color: white; padding: 30px; border: 1px solid #e2e8f0; border-radius: 10px; }
+    /* Table Header Styling to match your blue */
+    th { background-color: #00acee !important; color: black !important; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
 FILE_NAME = 'zoe_consults_loans.csv'
 
-# --- 2. ENGINES ---
+# --- 2. ENGINE ---
 def load_data():
     if os.path.exists(FILE_NAME):
-        try:
-            df = pd.read_csv(FILE_NAME)
-            df['Start_Date'] = pd.to_datetime(df['Start_Date'])
-            df['Last_Payment_Date'] = pd.to_datetime(df['Last_Payment_Date'])
-            return df
-        except: return create_empty_df()
-    return create_empty_df()
-
-def create_empty_df():
-    return pd.DataFrame(columns=['Customer_ID', 'Name', 'Phone', 'NIN', 'Address', 'Next_of_Kin', 'Employer', 'Principal_UGX', 'Monthly_Rate', 'Duration_Months', 'Start_Date', 'Last_Payment_Date', 'Status'])
+        return pd.read_csv(FILE_NAME)
+    return pd.DataFrame(columns=['SN','OFFER_NO','NAME','GENDER','CONTACT','DATE_OF_ISSUE','PAYMENT_DATE','LOAN_AMOUNT','INTEREST_RATE','INTEREST','AMOUNT_TO_BE_PAID','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS'])
 
 def save_data(df):
     df.to_csv(FILE_NAME, index=False)
-
-def generate_schedule(principal, monthly_rate, months):
-    # Monthly compounding/amortization logic
-    if monthly_rate > 0:
-        installment = (principal * monthly_rate * (1 + monthly_rate)**months) / ((1 + monthly_rate)**months - 1)
-    else: installment = principal / months
-    
-    data = []
-    rem = principal
-    for i in range(1, int(months) + 1):
-        interest = rem * monthly_rate
-        princ_rep = installment - interest
-        rem -= princ_rep
-        data.append({"Month": i, "Installment": round(installment, 0), "Principal": round(princ_rep, 0), "Interest": round(interest, 0), "Balance": max(0, round(rem, 0))})
-    return pd.DataFrame(data)
 
 # --- 3. LOGIN ---
 if "password_correct" not in st.session_state:
@@ -61,80 +35,60 @@ if "password_correct" not in st.session_state:
         if u == "admin" and p == "zoe2026":
             st.session_state["password_correct"] = True
             st.rerun()
-        else: st.error("Denied")
     st.stop()
 
-# --- 4. DATA PROCESSING ---
 df = load_data()
+
+# --- 4. SIDEBAR ---
 with st.sidebar:
     if os.path.exists(LOGO_URL): st.image(LOGO_URL, width=120)
-    st.title("Zoe Consults")
-    st.markdown("---")
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Client Onboarding", "💰 Payments", "📄 Client Report"])
-    st.markdown("---")
-    if st.button("🔓 LOGOUT"):
-        del st.session_state["password_correct"]
-        st.rerun()
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments"])
 
 # --- 5. PAGES ---
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Registry")
-    if df.empty: st.info("No data.")
+    
+    if df.empty:
+        st.info("Registry is empty.")
     else:
-        st.table(df[['Customer_ID', 'Name', 'Principal_UGX', 'Status']].style \
-            .set_properties(**{'background-color': '#e0f2fe'}, subset=['Customer_ID', 'Name']) \
-            .format({"Principal_UGX": "UGX {:,.0f}"}))
+        # Applying the Orange Background for the rows
+        def style_portfolio(res):
+            return pd.Series('background-color: #ff9900; color: black', index=res.index)
 
-elif choice == "👤 Client Onboarding":
-    st.title("👤 New Loan Disbursement")
-    with st.form("kyc"):
+        # Formatting numbers to UGX
+        st.table(df.style.apply(style_portfolio, axis=1).format({
+            "LOAN_AMOUNT": "{:,.0f}",
+            "INTEREST": "{:,.0f}",
+            "AMOUNT_TO_BE_PAID": "{:,.0f}",
+            "AMOUNT_PAID": "{:,.0f}",
+            "OUTSTANDING_AMOUNT": "{:,.0f}"
+        }))
+
+elif choice == "👤 Onboarding":
+    st.title("👤 New Loan Issue")
+    with st.form("new_loan"):
         c1, c2 = st.columns(2)
         with c1:
-            n = st.text_input("Name"); ph = st.text_input("Phone"); ni = st.text_input("NIN")
-            disburse_date = st.date_input("Disbursement Date", datetime.date.today())
+            sn = st.text_input("SN", value=f"{len(df)+1:05d}")
+            off_no = st.text_input("OFFER NO")
+            name = st.text_input("NAME")
+            gender = st.selectbox("GENDER", ["M", "F"])
+            contact = st.text_input("CONTACT")
         with c2:
-            ad = st.text_input("Address"); nk = st.text_input("Next of Kin"); em = st.text_input("Employer")
+            doi = st.date_input("DATE OF ISSUE")
+            pod = st.date_input("PAYMENT DATE")
+            amt = st.number_input("LOAN AMOUNT", min_value=1000)
+            rate = st.number_input("INTEREST RATE (%)", value=3)
         
-        st.markdown("---")
-        a = st.number_input("Principal (UGX)", min_value=1000)
-        r = st.number_input("Monthly Interest Rate (e.g. 0.10 for 10% per month)", value=0.10)
-        d = st.number_input("Duration (Months)", min_value=1, value=6)
-        
-        if st.form_submit_button("✅ Register & Disburse"):
-            new_id = (df['Customer_ID'].max() + 1) if not df.empty else 101
-            new_row = pd.DataFrame([{'Customer_ID': int(new_id), 'Name': n, 'Phone': ph, 'NIN': ni, 'Address': ad, 'Next_of_Kin': nk, 'Employer': em, 'Principal_UGX': float(a), 'Monthly_Rate': float(r), 'Duration_Months': int(d), 'Start_Date': disburse_date, 'Last_Payment_Date': disburse_date, 'Status': 'Active'}])
-            save_data(pd.concat([df, new_row], ignore_index=True)); st.success("Success!"); st.balloons()
-
-elif choice == "💰 Payments":
-    st.title("💰 Post Payment")
-    with st.form("payment_form"):
-        cid = st.number_input("Client ID", min_value=101)
-        amt_paid = st.number_input("Amount Paid (UGX)", min_value=500)
-        if st.form_submit_button("Confirm Payment"):
-            idx = df[df['Customer_ID'] == cid].index
-            if not idx.empty:
-                df.at[idx[0], 'Principal_UGX'] -= amt_paid
-                df.at[idx[0], 'Last_Payment_Date'] = datetime.datetime.now()
-                save_data(df); st.success("Payment Logged!"); st.rerun()
-            else: st.error("ID not found.")
-
-elif choice == "📄 Client Report":
-    st.title("📄 Client Statement")
-    if not df.empty:
-        client = st.selectbox("Select Client", df['Name'].unique())
-        c = df[df['Name'] == client].iloc[0]
-        
-        st.markdown(f"""
-        <div class="report-box">
-            <h2 style="color: #1e293b; text-align: center;">ZOE CONSULTS LIMITED</h2>
-            <hr>
-            <p><b>Client:</b> {c['Name']} (ID: {c['Customer_ID']})</p>
-            <p><b>Disbursed On:</b> {pd.to_datetime(c['Start_Date']).strftime('%d %B %Y')}</p>
-            <p><b>Monthly Interest Rate:</b> {c['Monthly_Rate']*100}%</p>
-            <p><b>Principal:</b> UGX {c['Principal_UGX']:,.0f}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("### Monthly Repayment Schedule")
-        sched = generate_schedule(c['Principal_UGX'], c['Monthly_Rate'], c['Duration_Months'])
-        st.table(sched.style.format("{:,.0f}"))
+        if st.form_submit_button("✅ Save to Registry"):
+            interest_amt = amt * (rate/100)
+            to_pay = amt + interest_amt
+            new_row = pd.DataFrame([{
+                'SN': sn, 'OFFER_NO': off_no, 'NAME': name, 'GENDER': gender,
+                'CONTACT': contact, 'DATE_OF_ISSUE': doi, 'PAYMENT_DATE': pod,
+                'LOAN_AMOUNT': amt, 'INTEREST_RATE': f"{rate}%", 'INTEREST': interest_amt,
+                'AMOUNT_TO_BE_PAID': to_pay, 'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': to_pay,
+                'STATUS': 'BCE' # Matches your screenshot
+            }])
+            save_data(pd.concat([df, new_row], ignore_index=True))
+            st.success("Loan recorded!"); st.rerun()
