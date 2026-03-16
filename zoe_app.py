@@ -211,25 +211,25 @@ elif choice == "📄 Client Report":
 
         # 2. MAIN LOAN SUMMARY BAR (Teal Theme)
        # --- WRAP THIS SECTION IN ST.MARKDOWN ---
-# Fix for Line 228
-st.markdown("<style>.your-class { padding: 15px; }</style>", unsafe_allow_html=True)
-    </style>
-""", unsafe_allow_html=True)
-        st.markdown(f"""
-            <div class="loan-header">
-                <span>Loan#</span><span>Principal</span><span>Interest</span><span>Due</span><span>Paid</span><span>Balance</span><span>Status</span>
-            </div>
-            <div class="loan-row">
-                <span>LN-{c['SN']}</span>
-                <span>{float(c['LOAN_AMOUNT']):,.0f}</span>
-                <span>{c['INTEREST_RATE']}%</span>
-                <span>{float(c['OUTSTANDING_AMOUNT']) + float(c['AMOUNT_PAID']):,.0f}</span>
-                <span>{float(c['AMOUNT_PAID']):,.0f}</span>
-                <span style="color:#00838f; font-weight:bold;">{float(c['OUTSTANDING_AMOUNT']):,.0f}</span>
-                <span style="background-color:#00acc1; color:white; padding:2px 8px; border-radius:4px; font-size:0.8em;">{c['STATUS']}</span>
-            </div>
-        """, unsafe_allow_html=True)
-
+# 2. MAIN LOAN SUMMARY BAR (Teal Theme)
+    st.markdown(f"""
+        <style>
+            .loan-header {{ background-color: #00acc1; color: white; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; border-radius: 8px 8px 0 0; }}
+            .loan-row {{ background-color: white; padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; font-size: 0.9em; }}
+        </style>
+        
+        <div class="loan-header">
+            <span>Loan#</span><span>Principal</span><span>Interest</span><span>Paid</span><span>Balance</span><span>Status</span>
+        </div>
+        <div class="loan-row">
+            <span>LN-{c['SN']}</span>
+            <span>{float(c['LOAN_AMOUNT']):,.0f}</span>
+            <span>{c['INTEREST_RATE']}%</span>
+            <span>{float(c['AMOUNT_PAID']):,.0f}</span>
+            <span style="color:#00acc1; font-weight:bold;">{float(c['OUTSTANDING_AMOUNT']):,.0f}</span>
+            <span style="background-color:#00acc1; color:white; padding:2px 8px; border-radius:4px; font-size:0.8em;">{c['STATUS']}</span>
+        </div>
+    """, unsafe_allow_html=True)
         # 3. THE TABBED NAVIGATION (Just like your image!)
         st.write("")
         tab1, tab2, tab3, tab4 = st.tabs(["📊 Repayments", "📝 Loan Terms", "📅 Schedule", "📎 Files"])
