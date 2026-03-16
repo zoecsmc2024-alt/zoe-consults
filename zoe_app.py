@@ -93,8 +93,8 @@ if check_password():
         st.title("👤 New Customer Onboarding")
         with st.form("add_form"):
             name = st.text_input("Customer Full Name")
-            amount = st.number_input("Principal Loan Amount (UGX)", min_value=10.0)
-            rate = st.number_input("Annual Interest Rate (e.g., 0.15 for 15%)", min_value=10.0, max_value=30.0, format="%.2f")
+            amount = st.number_input("Principal Loan Amount (UGX)", min_value=1.0)
+            rate = st.number_input("Annual Interest Rate (e.g., 0.15 for 15%)", min_value=1.0, max_value=30.0, format="%.2f")
             submitted = st.form_submit_button("Create Loan")
             
             if submitted:
