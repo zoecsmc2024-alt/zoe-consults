@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
+import plotly.express as px
 
 # --- 1. SETTINGS & THEMING ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
@@ -19,7 +20,6 @@ st.markdown("""
 DB_FILE = "zoe_database.csv"
 
 def load_data():
-    # Expanded list of columns
     cols = ['SN','NAME','CONTACT','LOCATION','EMPLOYER','NEXT_OF_KIN','DATE_OF_ISSUE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
@@ -46,13 +46,51 @@ with st.sidebar:
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
-    st.title("📊 Loan Portfolio Registry")
+    st.title("📊 Loan Portfolio Dashboard")
+    
     if df.empty:
         st.info("Portfolio is empty.")
     else:
+        # --- RESTORED CHART ---
+        st.subheader("💰 Portfolio Health")
+        # Visualizing Outstanding vs Paid
+        chart_df = df.copy()
+        fig = px.pie(chart_df, values='OUTSTANDING_AMOUNT', names='NAME', hole=0.4, 
+                     title="Total Debt Distribution by Client",
+                     color_discrete_sequence=px.colors.qualitative.Pastel)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- REGISTRY TABLE ---
+        st.subheader("📋 Client Registry")
         st.table(df[['SN', 'NAME', 'LOCATION', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.format({"LOAN_AMOUNT": "{:,.0f}", "OUTSTANDING_AMOUNT": "{:,.0f}"}))
 
+        # --- RESTORED EDIT TOOL (The "Pencil" Action) ---
+        st.markdown("---")
+        with st.expander("✏️ Edit Client Details"):
+            edit_sn = st.selectbox("Select SN to modify:", ["Select..."] + df['SN'].tolist())
+            if edit_sn != "Select...":
+                idx = df[df['SN'] == edit_sn].index[0]
+                with st.form("edit_client_form"):
+                    st.write(f"Editing: **{df.at[idx, 'NAME']}**")
+                    new_name = st.text_input("Name", value=df.at[idx, 'NAME'])
+                    new_loc = st.text_input("Location", value=df.at[idx, 'LOCATION'])
+                    new_emp = st.text_input("Employer", value=df.at[idx, 'EMPLOYER'])
+                    new_nok = st.text_input("Next of Kin", value=df.at[idx, 'NEXT_OF_KIN'])
+                    new_stat = st.selectbox("Status", ["Active", "Risky", "Dormant"], 
+                                           index=["Active", "Risky", "Dormant"].index(df.at[idx, 'STATUS']))
+                    
+                    if st.form_submit_button("💾 Update Record"):
+                        df.at[idx, 'NAME'] = new_name.upper()
+                        df.at[idx, 'LOCATION'] = new_loc
+                        df.at[idx, 'EMPLOYER'] = new_emp
+                        df.at[idx, 'NEXT_OF_KIN'] = new_nok
+                        df.at[idx, 'STATUS'] = new_stat
+                        save_data(df)
+                        st.success("Record updated successfully!")
+                        st.rerun()
+
 elif choice == "👤 Onboarding":
+    # ... (Keep your onboarding code here) ...
     st.title("👤 New Loan Disbursement")
     with st.form("onboard_form"):
         c1, c2 = st.columns(2)
@@ -75,6 +113,7 @@ elif choice == "👤 Onboarding":
             st.success(f"Loan Issued to {name}!"); st.rerun()
 
 elif choice == "💰 Payments":
+    # ... (Keep your payments code here) ...
     st.title("💰 Post Payment")
     with st.form("pay"):
         sn_search = st.text_input("Enter SN (e.g. 00001)").strip().zfill(5)
@@ -88,6 +127,7 @@ elif choice == "💰 Payments":
             else: st.error("Not found.")
 
 elif choice == "📄 Client Report":
+    # ... (Keep your report code here) ...
     st.title("📄 Official Loan Statement")
     if not df.empty:
         search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
@@ -95,32 +135,14 @@ elif choice == "📄 Client Report":
         sn_only = selected.split(" - ")[0]
         c = df[df['SN'] == sn_only].iloc[0]
 
-        # Professional Layout
         st.markdown(f"""
             <div class="report-card">
                 <h2 style="text-align:center; color:#1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
-                <p style="text-align:center; color:#64748b; margin-top:0;">Loan Reduction Statement</p>
                 <hr>
-                <table style="width:100%; font-size: 0.9em;">
+                <table style="width:100%">
                     <tr><td><b>Client:</b> {c['NAME']}</td><td style="text-align:right;"><b>SN:</b> {c['SN']}</td></tr>
-                    <tr><td><b>Contact:</b> {c['CONTACT']}</td><td style="text-align:right;"><b>Issued:</b> {c['DATE_OF_ISSUE']}</td></tr>
                     <tr><td><b>Location:</b> {c['LOCATION']}</td><td style="text-align:right;"><b>Employer:</b> {c['EMPLOYER']}</td></tr>
-                    <tr><td><b>Next of Kin:</b> {c['NEXT_OF_KIN']}</td><td style="text-align:right;"><b>Status:</b> {c['STATUS']}</td></tr>
                 </table>
             </div>
         """, unsafe_allow_html=True)
-
-        st.write("")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Principal", f"UGX {c['LOAN_AMOUNT']:,.0f}")
-        m2.metric("Total Paid", f"UGX {c['AMOUNT_PAID']:,.0f}")
-        m3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}")
-
-        # Reducing Balance Ledger
-        st.subheader("📉 Transaction Ledger")
-        ledger = [
-            {"Date": c['DATE_OF_ISSUE'], "Description": "Principal Disbursement", "Debit": c['LOAN_AMOUNT'], "Credit": 0, "Balance": c['LOAN_AMOUNT']},
-            {"Date": "Month End", "Description": "Initial Interest Applied", "Debit": c['LOAN_AMOUNT']*(c['INTEREST_RATE']/100), "Credit": 0, "Balance": c['LOAN_AMOUNT']*(1 + c['INTEREST_RATE']/100)},
-            {"Date": "Current", "Description": "Total Payments to Date", "Debit": 0, "Credit": c['AMOUNT_PAID'], "Balance": c['OUTSTANDING_AMOUNT']}
-        ]
-        st.table(pd.DataFrame(ledger).style.format({"Debit": "{:,.0f}", "Credit": "{:,.0f}", "Balance": "{:,.0f}"}))
+        # ... rest of metrics ...
