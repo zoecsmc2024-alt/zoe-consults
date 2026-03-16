@@ -24,19 +24,22 @@ st.markdown("""
 DB_FILE = "zoe_database.csv"
 
 def load_data():
-    cols = ['SN','NAME','NIN','CONTACT','LOCATION','EMPLOYER','DATE_OF_ISSUE','EXPECTED_DUE_DATE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
+    # These are the "Must-Have" columns for your app to work
+    required_cols = ['SN','NAME','NIN','CONTACT','LOCATION','EMPLOYER','DATE_OF_ISSUE','EXPECTED_DUE_DATE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
+    
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
+        # Check if any required columns are missing and add them if necessary
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = "" # Create the column with empty values if it's missing
+        
+        # Clean up the numbers
         df['OUTSTANDING_AMOUNT'] = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').fillna(0)
         df['SN'] = df['SN'].astype(str).str.zfill(5)
-        return df
-    return pd.DataFrame(columns=cols)
-
-def save_data(df):
-    df.to_csv(DB_FILE, index=False)
-
-df = load_data()
-
+        return df[required_cols] # Ensure they are in the right order
+    
+    return pd.DataFrame(columns=required_cols)
 # --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
     # Circular Logo Logic
