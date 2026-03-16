@@ -50,38 +50,42 @@ with st.sidebar:
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Database", data=csv, file_name="zoe_database.csv", mime="text/csv")
     
-    # THE ULTIMATE VISIBILITY FIX
+   # THE "BRUTE FORCE" VISIBILITY FIX
     st.markdown("""
         <style>
-        /* 1. FORCE DOWNLOAD BUTTON TO BE BLUE */
-        .stDownloadButton > button {
+        /* 1. TARGET THE DOWNLOAD BUTTON WRAPPER */
+        div.stDownloadButton > button {
             background-color: #00acee !important;
             color: white !important;
             width: 100% !important;
-            height: 3em !important;
             border-radius: 8px !important;
+            border: 2px solid #008fcc !important;
             font-weight: bold !important;
-            border: none !important;
-            display: block !important;
-            margin-bottom: 10px !important;
+            height: 3.5em !important;
+            margin-bottom: 15px !important;
+            display: flex !important;
+            visibility: visible !important;
         }
 
-        /* 2. FORCE LOGOUT BUTTON TO BE RED */
-        .stButton > button {
+        /* 2. TARGET THE LOGOUT BUTTON WRAPPER */
+        div.stButton > button {
             background-color: #ef4444 !important;
             color: white !important;
             width: 100% !important;
-            height: 3em !important;
             border-radius: 8px !important;
+            border: 2px solid #b91c1c !important;
             font-weight: bold !important;
-            border: none !important;
-            display: block !important;
+            height: 3.5em !important;
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
 
-        /* 3. ENSURE TEXT IS ALWAYS WHITE ON HOVER */
-        .stDownloadButton > button:hover, .stButton > button:hover {
+        /* 3. ENSURE TEXT IS ALWAYS VISIBLE */
+        div.stDownloadButton > button p, div.stButton > button p {
             color: white !important;
-            opacity: 0.9;
+            font-weight: bold !important;
+            font-size: 16px !important;
         }
         </style>
     """, unsafe_allow_html=True)
