@@ -114,11 +114,7 @@ with st.sidebar:
     except:
         # If the file is missing, it shows a bank icon instead of crashing
         st.header("🏦") 
-    
-    st.title("Zoe Consults")
-    st.markdown("---")
-    
-    # ... (rest of your sidebar code)
+
     
     st.title("Zoe Consults")
     st.markdown("---")
