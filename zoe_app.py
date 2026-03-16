@@ -5,7 +5,8 @@ import os
 
 # --- 1. EDITABLE ICON & APP SETTINGS ---
 # Change the URL below to change your app's logo!
-LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3135/3135706.png"
+# This looks for the file you uploaded to GitHub
+LOGO_URL = "logo.png"
 
 st.set_page_config(page_title="ZoeLend IQ", page_icon="🏦", layout="wide")
 
