@@ -13,7 +13,6 @@ def load_data():
         df['Last_Payment_Date'] = pd.to_datetime(df['Last_Payment_Date'])
         return df
     else:
-        # Create a fresh database structure if none exists
         columns = ['Customer_ID', 'Name', 'Principal_USD', 'Annual_Rate', 'Start_Date', 'Last_Payment_Date', 'Status']
         return pd.DataFrame(columns=columns)
 
@@ -24,12 +23,9 @@ def calculate_live_balance(row):
     if row['Status'] == 'Paid Off':
         return 0.0
     today = datetime.datetime.now()
-    # Calculate months passed
     years_diff = today.year - row['Start_Date'].year
     months_diff = today.month - row['Start_Date'].month
     total_months = max(0, (years_diff * 12) + months_diff)
-    
-    # Compound interest formula: A = P(1 + r/n)^nt
     monthly_rate = row['Annual_Rate'] / 12
     balance = row['Principal_USD'] * (1 + monthly_rate) ** total_months
     return round(balance, 2)
@@ -63,7 +59,6 @@ if check_password():
     st.set_page_config(page_title="ZoeLend IQ", layout="wide")
     df = load_data()
 
-    # Automatic Data Refresh
     if not df.empty:
         df['Status'] = df.apply(auto_update_status, axis=1)
         df['Current_Balance'] = df.apply(calculate_live_balance, axis=1)
@@ -73,36 +68,13 @@ if check_password():
 
     if choice == "Daily Report":
         st.title("📊 Daily Portfolio Report")
-if choice == "Daily Report":
-        st.title("📊 Daily Portfolio Report")
-        
-        # --- NEW SEARCH BAR ---
         search_query = st.text_input("🔍 Search for a customer by name", "")
         
-        if search_query:
-            display_df = df[df['Name'].str.contains(search_query, case=False, na=False)]
-        else:
-            display_df = df
+        display_df = df[df['Name'].str.contains(search_query, case=False, na=False)] if search_query else df
         
         if df.empty:
             st.info("No active loans found. Start by adding a customer!")
         else:
-            # Stats (Still based on full database)
-            total_principal = df['Principal_USD'].sum()
-            total_balance = df['Current_Balance'].sum()
-            
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Total Principal Out", f"${total_principal:,.2f}")
-            c2.metric("Total Portfolio Value", f"${total_balance:,.2f}")
-            c3.metric("Filtered Results", f"{len(display_df)} Customers")
-
-            st.write("### Loan Registry")
-            # Show the filtered results
-            st.dataframe(display_df.style.format({"Annual_Rate": "{:.2%}"}))
-        if df.empty:
-            st.info("No active loans found. Start by adding a customer!")
-        else:
-            # Metrics
             total_principal = df['Principal_USD'].sum()
             total_balance = df['Current_Balance'].sum()
             next_month_est = (df['Current_Balance'] * (df['Annual_Rate'] / 12)).sum()
@@ -112,10 +84,8 @@ if choice == "Daily Report":
             c2.metric("Total Portfolio Value", f"${total_balance:,.2f}")
             c3.metric("Expected Interest (Mo)", f"${next_month_est:,.2f}")
 
-            st.write("### Full Loan Registry")
-            st.dataframe(df.style.format({"Annual_Rate": "{:.2%}"}))
-
-            # Download Feature
+            st.write("### Loan Registry")
+            st.dataframe(display_df.style.format({"Annual_Rate": "{:.2%}"}))
             csv = df.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Download Report as CSV", data=csv, file_name=f"Zoe_Report_{datetime.date.today()}.csv", mime='text/csv')
 
@@ -152,7 +122,7 @@ if choice == "Daily Report":
                 if df.at[idx[0], 'Principal_USD'] <= 0:
                     df.at[idx[0], 'Status'] = 'Paid Off'
                 save_data(df)
-                st.success(f"Payment of ${pay_amount} recorded for ID {cust_id}!")
+                st.success(f"Payment recorded for ID {cust_id}!")
             else:
                 st.error("Customer ID not found.")
 
@@ -161,53 +131,9 @@ if choice == "Daily Report":
         if not df.empty:
             target = st.selectbox("Select Customer", df['Name'].tolist())
             row = df[df['Name'] == target].iloc[0]
-            
-            letter = f"""
---------------------------------------------------
-ZOE CONSULTS - OFFICIAL LOAN AGREEMENT
-Date: {datetime.date.today()}
-
-Dear {row['Name']},
-
-Your loan has been approved. 
-Principal: ${row['Principal_USD']:,.2f}
-Interest Rate: {row['Annual_Rate']*100}% (Compounded Monthly)
-
-To maintain 'Active' status, please ensure payments 
-are made at least once every 60 days.
-
-Regards,
-Management, Zoe Consults
---------------------------------------------------
-            """
-            st.text_area("Copy Letter Below:", letter, height=300)
-        else:
-            st.warning("No customers available.")
+            letter = f"Dear {row['Name']},\nYour loan of ${row['Principal_USD']:,.2f} is approved at {row['Annual_Rate']*100}% interest."
+            st.text_area("Copy Letter Below:", letter, height=200)
 
     elif choice == "Help":
-        st.title("❓ ZoeLend IQ Support & Instructions")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            ### 📖 How to Manage Loans
-            1. **Onboarding**: Use 'Add New Customer' to register a new loan. Use decimal points for rates (e.g., 0.1 for 10%).
-            2. **Payments**: When a customer pays, enter their ID in 'Record Payment'. This reduces the principal and resets the dormancy timer.
-            3. **Monitoring**: Check the 'Daily Report' every morning. If a customer is highlighted as **Dormant**, it means they haven't paid in 60+ days.
-            4. **Data Safety**: The system saves automatically to the cloud. You can download a backup at any time using the 'Download' button.
-            """)
-
-        with col2:
-            st.markdown("""
-            ### 📞 Business Support
-            **Administrative Contact:**
-            - **Primary:** Zoe Consults Admin
-            - **Emergency Technical Support:** [Your Name/Email]
-            
-            **System Policy:**
-            - Interest compounds on the 1st of every month.
-            - Loans marked as 'Paid Off' will no longer accrue interest.
-            """)
-            
-        st.info("💡 **Pro Tip:** Use the search bar in the 'Daily Report' table to quickly find a specific customer by name.")
+        st.title("❓ Help Guide")
+        st.markdown("Interest compounds monthly. Status flips to 'Dormant' after 60 days of no payment.")
