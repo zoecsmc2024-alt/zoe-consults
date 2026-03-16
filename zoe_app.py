@@ -139,7 +139,10 @@ display_cols = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDIN
 existing_cols = [col for col in display_cols if col in df.columns]
 
 if not df.empty:
-    st.table(df[existing_cols].style.apply(apply_premium_styling, axis=1))
+    with st.expander("📝 Quick Modify Client"):
+        # Everything inside the expander must be indented another 4 spaces
+        selected_client = st.selectbox("Select Client", df['CUSTOMER_NAME'].tolist())
+    
 
         # 4. QUICK EDIT ACTION (The "Pencil" section)
         with st.expander("✏️ Quick Modify Client"):
