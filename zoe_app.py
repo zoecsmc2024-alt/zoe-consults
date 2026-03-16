@@ -1,37 +1,40 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import datetime
+import os
 
 # --- 1. SETTINGS ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
-# --- 2. THE GOOGLE SHEETS CONNECTION ---
-# This replaces the CSV and makes memory permanent
-url = "https://docs.google.com/spreadsheets/d/1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg/edit?usp=sharing"
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- 2. THE GOOGLE SHEET LINK (TRANSFORMED) ---
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg/export?format=csv"
 
 def load_data():
-    return conn.read(spreadsheet=url, worksheet="Loans")
-
-def save_data(df):
-    conn.update(spreadsheet=url, worksheet="Loans", data=df)
-    st.cache_data.clear()
+    try:
+        # This pulls the latest data from your Google Sheet every refresh
+        df = pd.read_csv(SHEET_URL)
+        # Clean up column names just in case there are spaces
+        df.columns = [c.strip() for c in df.columns]
+        return df
+    except Exception as e:
+        st.error(f"Connection Error: {e}")
+        # Fallback to empty structure if link fails
+        return pd.DataFrame(columns=['SN','OFFER_NO','NAME','GENDER','CONTACT','DATE_OF_ISSUE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS'])
 
 # --- 3. DATA LOADING ---
 df = load_data()
 
-# --- 4. APP LOGIC ---
+# --- 4. SIDEBAR ---
 st.sidebar.title("Zoe Consults")
 choice = st.sidebar.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
 
+# --- 5. DAILY REPORT PAGE ---
 if choice == "📊 Daily Report":
-    st.title("📊 Permanent Portfolio Registry")
+    st.title("📊 Live Google Sheets Registry")
     if df.empty:
-        st.info("No data in Google Sheets.")
+        st.warning("The Google Sheet is empty or not reachable.")
     else:
-        # Spreadsheet styling
-        st.table(df[['SN', 'NAME', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.format({"LOAN_AMOUNT": "{:,.0f}"}))
+        st.table(df)
 
 elif choice == "👤 Onboarding":
     st.title("👤 New Loan Issue")
