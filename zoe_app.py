@@ -39,42 +39,95 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
+    # 1. THE BRANDED HEADER
+    st.markdown("""
+        <div style="text-align: center; padding: 10px;">
+            <div style="background-color: white; border-radius: 15px; padding: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+    """, unsafe_allow_html=True)
+    
     if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=150)
+        st.image("logo.jpg", width=120)
     else:
-        st.title("🏦 Zoe Consults")
+        st.markdown("<h1 style='color: #00acc1; margin:0;'>Z</h1>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
-    st.markdown("---")
+    st.markdown("""
+            </div>
+            <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
+            <p style="color: #94a3b8; font-size: 0.8em; margin-bottom: 20px;">Micro-Lending Management</p>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # ENFORCEMENT SECTION
-    st.subheader("⚖️ Enforcement")
-    penalty_rate = st.number_input("Overdue Penalty (%)", value=5, key="penalty_box")
-    if st.button("⚠️ Apply Penalty to Red Rows", use_container_width=True):
-        today = datetime.date.today()
-        count = 0
-        for idx, row in df.iterrows():
-            due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-            if today > due and row['OUTSTANDING_AMOUNT'] > 0:
-                df.at[idx, 'OUTSTANDING_AMOUNT'] += (row['OUTSTANDING_AMOUNT'] * (penalty_rate / 100))
-                count += 1
-        save_data(df); st.success(f"Penalized {count} clients!"); st.rerun()
-
-    st.markdown("---")
-    # THE "IRONCLAD" BUTTONS
+    st.markdown("<div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    
+    # 2. THE NAVIGATION MENU
+    # We use a custom label to make it look cleaner
+    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
+    
+    st.markdown("<div style='margin-top: 30px; border-top: 1px solid #334155; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    
+    # 3. THE ACTION HUB
+    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>SYSTEM ACTIONS</p>", unsafe_allow_html=True)
+    
     if not df.empty:
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 DOWNLOAD DATABASE (CSV)", data=csv, file_name="zoe_database.csv", mime="text/csv", use_container_width=True)
-    
-    if st.button("🔴 CLICK HERE TO LOGOUT", key="logout_btn", use_container_width=True):
+        st.download_button(
+            label="📥 EXPORT DATABASE",
+            data=csv,
+            file_name=f"Zoe_Lend_DB_{datetime.date.today()}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+    if st.button("🔓 SECURE LOGOUT", key="sidebar_logout", use_container_width=True):
         st.rerun()
 
-    st.markdown("""<style>
-        .stDownloadButton button { background-color: #00acee !important; color: white !important; font-weight: bold !important; }
-        .stButton button { background-color: #ef4444 !important; color: white !important; font-weight: bold !important; }
-    </style>""", unsafe_allow_html=True)
+    # 4. ADVANCED BUTTON STYLING (The Final Polish)
+    st.markdown("""
+        <style>
+        /* Sidebar container tweaks */
+        section[data-testid="stSidebar"] {
+            border-right: 1px solid #334155;
+        }
+        
+        /* Navigation Radio Styling */
+        div[data-testid="stSidebarNav"] { display: none; }
+        div[data-testid="stWidgetLabel"] { color: #94a3b8 !important; }
+        
+        /* The Buttons */
+        .stDownloadButton button {
+            background-color: #00acc1 !important;
+            color: white !important;
+            border-radius: 8px !important;
+            border: none !important;
+            font-weight: 600 !important;
+            transition: 0.3s !important;
+            box-shadow: 0 4px 10px rgba(0, 172, 193, 0.2) !important;
+        }
+        
+        .stButton button {
+            background-color: transparent !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
+            border-radius: 8px !important;
+            font-weight: 600 !important;
+            transition: 0.3s !important;
+        }
+        
+        .stButton button:hover {
+            background-color: #ef4444 !important;
+            color: white !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
+    # 5. FOOTER
+    st.markdown(f"""
+        <div style="position: fixed; bottom: 10px; left: 10px; font-size: 0.7em; color: #475569;">
+            Zoe Consults Ltd<br>
+            March 2026 Release
+        </div>
+    """, unsafe_allow_html=True)
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
