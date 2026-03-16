@@ -39,10 +39,9 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
-    # We combine HTML and Python logic into one clean display
-    logo_html = ""
+    # 1. THE LOGO ENCODING
+    logo_content = ""
     if os.path.exists("logo.jpg"):
-        # We use a trick to keep the image inside our HTML structure
         import base64
         with open("logo.jpg", "rb") as f:
             data = base64.b64encode(f.read()).decode("utf-8")
@@ -50,6 +49,7 @@ with st.sidebar:
     else:
         logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
 
+    # 2. THE BRANDED HEADER (Aligned perfectly)
     st.markdown(f"""
         <div style="text-align: center; padding: 10px;">
             <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
@@ -62,12 +62,8 @@ with st.sidebar:
         </div>
         <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
     """, unsafe_allow_html=True)
-        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
-    """, unsafe_allow_html=True)
 
-    
-    # 2. THE NAVIGATION MENU
-    # We use a custom label to make it look cleaner
+    # 3. NAVIGATION (Make sure these are indented 4 spaces from 'with')
     st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
     
