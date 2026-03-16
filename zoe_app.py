@@ -77,24 +77,40 @@ if choice == "📊 Daily Report":
     if not df.empty:
         # --- PRO FEATURE 2: PERFORMANCE CHART ---
         st.subheader("📈 Collection Trend")
-        # We simulate a trend based on issuance dates
-        df_sorted = df.sort_values('DATE_OF_ISSUE')
-        df_sorted['Cumulative_Collected'] = df_sorted['AMOUNT_PAID'].cumsum()
-        fig = px.line(df_sorted, x='DATE_OF_ISSUE', y='Cumulative_Collected', 
-                      title="Business Liquidity Growth (Total Collected Over Time)",
-                      markers=True, line_shape="spline", color_discrete_sequence=["#10b981"])
-        st.plotly_chart(fig, use_container_width=True)
+        # Ensure dates are proper for the chart
+        df['DATE_OF_ISSUE'] = pd.to_datetime(df['DATE_OF_ISSUE'], errors='coerce')
+        df_sorted = df.dropna(subset=['DATE_OF_ISSUE']).sort_values('DATE_OF_ISSUE')
+        
+        if not df_sorted.empty:
+            df_sorted['Cumulative_Collected'] = df_sorted['AMOUNT_PAID'].cumsum()
+            fig = px.line(df_sorted, x='DATE_OF_ISSUE', y='Cumulative_Collected', 
+                          title="Business Liquidity Growth",
+                          markers=True, line_shape="spline", color_discrete_sequence=["#10b981"])
+            st.plotly_chart(fig, use_container_width=True)
 
-        # Standard Registry with Red Highlighting
+        # --- THE FIX FOR THE TABLE ERROR ---
         def highlight_risky(row):
-            due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-            if datetime.date.today() > due and row['OUTSTANDING_AMOUNT'] > 0:
-                return ['background-color: #fee2e2; color: #991b1b'] * len(row)
+            try:
+                # Convert string dates to actual date objects for comparison
+                due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
+                out = float(row['OUTSTANDING_AMOUNT'])
+                if datetime.date.today() > due and out > 0:
+                    return ['background-color: #fee2e2; color: #991b1b'] * len(row)
+            except:
+                pass
             return [''] * len(row)
 
         st.subheader("📋 Registry")
-        st.table(df[['SN', 'NAME', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({"OUTSTANDING_AMOUNT": "{:,.0f}"}))
-
+        # Ensure numeric columns are actually numeric before formatting
+        df['OUTSTANDING_AMOUNT'] = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').fillna(0)
+        
+        # We use st.dataframe instead of st.table for better error handling and scrolling
+        st.dataframe(
+            df[['SN', 'NAME', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({
+                "OUTSTANDING_AMOUNT": "{:,.0f}"
+            }),
+            use_container_width=True
+        )
 elif choice == "👤 Onboarding":
     st.title("👤 Issue New Loan")
     # ... (Keep existing onboarding logic)
