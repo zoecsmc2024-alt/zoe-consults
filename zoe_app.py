@@ -39,32 +39,33 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
-    # 1. THE BRANDED HEADER
-    st.markdown("""
-        <div style="text-align: center; padding: 10px;">
-            <div style="background-color: white; border-radius: 15px; padding: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-    """, unsafe_allow_html=True)
-    
+    # 1. THE LOGO ENCODING
+    logo_content = ""
     if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=120)
+        import base64
+        with open("logo.jpg", "rb") as f:
+            data = base64.b64encode(f.read()).decode("utf-8")
+        logo_content = f'<img src="data:image/jpeg;base64,{data}" style="width:120px;">'
     else:
-        st.markdown("<h1 style='color: #00acc1; margin:0;'>Z</h1>", unsafe_allow_html=True)
-    
-    st.markdown("""
+        logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
+
+    # 2. THE BRANDED HEADER (Aligned perfectly)
+    st.markdown(f"""
+        <div style="text-align: center; padding: 10px;">
+            <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 2px solid #e2e8f0;">
+                    {logo_content}
+                </div>
             </div>
             <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
             <p style="color: #94a3b8; font-size: 0.8em; margin-bottom: 20px;">Micro-Lending Management</p>
         </div>
+        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("<div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
-    
-    # 2. THE NAVIGATION MENU
-    # We use a custom label to make it look cleaner
+
+    # 3. NAVIGATION (Make sure these are indented 4 spaces from 'with')
     st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
-    
-    st.markdown("<div style='margin-top: 30px; border-top: 1px solid #334155; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     # 3. THE ACTION HUB
     st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>SYSTEM ACTIONS</p>", unsafe_allow_html=True)
