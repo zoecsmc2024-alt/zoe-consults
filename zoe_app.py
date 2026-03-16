@@ -157,54 +157,69 @@ elif choice == "💰 Payments":
 elif choice == "📄 Client Report":
     st.title("📄 Client Statement & Schedule")
     if not df.empty:
-        # Create a search list that shows both Name and SN for clarity
+        # 1. Search Selection
         client_options = df.apply(lambda x: f"{x['NAME']} (SN: {x['SN']})", axis=1).tolist()
         selected_option = st.selectbox("Select Client", client_options)
         
-        # Extract the SN from the selection to find the right data
+        # 2. Extract Data
         selected_sn = selected_option.split("(SN: ")[1].replace(")", "")
-        c = df[df['SN'] == selected_sn].iloc[0]
+        c = df[df['SN'] == str(selected_sn).strip()].iloc[0]
         
-        st.markdown(f"""
-        <div style="padding:30px; border:1px solid #e2e8f0; border-radius:10px; background-color: white; color: black;">
-            <h2 style="text-align:center; color: #1e293b;">ZOE CONSULTS LIMITED</h2>
-            <p style="text-align:center; border-bottom: 2px solid #00acee; padding-bottom:10px;">OFFICIAL LOAN STATEMENT</p>
+        # 3. Render the Statement (The HTML Fix)
+        # Using f-string inside st.markdown with unsafe_allow_html=True
+        report_html = f"""
+        <div style="padding:20px; border:1px solid #e2e8f0; border-radius:10px; background-color: white; color: black;">
+            <h2 style="text-align:center; color: #1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
+            <p style="text-align:center; border-bottom: 2px solid #00acee; padding-bottom:10px; margin-top:0;">OFFICIAL LOAN STATEMENT</p>
             
-            <div style="display: flex; justify-content: space-between;">
-                <div>
-                    <p><b>Client Name:</b> {c['NAME']}</p>
-                    <p><b>Contact:</b> {c['CONTACT']}</p>
-                    <p><b>Status:</b> <span style="color: {'#10b981' if c['STATUS'] == 'Active' else '#ef4444'}; font-weight: bold;">{c['STATUS']}</span></p>
-                </div>
-                <div style="text-align: right;">
-                    <p><b>SN:</b> {c['SN']}</p>
-                    <p><b>Issue Date:</b> {pd.to_datetime(c['DATE_OF_ISSUE']).strftime('%d-%b-%Y')}</p>
-                    <p><b>Offer No:</b> {c['OFFER_NO']}</p>
-                </div>
-            </div>
+            <table style="width:100%; border-collapse: collapse;">
+                <tr>
+                    <td style="vertical-align: top;">
+                        <p style="margin:2px;"><b>Client Name:</b> {c['NAME']}</p>
+                        <p style="margin:2px;"><b>Contact:</b> {c['CONTACT']}</p>
+                        <p style="margin:2px;"><b>Status:</b> <span style="color: {'#10b981' if c['STATUS'] == 'Active' else '#ef4444'}; font-weight: bold;">{c['STATUS']}</span></p>
+                    </td>
+                    <td style="text-align: right; vertical-align: top;">
+                        <p style="margin:2px;"><b>SN:</b> {c['SN']}</p>
+                        <p style="margin:2px;"><b>Issue Date:</b> {pd.to_datetime(c['DATE_OF_ISSUE']).strftime('%d-%b-%Y')}</p>
+                        <p style="margin:2px;"><b>Offer No:</b> {c['OFFER_NO']}</p>
+                    </td>
+                </tr>
+            </table>
             
-            <hr style="border: 0.5px solid #eee;">
+            <hr style="border: 0.5px solid #eee; margin: 15px 0;">
             
             <div style="display: flex; justify-content: space-around; background-color: #f8fafc; padding: 15px; border-radius: 5px;">
                 <div style="text-align: center;">
-                    <small>PRINCIPAL</small><br><b>UGX {c['LOAN_AMOUNT']:,.0f}</b>
+                    <small style="color: #64748b;">PRINCIPAL</small><br><b style="font-size: 1.1em;">UGX {float(c['LOAN_AMOUNT']):,.0f}</b>
                 </div>
                 <div style="text-align: center;">
-                    <small>TOTAL PAID</small><br><b style="color: #10b981;">UGX {c['AMOUNT_PAID']:,.0f}</b>
+                    <small style="color: #64748b;">TOTAL PAID</small><br><b style="color: #10b981; font-size: 1.1em;">UGX {float(c['AMOUNT_PAID']):,.0f}</b>
                 </div>
                 <div style="text-align: center;">
-                    <small>OUTSTANDING</small><br><b style="color: #ef4444;">UGX {c['OUTSTANDING_AMOUNT']:,.0f}</b>
+                    <small style="color: #64748b;">OUTSTANDING</small><br><b style="color: #ef4444; font-size: 1.1em;">UGX {float(c['OUTSTANDING_AMOUNT']):,.0f}</b>
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(report_html, unsafe_allow_html=True)
         
-        st.markdown("### 📅 Repayment Schedule")
-        # Reuse the schedule engine
+        # 4. Repayment Schedule Logic
+        st.markdown("---")
+        st.subheader("📅 Repayment Schedule")
+        
         try:
-            sched = generate_schedule(c['LOAN_AMOUNT'], c['INTEREST_RATE'], c['DURATION_MONTHS'])
-            st.table(sched.style.format("{:,.0f}").set_properties(**{'text-align': 'center'}))
+            # Ensure numbers are floats/ints before calculating
+            p = float(c['LOAN_AMOUNT'])
+            r = float(c['INTEREST_RATE'])
+            m = int(c['DURATION_MONTHS'])
+            
+            if m > 0:
+                sched = generate_schedule(p, r, m)
+                st.table(sched.style.format("{:,.0f}"))
+            else:
+                st.error("Loan duration must be at least 1 month.")
         except Exception as e:
-            st.warning("Could not generate schedule. Please check if 'Duration' and 'Rate' are set correctly for this client.")
+            st.error(f"Could not calculate schedule: Check if Rate and Duration are numbers.")
     else:
-        st.info("Registry is empty. Onboard a client first.")
+        st.info("No data found. Please onboard a client first.")
