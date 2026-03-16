@@ -120,6 +120,11 @@ with st.sidebar:
     
     # ... (rest of your sidebar code)
     
+    st.title("Zoe Consults")
+    st.markdown("---")
+    
+    # ... (rest of your sidebar code)
+    
     choice = st.radio("Menu Navigation", ["📊 Daily Report", "👤 New Customer", "💰 Record Payment", "✉️ Letters"])
     
     st.markdown("---")
