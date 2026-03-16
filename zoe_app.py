@@ -151,22 +151,78 @@ elif choice == "💰 Payments":
             else: st.error("Not found.")
 
 elif choice == "📄 Client Report":
-    # ... (Keep your report code here) ...
     st.title("📄 Official Loan Statement")
     if not df.empty:
+        # Client Selector
         search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
-        selected = st.selectbox("Select Client", search_list)
+        selected = st.selectbox("Select Client to View Ledger", search_list)
         sn_only = selected.split(" - ")[0]
         c = df[df['SN'] == sn_only].iloc[0]
 
+        # 1. THE PROFESSIONAL STATEMENT HEADER
         st.markdown(f"""
             <div class="report-card">
                 <h2 style="text-align:center; color:#1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
-                <hr>
-                <table style="width:100%">
-                    <tr><td><b>Client:</b> {c['NAME']}</td><td style="text-align:right;"><b>SN:</b> {c['SN']}</td></tr>
-                    <tr><td><b>Location:</b> {c['LOCATION']}</td><td style="text-align:right;"><b>Employer:</b> {c['EMPLOYER']}</td></tr>
+                <p style="text-align:center; color:#64748b; margin-top:0;">Official Loan Statement</p>
+                <hr style="border: 0.5px solid #eee;">
+                <table style="width:100%; font-size: 0.9em; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding:5px;"><b>Client:</b> {c['NAME']}</td>
+                        <td style="padding:5px; text-align:right;"><b>SN:</b> {c['SN']}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px;"><b>Location:</b> {c['LOCATION']}</td>
+                        <td style="padding:5px; text-align:right;"><b>Employer:</b> {c['EMPLOYER']}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px;"><b>Next of Kin:</b> {c['NEXT_OF_KIN']}</td>
+                        <td style="padding:5px; text-align:right;"><b>Issued:</b> {c['DATE_OF_ISSUE']}</td>
+                    </tr>
                 </table>
             </div>
         """, unsafe_allow_html=True)
-        # ... rest of metrics ...
+
+        # 2. THE BIG NUMBERS
+        st.write("")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Original Principal", f"UGX {c['LOAN_AMOUNT']:,.0f}")
+        m2.metric("Total Paid", f"UGX {c['AMOUNT_PAID']:,.0f}", delta=f"{c['AMOUNT_PAID']}", delta_color="normal")
+        m3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
+
+        # 3. THE REDUCING BALANCE LEDGER (The missing piece!)
+        st.markdown("---")
+        st.subheader("📉 Reducing Balance Ledger")
+        
+        # We calculate the interest amount for the row
+        interest_val = float(c['LOAN_AMOUNT']) * (float(c['INTEREST_RATE']) / 100)
+        
+        ledger_data = [
+            {
+                "Date": c['DATE_OF_ISSUE'], 
+                "Description": "Principal Disbursement", 
+                "Debit (+Int)": f"{float(c['LOAN_AMOUNT']):,.0f}", 
+                "Credit (Pay)": "0", 
+                "Balance": f"{float(c['LOAN_AMOUNT']):,.0f}"
+            },
+            {
+                "Date": "Month End", 
+                "Description": f"Interest Charged ({c['INTEREST_RATE']}%)", 
+                "Debit (+Int)": f"{interest_val:,.0f}", 
+                "Credit (Pay)": "0", 
+                "Balance": f"{(float(c['LOAN_AMOUNT']) + interest_val):,.0f}"
+            },
+            {
+                "Date": "To Date", 
+                "Description": "Total Payments Received", 
+                "Debit (+Int)": "0", 
+                "Credit (Pay)": f"{float(c['AMOUNT_PAID']):,.0f}", 
+                "Balance": f"{float(c['OUTSTANDING_AMOUNT']):,.0f}"
+            }
+        ]
+        
+        st.table(pd.DataFrame(ledger_data))
+        
+        st.caption("Disclaimer: This is a system-generated statement. Interest is applied to the reducing balance monthly.")
+
+    else:
+        st.warning("No client data found. Please add a client first.")
