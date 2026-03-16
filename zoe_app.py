@@ -39,25 +39,29 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
-    # 1. THE BRANDED HEADER (SINGLE CIRCULAR VERSION)
-    st.markdown("""
+    # We combine HTML and Python logic into one clean display
+    logo_html = ""
+    if os.path.exists("logo.jpg"):
+        # We use a trick to keep the image inside our HTML structure
+        import base64
+        with open("logo.jpg", "rb") as f:
+            data = base64.b64encode(f.read()).decode("utf-8")
+        logo_content = f'<img src="data:image/jpeg;base64,{data}" style="width:120px;">'
+    else:
+        logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
+
+    st.markdown(f"""
         <div style="text-align: center; padding: 10px;">
             <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                 <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 2px solid #e2e8f0;">
-    """, unsafe_allow_html=True)
-    
-    # We place the image logic INSIDE the circular div
-    if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=120)
-    else:
-        st.markdown("<h1 style='color: #00acc1; margin:0;'>Z</h1>", unsafe_allow_html=True)
-    
-    st.markdown("""
+                    {logo_content}
                 </div>
             </div>
             <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
             <p style="color: #94a3b8; font-size: 0.8em; margin-bottom: 20px;">Micro-Lending Management</p>
         </div>
+        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
+    """, unsafe_allow_html=True)
         <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
     """, unsafe_allow_html=True)
 
