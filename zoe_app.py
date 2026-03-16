@@ -19,7 +19,6 @@ st.markdown("""
 DB_FILE = "zoe_database.csv"
 
 def load_data():
-    # Added 'EXPECTED_DUE_DATE' to track risk
     cols = ['SN','NAME','NIN','CONTACT','LOCATION','EMPLOYER','NEXT_OF_KIN','DATE_OF_ISSUE','EXPECTED_DUE_DATE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
@@ -45,12 +44,28 @@ with st.sidebar:
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
     st.markdown("---")
     
+    # --- PRO FEATURE 1: PENALTY ENFORCEMENT ---
+    st.subheader("⚖️ Enforcement")
+    penalty_rate = st.number_input("Overdue Penalty (%)", value=5)
+    if st.button("⚠️ Apply Penalty to Red Rows", use_container_width=True):
+        today = datetime.date.today()
+        penalized_count = 0
+        for idx, row in df.iterrows():
+            due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
+            if today > due and row['OUTSTANDING_AMOUNT'] > 0:
+                penalty_charge = row['OUTSTANDING_AMOUNT'] * (penalty_rate / 100)
+                df.at[idx, 'OUTSTANDING_AMOUNT'] += penalty_charge
+                penalized_count += 1
+        save_data(df)
+        st.success(f"Applied {penalty_rate}% penalty to {penalized_count} clients!")
+        st.rerun()
+
+    st.markdown("---")
     if not df.empty:
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 DOWNLOAD DATABASE (CSV)", data=csv, file_name="zoe_database.csv", mime="text/csv", use_container_width=True)
+        st.download_button(label="📥 DOWNLOAD DATABASE", data=csv, file_name="zoe_database.csv", mime="text/csv", use_container_width=True)
 
-    st.write("")
-    if st.button("🔴 CLICK HERE TO LOGOUT", key="logout", use_container_width=True):
+    if st.button("🔴 LOGOUT", key="logout", use_container_width=True):
         st.rerun()
 
     st.markdown("""<style>.stDownloadButton button { background-color: #00acee !important; color: white !important; font-weight: bold !important; } .stButton button { background-color: #ef4444 !important; color: white !important; font-weight: bold !important; }</style>""", unsafe_allow_html=True)
@@ -58,96 +73,70 @@ with st.sidebar:
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
-    st.title("📊 Loan Portfolio & Risk Analysis")
+    st.title("📊 Portfolio Insights")
     if not df.empty:
-        # RISK LOGIC: Highlight row if Date > Due Date AND Balance > 0
-        def highlight_risky(row):
-            try:
-                due_date = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-                today = datetime.date.today()
-                if today > due_date and row['OUTSTANDING_AMOUNT'] > 0:
-                    return ['background-color: #fee2e2; color: #991b1b'] * len(row) # Light red background
-                return [''] * len(row)
-            except:
-                return [''] * len(row)
+        # --- PRO FEATURE 2: PERFORMANCE CHART ---
+        st.subheader("📈 Collection Trend")
+        # We simulate a trend based on issuance dates
+        df_sorted = df.sort_values('DATE_OF_ISSUE')
+        df_sorted['Cumulative_Collected'] = df_sorted['AMOUNT_PAID'].cumsum()
+        fig = px.line(df_sorted, x='DATE_OF_ISSUE', y='Cumulative_Collected', 
+                      title="Business Liquidity Growth (Total Collected Over Time)",
+                      markers=True, line_shape="spline", color_discrete_sequence=["#10b981"])
+        st.plotly_chart(fig, use_container_width=True)
 
-        st.subheader("📋 Registry (Red = Overdue)")
-        styled_df = df[['SN', 'NAME', 'EXPECTED_DUE_DATE', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({
-            "LOAN_AMOUNT": "{:,.0f}", 
-            "OUTSTANDING_AMOUNT": "{:,.0f}"
-        })
-        st.table(styled_df)
+        # Standard Registry with Red Highlighting
+        def highlight_risky(row):
+            due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
+            if datetime.date.today() > due and row['OUTSTANDING_AMOUNT'] > 0:
+                return ['background-color: #fee2e2; color: #991b1b'] * len(row)
+            return [''] * len(row)
+
+        st.subheader("📋 Registry")
+        st.table(df[['SN', 'NAME', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({"OUTSTANDING_AMOUNT": "{:,.0f}"}))
 
 elif choice == "👤 Onboarding":
-    st.title("👤 New Loan Disbursement")
+    st.title("👤 Issue New Loan")
+    # ... (Keep existing onboarding logic)
     with st.form("onboard"):
         c1, c2 = st.columns(2)
         with c1:
-            name = st.text_input("FULL NAME").upper()
-            nin = st.text_input("NIN")
-            loc = st.text_input("LOCATION")
-            emp = st.text_input("EMPLOYER")
+            name = st.text_input("FULL NAME").upper(); nin = st.text_input("NIN")
+            loc = st.text_input("LOCATION"); emp = st.text_input("EMPLOYER")
         with c2:
-            amt = st.number_input("LOAN AMOUNT (UGX)", min_value=1000)
+            amt = st.number_input("LOAN AMOUNT", min_value=1000)
             rate = st.number_input("MONTHLY RATE (%)", value=3)
-            # New: Set the expected due date
-            months = st.number_input("DURATION (MONTHS)", min_value=1, value=1)
-            due_date = datetime.date.today() + datetime.timedelta(days=30*months)
-            st.info(f"Automatically calculated Due Date: {due_date.strftime('%d-%b-%Y')}")
+            dur = st.number_input("DURATION (MONTHS)", min_value=1, value=1)
+            due = datetime.date.today() + datetime.timedelta(days=30*dur)
+            st.info(f"Due Date: {due.strftime('%d-%b-%Y')}")
         
-        if st.form_submit_button("✅ Save & Issue"):
+        if st.form_submit_button("✅ Save"):
             new_sn = str(len(df) + 1).zfill(5)
-            initial_total = amt + (amt * (rate/100))
-            new_row = pd.DataFrame([{
-                'SN': new_sn, 'NAME': name, 'NIN': nin, 'LOCATION': loc, 'EMPLOYER': emp,
-                'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'),
-                'EXPECTED_DUE_DATE': due_date.strftime('%d-%b-%Y'),
-                'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 'AMOUNT_PAID': 0, 
-                'OUTSTANDING_AMOUNT': initial_total, 'STATUS': 'Active'
-            }])
-            df = pd.concat([df, new_row], ignore_index=True)
-            save_data(df)
-            st.success("Loan Issued!"); st.rerun()
+            new_row = pd.DataFrame([{'SN': new_sn, 'NAME': name, 'NIN': nin, 'LOCATION': loc, 'EMPLOYER': emp, 'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'), 'EXPECTED_DUE_DATE': due.strftime('%d-%b-%Y'), 'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': amt + (amt*(rate/100)), 'STATUS': 'Active'}])
+            df = pd.concat([df, new_row], ignore_index=True); save_data(df); st.success("Saved!"); st.rerun()
 
 elif choice == "💰 Payments":
-    # (Existing payments logic remains here)
     st.title("💰 Post Payment")
     with st.form("pay"):
-        sn_search = st.text_input("Enter SN").strip().zfill(5)
+        sn = st.text_input("Enter SN").strip().zfill(5)
         p_amt = st.number_input("Amount (UGX)", min_value=100)
         if st.form_submit_button("Confirm"):
-            idx = df[df['SN'] == sn_search].index
+            idx = df[df['SN'] == sn].index
             if not idx.empty:
                 df.at[idx[0], 'AMOUNT_PAID'] += p_amt
                 df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
-                # If paid off, change status
-                if df.at[idx[0], 'OUTSTANDING_AMOUNT'] <= 0:
-                    df.at[idx[0], 'STATUS'] = 'Cleared'
+                if df.at[idx[0], 'OUTSTANDING_AMOUNT'] <= 0: df.at[idx[0], 'STATUS'] = 'Cleared'
                 save_data(df); st.success("Updated!"); st.rerun()
             else: st.error("Not found.")
 
 elif choice == "📄 Client Report":
-    # (Existing report logic remains here)
-    st.title("📄 Official Loan Statement")
+    st.title("📄 Client Statement")
     if not df.empty:
         search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
-        selected = st.selectbox("Select Client", search_list)
-        sn_only = selected.split(" - ")[0]
-        c = df[df['SN'] == sn_only].iloc[0]
-
-        st.markdown(f"""
-            <div class="report-card">
-                <h2 style="text-align:center;">ZOE CONSULTS LIMITED</h2>
-                <hr>
-                <table style="width:100%">
-                    <tr><td><b>Client:</b> {c['NAME']}</td><td style="text-align:right;"><b>SN:</b> {c['SN']}</td></tr>
-                    <tr><td><b>NIN:</b> {c['NIN']}</td><td style="text-align:right;"><b>Due Date:</b> {c['EXPECTED_DUE_DATE']}</td></tr>
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
-        # Metrics & Ledger
-        st.write("")
+        sel = st.selectbox("Select Client", search_list)
+        c = df[df['SN'] == sel.split(" - ")[0]].iloc[0]
+        st.markdown(f'<div class="report-card"><h2 style="text-align:center;">ZOE CONSULTS</h2><hr><p><b>Client:</b> {c["NAME"]}<br><b>NIN:</b> {c["NIN"]}<br><b>Due:</b> {c["EXPECTED_DUE_DATE"]}</p></div>', unsafe_allow_html=True)
         m1, m2, m3 = st.columns(3)
-        m1.metric("Principal", f"UGX {c['LOAN_AMOUNT']:,.0f}")
-        m2.metric("Paid", f"UGX {c['AMOUNT_PAID']:,.0f}")
-        m3.metric("Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}")
+        m1.metric("Principal", f"{c['LOAN_AMOUNT']:,.0f}")
+        m2.metric("Paid", f"{c['AMOUNT_PAID']:,.0f}")
+        m3.metric("Balance", f"{c['OUTSTANDING_AMOUNT']:,.0f}")
