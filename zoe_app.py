@@ -75,87 +75,36 @@ if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
     
     if not df.empty:
-        # (This is your line 61 in the image - it will work now!)
-        # --- PROFIT CALCULATOR LOGIC ---
-        # 1. Total interest expected from all loans
-        total_expected_interest = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE'] / 100)).sum()
-        
-        # 2. Interest actually earned (Pro-rated based on payments)
-        # We calculate the 'Profit Ratio' for each loan
+        # 1. PROFIT CALCULATIONS
+        # We calculate how much of each payment is actual interest profit
         df['profit_ratio'] = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100)) / (df['LOAN_AMOUNT'] + (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100)))
         total_profit_earned = (df['AMOUNT_PAID'] * df['profit_ratio']).sum()
 
-        # --- METRICS DISPLAY ---
+        # 2. TOP METRICS
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Total Principal", f"UGX {df['LOAN_AMOUNT'].sum():,.0f}")
         m2.metric("Total Collected", f"UGX {df['AMOUNT_PAID'].sum():,.0f}")
         m3.metric("Outstanding", f"UGX {df['OUTSTANDING_AMOUNT'].sum():,.0f}")
-        # The New "Gold" Metric
-        m4.metric("Total Profit", f"UGX {total_profit_earned:,.0f}", help="Total interest earned from payments received so far.")
+        m4.metric("Total Profit", f"UGX {total_profit_earned:,.0f}")
 
-        # ... (Rest of your registry table code follows)
-
-        # --- 2. BUSINESS GROWTH CHART (Principal vs. Profit) ---
+        # 3. GROWTH CHART
         st.subheader("📈 Business Growth Strategy")
+        chart_df = df.copy()
+        chart_df['DATE_OF_ISSUE'] = pd.to_datetime(chart_df['DATE_OF_ISSUE'])
+        chart_df = chart_df.sort_values('DATE_OF_ISSUE')
+        chart_df['Cumulative_Principal'] = chart_df['LOAN_AMOUNT'].cumsum()
+        chart_df['Cumulative_Profit'] = (chart_df['AMOUNT_PAID'] * chart_df['profit_ratio']).cumsum()
         
-        if not df.empty:
-            # Prepare the data for a time-series view
-            chart_df = df.copy()
-            chart_df['DATE_OF_ISSUE'] = pd.to_datetime(chart_df['DATE_OF_ISSUE'])
-            chart_df = chart_df.sort_values('DATE_OF_ISSUE')
-            
-            # Calculate cumulative values
-            chart_df['Cumulative_Principal'] = chart_df['LOAN_AMOUNT'].cumsum()
-            chart_df['Cumulative_Profit'] = (chart_df['AMOUNT_PAID'] * chart_df['profit_ratio']).cumsum()
-            
-            # Melt the data so Plotly can understand the two different categories
-            plot_df = chart_df.melt(id_vars='DATE_OF_ISSUE', 
-                                    value_vars=['Cumulative_Principal', 'Cumulative_Profit'],
-                                    var_name='Type', value_name='Amount')
-            
-            # Create a beautiful Stacked Area Chart
-            fig = px.area(plot_df, 
-                          x='DATE_OF_ISSUE', 
-                          y='Amount', 
-                          color='Type',
-                          color_discrete_map={
-                              'Cumulative_Principal': '#1e293b', # Slate
-                              'Cumulative_Profit': '#00acc1'    # Zoe Teal
-                          },
-                          labels={'Amount': 'Value (UGX)', 'DATE_OF_ISSUE': 'Time'},
-                          template="simple_white")
-            
-            fig.update_layout(hovermode="x unified")
-            st.plotly_chart(fig, use_container_width=True)
+        st.area_chart(chart_df.set_index('DATE_OF_ISSUE')[['Cumulative_Principal', 'Cumulative_Profit']])
 
-        # --- 5. PORTFOLIO TABLE ---
-st.subheader("📋 Loan Portfolio Registry")
-
-# Make sure these names match your CSV columns EXACTLY
-# If you aren't sure, check your CSV file headers!
-display_cols = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS']
-
-# A 'Safe' way to filter: only show columns that actually exist
-existing_cols = [col for col in display_cols if col in df.columns]
-
-if not df.empty:
-    with st.expander("📝 Quick Modify Client"):
-        # Everything inside the expander must be indented another 4 spaces
-        selected_client = st.selectbox("Select Client", df['CUSTOMER_NAME'].tolist())
-    
-
-        # 4. QUICK EDIT ACTION (The "Pencil" section)
-        with st.expander("✏️ Quick Modify Client"):
-            edit_sn = st.selectbox("Select Serial Number:", ["Select..."] + df['SN'].tolist())
-            if edit_sn != "Select...":
-                idx = df[df['SN'] == edit_sn].index[0]
-                with st.form("quick_edit"):
-                    st.write(f"Editing **{df.at[idx, 'NAME']}**")
-                    new_stat = st.selectbox("Update Status", ["Active", "Risky", "Cleared", "Dormant"], index=["Active", "Risky", "Cleared", "Dormant"].index(df.at[idx, 'STATUS']))
-                    if st.form_submit_button("Update Status"):
-                        df.at[idx, 'STATUS'] = new_stat
-                        save_data(df)
-                        st.success("Status Updated!"); st.rerun()
+        # 4. REGISTRY TABLE
+        st.subheader("📋 Loan Portfolio Registry")
+        display_cols = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS']
+        # This line prevents the 'KeyError' by only showing columns that exist
+        safe_cols = [c for c in display_cols if c in df.columns]
+        st.table(df[safe_cols])
+    else:
+        st.info("No data found. Please onboard a client first!")
 elif choice == "👤 Onboarding":
     st.title("👤 New Loan")
     with st.form("onboard"):
