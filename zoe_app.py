@@ -7,10 +7,12 @@ import plotly.express as px
 # --- 1. SETTINGS & THEMING ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
+# This CSS fixes the table headers and the report card look
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { background-color: #1e293b !important; }
     [data-testid="stSidebar"] * { color: white !important; }
+    th { background-color: #00acee !important; color: white !important; }
     .report-card { background-color: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; color: black; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
     </style>
     """, unsafe_allow_html=True)
@@ -25,6 +27,8 @@ def load_data():
         for c in cols:
             if c not in df.columns: df[c] = ""
         df['SN'] = df['SN'].astype(str).str.zfill(5)
+        # Ensure numbers are numeric
+        df['OUTSTANDING_AMOUNT'] = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').fillna(0)
         return df
     return pd.DataFrame(columns=cols)
 
@@ -44,76 +48,73 @@ with st.sidebar:
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
     st.markdown("---")
     
-    # --- PRO FEATURE 1: PENALTY ENFORCEMENT ---
+    # ENFORCEMENT SECTION
     st.subheader("⚖️ Enforcement")
-    penalty_rate = st.number_input("Overdue Penalty (%)", value=5)
+    penalty_rate = st.number_input("Overdue Penalty (%)", value=5, key="penalty_box")
     if st.button("⚠️ Apply Penalty to Red Rows", use_container_width=True):
         today = datetime.date.today()
-        penalized_count = 0
+        count = 0
         for idx, row in df.iterrows():
             due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
             if today > due and row['OUTSTANDING_AMOUNT'] > 0:
-                penalty_charge = row['OUTSTANDING_AMOUNT'] * (penalty_rate / 100)
-                df.at[idx, 'OUTSTANDING_AMOUNT'] += penalty_charge
-                penalized_count += 1
-        save_data(df)
-        st.success(f"Applied {penalty_rate}% penalty to {penalized_count} clients!")
-        st.rerun()
+                df.at[idx, 'OUTSTANDING_AMOUNT'] += (row['OUTSTANDING_AMOUNT'] * (penalty_rate / 100))
+                count += 1
+        save_data(df); st.success(f"Penalized {count} clients!"); st.rerun()
 
     st.markdown("---")
+    # THE "IRONCLAD" BUTTONS
     if not df.empty:
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 DOWNLOAD DATABASE", data=csv, file_name="zoe_database.csv", mime="text/csv", use_container_width=True)
-
-    if st.button("🔴 LOGOUT", key="logout", use_container_width=True):
+        st.download_button(label="📥 DOWNLOAD DATABASE (CSV)", data=csv, file_name="zoe_database.csv", mime="text/csv", use_container_width=True)
+    
+    if st.button("🔴 CLICK HERE TO LOGOUT", key="logout_btn", use_container_width=True):
         st.rerun()
 
-    st.markdown("""<style>.stDownloadButton button { background-color: #00acee !important; color: white !important; font-weight: bold !important; } .stButton button { background-color: #ef4444 !important; color: white !important; font-weight: bold !important; }</style>""", unsafe_allow_html=True)
+    st.markdown("""<style>
+        .stDownloadButton button { background-color: #00acee !important; color: white !important; font-weight: bold !important; }
+        .stButton button { background-color: #ef4444 !important; color: white !important; font-weight: bold !important; }
+    </style>""", unsafe_allow_html=True)
 
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
-    st.title("📊 Portfolio Insights")
+    st.title("📊 Portfolio Dashboard")
     if not df.empty:
-        # --- PRO FEATURE 2: PERFORMANCE CHART ---
-        st.subheader("📈 Collection Trend")
-        # Ensure dates are proper for the chart
-        df['DATE_OF_ISSUE'] = pd.to_datetime(df['DATE_OF_ISSUE'], errors='coerce')
-        df_sorted = df.dropna(subset=['DATE_OF_ISSUE']).sort_values('DATE_OF_ISSUE')
-        
-        if not df_sorted.empty:
-            df_sorted['Cumulative_Collected'] = df_sorted['AMOUNT_PAID'].cumsum()
-            fig = px.line(df_sorted, x='DATE_OF_ISSUE', y='Cumulative_Collected', 
-                          title="Business Liquidity Growth",
-                          markers=True, line_shape="spline", color_discrete_sequence=["#10b981"])
-            st.plotly_chart(fig, use_container_width=True)
+        # Chart
+        df_sorted = df.copy()
+        df_sorted['DATE_OF_ISSUE'] = pd.to_datetime(df_sorted['DATE_OF_ISSUE'])
+        df_sorted = df_sorted.sort_values('DATE_OF_ISSUE')
+        df_sorted['Cumulative'] = df_sorted['AMOUNT_PAID'].cumsum()
+        st.plotly_chart(px.line(df_sorted, x='DATE_OF_ISSUE', y='Cumulative', title="Collection Growth", markers=True), use_container_width=True)
 
-        # --- THE FIX FOR THE TABLE ERROR ---
+        # Risk Logic
         def highlight_risky(row):
             try:
-                # Convert string dates to actual date objects for comparison
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-                out = float(row['OUTSTANDING_AMOUNT'])
-                if datetime.date.today() > due and out > 0:
+                if datetime.date.today() > due and row['OUTSTANDING_AMOUNT'] > 0:
                     return ['background-color: #fee2e2; color: #991b1b'] * len(row)
-            except:
-                pass
+            except: pass
             return [''] * len(row)
 
         st.subheader("📋 Registry")
-        # Ensure numeric columns are actually numeric before formatting
-        df['OUTSTANDING_AMOUNT'] = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').fillna(0)
-        
-        # We use st.dataframe instead of st.table for better error handling and scrolling
-        st.dataframe(
-            df[['SN', 'NAME', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({
-                "OUTSTANDING_AMOUNT": "{:,.0f}"
-            }),
-            use_container_width=True
-        )
+        st.dataframe(df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({"OUTSTANDING_AMOUNT": "{:,.0f}"}), use_container_width=True)
+
+        # THE PENCIL EDIT TOOL
+        with st.expander("✏️ Edit Client Details"):
+            edit_sn = st.selectbox("Select SN to modify:", ["Select..."] + df['SN'].tolist())
+            if edit_sn != "Select...":
+                idx = df[df['SN'] == edit_sn].index[0]
+                with st.form("edit_form"):
+                    u_name = st.text_input("Name", value=df.at[idx, 'NAME'])
+                    u_nin = st.text_input("NIN", value=df.at[idx, 'NIN'])
+                    u_loc = st.text_input("Location", value=df.at[idx, 'LOCATION'])
+                    u_stat = st.selectbox("Status", ["Active", "Risky", "Dormant", "Cleared"], index=["Active", "Risky", "Dormant", "Cleared"].index(df.at[idx, 'STATUS']))
+                    if st.form_submit_button("💾 Update Record"):
+                        df.at[idx, 'NAME'] = u_name.upper(); df.at[idx, 'NIN'] = u_nin; df.at[idx, 'LOCATION'] = u_loc; df.at[idx, 'STATUS'] = u_stat
+                        save_data(df); st.success("Updated!"); st.rerun()
+
 elif choice == "👤 Onboarding":
-    st.title("👤 Issue New Loan")
-    # ... (Keep existing onboarding logic)
+    st.title("👤 New Loan")
     with st.form("onboard"):
         c1, c2 = st.columns(2)
         with c1:
@@ -121,77 +122,19 @@ elif choice == "👤 Onboarding":
             loc = st.text_input("LOCATION"); emp = st.text_input("EMPLOYER")
         with c2:
             amt = st.number_input("LOAN AMOUNT", min_value=1000)
-            rate = st.number_input("MONTHLY RATE (%)", value=3)
-            dur = st.number_input("DURATION (MONTHS)", min_value=1, value=1)
+            rate = st.number_input("RATE (%)", value=3); dur = st.number_input("MONTHS", min_value=1, value=1)
             due = datetime.date.today() + datetime.timedelta(days=30*dur)
-            st.info(f"Due Date: {due.strftime('%d-%b-%Y')}")
-        
         if st.form_submit_button("✅ Save"):
             new_sn = str(len(df) + 1).zfill(5)
-            new_row = pd.DataFrame([{'SN': new_sn, 'NAME': name, 'NIN': nin, 'LOCATION': loc, 'EMPLOYER': emp, 'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'), 'EXPECTED_DUE_DATE': due.strftime('%d-%b-%Y'), 'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': amt + (amt*(rate/100)), 'STATUS': 'Active'}])
-            df = pd.concat([df, new_row], ignore_index=True); save_data(df); st.success("Saved!"); st.rerun()
+            new_row = pd.DataFrame([{'SN': new_sn, 'NAME': name, 'NIN': nin, 'LOCATION': loc, 'EMPLOYER': emp, 'DATE_OF_ISSUE': datetime.date.today().strftime('%d-%b-%Y'), 'EXPECTED_DUE_DATE': due.strftime('%d-%b-%Y'), 'LOAN_AMOUNT': amt, 'INTEREST_RATE': rate, 'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': amt+(amt*(rate/100)), 'STATUS': 'Active'}])
+            df = pd.concat([df, new_row], ignore_index=True); save_data(df); st.success("Done!"); st.rerun()
 
 elif choice == "💰 Payments":
     st.title("💰 Post Payment")
     with st.form("pay"):
         sn = st.text_input("Enter SN").strip().zfill(5)
-        p_amt = st.number_input("Amount (UGX)", min_value=100)
+        p_amt = st.number_input("Amount", min_value=100)
         if st.form_submit_button("Confirm"):
             idx = df[df['SN'] == sn].index
             if not idx.empty:
-                df.at[idx[0], 'AMOUNT_PAID'] += p_amt
-                df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
-                if df.at[idx[0], 'OUTSTANDING_AMOUNT'] <= 0: df.at[idx[0], 'STATUS'] = 'Cleared'
-                save_data(df); st.success("Updated!"); st.rerun()
-            else: st.error("Not found.")
-
-elif choice == "📄 Client Report":
-    st.title("📄 Official Loan Statement")
-    if not df.empty:
-        # Client Selector
-        search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
-        selected = st.selectbox("Select Client to View Ledger", search_list)
-        sn_only = selected.split(" - ")[0]
-        c = df[df['SN'] == sn_only].iloc[0]
-
-        # 1. PROFESSIONAL HEADER
-        st.markdown(f"""
-            <div class="report-card">
-                <h2 style="text-align:center; color:#1e293b; margin-bottom:0;">ZOE CONSULTS LIMITED</h2>
-                <p style="text-align:center; color:#64748b; margin-top:0;">Loan Statement & Ledger</p>
-                <hr>
-                <table style="width:100%; font-size: 0.9em;">
-                    <tr><td><b>Client:</b> {c['NAME']}</td><td style="text-align:right;"><b>SN:</b> {c['SN']}</td></tr>
-                    <tr><td><b>NIN:</b> {c['NIN']}</td><td style="text-align:right;"><b>Contact:</b> {c['CONTACT']}</td></tr>
-                    <tr><td><b>Issued:</b> {c['DATE_OF_ISSUE']}</td><td style="text-align:right;"><b>Due:</b> {c['EXPECTED_DUE_DATE']}</td></tr>
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # 2. METRICS
-        st.write("")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Principal Issued", f"UGX {float(c['LOAN_AMOUNT']):,.0f}")
-        m2.metric("Total Payments", f"UGX {float(c['AMOUNT_PAID']):,.0f}")
-        m3.metric("Current Balance", f"UGX {float(c['OUTSTANDING_AMOUNT']):,.0f}")
-
-        # 3. REDUCING BALANCE LEDGER
-        st.subheader("📉 Transaction History")
-        
-        # Calculation for the ledger rows
-        principal = float(c['LOAN_AMOUNT'])
-        interest_amt = principal * (float(c['INTEREST_RATE']) / 100)
-        
-        ledger_data = [
-            {"Date": c['DATE_OF_ISSUE'], "Description": "Initial Disbursement", "Debit": principal, "Credit": 0, "Balance": principal},
-            {"Date": "Month 1", "Description": f"Interest Charge ({c['INTEREST_RATE']}%)", "Debit": interest_amt, "Credit": 0, "Balance": principal + interest_amt},
-            {"Date": "To Date", "Description": "Total Collections Received", "Debit": 0, "Credit": float(c['AMOUNT_PAID']), "Balance": float(c['OUTSTANDING_AMOUNT'])}
-        ]
-        
-        st.table(pd.DataFrame(ledger_data).style.format({
-            "Debit": "{:,.0f}",
-            "Credit": "{:,.0f}",
-            "Balance": "{:,.0f}"
-        }))
-        
-        st.caption("This ledger is generated based on the current active loan terms.")
+                df.at[idx[0], 'AMOUNT_PAID'] += p_amt; df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
