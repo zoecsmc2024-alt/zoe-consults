@@ -50,9 +50,41 @@ with st.sidebar:
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Database", data=csv, file_name="zoe_database.csv", mime="text/csv")
     
-    st.markdown("""<style>.stButton>button { width: 100%; background-color: #ef4444 !important; color: white !important; font-weight: bold; }</style>""", unsafe_allow_html=True)
-    if st.button("🔓 LOGOUT"):
-        st.rerun()
+    # 3. THE VISIBLE BUTTONS (Download & Logout)
+    st.markdown("""
+        <style>
+        /* Style for the Download Button (Primary Blue) */
+        .stDownloadButton>button {
+            width: 100%;
+            background-color: #00acee !important;
+            color: white !important;
+            border-radius: 8px;
+            border: none;
+            height: 3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .stDownloadButton>button:hover {
+            background-color: #008fcc !important;
+            color: white !important;
+        }
+        
+        /* Style for the Logout Button (Alert Red) */
+        .stButton>button {
+            width: 100%;
+            background-color: #ef4444 !important;
+            color: white !important;
+            border-radius: 8px;
+            border: none;
+            height: 3em;
+            font-weight: bold;
+        }
+        .stButton>button:hover {
+            background-color: #dc2626 !important;
+            color: white !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 # --- 4. PAGES ---
 
