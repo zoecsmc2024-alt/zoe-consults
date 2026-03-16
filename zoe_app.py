@@ -153,6 +153,10 @@ elif choice == "📄 Client Report":
                         <p><b>Address:</b> {c['LOCATION']}</p>
                         # Use .get() so it shows 'N/A' instead of crashing if the column is missing
 nin_value = c.get('NIN', 'Not Provided')
+# 1. First, create the variable (The 'Picture')
+nin_value = c.get('NIN', 'N/A')
+
+# 2. Then, display it (The 'Showing the Picture')
 st.markdown(f"<p><b>NIN:</b> {nin_value}</p>", unsafe_allow_html=True)
                         <p><b>Employer:</b> {c['EMPLOYER']}</p>
                     </div>
