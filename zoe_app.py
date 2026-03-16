@@ -8,6 +8,7 @@ import plotly.express as px
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
 # This CSS fixes the table headers and the report card look
+# --- Line 11: CSS STYLING ---
 st.markdown("""
     <style>
     /* 1. SIDEBAR & HEADER BLEND */
@@ -44,16 +45,18 @@ st.markdown("""
     .stTable td, .stTable th { color: #1e293b !important; }
     thead tr th { background-color: #00acc1 !important; color: white !important; }
     </style>
-  with st.sidebar:
-    # ... logo code ...
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
+""", unsafe_allow_html=True)
 
-# ONLY AFTER the sidebar block do you start the 'if' statements
-if choice == "📊 Daily Report":
-    # ...
-    unsafe_allow_html=True)
+# --- 3. SIDEBAR NAVIGATION ---
+with st.sidebar:
+    # (Optional: Add your circular logo code here)
+    st.markdown("<p style='color: #94a3b8; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-top: 20px;'>MAIN MENU</p>", unsafe_allow_html=True)
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
+
+# --- 4. PAGES ---
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
+    # Your metric and chart code continues here...
     
     if not df.empty:
         # --- PROFIT CALCULATOR LOGIC ---
