@@ -173,22 +173,39 @@ if choice == "📊 Daily Report":
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
-        # 3. PREMIUM REGISTRY TABLE
-        st.subheader("📋 Loan Registry")
-        
-        # Risk Highlighting Logic
-        def highlight_risky(row):
+        # 3. PREMIUM TEAL REGISTRY
+        st.subheader("📋 Loan Portfolio Registry")
+
+        # 1. Define the styling function (Fixes the NameError)
+        def apply_premium_styling(row):
             try:
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-                if datetime.date.today() > due and row['OUTSTANDING_AMOUNT'] > 0:
-                    return ['background-color: #ffebee; color: #c62828; font-weight: bold'] * len(row)
-            except: pass
+                balance = float(row['OUTSTANDING_AMOUNT'])
+                # Soft Red for Overdue
+                if datetime.date.today() > due and balance > 0:
+                    return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
+                # Soft Green for Cleared
+                if row['STATUS'] == 'Cleared':
+                    return ['background-color: #dcfce7; color: #166534'] * len(row)
+            except:
+                pass
             return [''] * len(row)
 
-        # Styling the dataframe
-        styled_registry = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({
+        # 2. Custom CSS to force the Header to be Zoe Teal (#00acc1)
+        st.markdown("""
+            <style>
+                thead tr th {
+                    background-color: #00acc1 !important;
+                    color: white !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
+        # 3. Display the Table
+        display_cols = ['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
+        st.table(df[display_cols].style.apply(apply_premium_styling, axis=1).format({
             "OUTSTANDING_AMOUNT": "{:,.0f}"
-        })
+        }))
         
         st.dataframe(styled_registry, use_container_width=True)
 
