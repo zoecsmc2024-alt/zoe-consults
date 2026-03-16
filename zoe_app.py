@@ -37,7 +37,7 @@ df = load_data()
 
 # --- 3. NAVIGATION & BRANDING ---
 with st.sidebar:
-    # Logo Section
+    # Logo
     if os.path.exists("logo.jpg"):
         st.image("logo.jpg", width=150)
     else:
@@ -45,30 +45,34 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Navigation Menu
+    # Navigation
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
     
     st.markdown("---")
     
-    # THE BUTTONS SECTION (Using Native Columns)
-    # This avoids the CSS conflict entirely
-    if not df.empty:
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Database",
-            data=csv,
-            file_name="zoe_database.csv",
-            mime="text/csv",
-            use_container_width=True,
-            type="primary" # This makes it Blue automatically
-        )
-    
-    st.write("") # Add some space
-    
-    if st.button("🔓 LOGOUT", use_container_width=True):
-        st.rerun()
+    # THE "VISIBLE ISLAND"
+    # This forces a light background area so the buttons CANNOT be invisible
+    with st.container():
+        st.markdown('<div style="background-color: #f1f5f9; padding: 15px; border-radius: 10px; border: 1px solid #cbd5e1;">', unsafe_allow_html=True)
+        
+        if not df.empty:
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Database",
+                data=csv,
+                file_name="zoe_database.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        st.write("") # Spacer
+        
+        if st.button("🔓 LOGOUT", use_container_width=True):
+            st.rerun()
+            
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.caption("v3.5 | Kampala, UG")
+    st.caption("v3.6 | Kampala, UG")
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
