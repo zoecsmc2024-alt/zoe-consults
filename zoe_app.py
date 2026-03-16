@@ -52,13 +52,20 @@ with st.sidebar:
     # (Optional: Add your circular logo code here)
     st.markdown("<p style='color: #94a3b8; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-top: 20px;'>MAIN MENU</p>", unsafe_allow_html=True)
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
+# --- 2. DATA ENGINE ---
+def load_data():
+    # ... (the code inside your load_data function) ...
+    return df
+
+# THIS IS THE MISSING LINK:
+df = load_data() 
 
 # --- 4. PAGES ---
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
-    # Your metric and chart code continues here...
     
     if not df.empty:
+        # (This is your line 61 in the image - it will work now!)
         # --- PROFIT CALCULATOR LOGIC ---
         # 1. Total interest expected from all loans
         total_expected_interest = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE'] / 100)).sum()
