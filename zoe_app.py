@@ -135,58 +135,50 @@ elif choice == "💰 Payments":
             else: st.error("Not found.")
 
 elif choice == "📄 Client Report":
-    # 1. TOP PROFILE HEADER (Inspired by your image)
-    if not df.empty:
-        client_options = df.apply(lambda x: f"{str(x['SN']).zfill(5)} - {x['NAME']}", axis=1).tolist()
-        selected_client = st.selectbox("Search Borrower", client_options)
-        c = df[df['SN'].astype(str).str.zfill(5) == selected_client.split(" - ")[0]].iloc[0]
+    st.title("📄 Client Statement")
+    
+    # 1. SEARCH BAR
+    search_query = st.selectbox("Search Borrower", df['SN'].astype(str) + " - " + df['CUSTOMER_NAME'])
+    
+    if search_query:
+        # Get the serial number from the selection
+        sn_selected = int(search_query.split(" - ")[0])
+        c = df[df['SN'] == sn_selected].iloc[0]
 
+        # 2. CLIENT PROFILE HEADER
         st.markdown(f"""
-            <div style="background-color: white; padding: 20px; border-radius: 10px; border-top: 5px solid #00acc1; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between;">
-                    <div>
-                        <h2 style="margin:0; color:#1e293b;">{c['NAME']}</h2>
-                        <p style="color:#00acc1; font-weight:bold; margin:0;">CL-{c['SN']}</p>
-                        <p style="font-size:0.8em; color:gray;">Issued: {c['DATE_OF_ISSUE']}</p>
-                    </div>
-                    <div style="text-align: right; font-size:0.9em;">
-                        <p><b>Address:</b> {c['LOCATION']}</p>
-                        # Use .get() so it shows 'N/A' instead of crashing if the column is missing
-st.markdown(f"<p><b>NIN:</b> {c.get('NIN', 'N/A')}</p>", unsafe_allow_html=True)
-
-# 2. Then, display it (The 'Showing the Picture')
-st.markdown(f"<p><b>NIN:</b> {c.get('NIN', 'Not Found')}</p>", unsafe_allow_html=True)
-                        <p><b>Employer:</b> {c['EMPLOYER']}</p>
-                    </div>
-                </div>
-                <div style="margin-top:15px;">
-                    <span style="background-color:#00acc1; color:white; padding:5px 15px; border-radius:5px; font-size:0.8em;">Add Loan</span>
-                    <span style="background-color:#1e293b; color:white; padding:5px 15px; border-radius:5px; font-size:0.8em; margin-left:10px;">View All Loans</span>
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #00acc1; margin-bottom: 20px;">
+                <h2 style="color: #0f172a; margin: 0;">{c.get('CUSTOMER_NAME', 'Unknown Client')}</h2>
+                <p style="color: #64748b;">ID: {c.get('SN', 'N/A')} | Location: {c.get('LOCATION', 'N/A')}</p>
+                <div style="display: flex; gap: 20px; margin-top: 10px;">
+                    <span><b>NIN:</b> {c.get('NIN', 'N/A')}</span>
+                    <span><b>Phone:</b> {c.get('PHONE', 'N/A')}</span>
                 </div>
             </div>
         """, unsafe_allow_html=True)
 
-        st.write("")
+        # 3. LOAN SUMMARY TILES
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Principal", f"UGX {float(c.get('LOAN_AMOUNT', 0)):,.0f}")
+        m2.metric("Paid", f"UGX {float(c.get('AMOUNT_PAID', 0)):,.0f}")
+        m3.metric("Balance", f"UGX {float(c.get('OUTSTANDING_AMOUNT', 0)):,.0f}")
 
-        # 2. MAIN LOAN SUMMARY BAR (Teal Theme)
-       # --- WRAP THIS SECTION IN ST.MARKDOWN ---
-# 2. MAIN LOAN SUMMARY BAR (Teal Theme)
-    st.markdown(f"""
-        <style>
-            .loan-header {{ background-color: #00acc1; color: white; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; border-radius: 8px 8px 0 0; }}
-            .loan-row {{ background-color: white; padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; font-size: 0.9em; }}
-        </style>
-        
-        <div class="loan-header">
-            <span>Loan#</span><span>Principal</span><span>Interest</span><span>Paid</span><span>Balance</span><span>Status</span>
-        </div>
-        <div class="loan-row">
-            <span>LN-{c['SN']}</span>
-            <span>{float(c['LOAN_AMOUNT']):,.0f}</span>
-            <span>{c['INTEREST_RATE']}%</span>
-            <span>{float(c['AMOUNT_PAID']):,.0f}</span>
-            <span style="color:#00acc1; font-weight:bold;">{float(c['OUTSTANDING_AMOUNT']):,.0f}</span>
-            <span style="background-color:#00acc1; color:white; padding:2px 8px; border-radius:4px; font-size:0.8em;">{c['STATUS']}</span>
-        </div>
-    """, unsafe_allow_html=True)
-        
+        # 4. REPAYMENT TABS
+        st.write("")
+        tab1, tab2, tab3 = st.tabs(["📊 Repayments", "📝 Terms", "📅 Schedule"])
+
+        with tab1:
+            st.subheader("Repayment History")
+            ledger_data = [
+                {"Date": c.get('DATE_OF_ISSUE', 'N/A'), "Description": "Loan Released", "Amount": c.get('LOAN_AMOUNT', 0)},
+                {"Date": "To Date", "Description": "Total Collections", "Amount": -c.get('AMOUNT_PAID', 0)}
+            ]
+            st.table(pd.DataFrame(ledger_data))
+            st.button("➕ Add Repayment", key="add_rep")
+
+        with tab2:
+            st.write(f"**Interest Rate:** {c.get('INTEREST_RATE', '0')}%")
+            st.write(f"**Next of Kin:** {c.get('NEXT_OF_KIN', 'N/A')}")
+
+        with tab3:
+            st.info(f"Final Maturity Date: {c.get('EXPECTED_DUE_DATE', 'N/A')}")
