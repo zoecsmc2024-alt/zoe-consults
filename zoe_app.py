@@ -140,91 +140,90 @@ elif choice == "👤 Onboarding":
             save_data(pd.concat([df, new_row], ignore_index=True))
             st.success("Recorded!"); st.rerun()
 
+# --- UPDATE THE PAYMENTS SECTION ---
 elif choice == "💰 Payments":
     st.title("💰 Post Payment")
     with st.form("pay"):
         cid = st.text_input("Enter SN (e.g. 00001)").strip()
         p_amt = st.number_input("Amount (UGX)", min_value=100)
+        p_date = st.date_input("Payment Date", datetime.date.today())
         if st.form_submit_button("Submit"):
             idx = df[df['SN'] == cid].index
             if not idx.empty:
+                # 1. Update the running totals
                 df.at[idx[0], 'AMOUNT_PAID'] += p_amt
                 df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
-                df.at[idx[0], 'Last_Payment_Date'] = datetime.datetime.now()
-                save_data(df); st.success("Updated!"); st.rerun()
+                df.at[idx[0], 'Last_Payment_Date'] = p_date
+                
+                # 2. Record this specific transaction in a 'history' note (optional)
+                save_data(df)
+                st.success(f"Payment of UGX {p_amt:,.0f} logged. Balance is now UGX {df.at[idx[0], 'OUTSTANDING_AMOUNT']:,.0f}")
+                st.rerun()
             else: st.error("SN not found.")
 
+# --- UPDATE THE CLIENT REPORT SECTION (The Beautiful Ledger) ---
 elif choice == "📄 Client Report":
-    st.title("📄 Client Statement & Schedule")
+    st.title("📄 Client Statement")
     if not df.empty:
-        # 1. Clean Selection List
         client_options = df.apply(lambda x: f"{x['NAME']} (SN: {x['SN']})", axis=1).tolist()
         selected_option = st.selectbox("Select Client", client_options)
-        
-        # 2. Safety Check for SN
         selected_sn = str(selected_option.split("(SN: ")[1].replace(")", "")).strip()
         c = df[df['SN'].astype(str).str.strip() == selected_sn].iloc[0]
+
+        # 1. RENDER THE PROFESSIONAL HEADER (Using st.write to avoid HTML raw text)
+        st.subheader("ZOE CONSULTS LIMITED")
+        st.write(f"**Client:** {c['NAME']} | **SN:** {c['SN']}")
+        st.write(f"**Issue Date:** {pd.to_datetime(c['DATE_OF_ISSUE']).strftime('%d-%b-%Y')}")
         
-        # 3. Data Cleaning (Crucial for the "Could not calculate" error)
-        try:
-            loan_amt = float(c['LOAN_AMOUNT'])
-            m_rate = float(c['INTEREST_RATE'])
-            months = int(c['DURATION_MONTHS'])
-            paid = float(c['AMOUNT_PAID'])
-            outstanding = float(c['OUTSTANDING_AMOUNT'])
-        except:
-            st.error("⚠️ Data Error: Please use the 'Edit' tool in the Daily Report to ensure Principal, Rate, and Duration are numbers.")
-            st.stop()
-            
-        # 4. Professional Statement Design
-        st.markdown(f"""
-        <div style="padding:25px; border:1px solid #e2e8f0; border-radius:12px; background-color: white; color: black; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-            <h2 style="text-align:center; color: #1e293b; margin-bottom: 5px;">ZOE CONSULTS LIMITED</h2>
-            <p style="text-align:center; color: #64748b; font-size: 0.9em; margin-top: 0;">Providing Financial Solutions</p>
-            <div style="height: 2px; background-color: #00acee; margin-bottom: 20px;"></div>
-            
-            <table style="width:100%; border-collapse: collapse; font-family: sans-serif;">
-                <tr>
-                    <td style="width: 50%; vertical-align: top;">
-                        <p style="margin:2px;"><b>CLIENT:</b> {c['NAME']}</p>
-                        <p style="margin:2px;"><b>CONTACT:</b> {c['CONTACT']}</p>
-                        <p style="margin:2px;"><b>STATUS:</b> <span style="color: {'#10b981' if c['STATUS'] == 'Active' else '#ef4444'};">{c['STATUS']}</span></p>
-                    </td>
-                    <td style="width: 50%; text-align: right; vertical-align: top;">
-                        <p style="margin:2px;"><b>SERIAL NO:</b> {c['SN']}</p>
-                        <p style="margin:2px;"><b>OFFER NO:</b> {c['OFFER_NO']}</p>
-                        <p style="margin:2px;"><b>DATE:</b> {pd.to_datetime(c['DATE_OF_ISSUE']).strftime('%d-%b-%Y')}</p>
-                    </td>
-                </tr>
-            </table>
-            
-            <div style="display: flex; justify-content: space-around; background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin-top: 25px;">
-                <div style="text-align: center;">
-                    <span style="font-size: 0.8em; color: #475569;">PRINCIPAL</span><br>
-                    <span style="font-weight: bold; font-size: 1.2em;">UGX {loan_amt:,.0f}</span>
-                </div>
-                <div style="text-align: center;">
-                    <span style="font-size: 0.8em; color: #475569;">TOTAL PAID</span><br>
-                    <span style="font-weight: bold; font-size: 1.2em; color: #10b981;">UGX {paid:,.0f}</span>
-                </div>
-                <div style="text-align: center;">
-                    <span style="font-size: 0.8em; color: #475569;">BALANCE</span><br>
-                    <span style="font-weight: bold; font-size: 1.2em; color: #ef4444;">UGX {outstanding:,.0f}</span>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 5. The Repayment Schedule
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Principal", f"UGX {c['LOAN_AMOUNT']:,.0f}")
+        col2.metric("Total Paid", f"UGX {c['AMOUNT_PAID']:,.0f}", delta=f"{c['AMOUNT_PAID']}")
+        col3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
+
         st.markdown("---")
-        st.subheader("📅 Monthly Repayment Schedule")
-        if months > 0:
-            try:
-                sched_df = generate_schedule(loan_amt, m_rate, months)
-                st.table(sched_df.style.format("{:,.0f}"))
-            except:
-                st.warning("Could not calculate schedule. Ensure Monthly Rate is e.g. 3 and not 0.03.")
-        else:
-            st.info("Duration is 0. Update the loan duration to see a schedule.")
-    else:
+        st.subheader("📉 Loan Reduction Ledger")
+        
+        # 2. CALCULATE THE REDUCING BALANCE TABLE
+        # This simulates how the debt has dropped
+        history = []
+        current_bal = float(c['LOAN_AMOUNT'])
+        monthly_rate = float(c['INTEREST_RATE']) / 100
+        
+        # Start with the Initial Disbursement
+        history.append({
+            "Date": pd.to_datetime(c['DATE_OF_ISSUE']).strftime('%d-%b-%Y'),
+            "Description": "Loan Disbursement",
+            "Debit (+Interest)": 0,
+            "Credit (Payment)": 0,
+            "Running Balance": current_bal
+        })
+
+        # Logic: If they have paid, show the credit. 
+        # If the month has passed, show the interest charge.
+        if c['AMOUNT_PAID'] > 0:
+            current_bal = c['LOAN_AMOUNT'] + (c['LOAN_AMOUNT'] * monthly_rate)
+            history.append({
+                "Date": "Month 1 End",
+                "Description": "Monthly Interest Applied",
+                "Debit (+Interest)": round(c['LOAN_AMOUNT'] * monthly_rate, 0),
+                "Credit (Payment)": 0,
+                "Running Balance": current_bal
+            })
+            
+            history.append({
+                "Date": pd.to_datetime(c['Last_Payment_Date']).strftime('%d-%b-%Y'),
+                "Description": "Total Payments Received",
+                "Debit (+Interest)": 0,
+                "Credit (Payment)": c['AMOUNT_PAID'],
+                "Running Balance": c['OUTSTANDING_AMOUNT']
+            })
+
+        ledger_df = pd.DataFrame(history)
+        st.table(ledger_df.style.format({
+            "Debit (+Interest)": "{:,.0f}",
+            "Credit (Payment)": "{:,.0f}",
+            "Running Balance": "{:,.0f}"
+        }))
+        
+        st.info("💡 Note: Interest is reapplied to the balance if the loan exceeds 30 days.")
         st.info("The registry is empty.")
