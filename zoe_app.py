@@ -173,43 +173,43 @@ if choice == "📊 Daily Report":
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
-     # 3. PREMIUM TEAL REGISTRY (Cleaned & Updated)
+    # 3. CONSOLIDATED PREMIUM REGISTRY
         st.subheader("📋 Loan Portfolio Registry")
 
-        # Define styling
-        def registry_style(row):
+        # FIX: We define the function RIGHT HERE to ensure the app sees it
+        def apply_premium_styling(row):
             try:
+                # Logic for Red (Overdue)
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
                 balance = float(row['OUTSTANDING_AMOUNT'])
                 if datetime.date.today() > due and balance > 0:
                     return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
+                
+                # Logic for Green (Cleared)
                 if row['STATUS'] == 'Cleared':
                     return ['background-color: #dcfce7; color: #166534'] * len(row)
-            except: pass
+            except:
+                pass
             return [''] * len(row)
 
-        # Force Header Color
-        st.markdown("<style>thead tr th { background-color: #00acc1 !important; color: white !important; }</style>", unsafe_allow_html=True)
+        # Force the Header to be Zoe Teal
+        st.markdown("""
+            <style>
+                thead tr th {
+                    background-color: #00acc1 !important;
+                    color: white !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
 
-        # Updated Columns: Added 'DATE_OF_ISSUE'
+        # Select only the columns we need for the main dashboard
         display_cols = ['SN', 'NAME', 'DATE_OF_ISSUE', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
         
-        # DISPLAY ONLY THIS TABLE (Delete any other st.dataframe or st.table lines nearby)
-        st.table(df[display_cols].style.apply(registry_style, axis=1).format({
+        # We use .style.apply and then pass it to st.table
+        # This REMOVES the double table and fixes the NameError
+        st.table(df[display_cols].style.apply(apply_premium_styling, axis=1).format({
             "OUTSTANDING_AMOUNT": "{:,.0f}"
         }))
-        # Updated Styling
-        styled_registry = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style\
-            .apply(apply_premium_styling, axis=1)\
-            .format({"OUTSTANDING_AMOUNT": "{:,.0f}"})\
-            .set_properties(**{
-                'font-family': 'Segoe UI',
-                'font-size': '14px',
-                'border-collapse': 'collapse',
-                'border-bottom': '1px solid #f1f5f9'
-            })
-
-        st.dataframe(styled_registry, use_container_width=True, hide_index=True)
 elif choice == "👤 Onboarding":
     st.title("👤 New Loan / Excel Migration")
     st.info("💡 To migrate Excel data, simply change the 'Disbursement Date' to the original date from your sheet.")
