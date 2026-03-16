@@ -13,7 +13,7 @@ def load_data():
         df['Last_Payment_Date'] = pd.to_datetime(df['Last_Payment_Date'])
         return df
     else:
-        columns = ['Customer_ID', 'Name', 'Principal_USD', 'Annual_Rate', 'Start_Date', 'Last_Payment_Date', 'Status']
+        columns = ['Customer_ID', 'Name', 'Principal_UGX', 'Annual_Rate', 'Start_Date', 'Last_Payment_Date', 'Status']
         return pd.DataFrame(columns=columns)
 
 def save_data(df):
@@ -27,11 +27,11 @@ def calculate_live_balance(row):
     months_diff = today.month - row['Start_Date'].month
     total_months = max(0, (years_diff * 12) + months_diff)
     monthly_rate = row['Annual_Rate'] / 12
-    balance = row['Principal_USD'] * (1 + monthly_rate) ** total_months
+    balance = row['Principal_UGX'] * (1 + monthly_rate) ** total_months
     return round(balance, 2)
 
 def auto_update_status(row):
-    if row['Status'] == 'Paid Off' or row['Principal_USD'] <= 0:
+    if row['Status'] == 'Paid Off' or row['Principal_UGX'] <= 0:
         return 'Paid Off'
     today = datetime.datetime.now()
     days_since_payment = (today - row['Last_Payment_Date']).days
