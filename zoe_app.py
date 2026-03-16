@@ -128,32 +128,18 @@ if choice == "📊 Daily Report":
             fig.update_layout(hovermode="x unified")
             st.plotly_chart(fig, use_container_width=True)
 
-        # 3. CONSOLIDATED PREMIUM REGISTRY (Colors Restored)
-        st.subheader("📋 Loan Portfolio Registry")
+        # --- 5. PORTFOLIO TABLE ---
+st.subheader("📋 Loan Portfolio Registry")
 
-        def apply_premium_styling(row):
-            try:
-                due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-                balance = float(row['OUTSTANDING_AMOUNT'])
-                # Soft Red for Overdue
-                if datetime.date.today() > due and balance > 0:
-                    return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
-                # Soft Green for Cleared
-                if row['STATUS'] == 'Cleared':
-                    return ['background-color: #dcfce7; color: #166534'] * len(row)
-            except:
-                pass
-            return [''] * len(row)
+# Make sure these names match your CSV columns EXACTLY
+# If you aren't sure, check your CSV file headers!
+display_cols = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS']
 
-        # THE CSS MASTER FIX: Forces Teal Header AND Hides the Index Column
-        st.markdown("<style> thead tr th { background-color: #00acc1 !important; } </style>", unsafe_allow_html=True)
+# A 'Safe' way to filter: only show columns that actually exist
+existing_cols = [col for col in display_cols if col in df.columns]
 
-        display_cols = ['SN', 'NAME', 'DATE_OF_ISSUE', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
-        
-        # Using st.table ensures the row colors (Red/Green) are forced to show
-        st.table(df[display_cols].style.apply(apply_premium_styling, axis=1).format({
-            "OUTSTANDING_AMOUNT": "{:,.0f}"
-        }))
+if not df.empty:
+    st.table(df[existing_cols].style.apply(apply_premium_styling, axis=1))
 
         # 4. QUICK EDIT ACTION (The "Pencil" section)
         with st.expander("✏️ Quick Modify Client"):
