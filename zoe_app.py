@@ -107,13 +107,25 @@ if not df.empty:
     df['Current_Balance'] = df.apply(calculate_live_balance, axis=1)
 
 with st.sidebar:
-    # --- SAFE LOGO LOADING ---
-    try:
-        # This tries to load your uploaded file
+    # --- 1. BULLETPROOF LOGO LOGIC ---
+    if os.path.exists(LOGO_URL):
         st.image(LOGO_URL, width=120)
-    except:
-        # If the file is missing, it shows a bank icon instead of crashing
-        st.header("🏦") 
+    else:
+        # This message only shows if the file name is wrong on GitHub
+        st.warning(f"⚠️ {LOGO_URL} not found in GitHub folder")
+        st.title("🏦 Zoe Consults")
+
+    st.markdown("---")
+    
+    # 2. NAVIGATION
+    choice = st.radio("Menu Navigation", ["📊 Daily Report", "👤 New Customer", "💰 Record Payment", "✉️ Letters"])
+    
+    st.markdown("---")
+    # 3. HIGH-VISIBILITY LOGOUT
+    if st.button("🔓 LOGOUT SYSTEM"):
+        del st.session_state["password_correct"]
+        st.rerun()
+    st.caption("v2.4 | Kampala, UG")
 
     
     st.title("Zoe Consults")
