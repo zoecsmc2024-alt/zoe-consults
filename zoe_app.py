@@ -155,7 +155,7 @@ elif choice == "📄 Client Report":
 st.markdown(f"<p><b>NIN:</b> {c.get('NIN', 'N/A')}</p>", unsafe_allow_html=True)
 
 # 2. Then, display it (The 'Showing the Picture')
-st.markdown(f"<p><b>NIN:</b> {nin_value}</p>", unsafe_allow_html=True)
+st.markdown(f"<p><b>NIN:</b> {c.get('NIN', 'Not Found')}</p>", unsafe_allow_html=True)
                         <p><b>Employer:</b> {c['EMPLOYER']}</p>
                     </div>
                 </div>
