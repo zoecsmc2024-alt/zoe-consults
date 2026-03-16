@@ -78,41 +78,79 @@ with st.sidebar:
 # --- 4. PAGES ---
 
 if choice == "📊 Daily Report":
-    st.title("📊 Portfolio Dashboard")
-    if not df.empty:
-        # Chart
+    st.title("📊 Portfolio Insights")
+    
+    if df.empty:
+        st.info("Portfolio is empty. Onboard your first client to see analytics.")
+    else:
+        # 1. TOP SUMMARY METRICS (Styled like your reference image)
+        t_principal = df['LOAN_AMOUNT'].sum()
+        t_collected = df['AMOUNT_PAID'].sum()
+        t_outstanding = df['OUTSTANDING_AMOUNT'].sum()
+        
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            st.markdown(f"""<div style="background-color: #00acc1; padding: 20px; border-radius: 10px; color: white;">
+                <p style="margin:0; font-size: 0.8em; opacity: 0.8;">TOTAL DISBURSED</p>
+                <h2 style="margin:0;">UGX {t_principal:,.0f}</h2>
+            </div>""", unsafe_allow_html=True)
+        with m2:
+            st.markdown(f"""<div style="background-color: #1e293b; padding: 20px; border-radius: 10px; color: white;">
+                <p style="margin:0; font-size: 0.8em; opacity: 0.8;">TOTAL COLLECTED</p>
+                <h2 style="margin:0;">UGX {t_collected:,.0f}</h2>
+            </div>""", unsafe_allow_html=True)
+        with m3:
+            st.markdown(f"""<div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; color: #1e293b; border: 1px solid #e2e8f0;">
+                <p style="margin:0; font-size: 0.8em; color: gray;">OUTSTANDING BALANCE</p>
+                <h2 style="margin:0; color: #00acc1;">UGX {t_outstanding:,.0f}</h2>
+            </div>""", unsafe_allow_html=True)
+
+        st.write("")
+
+        # 2. COLLECTION TREND CHART
+        st.subheader("📈 Business Growth")
         df_sorted = df.copy()
         df_sorted['DATE_OF_ISSUE'] = pd.to_datetime(df_sorted['DATE_OF_ISSUE'])
         df_sorted = df_sorted.sort_values('DATE_OF_ISSUE')
         df_sorted['Cumulative'] = df_sorted['AMOUNT_PAID'].cumsum()
-        st.plotly_chart(px.line(df_sorted, x='DATE_OF_ISSUE', y='Cumulative', title="Collection Growth", markers=True), use_container_width=True)
+        
+        fig = px.area(df_sorted, x='DATE_OF_ISSUE', y='Cumulative', 
+                      title="Cumulative Collections (UGX)",
+                      color_discrete_sequence=['#00acc1'])
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig, use_container_width=True)
 
-        # Risk Logic
+        # 3. PREMIUM REGISTRY TABLE
+        st.subheader("📋 Loan Registry")
+        
+        # Risk Highlighting Logic
         def highlight_risky(row):
             try:
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
                 if datetime.date.today() > due and row['OUTSTANDING_AMOUNT'] > 0:
-                    return ['background-color: #fee2e2; color: #991b1b'] * len(row)
+                    return ['background-color: #ffebee; color: #c62828; font-weight: bold'] * len(row)
             except: pass
             return [''] * len(row)
 
-        st.subheader("📋 Registry")
-        st.dataframe(df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({"OUTSTANDING_AMOUNT": "{:,.0f}"}), use_container_width=True)
+        # Styling the dataframe
+        styled_registry = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style.apply(highlight_risky, axis=1).format({
+            "OUTSTANDING_AMOUNT": "{:,.0f}"
+        })
+        
+        st.dataframe(styled_registry, use_container_width=True)
 
-        # THE PENCIL EDIT TOOL
-        with st.expander("✏️ Edit Client Details"):
-            edit_sn = st.selectbox("Select SN to modify:", ["Select..."] + df['SN'].tolist())
+        # 4. QUICK EDIT ACTION (The "Pencil" section)
+        with st.expander("✏️ Quick Modify Client"):
+            edit_sn = st.selectbox("Select Serial Number:", ["Select..."] + df['SN'].tolist())
             if edit_sn != "Select...":
                 idx = df[df['SN'] == edit_sn].index[0]
-                with st.form("edit_form"):
-                    u_name = st.text_input("Name", value=df.at[idx, 'NAME'])
-                    u_nin = st.text_input("NIN", value=df.at[idx, 'NIN'])
-                    u_loc = st.text_input("Location", value=df.at[idx, 'LOCATION'])
-                    u_stat = st.selectbox("Status", ["Active", "Risky", "Dormant", "Cleared"], index=["Active", "Risky", "Dormant", "Cleared"].index(df.at[idx, 'STATUS']))
-                    if st.form_submit_button("💾 Update Record"):
-                        df.at[idx, 'NAME'] = u_name.upper(); df.at[idx, 'NIN'] = u_nin; df.at[idx, 'LOCATION'] = u_loc; df.at[idx, 'STATUS'] = u_stat
-                        save_data(df); st.success("Updated!"); st.rerun()
-
+                with st.form("quick_edit"):
+                    st.write(f"Editing **{df.at[idx, 'NAME']}**")
+                    new_stat = st.selectbox("Update Status", ["Active", "Risky", "Cleared", "Dormant"], index=["Active", "Risky", "Cleared", "Dormant"].index(df.at[idx, 'STATUS']))
+                    if st.form_submit_button("Update Status"):
+                        df.at[idx, 'STATUS'] = new_stat
+                        save_data(df)
+                        st.success("Status Updated!"); st.rerun()
 elif choice == "👤 Onboarding":
     st.title("👤 New Loan")
     with st.form("onboard"):
