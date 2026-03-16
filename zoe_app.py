@@ -151,7 +151,9 @@ elif choice == "📄 Client Report":
                     </div>
                     <div style="text-align: right; font-size:0.9em;">
                         <p><b>Address:</b> {c['LOCATION']}</p>
-                        <p><b>NIN:</b> {c['NIN']}</p>
+                        # Use .get() so it shows 'N/A' instead of crashing if the column is missing
+nin_value = c.get('NIN', 'Not Provided')
+st.markdown(f"<p><b>NIN:</b> {nin_value}</p>", unsafe_allow_html=True)
                         <p><b>Employer:</b> {c['EMPLOYER']}</p>
                     </div>
                 </div>
