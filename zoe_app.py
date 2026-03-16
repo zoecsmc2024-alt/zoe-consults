@@ -51,18 +51,42 @@ if choice == "📊 Daily Report":
     if df.empty:
         st.info("Portfolio is empty.")
     else:
-        # --- RESTORED CHART ---
-        st.subheader("💰 Portfolio Health")
-        # Visualizing Outstanding vs Paid
-        chart_df = df.copy()
-        fig = px.pie(chart_df, values='OUTSTANDING_AMOUNT', names='NAME', hole=0.4, 
-                     title="Total Debt Distribution by Client",
-                     color_discrete_sequence=px.colors.qualitative.Pastel)
+        # --- CALCULATE TOTALS ---
+        total_principal = df['LOAN_AMOUNT'].sum()
+        # Interest is Amount to be paid minus Principal
+        # In our current logic: Interest = (Principal * Rate/100)
+        total_interest = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE'] / 100)).sum()
+        total_collected = df['AMOUNT_PAID'].sum()
+        total_outstanding = df['OUTSTANDING_AMOUNT'].sum()
+
+        # --- TOP METRICS ---
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Disbursed", f"UGX {total_principal:,.0f}")
+        m2.metric("Total Interest Earned", f"UGX {total_interest:,.0f}")
+        m3.metric("Total Collected", f"UGX {total_collected:,.0f}", delta=f"{total_collected:,.0f}")
+
+        # --- FINANCIAL CHART ---
+        st.subheader("💰 Portfolio Composition")
+        
+        # Data for the pie chart
+        summary_data = {
+            "Category": ["Principal (Capital)", "Interest (Profit)", "Amount Paid (Liquidity)"],
+            "Amount": [total_principal, total_interest, total_collected]
+        }
+        summary_df = pd.DataFrame(summary_data)
+        
+        fig = px.pie(summary_df, values='Amount', names='Category', hole=0.5, 
+                     color_discrete_sequence=['#00acee', '#ff9900', '#10b981'],
+                     title="Capital vs Profit vs Collection")
+        
         st.plotly_chart(fig, use_container_width=True)
 
         # --- REGISTRY TABLE ---
-        st.subheader("📋 Client Registry")
-        st.table(df[['SN', 'NAME', 'LOCATION', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.format({"LOAN_AMOUNT": "{:,.0f}", "OUTSTANDING_AMOUNT": "{:,.0f}"}))
+        st.subheader("📋 Detailed Registry")
+        st.table(df[['SN', 'NAME', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.format({
+            "LOAN_AMOUNT": "{:,.0f}", 
+            "OUTSTANDING_AMOUNT": "{:,.0f}"
+        }))
 
         # --- RESTORED EDIT TOOL (The "Pencil" Action) ---
         st.markdown("---")
