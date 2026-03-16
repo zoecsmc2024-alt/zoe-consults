@@ -10,32 +10,27 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 # This CSS fixes the table headers and the report card look
 st.markdown("""
     <style>
-    /* 1. THE GRADIENT SIDEBAR */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
-        border-right: 1px solid #334155 !important;
+   /* 1. STYLING THE METRIC CARDS */
+    [data-testid="stMetric"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        padding: 15px !important;
+        border-radius: 10px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
     }
 
-    /* 2. BLENDING THE TOP BAR */
-    [data-testid="stHeader"] {
-        background-color: rgba(255, 255, 255, 0.9) !important;
-        backdrop-filter: blur(10px); /* Creates a frosted glass effect */
+    /* 2. ADDING THE COLOR ACCENTS TO THE TOP */
+    [data-testid="stMetricLabel"] {
+        color: #64748b !important; /* Slate Grey for the title */
+        font-weight: bold !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
     }
 
-    /* 3. SIDEBAR TEXT & RADIOS */
-    [data-testid="stSidebar"] .st-emotion-cache-17l686q, 
-    [data-testid="stSidebar"] p {
-        color: #cbd5e1 !important;
-        font-weight: 500;
+    /* 3. COLORING THE VALUES */
+    [data-testid="stMetricValue"] {
+        color: #0f172a !important; /* Deep Slate for the numbers */
     }
-
-    /* 4. ACTIVE NAVIGATION HIGHLIGHT */
-    div[data-testid="stMarkdownContainer"] > p:hover {
-        color: #00acc1 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 # --- 2. DATA ENGINE ---
 DB_FILE = "zoe_database.csv"
 
