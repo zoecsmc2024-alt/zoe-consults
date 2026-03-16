@@ -10,10 +10,29 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 # This CSS fixes the table headers and the report card look
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] { background-color: #1e293b !important; }
-    [data-testid="stSidebar"] * { color: white !important; }
-    th { background-color: #00acee !important; color: white !important; }
-    .report-card { background-color: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; color: black; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    /* 1. THE GRADIENT SIDEBAR */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+        border-right: 1px solid #334155 !important;
+    }
+
+    /* 2. BLENDING THE TOP BAR */
+    [data-testid="stHeader"] {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(10px); /* Creates a frosted glass effect */
+    }
+
+    /* 3. SIDEBAR TEXT & RADIOS */
+    [data-testid="stSidebar"] .st-emotion-cache-17l686q, 
+    [data-testid="stSidebar"] p {
+        color: #cbd5e1 !important;
+        font-weight: 500;
+    }
+
+    /* 4. ACTIVE NAVIGATION HIGHLIGHT */
+    div[data-testid="stMarkdownContainer"] > p:hover {
+        color: #00acc1 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
