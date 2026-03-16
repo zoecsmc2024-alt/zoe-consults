@@ -34,7 +34,6 @@ def load_data():
     try:
         df = pd.read_csv("zoe_database.csv")
         df['DATE_OF_ISSUE'] = pd.to_datetime(df['DATE_OF_ISSUE'])
-        # Clean numeric columns
         for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -49,14 +48,13 @@ with st.sidebar:
     st.markdown('<div class="logo-container"><div class="logo-circle">ZC</div></div>', unsafe_allow_html=True)
     st.markdown("<h3 style='color:white; text-align:center;'>Zoe Consults</h3>", unsafe_allow_html=True)
     choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
-
-# --- 4. DASHBOARD LOGIC ---
+    # --- 4. DASHBOARD LOGIC ---
 
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
     
     if not df.empty:
-        # Profit Calculations
+        # Profit Calculations (Safety added for division by zero)
         df['profit_ratio'] = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100)) / (df['LOAN_AMOUNT'] + (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100) + 0.0001))
         total_profit = (df['AMOUNT_PAID'] * df['profit_ratio']).sum()
 
@@ -72,35 +70,39 @@ if choice == "📊 Daily Report":
         safe_cols = [c for c in cols if c in df.columns]
         st.table(df[safe_cols].sort_values('SN', ascending=False))
     else:
-        st.info("No data found.")
+        st.info("No data found in zoe_database.csv")
 
 elif choice == "📄 Client Report":
     st.title("📄 Client Statement")
     if not df.empty:
-        search = st.selectbox("Select Client", df['SN'].astype(str) + " - " + df['CUSTOMER_NAME'])
+        # Combined ID and Name for search
+        search_list = df['SN'].astype(str) + " - " + df['CUSTOMER_NAME']
+        search = st.selectbox("Select Client", search_list)
+        
         if search:
             sn = int(search.split(" - ")[0])
             c = df[df['SN'] == sn].iloc[0]
             
-            # Detailed Profile
+            # Detailed Profile Card
             st.markdown(f"""
                 <div style="background:#f8fafc; padding:20px; border-radius:12px; border-left:6px solid #00acc1;">
-                    <h2>{c.get('CUSTOMER_NAME')}</h2>
-                    <p><b>NIN:</b> {c.get('NIN', 'N/A')} | <b>Phone:</b> {c.get('PHONE', 'N/A')}</p>
-                    <p><b>Location:</b> {c.get('LOCATION', 'N/A')} | <b>Next of Kin:</b> {c.get('NEXT_OF_KIN', 'N/A')}</p>
+                    <h2 style="margin:0; color:#0f172a;">{c.get('CUSTOMER_NAME')}</h2>
+                    <p style="margin:5px 0; color:#64748b;"><b>NIN:</b> {c.get('NIN', 'N/A')} | <b>Phone:</b> {c.get('PHONE', 'N/A')}</p>
+                    <p style="margin:5px 0; color:#64748b;"><b>Location:</b> {c.get('LOCATION', 'N/A')} | <b>Next of Kin:</b> {c.get('NEXT_OF_KIN', 'N/A')}</p>
                 </div>
             """, unsafe_allow_html=True)
             
-            t1, t2 = st.tabs(["💰 Ledger", "📅 Schedule"])
+            st.write("")
+            t1, t2 = st.tabs(["💰 Ledger Summary", "📅 Loan Schedule"])
             with t1:
-                st.table(pd.DataFrame([
-                    {"Category": "Total Loan Amount", "Value": f"UGX {c['LOAN_AMOUNT']:,.0f}"},
-                    {"Category": "Total Repaid", "Value": f"UGX {c['AMOUNT_PAID']:,.0f}"},
-                    {"Category": "Balance Due", "Value": f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}"}
-                ]))
+                summary_data = {
+                    "Description": ["Total Loan Amount", "Total Repaid", "Current Balance Due"],
+                    "Amount (UGX)": [f"{c['LOAN_AMOUNT']:,.0f}", f"{c['AMOUNT_PAID']:,.0f}", f"{c['OUTSTANDING_AMOUNT']:,.0f}"]
+                }
+                st.table(pd.DataFrame(summary_data))
     else:
-        st.info("No clients to display.")
+        st.info("No clients found in the database.")
 
 else:
     st.title(choice)
-    st.info("This section is under maintenance. Please check back soon!")
+    st.info("This section is under construction. Your data is safe!")
