@@ -138,3 +138,25 @@ elif choice == "💰 Payments":
             idx = df[df['SN'] == sn].index
             if not idx.empty:
                 df.at[idx[0], 'AMOUNT_PAID'] += p_amt; df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
+                if df.at[idx[0], 'OUTSTANDING_AMOUNT'] <= 0: df.at[idx[0], 'STATUS'] = 'Cleared'
+                save_data(df); st.success("Paid!"); st.rerun()
+            else: st.error("Not found.")
+
+elif choice == "📄 Client Report":
+    st.title("📄 Official Statement")
+    if not df.empty:
+        sel = st.selectbox("Select Client", df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1))
+        c = df[df['SN'] == sel.split(" - ")[0]].iloc[0]
+        st.markdown(f'<div class="report-card"><h2 style="text-align:center;">ZOE CONSULTS</h2><hr><b>Client:</b> {c["NAME"]}<br><b>NIN:</b> {c["NIN"]}<br><b>Due:</b> {c["EXPECTED_DUE_DATE"]}</div>', unsafe_allow_html=True)
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Principal", f"{c['LOAN_AMOUNT']:,.0f}"); m2.metric("Paid", f"{c['AMOUNT_PAID']:,.0f}"); m3.metric("Balance", f"{c['OUTSTANDING_AMOUNT']:,.0f}")
+        
+        # RESTORED LEDGER
+        st.subheader("📉 Transaction Ledger")
+        int_amt = float(c['LOAN_AMOUNT']) * (float(c['INTEREST_RATE'])/100)
+        ledger = [
+            {"Date": c['DATE_OF_ISSUE'], "Description": "Disbursement", "Debit": c['LOAN_AMOUNT'], "Credit": 0, "Balance": c['LOAN_AMOUNT']},
+            {"Date": "Month End", "Description": "Interest", "Debit": int_amt, "Credit": 0, "Balance": float(c['LOAN_AMOUNT'])+int_amt},
+            {"Date": "Current", "Description": "Payments", "Debit": 0, "Credit": c['AMOUNT_PAID'], "Balance": c['OUTSTANDING_AMOUNT']}
+        ]
+        st.table(pd.DataFrame(ledger).style.format({"Debit": "{:,.0f}", "Credit": "{:,.0f}", "Balance": "{:,.0f}"}))
