@@ -75,7 +75,7 @@ if check_password():
         if df.empty:
             st.info("No active loans found. Start by adding a customer!")
         else:
-            total_principal = df['Principal_USD'].sum()
+            total_principal = df['Principal_UGX'].sum()
             total_balance = df['Current_Balance'].sum()
             next_month_est = (df['Current_Balance'] * (df['Annual_Rate'] / 12)).sum()
 
@@ -93,15 +93,15 @@ if check_password():
         st.title("👤 New Customer Onboarding")
         with st.form("add_form"):
             name = st.text_input("Customer Full Name")
-            amount = st.number_input("Principal Loan Amount ($)", min_value=1.0)
-            rate = st.number_input("Annual Interest Rate (e.g., 0.15 for 15%)", min_value=0.01, max_value=1.0, format="%.2f")
+            amount = st.number_input("Principal Loan Amount (UGX)", min_value=10.0)
+            rate = st.number_input("Annual Interest Rate (e.g., 0.15 for 15%)", min_value=10.0, max_value=30.0, format="%.2f")
             submitted = st.form_submit_button("Create Loan")
             
             if submitted:
                 new_id = (df['Customer_ID'].max() + 1) if not df.empty else 101
                 today = datetime.datetime.now()
                 new_data = {
-                    'Customer_ID': new_id, 'Name': name, 'Principal_USD': amount,
+                    'Customer_ID': new_id, 'Name': name, 'Principal_UGX': amount,
                     'Annual_Rate': rate, 'Start_Date': today, 
                     'Last_Payment_Date': today, 'Status': 'Active'
                 }
@@ -112,14 +112,14 @@ if check_password():
     elif choice == "Record Payment":
         st.title("💰 Record a Payment")
         cust_id = st.number_input("Enter Customer ID", min_value=101)
-        pay_amount = st.number_input("Payment Amount ($)", min_value=1.0)
+        pay_amount = st.number_input("Payment Amount (UGX)", min_value=1.0)
         
         if st.button("Apply Payment"):
             idx = df[df['Customer_ID'] == cust_id].index
             if not idx.empty:
-                df.at[idx[0], 'Principal_USD'] -= pay_amount
+                df.at[idx[0], 'Principal_UGX'] -= pay_amount
                 df.at[idx[0], 'Last_Payment_Date'] = datetime.datetime.now()
-                if df.at[idx[0], 'Principal_USD'] <= 0:
+                if df.at[idx[0], 'Principal_UGX'] <= 0:
                     df.at[idx[0], 'Status'] = 'Paid Off'
                 save_data(df)
                 st.success(f"Payment recorded for ID {cust_id}!")
@@ -131,7 +131,7 @@ if check_password():
         if not df.empty:
             target = st.selectbox("Select Customer", df['Name'].tolist())
             row = df[df['Name'] == target].iloc[0]
-            letter = f"Dear {row['Name']},\nYour loan of ${row['Principal_USD']:,.2f} is approved at {row['Annual_Rate']*100}% interest."
+            letter = f"Dear {row['Name']},\nYour loan of ${row['Principal_UGX']:,.2f} is approved at {row['Annual_Rate']*100}% interest."
             st.text_area("Copy Letter Below:", letter, height=200)
 
     elif choice == "Help":
