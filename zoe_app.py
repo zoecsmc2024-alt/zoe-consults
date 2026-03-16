@@ -44,9 +44,16 @@ st.markdown("""
     .stTable td, .stTable th { color: #1e293b !important; }
     thead tr th { background-color: #00acc1 !important; color: white !important; }
     </style>
-    """, unsafe_allow_html=True)
-# --- 4. PAGES ---
-
+   # --- 3. SIDEBAR NAVIGATION ---
+with st.sidebar:
+    # (Your logo base64 code goes here if you want it)
+    
+    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
+    
+    # This line MUST happen before your 'if' statements below
+    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
+    
+    # (Your Export Database button code goes here)
 if choice == "📊 Daily Report":
     st.title("📊 Portfolio Insights")
     
