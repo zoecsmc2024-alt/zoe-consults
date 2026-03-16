@@ -173,33 +173,37 @@ if choice == "📊 Daily Report":
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
-       # 3. PREMIUM REGISTRY TABLE (Fixing the NameError)
+      # 3. PREMIUM TEAL REGISTRY
         st.subheader("📋 Loan Portfolio Registry")
 
-        # This function handles the "Red" for Overdue and "Green" for Cleared
-        def registry_style(row):
+        # 1. Define the styling function (Fixes the NameError)
+        def apply_premium_styling(row):
             try:
-                # Get current date and due date
-                due_date = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
-                today = datetime.date.today()
+                due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
                 balance = float(row['OUTSTANDING_AMOUNT'])
-                
-                # RED: Overdue and has balance
-                if today > due_date and balance > 0:
+                # Soft Red for Overdue
+                if datetime.date.today() > due and balance > 0:
                     return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
-                
-                # GREEN: Status is Cleared
+                # Soft Green for Cleared
                 if row['STATUS'] == 'Cleared':
                     return ['background-color: #dcfce7; color: #166534'] * len(row)
             except:
                 pass
             return [''] * len(row)
 
-        # Filter the columns we want to show
+        # 2. Custom CSS to force the Header to be Zoe Teal (#00acc1)
+        st.markdown("""
+            <style>
+                thead tr th {
+                    background-color: #00acc1 !important;
+                    color: white !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
+        # 3. Display the Table
         display_cols = ['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
-        
-        # Display as a styled table (st.table handles colors better than st.dataframe)
-        st.table(df[display_cols].style.apply(registry_style, axis=1).format({
+        st.table(df[display_cols].style.apply(apply_premium_styling, axis=1).format({
             "OUTSTANDING_AMOUNT": "{:,.0f}"
         }))
 
