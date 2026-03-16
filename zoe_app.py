@@ -10,138 +10,40 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 # This CSS fixes the table headers and the report card look
 st.markdown("""
     <style>
-   /* 1. STYLING THE METRIC CARDS */
+    /* 1. SIDEBAR & HEADER BLEND */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+        border-right: 1px solid #334155 !important;
+    }
+    [data-testid="stHeader"] {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    /* 2. PREMIUM METRIC TILES */
     [data-testid="stMetric"] {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
-        padding: 15px !important;
-        border-radius: 10px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+        padding: 20px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05) !important;
+        text-align: center !important;
     }
-
-    /* 2. ADDING THE COLOR ACCENTS TO THE TOP */
     [data-testid="stMetricLabel"] {
-        color: #64748b !important; /* Slate Grey for the title */
+        color: #64748b !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
+        font-size: 0.8em !important;
     }
-
-    /* 3. COLORING THE VALUES */
     [data-testid="stMetricValue"] {
-        color: #0f172a !important; /* Deep Slate for the numbers */
+        color: #0f172a !important;
+        font-weight: 800 !important;
     }
-# --- 2. DATA ENGINE ---
-DB_FILE = "zoe_database.csv"
 
-def load_data():
-    cols = ['SN','NAME','NIN','CONTACT','LOCATION','EMPLOYER','NEXT_OF_KIN','DATE_OF_ISSUE','EXPECTED_DUE_DATE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
-    if os.path.exists(DB_FILE):
-        df = pd.read_csv(DB_FILE)
-        for c in cols:
-            if c not in df.columns: df[c] = ""
-        df['SN'] = df['SN'].astype(str).str.zfill(5)
-        # Ensure numbers are numeric
-        df['OUTSTANDING_AMOUNT'] = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').fillna(0)
-        return df
-    return pd.DataFrame(columns=cols)
-
-def save_data(df):
-    df.to_csv(DB_FILE, index=False)
-
-df = load_data()
-
-# --- 3. NAVIGATION & BRANDING ---
-with st.sidebar:
-    # 1. THE LOGO ENCODING
-    logo_content = ""
-    if os.path.exists("logo.jpg"):
-        import base64
-        with open("logo.jpg", "rb") as f:
-            data = base64.b64encode(f.read()).decode("utf-8")
-        logo_content = f'<img src="data:image/jpeg;base64,{data}" style="width:120px;">'
-    else:
-        logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
-
-    # 2. THE BRANDED HEADER (Aligned perfectly)
-    st.markdown(f"""
-        <div style="text-align: center; padding: 10px;">
-            <div style="background-color: white; border-radius: 15px; padding: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 2px solid #e2e8f0;">
-                    {logo_content}
-                </div>
-            </div>
-            <h3 style="color: white; margin-top: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">ZOE LEND IQ <span style="color:#00acc1; font-weight:bold;">PRO</span></h3>
-            <p style="color: #94a3b8; font-size: 0.8em; margin-bottom: 20px;">Micro-Lending Management</p>
-        </div>
-        <div style='border-top: 1px solid #334155; margin-bottom: 20px;'></div>
-    """, unsafe_allow_html=True)
-
-    # 3. NAVIGATION (Make sure these are indented 4 spaces from 'with')
-    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
-    
-    # 3. THE ACTION HUB
-    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>SYSTEM ACTIONS</p>", unsafe_allow_html=True)
-    
-    if not df.empty:
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 EXPORT DATABASE",
-            data=csv,
-            file_name=f"Zoe_Lend_DB_{datetime.date.today()}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-
-    if st.button("🔓 SECURE LOGOUT", key="sidebar_logout", use_container_width=True):
-        st.rerun()
-
-    # 4. ADVANCED BUTTON STYLING (The Final Polish)
-    st.markdown("""
-        <style>
-        /* Sidebar container tweaks */
-        section[data-testid="stSidebar"] {
-            border-right: 1px solid #334155;
-        }
-        
-        /* Navigation Radio Styling */
-        div[data-testid="stSidebarNav"] { display: none; }
-        div[data-testid="stWidgetLabel"] { color: #94a3b8 !important; }
-        
-        /* The Buttons */
-        .stDownloadButton button {
-            background-color: #00acc1 !important;
-            color: white !important;
-            border-radius: 8px !important;
-            border: none !important;
-            font-weight: 600 !important;
-            transition: 0.3s !important;
-            box-shadow: 0 4px 10px rgba(0, 172, 193, 0.2) !important;
-        }
-        
-        .stButton button {
-            background-color: transparent !important;
-            color: #ef4444 !important;
-            border: 1px solid #ef4444 !important;
-            border-radius: 8px !important;
-            font-weight: 600 !important;
-            transition: 0.3s !important;
-        }
-        
-        .stButton button:hover {
-            background-color: #ef4444 !important;
-            color: white !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # 5. FOOTER
-    st.markdown(f"""
-        <div style="position: fixed; bottom: 10px; left: 10px; font-size: 0.7em; color: #475569;">
-            Zoe Consults Ltd<br>
-            March 2026 Release
-        </div>
+    /* 3. TABLE STYLING */
+    .stTable td, .stTable th { color: #1e293b !important; }
+    thead tr th { background-color: #00acc1 !important; color: white !important; }
+    </style>
     """, unsafe_allow_html=True)
 # --- 4. PAGES ---
 
