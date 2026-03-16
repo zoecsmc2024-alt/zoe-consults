@@ -230,22 +230,4 @@ elif choice == "📄 Client Report":
             <span style="background-color:#00acc1; color:white; padding:2px 8px; border-radius:4px; font-size:0.8em;">{c['STATUS']}</span>
         </div>
     """, unsafe_allow_html=True)
-        # 3. THE TABBED NAVIGATION (Just like your image!)
-        st.write("")
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Repayments", "📝 Loan Terms", "📅 Schedule", "📎 Files"])
-
-        with tab1:
-            st.subheader("Repayment History")
-            # Creating the ledger table to look like the image
-            ledger_df = pd.DataFrame([
-                {"Date": c['DATE_OF_ISSUE'], "Description": "Loan Released", "Principal": c['LOAN_AMOUNT'], "Interest": 0, "Total": c['LOAN_AMOUNT']},
-                {"Date": "To Date", "Description": "Collections Received", "Principal": 0, "Interest": 0, "Total": f"-{c['AMOUNT_PAID']}"}
-            ])
-            st.table(ledger_df)
-            st.button("➕ Add Repayment")
-
-        with tab2:
-            st.info(f"Monthly Interest Rate: {c['INTEREST_RATE']}% | Next of Kin: {c['NEXT_OF_KIN']}")
-
-        with tab3:
-            st.write(f"Final Maturity Date: **{c['EXPECTED_DUE_DATE']}**")
+        
