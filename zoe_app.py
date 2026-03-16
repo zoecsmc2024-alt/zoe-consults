@@ -50,39 +50,35 @@ with st.sidebar:
         logo_content = '<h1 style="color: #00acc1; margin:0;">Z</h1>'
 
     # 2. THE BRANDED HEADER (Aligned perfectly)
-    st.markdown("""
+   st.markdown("""
     <style>
-    /* 1. THE SIDEBAR COLOR */
+    /* 1. SIDEBAR BACKGROUND ONLY */
     [data-testid="stSidebar"] {
-        background-color: #0f172a !important; /* This is the Deep Slate */
+        background-color: #0f172a !important;
     }
 
-    /* 2. SIDEBAR TEXT COLORS */
-    [data-testid="stSidebar"] * {
-        color: #f8fafc !important; /* Off-white for readability */
+    /* 2. SIDEBAR TEXT (Targeting only specific menu labels) */
+    [data-testid="stSidebar"] .st-emotion-cache-17l686q, 
+    [data-testid="stSidebar"] p {
+        color: #94a3b8 !important;
     }
 
-    /* 3. FIXING THE RADIO BUTTONS SELECTION COLOR */
-    div[data-testid="stMarkdownContainer"] p {
-        color: #94a3b8; /* Dimmer text for labels */
+    /* 3. TABLE TEXT (Ensuring it stays dark and readable) */
+    .stTable td, .stTable th {
+        color: #1e293b !important;
     }
-
-    /* 4. DASHBOARD CARDS (Main Page) */
+    
+    /* 4. DASHBOARD CARDS */
     .report-card { 
         background-color: #ffffff; 
         padding: 25px; 
         border-radius: 12px; 
         border: 1px solid #e2e8f0; 
-        color: black; 
+        color: #1e293b; 
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
     }
     </style>
     """, unsafe_allow_html=True)
-    # 3. NAVIGATION (Make sure these are indented 4 spaces from 'with')
-    st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>MAIN MENU</p>", unsafe_allow_html=True)
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"], label_visibility="collapsed")
-    
-    st.markdown("<div style='margin-top: 30px; border-top: 1px solid #334155; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     # 3. THE ACTION HUB
     st.markdown("<p style='color: #64748b; font-size: 0.7em; font-weight: bold; letter-spacing: 1.5px; margin-left: 5px;'>SYSTEM ACTIONS</p>", unsafe_allow_html=True)
