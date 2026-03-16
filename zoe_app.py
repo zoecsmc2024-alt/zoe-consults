@@ -21,10 +21,26 @@ def load_data():
     # This reads the sheet using the 'spreadsheet' link in your Secrets
     return conn.read(ttl="0") 
 
-def save_data(df):
-    # This writes the data back to your Google Sheet permanently
-    conn.update(data=df)
-    st.cache_data.clear()
+def save_data(df_to_save):
+    try:
+        # We specify the worksheet name directly here for safety
+        conn.update(worksheet="Loans", data=df_to_save)
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"❌ Could not save to Google Sheets: {e}")
+        return False
+
+# --- Inside your Onboarding page ---
+if st.form_submit_button("✅ Save to Google Sheets"):
+    # ... (Your new_row logic here) ...
+    updated_df = pd.concat([df, new_row], ignore_index=True)
+    
+    if save_data(updated_df):
+        st.success("Successfully saved to Google Drive!")
+        st.rerun()
+    else:
+        st.warning("⚠️ Data was not saved. Please check your Google Sheet 'Share' settings.")
 
 # --- 3. APP LOGIC ---
 df = load_data()
