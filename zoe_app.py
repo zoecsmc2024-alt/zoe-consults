@@ -10,7 +10,7 @@ st.markdown("""
     <style>
     [data-testid="stSidebar"] { background-color: #1e293b !important; }
     [data-testid="stSidebar"] * { color: white !important; }
-    th { background-color: #00acee !important; color: white !important; text-align: center !important; }
+    th { background-color: #00acee !important; color: white !important; }
     .report-card { background-color: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; color: black; }
     </style>
     """, unsafe_allow_html=True)
@@ -19,12 +19,23 @@ st.markdown("""
 DB_FILE = "zoe_database.csv"
 
 def load_data():
+    # List of all columns the app REQUIRES
+    required_columns = ['SN','NAME','CONTACT','DATE_OF_ISSUE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS']
+    
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
         # Ensure SN stays as a string for matching
-        df['SN'] = df['SN'].astype(str).str.zfill(5)
+        if 'SN' in df.columns:
+            df['SN'] = df['SN'].astype(str).str.zfill(5)
+        
+        # FIX: Check if any required columns are missing and add them if necessary
+        for col in required_columns:
+            if col not in df.columns:
+                df[col] = "" # Adds the missing column as empty
         return df
-    return pd.DataFrame(columns=['SN','NAME','CONTACT','DATE_OF_ISSUE','LOAN_AMOUNT','INTEREST_RATE','AMOUNT_PAID','OUTSTANDING_AMOUNT','STATUS'])
+    
+    # If no file exists, create a fresh one with all headers
+    return pd.DataFrame(columns=required_columns)
 
 def save_data(df):
     df.to_csv(DB_FILE, index=False)
@@ -44,10 +55,9 @@ with st.sidebar:
 
 if choice == "📊 Daily Report":
     st.title("📊 Loan Portfolio Registry")
-    if df.empty:
+    if df.empty or len(df) == 0:
         st.info("The portfolio is currently empty. Go to Onboarding to add your first client.")
     else:
-        # Displaying the main table
         st.table(df[['SN', 'NAME', 'DATE_OF_ISSUE', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT', 'STATUS']].style.format({
             "LOAN_AMOUNT": "{:,.0f}",
             "OUTSTANDING_AMOUNT": "{:,.0f}"
@@ -66,7 +76,6 @@ elif choice == "👤 Onboarding":
         
         if st.form_submit_button("✅ Save & Issue Loan"):
             new_sn = str(len(df) + 1).zfill(5)
-            # Principal + 1st Month Interest
             initial_total = amt + (amt * (rate/100))
             
             new_row = pd.DataFrame([{
@@ -96,62 +105,30 @@ elif choice == "💰 Payments":
                 df.at[idx[0], 'AMOUNT_PAID'] += p_amt
                 df.at[idx[0], 'OUTSTANDING_AMOUNT'] -= p_amt
                 save_data(df)
-                st.success(f"Logged UGX {p_amt:,.0f} for {df.at[idx[0], 'NAME']}.")
-                st.rerun()
-            else:
-                st.error("SN not found in database.")
+                st.success("Payment Recorded!"); st.rerun()
+            else: st.error("SN not found.")
 
 elif choice == "📄 Client Report":
     st.title("📄 Official Loan Statement")
-    if df.empty:
+    if df.empty or len(df) == 0:
         st.warning("No clients found. Please onboard a client first.")
     else:
-        # Search for client
         search_list = df.apply(lambda x: f"{x['SN']} - {x['NAME']}", axis=1).tolist()
-        selected = st.selectbox("Select Client to View Report", search_list)
+        selected = st.selectbox("Select Client", search_list)
         sn_only = selected.split(" - ")[0]
         c = df[df['SN'] == sn_only].iloc[0]
 
-        # Professional Header
         st.markdown(f"""
             <div class="report-card">
-                <h2 style="text-align:center; color:#1e293b;">ZOE CONSULTS LIMITED</h2>
-                <p style="text-align:center; border-bottom: 2px solid #00acee; padding-bottom:5px;">LOAN REDUCTION STATEMENT</p>
+                <h2 style="text-align:center;">ZOE CONSULTS LIMITED</h2>
                 <table style="width:100%">
-                    <tr>
-                        <td><b>Client:</b> {c['NAME']}</td>
-                        <td style="text-align:right;"><b>SN:</b> {c['SN']}</td>
-                    </tr>
-                    <tr>
-                        <td><b>Contact:</b> {c['CONTACT']}</td>
-                        <td style="text-align:right;"><b>Issued:</b> {c['DATE_OF_ISSUE']}</td>
-                    </tr>
+                    <tr><td><b>Client:</b> {c['NAME']}</td><td style="text-align:right;"><b>SN:</b> {c['SN']}</td></tr>
+                    <tr><td><b>Contact:</b> {c['CONTACT']}</td><td style="text-align:right;"><b>Date:</b> {c['DATE_OF_ISSUE']}</td></tr>
                 </table>
             </div>
         """, unsafe_allow_html=True)
 
-        # Metrics
-        st.write("")
         m1, m2, m3 = st.columns(3)
-        m1.metric("Principal Issued", f"UGX {c['LOAN_AMOUNT']:,.0f}")
-        m2.metric("Total Payments", f"UGX {c['AMOUNT_PAID']:,.0f}", delta=f"{c['AMOUNT_PAID']}")
-        m3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
-
-        # Dynamic Ledger (Reducing Balance)
-        st.subheader("📉 Reducing Balance Ledger")
-        
-        # Simple Logic for Ledger: Disbursement -> Current Standing
-        ledger_data = [
-            {"Date": c['DATE_OF_ISSUE'], "Description": "Loan Disbursement", "Debit": c['LOAN_AMOUNT'], "Credit": 0, "Balance": c['LOAN_AMOUNT']},
-            {"Date": "Month End", "Description": f"Interest Charged ({c['INTEREST_RATE']}%)", "Debit": c['LOAN_AMOUNT']*(c['INTEREST_RATE']/100), "Credit": 0, "Balance": c['LOAN_AMOUNT']*(1 + c['INTEREST_RATE']/100)},
-            {"Date": "Today", "Description": "Total Payments to Date", "Debit": 0, "Credit": c['AMOUNT_PAID'], "Balance": c['OUTSTANDING_AMOUNT']}
-        ]
-        
-        ledger_df = pd.DataFrame(ledger_data)
-        st.table(ledger_df.style.format({
-            "Debit": "{:,.0f}",
-            "Credit": "{:,.0f}",
-            "Balance": "{:,.0f}"
-        }))
-        
-        st.caption("Note: Interest is applied monthly to the remaining balance.")
+        m1.metric("Principal", f"UGX {c['LOAN_AMOUNT']:,.0f}")
+        m2.metric("Total Paid", f"UGX {c['AMOUNT_PAID']:,.0f}")
+        m3.metric("Current Balance", f"UGX {c['OUTSTANDING_AMOUNT']:,.0f}")
