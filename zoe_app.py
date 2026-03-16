@@ -221,13 +221,7 @@ elif choice == "📄 Client Report":
         # 2. MAIN LOAN SUMMARY BAR (Teal Theme)
        # --- WRAP THIS SECTION IN ST.MARKDOWN ---
 # Fix for Line 228
-st.markdown("""
-    <style>
-    .loan-row { 
-        background-color: white; 
-        padding: 15px; 
-        border-bottom: 1px solid #eee; 
-    }
+st.markdown("<style>.your-class { padding: 15px; }</style>", unsafe_allow_html=True)
     </style>
 """, unsafe_allow_html=True)
         st.markdown(f"""
