@@ -173,43 +173,50 @@ if choice == "📊 Daily Report":
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
-    # 3. CONSOLIDATED PREMIUM REGISTRY
+    # 3. CONSOLIDATED PREMIUM REGISTRY (The "Perfect Blend" Version)
         st.subheader("📋 Loan Portfolio Registry")
 
-        # FIX: We define the function RIGHT HERE to ensure the app sees it
+        # Function for row-level colors (Red/Green/Neutral)
         def apply_premium_styling(row):
             try:
-                # Logic for Red (Overdue)
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
                 balance = float(row['OUTSTANDING_AMOUNT'])
                 if datetime.date.today() > due and balance > 0:
                     return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
-                
-                # Logic for Green (Cleared)
                 if row['STATUS'] == 'Cleared':
                     return ['background-color: #dcfce7; color: #166534'] * len(row)
             except:
                 pass
             return [''] * len(row)
 
-        # Force the Header to be Zoe Teal
+        # CSS to fix the header and remove the annoying "Column 1" highlight
         st.markdown("""
             <style>
+                /* Force Header to Zoe Teal */
                 thead tr th {
                     background-color: #00acc1 !important;
                     color: white !important;
+                    border: none !important;
+                }
+                /* Ensure all cells have consistent background when not highlighted */
+                tbody tr td {
+                    background-color: white !important;
+                    color: #1e293b !important;
                 }
             </style>
         """, unsafe_allow_html=True)
 
-        # Select only the columns we need for the main dashboard
         display_cols = ['SN', 'NAME', 'DATE_OF_ISSUE', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']
         
-        # We use .style.apply and then pass it to st.table
-        # This REMOVES the double table and fixes the NameError
-        st.table(df[display_cols].style.apply(apply_premium_styling, axis=1).format({
-            "OUTSTANDING_AMOUNT": "{:,.0f}"
-        }))
+        # We use st.dataframe with hide_index=True for a cleaner "Modern Web" look
+        # This is the secret to making it blend perfectly!
+        st.dataframe(
+            df[display_cols].style.apply(apply_premium_styling, axis=1).format({
+                "OUTSTANDING_AMOUNT": "{:,.0f}"
+            }),
+            use_container_width=True,
+            hide_index=True  # This removes the problematic Column 1
+        )
 elif choice == "👤 Onboarding":
     st.title("👤 New Loan / Excel Migration")
     st.info("💡 To migrate Excel data, simply change the 'Disbursement Date' to the original date from your sheet.")
