@@ -173,26 +173,31 @@ if choice == "📊 Daily Report":
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
-        # 3. PREMIUM REGISTRY TABLE
-        st.subheader("📋 Loan Registry")
-        
-       # 3. PREMIUM REGISTRY TABLE (With Colorful Styling)
+       # 3. PREMIUM REGISTRY TABLE (The "True Color" Version)
         st.subheader("📋 Loan Portfolio Registry")
 
-        def apply_premium_styling(row):
-            # Logic for Risk (Overdue)
+        def apply_colors(row):
             try:
                 due = pd.to_datetime(row['EXPECTED_DUE_DATE']).date()
                 out = float(row['OUTSTANDING_AMOUNT'])
-                if datetime.date.today() > due and out > 0:
-                    return ['background-color: #fff1f2; color: #e11d48; border-left: 5px solid #e11d48'] * len(row)
                 
-                # Logic for Cleared (Success)
+                # Overdue = Soft Red
+                if datetime.date.today() > due and out > 0:
+                    return ['background-color: #fee2e2; color: #991b1b; font-weight: bold'] * len(row)
+                
+                # Cleared = Soft Green
                 if row['STATUS'] == 'Cleared':
-                    return ['background-color: #f0fdf4; color: #16a34a'] * len(row)
+                    return ['background-color: #dcfce7; color: #166534'] * len(row)
             except:
                 pass
             return [''] * len(row)
+
+        # We use st.table here because it renders CSS much more reliably than st.dataframe
+        display_df = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']]
+        
+        st.table(display_df.style.apply(apply_colors, axis=1).format({
+            "OUTSTANDING_AMOUNT": "{:,.0f}"
+        }))
 
         # Updated Styling
         styled_registry = df[['SN', 'NAME', 'NIN', 'EXPECTED_DUE_DATE', 'OUTSTANDING_AMOUNT', 'STATUS']].style\
