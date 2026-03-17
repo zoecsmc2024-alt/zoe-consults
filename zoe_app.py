@@ -488,10 +488,10 @@ with menu_tabs[5]:
                     <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
                     <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
                     # --- FIXED LINE ---
-                    # 1. Format the number separately to avoid f-string confusion
+                    # 1. Format the money first
 formatted_principal = f"{int(c_details['LOAN_AMOUNT']):,.0f}"
 
-# 2. Use that variable in your HTML block
+# 2. The HTML Block (Carefully balanced quotes)
 st.markdown(f"""
     <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
         <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
@@ -500,6 +500,9 @@ st.markdown(f"""
             <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
             <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
             <span><b>Principal:</b> UGX {formatted_principal}</span>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
         </div>
     </div>
 """, unsafe_allow_html=True)
