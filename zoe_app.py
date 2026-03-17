@@ -111,6 +111,7 @@ menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", 
 with menu_tabs[0]:
     st.write("") 
     if not df.empty:
+        # --- KPI CARDS ---
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             st.markdown(f'<div class="box-card"><div class="box-title">Total Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
@@ -123,18 +124,39 @@ with menu_tabs[0]:
             st.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active}</div></div>', unsafe_allow_html=True)
         
         st.write("---")
-        st.subheader("Recent Loan Records")
-        st.dataframe(
-            df, 
+        
+        # --- SMART DATA EDITOR ---
+        st.subheader("Interactive Loan Manager")
+        st.info("💡 You can edit 'AMOUNT_PAID' or 'INTEREST_RATE' directly in the table below and click 'Save Changes'.")
+        
+        # Create the editor
+        edited_df = st.data_editor(
+            df,
             column_config={
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d"),
-                "AMOUNT_PAID": st.column_config.NumberColumn("Collected", format="UGX %d"),
-                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%d%%"),
+                "SN": st.column_config.NumberColumn("ID", disabled=True),
+                "CUSTOMER_NAME": st.column_config.TextColumn("Borrower", disabled=True),
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d", disabled=True),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Total Paid", format="UGX %d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %d", disabled=True),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%d%%"),
+                "DATE_ISSUED": st.column_config.DateColumn("Date", disabled=True),
             },
-            hide_index=True, 
-            use_container_width=True
+            hide_index=True,
+            use_container_width=True,
+            key="data_editor_key"
         )
+
+        # Update Logic: Check if data changed
+        if st.button("💾 Save Changes to Database", type="primary"):
+            # Recalculate Outstanding Amount before saving
+            edited_df['OUTSTANDING_AMOUNT'] = edited_df['LOAN_AMOUNT'] - edited_df['AMOUNT_PAID']
+            
+            # Save to CSV
+            edited_df.to_csv(DB_FILE, index=False)
+            st.success("Database Updated Successfully!")
+            st.cache_data.clear()
+            st.rerun()
+            
     else:
         st.info("No records found. Click 'New Loan Entry' to begin.")
 
