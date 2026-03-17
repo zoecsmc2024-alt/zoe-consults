@@ -579,3 +579,25 @@ with menu_tabs[5]:
             st.warning("Payment database not found. Please record a payment first.")
     else:
         st.info("No borrowers in the system. Add one via the 'New Loan' button above.")
+
+# --- WHATSAPP INTEGRATION (Add to Tab 5) ---
+if not ledger_final.empty:
+    st.markdown("---")
+    # 1. Prepare the message
+    # We use %20 for spaces and %0A for new lines (URL encoding)
+    message = (
+        f"Hello%20{client_name},%0A%0A"
+        f"This%20is%20Zoe%20Consults.%20Your%20current%20loan%20balance%20is%20"
+        f"UGX%20{curr_bal:,.0f}.%0A%0A"
+        f"Total%20Interest%20Accrued:%20UGX%20{ledger_final['Interest Charged'].sum():,.0f}.%0A"
+        f"Thank%20you%20for%20your%20continued%20business!"
+    )
+    
+    # 2. Clean the phone number (Remove spaces, +, etc.)
+    clean_phone = str(client_contact).replace(" ", "").replace("+", "")
+    
+    # 3. Create the WhatsApp URL
+    wa_url = f"https://wa.me/{clean_phone}?text={message}"
+    
+    # 4. The Button
+    st.link_button(f"📲 Send Statement to {client_name} via WhatsApp", wa_url, use_container_width=True)
