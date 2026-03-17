@@ -67,30 +67,53 @@ def load_data():
 
 df = load_data()
 
-# --- 3. DASHBOARD CONTENT ---
-# Header with a "New Borrower" button shortcut
+# --- 3. ERP NAVIGATION HEADER ---
+# Top Blue Bar (Tier 1)
 st.markdown("""
-    <div class="admin-header">
-        <span>ZoeLend IQ > Dashboard Summary</span>
-        <span style="font-size: 0.8em; color: #00acc1;">Logged in as Admin</span>
+    <div style="background-color: #3498db; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; color: white; font-family: sans-serif;">
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <span>👤 Evans Ahuura</span>
+            <b style="font-size: 1.2em;">Zoe Consults</b>
+            <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px;">🔵 Branch #1</span>
+            <span>🏠 Home Branch</span>
+        </div>
+        <div style="display: flex; gap: 15px; font-size: 0.9em;">
+            <span>⚙️ Admin</span><span>🔗 Settings</span><span>🔌 API</span><span>❓ Help</span>
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
-if not df.empty:
-    # 4-Column Summary Row
-    c1, c2, c3, c4 = st.columns(4)
+# Dark Blue Menu Bar (Tier 2)
+# We use st.tabs to mimic the look of the "Borrowers", "Loans", "Repayments" menu
+menu_tabs = st.tabs(["👥 Borrowers", "⚖️ Loans", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
+
+with menu_tabs[0]: # Borrowers/Dashboard View
+    st.write("") # Padding
     
-    with c1:
-        st.markdown(f'<div class="box-card"><div class="box-title">Total Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
-    with c2:
-        total_principal = df["LOAN_AMOUNT"].sum()
-        st.markdown(f'<div class="box-card"><div class="box-title">Principal Released</div><div class="box-value">UGX {total_principal:,.0f}</div></div>', unsafe_allow_html=True)
-    with c3:
-        total_collected = df["AMOUNT_PAID"].sum()
-        st.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {total_collected:,.0f}</div></div>', unsafe_allow_html=True)
-    with c4:
-        # Loans with remaining balance
-        active_loans = len(df[df['AMOUNT_PAID'] < df['LOAN_AMOUNT']])
-        st.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active_loans}</div></div>', unsafe_allow_html=True)
-else:
-    st.error("⚠️ Data connection error. Please ensure 'zoe_database.csv' is uploaded and formatted correctly.")
+    if not df.empty:
+        # 4-Column Summary Row (Boxes)
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown(f'<div class="box-card"><div class="box-title">Total Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown(f'<div class="box-card"><div class="box-title">Principal Released</div><div class="box-value">UGX {df["LOAN_AMOUNT"].sum():,.0f}</div></div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
+        with c4:
+            active = len(df[df['AMOUNT_PAID'] < df['LOAN_AMOUNT']])
+            st.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active}</div></div>', unsafe_allow_html=True)
+
+        # THE NEW PORTFOLIO TABLE
+        st.markdown("<br><h4 style='color: #555;'>📋 Loan Portfolio Registry</h4>", unsafe_allow_html=True)
+        
+        # Select specific columns to show
+        cols_to_show = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'STATUS']
+        
+        # Display as a clean, interactive dataframe
+        st.dataframe(
+            df[cols_to_show].sort_values('SN', ascending=False),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("System Ready. Please upload 'zoe_database.csv' to populate records.")
