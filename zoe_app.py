@@ -119,12 +119,29 @@ st.markdown("""
         color: white !important;
     }
 
-    /* 2. Style the Buttons */
+   # --- ADD THIS WRAPPER AROUND YOUR CSS ---
+st.markdown("""
+<style>
+    /* Main Background */
+    [data-testid="stAppViewContainer"] {
+        background-color: #f8fafc;
+    }
+    
+    /* Buttons Styling */
     div[data-testid="stDownloadButton"] > button {
         background-color: #334155 !important;
         color: white !important;
         border-radius: 8px !important;
     }
+
+    div.stLinkButton > a {
+        background-color: #25D366 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        text-decoration: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
     div.stLinkButton > a {
         background-color: #25D366 !important;
