@@ -610,8 +610,11 @@ elif page == "📄 Client Ledger":
 
 # --- WHATSAPP MESSAGE GENERATION ---
 # --- COLORED BUTTONS WITH UNIQUE KEYS ---
-if not ledger_final.empty:
-    st.markdown("---")
+# Change line 613 to this:
+    if 'ledger_final' in locals() and not ledger_final.empty:
+        # (The rest of your WhatsApp/Download button code stays indented under here)
+        st.markdown("---")
+        # ... buttons ...
     
     # 1. MESSAGE GENERATION (Calculated once)
     current_bal_amt = ledger_final['Running Balance'].iloc[-1]
