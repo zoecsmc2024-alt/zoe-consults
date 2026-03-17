@@ -39,52 +39,30 @@ else:
 # --- SIDEBAR STYLING (At the top of your script) ---
 st.markdown("""
 <style>
-    /* 1. Main Sidebar Background (Deep Navy) */
-    [data-testid="stSidebar"] {
-        background-color: #0b1425 !important;
-        border-right: 3px solid #00a8b5; /* Teal accent line */
-    }
-
-    /* 2. Sidebar Text & Icons (White) */
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
-
-    /* 3. FLATTEN THE PENCIL BUTTON (Remove the big white box) */
-    div.stButton > button#change_logo_btn {
-        background-color: transparent !important;
-        color: #ffffff !important;
-        border: none !important;
-        padding: 0px !important;
-        margin-top: 20px;
-        margin-bottom: 20px;
+    /* 1. Force the logo into a small, sharp circle */
+    [data-testid="stSidebar"] img {
         display: block;
-        margin-left: auto; /* Center horizontally */
+        margin-left: auto;
         margin-right: auto;
-        font-size: 24px !important; /* Make the pencil icon larger */
-        width: auto !important;
-        height: auto !important;
-        box-shadow: none !important;
+        width: 80px !important;  /* Small & consistent size */
+        height: 80px !important; /* Must match width for a perfect circle */
+        object-fit: cover;       /* Prevents stretching */
+        border-radius: 50% !important; /* The magic circle line */
+        border: 2px solid #00a8b5;     /* Teal border to match your brand */
+        margin-top: 10px;
+        margin-bottom: 10px;
     }
 
-    /* Pencil hover effect */
-    div.stButton > button#change_logo_btn:hover {
-        color: #00a8b5 !important; /* Teal accent on hover */
-        background-color: transparent !important;
-    }
-
-    /* 4. Sidebar Title Styling */
-    .sidebar-title {
+    /* 2. Center the text under the circle */
+    .sidebar-brand-text {
         text-align: center;
-        color: #f1f5f9;
-        font-size: 20px;
+        color: white;
         font-weight: bold;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #1e293b;
+        font-size: 18px;
+        margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
-
 # --- THE SIDEBAR CONTENT ---
 with st.sidebar:
     # Use columns to center the pencil icon button
