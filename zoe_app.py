@@ -270,41 +270,56 @@ with st.container():
                 del st.session_state[key]
             st.rerun()
 st.write("---") # Visual separator before the tabs
-# --- 1. THE SIDEBAR NAVIGATION ---
+# --- 1. THE SIDEBAR (Your New Navigation) ---
 with st.sidebar:
-    # You can even put your logo here!
+    # Show logo if exists, else show title
     if 'custom_logo_b64' in st.session_state and st.session_state['custom_logo_b64']:
-        st.markdown(f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" width="100%">', unsafe_allow_html=True)
+        st.markdown(f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" width="100%" style="border-radius:10px; margin-bottom:20px;">', unsafe_allow_html=True)
     else:
-        st.title("Zoe Consults")
-        
+        st.title("🛡️ Zoe Consults")
+    
     st.write("---")
     
-    # This replaces the tabs
-    page = st.sidebar.radio(
+    # Navigation Radio
+    page = st.radio(
         "Main Menu",
-        ["📈 Business Overview", "👥 Borrowers List", "📄 Client Ledger", "💰 Repayments", "⚙️ System Settings"]
+        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"],
+        index=0
     )
+    
+    st.write("---")
+    # Quick KPI in Sidebar
+    if not df.empty:
+        total_out = df['LOAN_AMOUNT'].sum()
+        st.metric("Total Capital Out", f"UGX {total_out:,.0f}")
 
-# --- 2. THE PAGE ROUTING ---
-# Instead of "with tab1:", we use "if page == ...:"
+# --- 2. THE TOP ACTION BAR (Keep this outside the if/else so it stays visible) ---
+# Paste your code for c_search, c_new, c_del, c_dl, c_set, c_logout here
+# (The colored buttons we fixed earlier)
 
-if page == "📈 Business Overview":
-    # Paste your entire Overview code here
-    st.title("Business Performance")
-    # ... (Your metrics and charts)
+st.write("---")
 
-elif page == "👥 Borrowers List":
-    # Paste your Table code here
-    st.title("Current Borrowers")
+# --- 3. THE PAGE ROUTING (Replaces with menu_tabs) ---
+
+if page == "📈 Performance":
+    st.subheader("Business Growth & Trends")
+    # PASTE YOUR OVERVIEW/TRENDS CODE HERE
+    # (The metrics cards and the Growth & Liquidity line chart)
+
+elif page == "👥 Borrowers":
+    st.subheader("Active Loan Registry")
+    # PASTE YOUR MAIN DATAFRAME/TABLE CODE HERE
 
 elif page == "📄 Client Ledger":
-    # Paste your Ledger and WhatsApp code here
-    st.title("Client Transaction Ledger")
+    st.subheader("Transaction History")
+    # PASTE YOUR ENTIRE LEDGER + WHATSAPP CODE HERE
+    # This includes the blue client header and the reducing balance table
 
-elif page == "⚙️ System Settings":
-    # Paste your Backup and Logo upload code here
-    st.title("Settings & Backups")
+elif page == "⚙️ Settings":
+    st.subheader("System Configuration")
+    # PASTE YOUR LOGO UPLOADER AND MASTER BACKUP CODE HERE
+
+# --- END OF ROUTING ---
 # --- TAB 0: OVERVIEW (The Eye-Catching FinTech Dashboard) ---
 with menu_tabs[0]:
     if not df.empty:
