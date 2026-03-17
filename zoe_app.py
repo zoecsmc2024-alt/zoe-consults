@@ -577,99 +577,36 @@ elif page == "📅 Collection & Due Dates":
         st.info("No active loans to track.")
 
 # --- TAB 5: DYNAMIC CLIENT LEDGER ---
-elif page == "📄 Client Transaction Ledger":
-    st.subheader("📄 Client Transaction Ledger")
+# --- THE LEDGER ROOM ---
+elif page == "📄 Client Ledger":
+    st.subheader("Transaction History")
     
     if not df.empty:
-        # 1. Selection UI
-        client_name = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_client_sel")
+        # 1. Selection
+        client_name = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_sel")
         c_details = df[df['CUSTOMER_NAME'] == client_name].iloc[0]
         
-        # 2. Prepare Formatted Header Values
-        p_val = int(c_details['LOAN_AMOUNT'])
-        formatted_principal = f"{p_val:,.0f}"
-        client_nin = c_details.get('NIN', 'N/A')
-        client_contact = c_details.get('CONTACT', 'N/A')
-        client_addr = c_details.get('ADDRESS', 'Kampala, Uganda')
-
-        # 3. Branded Client Header
-        st.markdown(f"""
-<div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
-    <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em; color: #475569;">
-        <span><b>NIN:</b> {client_nin}</span>
-        <span><b>Contact:</b> {client_contact}</span>
-        <span><b>Address:</b> {client_addr}</span>
-        <span><b>Principal:</b> UGX {formatted_principal}</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-        # 4. Ledger Calculation Logic
-    if os.path.exists(PAYMENT_FILE):
+        # 2. Process Ledger (Only if file exists)
+        if os.path.exists(PAYMENT_FILE):
             pay_df = pd.read_csv(PAYMENT_FILE)
             client_pays = pay_df[pay_df['CUSTOMER_NAME'] == client_name].copy()
-            client_pays['DATE'] = pd.to_datetime(client_pays['DATE'])
-            client_pays = client_pays.sort_values('DATE')
             
-            ledger_entries = []
-            curr_bal = p_val
-            annual_rate = c_details['INTEREST_RATE']
+            # ... (Calculation loop for ledger_final goes here) ...
+            # Assume ledger_final is created here
             
-            # Auto-detect column name for amount
-            amt_col = 'AMOUNT' if 'AMOUNT' in client_pays.columns else 'AMOUNT_PAID'
-
-    for _, row in client_pays.iterrows():
-                # Reducing Balance: Interest is (Current Balance * Rate) / 12
-                interest_accrued = (curr_bal * (annual_rate / 100) / 12)
-                payment_received = row[amt_col]
-                
-                # New Balance = Old Balance + Interest - Payment
-                curr_bal = (curr_bal + interest_accrued) - payment_received
-                
-                ledger_entries.append({
-                    "Date": row['DATE'].strftime('%d %b, %Y'),
-                    "Description": f"Repayment (Ref: {row.get('REF', 'N/A')})",
-                    "Interest Charged": interest_accrued,
-                    "Payment Rec'd": payment_received,
-                    "Running Balance": max(0, curr_bal)
-                })
-        
-    ledger_final = pd.DataFrame(ledger_entries)
-
-    if not ledger_final.empty:
-                # Summary Metrics
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Current Balance", f"UGX {curr_bal:,.0f}")
-                m2.metric("Total Interest Paid", f"UGX {ledger_final['Interest Charged'].sum():,.0f}")
-                m3.metric("Total Payments", f"UGX {ledger_final['Payment Rec\'d'].sum():,.0f}")
-
-                # The Detailed Ledger Table
-                st.dataframe(
-                    ledger_final,
-                    column_config={
-                        "Interest Charged": st.column_config.NumberColumn(format="UGX %,d"),
-                        "Payment Rec'd": st.column_config.NumberColumn(format="UGX %,d"),
-                        "Running Balance": st.column_config.NumberColumn(format="UGX %,d"),
-                    },
-                    use_container_width=True, hide_index=True
-                )
-                
-                # Download Button for the Ledger
-                csv_data = ledger_final.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label=f"📥 Download {client_name}'s Ledger",
-                    data=csv_data,
-                    file_name=f"{client_name}_Ledger.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
+            # 3. Display Everything
+            st.dataframe(ledger_final, use_container_width=True)
+            
+            # 4. WhatsApp & Download Buttons
+            # (Paste the WhatsApp code we built here)
+            
+        else:
+            st.warning("No payments file found. Record a payment first.")
+            
     else:
-                st.info("No payments recorded for this borrower yet.")
-    else:
-            st.warning("Payment database not found. Please record a payment first.")
-    else:
-        st.info("No borrowers in the system. Add one via the 'New Loan' button above.")
+        st.info("No borrowers found. Add one to view the ledger.")
+
+# --- END OF LEDGER ROOM ---
 
 # --- WHATSAPP MESSAGE GENERATION ---
 # --- COLORED BUTTONS WITH UNIQUE KEYS ---
