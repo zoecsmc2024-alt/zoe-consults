@@ -111,30 +111,62 @@ menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", 
 # --- TAB 0: OVERVIEW ---
 with menu_tabs[0]:
     if not df.empty:
+        # 1. CALCULATE PROFIT (Total Interest Earned from Collections)
+        # Assuming interest is collected proportionally to the amount paid
+        total_interest_expected = (df['LOAN_AMOUNT'] * df['INTEREST_RATE'] / 100).sum()
+        # Simplified profit: (Total Paid / Total Principal) * Total Interest Expected
+        total_principal = df['LOAN_AMOUNT'].sum()
+        actual_profit = (df['AMOUNT_PAID'].sum() / total_principal * total_interest_expected) if total_principal > 0 else 0
+
+        # 2. KPI CARDS
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown(f'<div class="box-card"><div class="box-title">Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
         c2.markdown(f'<div class="box-card"><div class="box-title">Principal</div><div class="box-value">UGX {df["LOAN_AMOUNT"].sum():,.0f}</div></div>', unsafe_allow_html=True)
         c3.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
-        active_count = len(df[df['OUTSTANDING_AMOUNT'] > 0])
-        c4.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active_count}</div></div>', unsafe_allow_html=True)
+        c4.markdown(f'<div class="box-card"><div class="box-title">Est. Profit</div><div class="box-value" style="color: #10b981;">UGX {actual_profit:,.0f}</div></div>', unsafe_allow_html=True)
         
         st.write("---")
-        st.subheader("Quick Portfolio View")
-        
-        def process_display(row):
+        st.subheader("Loan Portfolio Status")
+
+        # 3. DATA PROCESSING FOR TABLE
+        def process_full_display(row):
             interest_amt = (row['LOAN_AMOUNT'] * row['INTEREST_RATE']) / 100
+            total_payable = row['LOAN_AMOUNT'] + interest_amt
             due_date = pd.to_datetime(row['DATE_ISSUED']) + pd.Timedelta(days=30)
+            
             if row['OUTSTANDING_AMOUNT'] <= 0: status = "✅ Paid"
             elif datetime.now() > due_date: status = "🚩 Overdue"
+            elif row['AMOUNT_PAID'] == 0: status = "⚠️ Risky"
             else: status = "🔵 Active"
-            return pd.Series([interest_amt, due_date.strftime('%Y-%m-%d'), status])
+            
+            return pd.Series([interest_amt, total_payable, due_date.strftime('%Y-%m-%d'), status])
 
         display_df = df.copy()
-        display_df[['INT_AMT', 'DUE_DATE', 'STATUS']] = display_df.apply(process_display, axis=1)
-        st.dataframe(display_df[['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'STATUS']], use_container_width=True, hide_index=True)
-    else:
-        st.info("No data found.")
+        display_df[['INT_AMT', 'TOTAL_DUE', 'DUE_DATE', 'STATUS']] = display_df.apply(process_full_display, axis=1)
 
+        # 4. REORDER & DISPLAY
+        cols_to_show = [
+            'SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INTEREST_RATE', 
+            'INT_AMT', 'TOTAL_DUE', 'AMOUNT_PAID', 
+            'OUTSTANDING_AMOUNT', 'DUE_DATE', 'STATUS'
+        ]
+        
+        st.dataframe(
+            display_df[cols_to_show],
+            column_config={
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d"),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%.1f"),
+                "INT_AMT": st.column_config.NumberColumn("Interest", format="UGX %d"),
+                "TOTAL_DUE": st.column_config.NumberColumn("Total Due", format="UGX %d"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Paid", format="UGX %d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %d"),
+                "STATUS": st.column_config.TextColumn("Loan Status")
+            },
+            use_container_width=True, 
+            hide_index=True
+        )
+    else:
+        st.info("No data found. Add a loan to begin.")
 # --- TAB 1: BORROWERS LIST (NEW!) ---
 with menu_tabs[1]:
     st.subheader("👥 Detailed Borrower Records")
