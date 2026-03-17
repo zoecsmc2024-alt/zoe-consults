@@ -76,17 +76,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- THE SIDEBAR CONTENT ---
 with st.sidebar:
-    # Use the blue bag icon or your logo here
-    st.markdown('<p class="sidebar-title">🛡️ Zoe Consults</p>', unsafe_allow_html=True)
+    # --- LOGO SECTION ---
+    if 'custom_logo' in st.session_state:
+        st.image(st.session_state['custom_logo'], use_container_width=True)
+    else:
+        st.markdown("### 💰 Zoe Consults") # Default if no logo
+    
     st.write(f"**Admin:** Evans Ahuura")
     st.write("---")
     
-    page = st.radio(
-        "Navigation",
-        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"]
-    )
+    # Your existing navigation
+    page = st.radio("Navigation", ["📈 Performance", "👥 Borrowers", "📄 Ledger", "⚙️ Settings"])
 
 # --- 3. THE CODE THAT WAS CRASHING (Line 24) ---
 if not df.empty:
