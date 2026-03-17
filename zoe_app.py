@@ -43,18 +43,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Secondary Navigation (The Tabs)
-menu_tabs = st.tabs(["👥 Borrowers", "⚖️ Loans", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
-        # THE NEW PORTFOLIO TABLE
+with menu_tabs[0]: # Borrowers/Dashboard View
+    st.write("") # One level in (4 spaces)
+    
+    if not df.empty:
+        # Two levels in (8 spaces)
+        c1, c2, c3, c4 = st.columns(4)
+        
+        # ... (box card markdown lines here) ...
+
+        # LINE 48: Make sure this is also exactly 8 spaces in!
         st.markdown("<br><h4 style='color: #555;'>📋 Loan Portfolio Registry</h4>", unsafe_allow_html=True)
         
-        # Select specific columns to show
-        cols_to_show = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'STATUS']
-        
-        # Display as a clean, interactive dataframe
         st.dataframe(
             df[cols_to_show].sort_values('SN', ascending=False),
             use_container_width=True,
             hide_index=True
         )
-    else:
-        st.info("System Ready. Please upload 'zoe_database.csv' to populate records.")
