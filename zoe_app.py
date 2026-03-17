@@ -634,7 +634,8 @@ elif page == "📄 Client Transaction Ledger":
                     "Payment Rec'd": payment_received,
                     "Running Balance": max(0, curr_bal)
                 })
-        ledger_final = pd.DataFrame(ledger_entries)
+        
+    ledger_final = pd.DataFrame(ledger_entries)
 
         if not ledger_final.empty:
                 # Summary Metrics
