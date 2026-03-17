@@ -628,4 +628,3 @@ if page == "📄 Client Ledger" and 'ledger_final' in locals():
                 /* ... all your button and sidebar colors ... */
     </style>
     """, unsafe_allow_html=True 
-#   ^^^ THESE THREE QUOTES AND THE CLOSING BRACKET ARE WHAT'S MISSING
