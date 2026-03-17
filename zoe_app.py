@@ -627,4 +627,4 @@ if page == "📄 Client Ledger" and 'ledger_final' in locals():
                 /* ... your other CSS rules ... */
                 /* ... all your button and sidebar colors ... */
     </style>
-    """, unsafe_allow_html=True 
+     
