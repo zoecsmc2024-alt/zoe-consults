@@ -245,3 +245,43 @@ with menu_tabs[3]:
     if os.path.exists(COLLATERAL_FILE):
         st.write("---")
         st.dataframe(pd.read_csv(COLLATERAL_FILE), use_container_width=True)
+
+# --- TAB 4: CALENDAR & REMINDERS ---
+with menu_tabs[4]:
+    st.subheader("📅 Collection Schedule")
+    
+    if not df.empty:
+        # 1. Process dates
+        sched_df = df.copy()
+        sched_df['DUE_DATE'] = pd.to_datetime(sched_df['DATE_ISSUED']) + pd.Timedelta(days=30)
+        sched_df['DAYS_LEFT'] = (sched_df['DUE_DATE'] - pd.Timestamp(datetime.now())).dt.days
+        
+        # 2. Filter for active loans only
+        active_sched = sched_df[sched_df['OUTSTANDING_AMOUNT'] > 0].copy()
+        
+        if not active_sched.empty:
+            col_a, col_b = st.columns(2)
+            
+            with col_a:
+                st.markdown("#### 🚩 Overdue Today")
+                overdue = active_sched[active_sched['DAYS_LEFT'] < 0]
+                if not overdue.empty:
+                    st.dataframe(overdue[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DAYS_LEFT']], 
+                                 column_config={"DAYS_LEFT": "Days Past Due", "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d")},
+                                 use_container_width=True, hide_index=True)
+                else:
+                    st.success("Great job! No overdue payments.")
+
+            with col_b:
+                st.markdown("#### ⏳ Coming Up (Next 7 Days)")
+                upcoming = active_sched[(active_sched['DAYS_LEFT'] >= 0) & (active_sched['DAYS_LEFT'] <= 7)]
+                if not upcoming.empty:
+                    st.dataframe(upcoming[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DAYS_LEFT']], 
+                                 column_config={"DAYS_LEFT": "Days Until Due", "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d")},
+                                 use_container_width=True, hide_index=True)
+                else:
+                    st.info("Quiet week ahead.")
+        else:
+            st.success("All loans are fully paid! 🥳")
+    else:
+        st.info("No records found.")
