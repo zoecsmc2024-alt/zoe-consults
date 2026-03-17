@@ -179,7 +179,7 @@ with menu_tabs[0]:
     else:
         st.info("No data found. Add a loan to begin.")
 
-with menu_tabs[2]:
+with menu_tabs[1]:
     st.subheader("Log a Payment")
     if not df.empty:
         with st.form("pay_form", clear_on_submit=True):
@@ -212,7 +212,7 @@ with menu_tabs[2]:
                 st.cache_data.clear()
                 st.rerun()
                 
-with menu_tabs[3]:
+with menu_tabs[2]:
     st.subheader("📑 Collateral Management")
     
     if not df.empty:
