@@ -619,7 +619,7 @@ elif page == "📄 Client Transaction Ledger":
             # Auto-detect column name for amount
             amt_col = 'AMOUNT' if 'AMOUNT' in client_pays.columns else 'AMOUNT_PAID'
 
-        for _, row in client_pays.iterrows():
+    for _, row in client_pays.iterrows():
                 # Reducing Balance: Interest is (Current Balance * Rate) / 12
                 interest_accrued = (curr_bal * (annual_rate / 100) / 12)
                 payment_received = row[amt_col]
