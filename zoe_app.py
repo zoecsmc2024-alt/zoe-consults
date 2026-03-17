@@ -84,19 +84,26 @@ with col_btn:
             rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
             
             if st.form_submit_button("Confirm & Save"):
-                new_data = pd.DataFrame([{
-                    'SN': len(df) + 1,
-                    'CUSTOMER_NAME': name,
-                    'LOAN_AMOUNT': amount,
-                    'AMOUNT_PAID': 0,
-                    'OUTSTANDING_AMOUNT': amount,
-                    'INTEREST_RATE': rate,
-                    'DATE_ISSUED': datetime.now().strftime("%Y-%m-%d")
-                }])
-                new_data.to_csv(DB_FILE, mode='a', header=False, index=False)
-                st.success("Loan Recorded!")
-                st.cache_data.clear()
-                st.rerun()
+                if name:
+                    # Make sure this variable name matches what you use in to_csv()
+                    new_data = pd.DataFrame([{
+                        'SN': len(df) + 1,
+                        'CUSTOMER_NAME': name,
+                        'LOAN_AMOUNT': amount,
+                        'AMOUNT_PAID': 0,
+                        'OUTSTANDING_AMOUNT': amount,
+                        'INTEREST_RATE': rate,
+                        'DATE_ISSUED': datetime.now().strftime("%Y-%m-%d")
+                    }])
+                    
+                    # Now new_data is defined and can be saved
+                    new_data.to_csv(DB_FILE, mode='a', header=False, index=False)
+                    
+                    st.cache_data.clear()
+                    st.success(f"Loan for {name} saved!")
+                    st.rerun()
+                else:
+                    st.error("Please enter a name.")
 
 with col_dl:
     csv_data = df.to_csv(index=False).encode('utf-8')
