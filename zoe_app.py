@@ -125,10 +125,24 @@ with menu_tabs[2]:
                 # Log transaction
                 pd.DataFrame([[datetime.now().date(), p_name, p_amount, p_ref]], 
                            columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'RECEIPT_NO']).to_csv(PAYMENT_FILE, mode='a', header=False, index=False)
-                # Update Master DB
+               # Update Master DB using SN instead of Name
                 master_df = pd.read_csv(DB_FILE)
-                master_df.loc[master_df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amount
-                master_df['OUTSTANDING_AMOUNT'] = master_df['LOAN_AMOUNT'] - master_df['AMOUNT_PAID']
-                master_df.to_csv(DB_FILE, index=False)
+                
+                # We need to find the specific SN for the selected name
+                # For now, let's pick the row where the Name matches AND there is a balance
+                mask = (master_df['CUSTOMER_NAME'] == p_name) & (master_df['OUTSTANDING_AMOUNT'] > 0)
+                
+                if mask.any():
+                    # Get the index of the first matching active loan
+                    idx = master_df[mask].index[0]
+                    
+                    master_df.at[idx, 'AMOUNT_PAID'] += p_amount
+                    master_df.at[idx, 'OUTSTANDING_AMOUNT'] = master_df.at[idx, 'LOAN_AMOUNT'] - master_df.at[idx, 'AMOUNT_PAID']
+                    
+                    master_df.to_csv(DB_FILE, index=False)
+                    st.success(f"Payment recorded specifically for {p_name} (Loan ID: {master_df.at[idx, 'SN']})")
+                else:
+                    st.error("No active loan found for this customer.")
+                
                 st.cache_data.clear()
                 st.rerun()
