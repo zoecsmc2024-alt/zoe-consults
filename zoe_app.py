@@ -86,6 +86,20 @@ def get_base64_image(image_path):
 # Replace the URL below with your actual hosted logo link
 LOGO_URL = "https://img.icons8.com/fluency/96/money-bag-euro.png" 
 
+# --- BRAND SETTINGS (Uploader) ---
+with st.sidebar:
+    st.markdown("### ⚙️ Brand Settings")
+    uploaded_logo = st.file_uploader("Upload New Logo", type=["png", "jpg", "jpeg"])
+    
+    # If a new logo is uploaded, save it to session state
+    if uploaded_logo is not None:
+        st.session_state['custom_logo'] = uploaded_logo
+    
+    # Option to reset to default
+    if st.button("Reset to Default"):
+        if 'custom_logo' in st.session_state:
+            del st.session_state['custom_logo']
+        st.rerun()
 # Check if you want to use the URL or a local file
 header_html = f"""
     <div style="background-color: #0f172a; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0;">
