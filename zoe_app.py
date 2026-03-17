@@ -108,92 +108,78 @@ if search_query:
 # --- 5. DASHBOARD TABS ---
 # We now have 5 tabs: 0=Overview, 1=Borrowers, 2=Repayments, 3=Collateral, 4=Calendar
 menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
-# --- TAB 0: OVERVIEW ---
+# --- TAB 0: OVERVIEW (With Performance Charts) ---
 with menu_tabs[0]:
     if not df.empty:
-        # 1. CALCULATE PROFIT
-        total_interest_expected = (df['LOAN_AMOUNT'] * df['INTEREST_RATE'] / 100).sum()
+        # 1. CALCULATE FINANCIALS
         total_principal = df['LOAN_AMOUNT'].sum()
-        actual_profit = (df['AMOUNT_PAID'].sum() / total_principal * total_interest_expected) if total_principal > 0 else 0
-
-        # 2. KPI CARDS (With Commas)
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f'<div class="box-card"><div class="box-title">Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="box-card"><div class="box-title">Principal</div><div class="box-value">UGX {total_principal:,.0f}</div></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
-        # Highlight profit in green if it's positive
-        profit_color = "#10b981" if actual_profit > 0 else "#ef4444"
+        total_collected = df['AMOUNT_PAID'].sum()
         
-        c4.markdown(f"""
-            <div class="box-card">
-                <div class="box-title">Realized Profit</div>
-                <div class="box-value" style="color: {profit_color};">
-                    UGX {actual_profit:,.0f}
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        # Profit Calculation: Interest earned on the portion of principal already repaid
+        total_interest_expected = (df['LOAN_AMOUNT'] * df['INTEREST_RATE'] / 100).sum()
+        actual_profit = (total_collected / total_principal * total_interest_expected) if total_principal > 0 else 0
+
+        # 2. KPI CARDS
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown(f'<div class="box-card"><div class="box-title">Total Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div class="box-card"><div class="box-title">Principal Issued</div><div class="box-value">UGX {total_principal:,.0f}</div></div>', unsafe_allow_html=True)
+        c3.markdown(f'<div class="box-card"><div class="box-title">Total Collections</div><div class="box-value">UGX {total_collected:,.0f}</div></div>', unsafe_allow_html=True)
+        
+        profit_color = "#10b981" if actual_profit > 0 else "#ef4444"
+        c4.markdown(f'<div class="box-card"><div class="box-title">Realized Profit</div><div class="box-value" style="color: {profit_color};">UGX {actual_profit:,.0f}</div></div>', unsafe_allow_html=True)
         
         st.write("---")
-        st.subheader("Loan Portfolio Status")
+        
+        # 3. PERFORMANCE CHARTS SECTION
+        chart_col1, chart_col2 = st.columns([2, 1])
+        
+        with chart_col1:
+            st.subheader("📈 Cash Flow Analysis")
+            # Create a small dataframe for the bar chart
+            performance_data = pd.DataFrame({
+                "Metric": ["Principal", "Collections", "Profit"],
+                "Amount": [total_principal, total_collected, actual_profit]
+            })
+            st.bar_chart(data=performance_data, x="Metric", y="Amount", color="#00acc1")
 
-        # 3. DATA PROCESSING
+        with chart_col2:
+            st.subheader("🎯 Collection %")
+            # Simple Gauge-style calculation
+            collection_rate = (total_collected / total_principal * 100) if total_principal > 0 else 0
+            st.metric("Recovery Rate", f"{collection_rate:.1f}%", delta=f"{len(df)} Loans")
+            st.write("This shows how much of your issued capital has returned to the business.")
+
+        st.write("---")
+        st.subheader("Loan Portfolio Details")
+
+        # 4. TABLE DISPLAY LOGIC (Same as before)
         def process_full_display(row):
             interest_amt = (row['LOAN_AMOUNT'] * row['INTEREST_RATE']) / 100
             total_due = row['LOAN_AMOUNT'] + interest_amt
             due_date = pd.to_datetime(row['DATE_ISSUED']) + pd.Timedelta(days=30)
-            
             if row['OUTSTANDING_AMOUNT'] <= 0: status = "✅ Paid"
             elif datetime.now() > due_date: status = "🚩 Overdue"
             elif row['AMOUNT_PAID'] == 0: status = "⚠️ Risky"
             else: status = "🔵 Active"
-            
             return pd.Series([interest_amt, total_due, due_date.strftime('%Y-%m-%d'), status])
 
         display_df = df.copy()
         display_df[['INT_AMT', 'TOTAL_DUE', 'DUE_DATE', 'STATUS']] = display_df.apply(process_full_display, axis=1)
 
-        # 4. DISPLAY WITH COMMAS AND COLORS
+        cols_to_show = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INT_AMT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS']
         st.dataframe(
-            display_df[['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INT_AMT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'DUE_DATE', 'STATUS']],
+            display_df[cols_to_show],
             column_config={
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%.1f"),
                 "INT_AMT": st.column_config.NumberColumn("Interest", format="UGX %,d"),
                 "TOTAL_DUE": st.column_config.NumberColumn("Total Due", format="UGX %,d"),
                 "AMOUNT_PAID": st.column_config.NumberColumn("Paid", format="UGX %,d"),
                 "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-                "DUE_DATE": st.column_config.DateColumn("Due Date"),
-                "STATUS": st.column_config.TextColumn("Loan Status"),
             },
-            use_container_width=True, 
-            hide_index=True
+            use_container_width=True, hide_index=True
         )
     else:
-        st.info("No data found. Add a loan to begin.")
-        st.write("---")
-        st.subheader("📈 Performance & Cash Flow")
-        
-        # 1. Prepare Data for Bar Chart (Total Values)
-        chart_data = pd.DataFrame({
-            "Metric": ["Total Principal", "Total Repaid", "Est. Profit"],
-            "Amount": [
-                df['LOAN_AMOUNT'].sum(), 
-                df['AMOUNT_PAID'].sum(),
-                actual_profit # Uses the calculation we did for the KPI cards
-            ]
-        })
-        
-        # Display the Bar Chart
-        st.bar_chart(data=chart_data, x="Metric", y="Amount", color="#00acc1")
-
-        # 2. Daily Collection Trend (Optional but Pro)
-        if os.path.exists(PAYMENT_FILE):
-            st.markdown("#### 📅 Collection Trend (Recent)")
-            pay_history = pd.read_csv(PAYMENT_FILE)
-            if not pay_history.empty:
-                # Group by date to see how much you collect per day
-                trend_df = pay_history.groupby('DATE')['AMOUNT'].sum().reset_index()
-                st.line_chart(trend_df.set_index('DATE'), color="#10b981")
+        st.info("No data found. Add a loan to see the charts!")
 # --- TAB 1: BORROWERS LIST (Rearranged & Fixed) ---
 with menu_tabs[1]:
     st.subheader("👥 Detailed Borrower Records")
