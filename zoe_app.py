@@ -101,41 +101,55 @@ menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", 
 
 with menu_tabs[0]:
     if not df.empty:
-        # --- KPI CARDS (Keep your existing ones) ---
-        # ... (c1, c2, c3, c4 code here) ...
+        # --- (Your KPI Cards code here) ---
 
         st.write("---")
         st.subheader("Loan Portfolio Status")
 
-        # 1. Create the Status Column Logic
-        def calculate_status(row):
+        # 1. Logic for Calculated Columns
+        def process_display_data(row):
+            # Calculate Interest Amount: (Principal * Rate) / 100
+            interest_amt = (row['LOAN_AMOUNT'] * row['INTEREST_RATE']) / 100
+            total_due = row['LOAN_AMOUNT'] + interest_amt
+            
+            # Calculate Due Date (30 days after Issue Date)
+            issue_date = pd.to_datetime(row['DATE_ISSUED'])
+            due_date = issue_date + pd.Timedelta(days=30)
+            
+            # Status Logic
             if row['OUTSTANDING_AMOUNT'] <= 0:
-                return "✅ Dormant (Paid)"
-            elif row['OUTSTANDING_AMOUNT'] > (row['LOAN_AMOUNT'] * 0.9):
-                return "⚠️ Risky (No Progress)"
+                status = "✅ Paid"
+            elif datetime.now() > due_date and row['OUTSTANDING_AMOUNT'] > 0:
+                status = "🚩 Overdue"
+            elif row['AMOUNT_PAID'] == 0:
+                status = "⚠️ Risky"
             else:
-                return "🔵 Active"
+                status = "🔵 Active"
+                
+            return pd.Series([interest_amt, total_due, due_date.strftime('%Y-%m-%d'), status])
 
-        # Apply the logic to a temporary display dataframe
+        # Apply the logic
         display_df = df.copy()
-        display_df['STATUS'] = display_df.apply(calculate_status, axis=1)
+        display_df[['INT_AMT', 'TOTAL_PAYABLE', 'DUE_DATE', 'STATUS']] = display_df.apply(process_display_data, axis=1)
 
-        # 2. Reorder Columns: Move Interest Rate after Loan Amount
-        # Also include our new Status column
+        # 2. Reorder Columns: Status is now LAST
         column_order = [
             'SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INTEREST_RATE', 
-            'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS', 'DATE_ISSUED'
+            'INT_AMT', 'TOTAL_PAYABLE', 'AMOUNT_PAID', 
+            'OUTSTANDING_AMOUNT', 'DATE_ISSUED', 'DUE_DATE', 'STATUS'
         ]
         
-        # Display the formatted table
         st.dataframe(
             display_df[column_order],
             column_config={
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%.1f%%"),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%.1f"),
+                "INT_AMT": st.column_config.NumberColumn("Interest UGX", format="UGX %d"),
+                "TOTAL_PAYABLE": st.column_config.NumberColumn("Total Due", format="UGX %d"),
                 "AMOUNT_PAID": st.column_config.NumberColumn("Paid", format="UGX %d"),
                 "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %d"),
-                "STATUS": st.column_config.TextColumn("Loan Status"),
+                "DUE_DATE": st.column_config.DateColumn("Due Date"),
+                "STATUS": st.column_config.TextColumn("Loan Status")
             },
             use_container_width=True, 
             hide_index=True
