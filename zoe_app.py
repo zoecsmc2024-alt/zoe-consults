@@ -212,7 +212,7 @@ with menu_tabs[2]:
                 st.cache_data.clear()
                 st.rerun()
                 
-   with menu_tabs[3]:
+with menu_tabs[3]:
     st.subheader("📑 Collateral Management")
     
     if not df.empty:
