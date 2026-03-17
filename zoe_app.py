@@ -183,8 +183,15 @@ with st.container():
             st.rerun()
 st.write("---") # Visual separator before the tabs
 # --- 5. DASHBOARD TABS ---
-# We now have 5 tabs: 0=Overview, 1=Borrowers, 2=Repayments, 3=Collateral, 4=Calendar
-menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
+# We now have 6 tabs (Index 0 to 5)
+menu_tabs = st.tabs([
+    "📊 Overview", 
+    "👥 Borrowers List", 
+    "💰 Repayments", 
+    "📑 Collateral", 
+    "📅 Calendar", 
+    "📄 Client Report"  # <--- This adds Tab 5
+])
 # --- TAB 0: OVERVIEW (The Eye-Catching FinTech Dashboard) ---
 with menu_tabs[0]:
     if not df.empty:
