@@ -482,9 +482,10 @@ with menu_tabs[5]:
                     <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
                     # --- FIXED LINE ---
                     # 1. Format the money first
+# 1. Prepare the value
 formatted_principal = f"{int(c_details['LOAN_AMOUNT']):,.0f}"
 
-# 2. The HTML Block (Carefully balanced quotes)
+# 2. The Header (Note: no space between f and """)
 st.markdown(f"""
     <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
         <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
