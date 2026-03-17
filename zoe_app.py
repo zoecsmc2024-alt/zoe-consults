@@ -125,11 +125,11 @@ with menu_tabs[0]:
         
         st.write("---")
         
-        # --- SMART DATA EDITOR ---
+       # --- SMART DATA EDITOR WITH DELETE ---
         st.subheader("Interactive Loan Manager")
-        st.info("💡 You can edit 'AMOUNT_PAID' or 'INTEREST_RATE' directly in the table below and click 'Save Changes'.")
-        
-        # Create the editor
+        st.info("💡 Edit 'AMOUNT_PAID' directly in the table, or select rows to delete.")
+
+        # Create the editor with Row Selection enabled
         edited_df = st.data_editor(
             df,
             column_config={
@@ -142,23 +142,28 @@ with menu_tabs[0]:
                 "DATE_ISSUED": st.column_config.DateColumn("Date", disabled=True),
             },
             hide_index=True,
+            num_rows="dynamic", # Allows you to add/delete rows if you prefer manual entry
             use_container_width=True,
             key="data_editor_key"
         )
 
-        # Update Logic: Check if data changed
-        if st.button("💾 Save Changes to Database", type="primary"):
-            # Recalculate Outstanding Amount before saving
-            edited_df['OUTSTANDING_AMOUNT'] = edited_df['LOAN_AMOUNT'] - edited_df['AMOUNT_PAID']
-            
-            # Save to CSV
-            edited_df.to_csv(DB_FILE, index=False)
-            st.success("Database Updated Successfully!")
-            st.cache_data.clear()
-            st.rerun()
-            
-    else:
-        st.info("No records found. Click 'New Loan Entry' to begin.")
+        # Action Buttons
+        btn_save, btn_delete = st.columns([1, 4])
+        
+        with btn_save:
+            if st.button("💾 Save Changes", type="primary", use_container_width=True):
+                # Recalculate balances before saving
+                edited_df['OUTSTANDING_AMOUNT'] = edited_df['LOAN_AMOUNT'] - edited_df['AMOUNT_PAID']
+                edited_df.to_csv(DB_FILE, index=False)
+                st.success("Database Updated!")
+                st.cache_data.clear()
+                st.rerun()
 
-with menu_tabs[1]:
-    st.info("Borrower CRM Management - coming soon.")
+        with btn_delete:
+            # This is a safety feature: only shows if the dataframe actually changed (rows removed)
+            if len(edited_df) < len(df):
+                if st.button("🗑️ Confirm Deletion of Rows", type="secondary", use_container_width=True):
+                    edited_df.to_csv(DB_FILE, index=False)
+                    st.warning("Selected records deleted.")
+                    st.cache_data.clear()
+                    st.rerun()
