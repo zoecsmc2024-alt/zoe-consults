@@ -212,12 +212,12 @@ with menu_tabs[2]:
                 st.cache_data.clear()
                 st.rerun()
                 
-    with menu_tabs[3]:
-        st.subheader("📑 Collateral Management")
+   with menu_tabs[3]:
+    st.subheader("📑 Collateral Management")
     
-        if not df.empty:
+    if not df.empty:
         # 1. Entry Form
-          with st.expander("📝 Register Security Item", expanded=False):
+        with st.expander("📝 Register Security Item", expanded=False):
             with st.form("collateral_form", clear_on_submit=True):
                 # We show SN and Name to be precise
                 loan_choice = st.selectbox("Select Loan ID", 
