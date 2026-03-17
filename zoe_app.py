@@ -44,13 +44,26 @@ st.markdown("""
 # --- 2. DATA ENGINE ---
 def load_data():
     try:
+        # Try to read your real file
         df = pd.read_csv("zoe_database.csv")
+        
+        # Clean up column names (remove any accidental spaces)
+        df.columns = df.columns.str.strip()
+        
         for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'INTEREST_RATE']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         return df
-    except:
-        return pd.DataFrame()
+    except Exception as e:
+        # If the file is missing, we return a "Mock" row for testing
+        data = {
+            'SN': [1],
+            'CUSTOMER_NAME': ['System Test'],
+            'LOAN_AMOUNT': [1000000],
+            'AMOUNT_PAID': [200000],
+            'STATUS': ['Active']
+        }
+        return pd.DataFrame(data)
 
 df = load_data()
 
