@@ -69,7 +69,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. TOP CONTROLS ---
+# --- 4. TOP CONTROLS (FULL FIX) ---
 col_search, col_btn, col_dl = st.columns([3, 1, 0.5])
 
 with col_search:
@@ -77,40 +77,43 @@ with col_search:
 
 with col_btn:
     with st.popover("➕ New Loan Entry", use_container_width=True):
-        with st.form("loan_form", clear_on_submit=True):
+        # We use a unique key for the form to prevent conflicts
+        with st.form("add_new_loan_form", clear_on_submit=True):
             st.markdown("### Client Details")
-            name = st.text_input("Customer Name")
-            amount = st.number_input("Principal Amount (UGX)", min_value=0, step=50000)
-            rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
+            f_name = st.text_input("Customer Name")
+            f_amount = st.number_input("Principal Amount (UGX)", min_value=0, step=50000)
+            f_rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
             
-            submit_button = st.form_submit_button("Confirm & Save")
-
-            if submit_button:
-                if name:
-                    # 1. Define the data clearly
+            # The button is the gatekeeper
+            submitted = st.form_submit_button("Confirm & Save")
+            
+            if submitted:
+                if f_name:
+                    # new_data is created ONLY when button is clicked
                     new_data = pd.DataFrame([{
                         'SN': len(df) + 1,
-                        'CUSTOMER_NAME': name,
-                        'LOAN_AMOUNT': amount,
+                        'CUSTOMER_NAME': f_name,
+                        'LOAN_AMOUNT': f_amount,
                         'AMOUNT_PAID': 0,
-                        'OUTSTANDING_AMOUNT': amount,
-                        'INTEREST_RATE': rate,
+                        'OUTSTANDING_AMOUNT': f_amount,
+                        'INTEREST_RATE': f_rate,
                         'DATE_ISSUED': datetime.now().strftime("%Y-%m-%d")
                     }])
                     
-                    # 2. Save it (Notice this is inside the 'if name:' block)
+                    # Saving happens ONLY inside this specific 'if' block
                     new_data.to_csv(DB_FILE, mode='a', header=False, index=False)
                     
-                    # 3. Refresh the app
+                    st.success(f"Successfully added {f_name}!")
                     st.cache_data.clear()
-                    st.success(f"Loan for {name} saved!")
                     st.rerun()
                 else:
-                    st.error("Please enter a customer name.")
+                    st.error("Please provide a name.")
 
 with col_dl:
-    csv_bytes = df.to_csv(index=False).encode('utf-8')
-    st.download_button(label="📥", data=csv_bytes, file_name="Zoe_Report.csv", mime="text/csv")
+    # This just provides a download of whatever is currently in 'df'
+    if not df.empty:
+        csv_output = df.to_csv(index=False).encode('utf-8')
+        st.download_button(label="📥", data=csv_output, file_name="Zoe_Lend_Data.csv", mime="text/csv")
 
 # --- 5. DASHBOARD TABS ---
 menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📅 Calendar"])
