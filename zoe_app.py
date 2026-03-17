@@ -250,48 +250,42 @@ with menu_tabs[0]:
         
     else:
         st.info("👋 Welcome! Please add a loan to see your dashboard come to life.")
-# --- TAB 1: BORROWERS LIST (Rearranged & Fixed) ---
+# --- TAB 1: BORROWERS LIST (With Edit Pencil Logic) ---
 with menu_tabs[1]:
-    st.subheader("👥 Detailed Borrower Records")
-    if not df.empty:
-        # 1. ENSURE NUMERIC & MATH (Fixes the "interest not working" issue)
-        crm_df = df.copy()
-        crm_df['LOAN_AMOUNT'] = pd.to_numeric(crm_df['LOAN_AMOUNT'], errors='coerce').fillna(0)
-        crm_df['INTEREST_RATE'] = pd.to_numeric(crm_df['INTEREST_RATE'], errors='coerce').fillna(0)
-        
-        # Calculate interest for display
-        crm_df['INTEREST_VALUE'] = (crm_df['LOAN_AMOUNT'] * crm_df['INTEREST_RATE']) / 100
-        
-        # 2. REARRANGE COLUMNS (Issue Date moved up)
-        # Defining the order here moves DATE_ISSUED before the financial math
-        cols_ordered = [
-            'SN', 'CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 
-            'INTEREST_RATE', 'INTEREST_VALUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT'
-        ]
+    st.subheader("👥 Manage Loan Records")
+    
+    # 1. The Edit Toggle (The "Pencil" behavior)
+    edit_mode = st.toggle("✏️ Enable Edit Mode", help="Turn this on to modify names, amounts, or rates directly in the table.")
 
-        # 3. DISPLAY WITH COMMAS
-        st.dataframe(
-            crm_df[cols_ordered],
-            column_config={
-                "SN": "ID",
-                "CUSTOMER_NAME": "Client Name",
-                "DATE_ISSUED": st.column_config.DateColumn("Issue Date"),
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%.1f%%"),
-                "INTEREST_VALUE": st.column_config.NumberColumn("Interest Amount", format="UGX %,d"),
-                "AMOUNT_PAID": st.column_config.NumberColumn("Total Repaid", format="UGX %,d"),
-                "OUTSTANDING_AMOUNT": st.column_config.ProgressColumn(
-                    "Balance Progress",
-                    format="UGX %,d",
-                    min_value=0,
-                    max_value=int(crm_df["LOAN_AMOUNT"].max() if not crm_df.empty else 1),
-                ),
-            },
-            use_container_width=True,
-            hide_index=True,
-        )
+    if not df.empty:
+        if edit_mode:
+            st.info("💡 Double-click any cell to edit. Changes are saved when you click 'Save Changes' below.")
+            
+            # The Magic Widget: st.data_editor
+            edited_df = st.data_editor(
+                df, 
+                key="borrower_editor",
+                num_rows="dynamic", # Allows you to add/delete rows too!
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                    "AMOUNT_PAID": st.column_config.NumberColumn("Repaid", format="UGX %,d"),
+                    "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%.1f%%"),
+                }
+            )
+
+            # 2. Save Logic
+            if st.button("💾 Save All Changes", type="primary"):
+                edited_df.to_csv(DB_FILE, index=False)
+                st.success("Database updated successfully!")
+                st.rerun()
+        
+        else:
+            # Standard View Mode (The clean table you already have)
+            st.dataframe(df, use_container_width=True, hide_index=True)
     else:
-        st.info("No borrowers registered yet.")
+        st.info("No records to edit.")
 # --- TAB 2: REPAYMENTS ---
 with menu_tabs[2]:
     st.subheader("💰 Record a Payment")
