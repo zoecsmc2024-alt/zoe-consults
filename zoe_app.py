@@ -167,13 +167,33 @@ with menu_tabs[0]:
         )
     else:
         st.info("No data found. Add a loan to begin.")
-# --- TAB 1: BORROWERS LIST (NEW!) ---
+# --- TAB 1: BORROWERS LIST (Organized CRM View) ---
 with menu_tabs[1]:
     st.subheader("👥 Detailed Borrower Records")
     if not df.empty:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # We use st.dataframe's column_config for a professional look
+        st.dataframe(
+            df,
+            column_config={
+                "SN": st.column_config.NumberColumn("ID"),
+                "CUSTOMER_NAME": st.column_config.TextColumn("Client Name"),
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Total Repaid", format="UGX %d"),
+                "OUTSTANDING_AMOUNT": st.column_config.ProgressColumn(
+                    "Outstanding Balance",
+                    help="Visual progress of loan repayment",
+                    format="UGX %d",
+                    min_value=0,
+                    max_value=int(df["LOAN_AMOUNT"].max()),
+                ),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%.1f%%"),
+                "DATE_ISSUED": st.column_config.DateColumn("Issuance Date"),
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
-        st.info("No borrowers registered.")
+        st.info("No borrowers registered yet.")
 
 # --- TAB 2: REPAYMENTS ---
 with menu_tabs[2]:
