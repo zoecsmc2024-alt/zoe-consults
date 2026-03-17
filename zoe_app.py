@@ -600,42 +600,53 @@ with menu_tabs[5]:
     else:
         st.info("No borrowers in the system. Add one via the 'New Loan' button above.")
 
-# --- WHATSAPP INTEGRATION (Add to Tab 5) ---
+# --- WHATSAPP MESSAGE GENERATION ---
 if not ledger_final.empty:
     st.markdown("---")
-    # 1. Prepare the message
-    # We use %20 for spaces and %0A for new lines (URL encoding)
-    message = (
-        f"Hello%20{client_name},%0A%0A"
-        f"This%20is%20Zoe%20Consults.%20Your%20current%20loan%20balance%20is%20"
-        f"UGX%20{curr_bal:,.0f}.%0A%0A"
-        f"Total%20Interest%20Accrued:%20UGX%20{ledger_final['Interest Charged'].sum():,.0f}.%0A"
-        f"Thank%20you%20for%20your%20continued%20business!"
-    )
     
-    # 2. Clean the phone number (Remove spaces, +, etc.)
-    clean_phone = str(client_contact).replace(" ", "").replace("+", "")
+    # 1. Calculate the values for the message
+    current_bal_amt = ledger_final['Running Balance'].iloc[-1]
+    total_interest = ledger_final['Interest Charged'].sum()
     
-    # 3. Create the WhatsApp URL
-    wa_url = f"https://wa.me/{clean_phone}?text={message}"
-    
-   # --- COLORED BUTTONS ---
-c_dl_ledg, c_wa_ledg = st.columns(2)
-
-with c_dl_ledg:
-    csv_data = ledger_final.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label=f"📥 Download {client_name}'s Ledger",
-        data=csv_data,
-        file_name=f"{client_name}_Ledger.csv",
-        mime="text/csv",
-        use_container_width=True
+    # 2. Build the Message 
+    # \n creates a new line in the WhatsApp text
+    raw_message = (
+        f"Hello {client_name},\n\n"
+        f"This is Zoe Consults Admin. Here is your latest statement:\n"
+        f"🔹 Principal: UGX {int(c_details['LOAN_AMOUNT']):,}\n"
+        f"🔹 Interest Accrued: UGX {total_interest:,.0f}\n"
+        f"🔹 Current Balance: UGX {current_bal_amt:,.0f}\n\n"
+        f"Please let us know if you have any questions. Thank you!"
     )
 
-with c_wa_ledg:
-    # Use the wa_url we built in the previous step
-    st.link_button(
-        label=f"📲 Send Statement via WhatsApp", 
-        url=wa_url, 
-        use_container_width=True
-    )
+    # 3. URL Encode the message (Turns spaces into %20, etc.)
+    import urllib.parse
+    encoded_message = urllib.parse.quote(raw_message)
+    
+    # 4. Clean the phone number 
+    # (Removes spaces or dashes if the admin entered them)
+    clean_phone = str(client_contact).replace(" ", "").replace("+", "").replace("-", "")
+    
+    # 5. Create the Final URL
+    wa_url = f"https://wa.me/{clean_phone}?text={encoded_message}"
+    
+    # 6. Display the Colored Buttons
+    col_dl, col_wa = st.columns(2)
+    
+    with col_dl:
+        csv_data = ledger_final.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label=f"📥 Download {client_name}'s Ledger",
+            data=csv_data,
+            file_name=f"{client_name}_Ledger.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+    with col_wa:
+        st.link_button(
+            label=f"📲 Send to WhatsApp", 
+            url=wa_url, 
+            use_container_width=True,
+            help="This will open WhatsApp with a pre-filled message."
+        )
