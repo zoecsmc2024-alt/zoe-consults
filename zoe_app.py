@@ -1,27 +1,28 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 import os
-import zipfile
-import io
-# --- 1. THE CLEAN SIDEBAR ---
+
+# --- 1. LOAD DATA FIRST ---
+DB_FILE = "zoe_borrowers.csv"
+if os.path.exists(DB_FILE):
+    df = pd.read_csv(DB_FILE)
+else:
+    # This creates the 'df' so line 24 doesn't crash if the file is missing
+    df = pd.DataFrame(columns=['CUSTOMER_NAME', 'LOAN_AMOUNT', 'STATUS'])
+
+# --- 2. THE CLEAN SIDEBAR SECOND ---
 with st.sidebar:
     st.markdown("## 🛡️ Zoe Consults")
-    if 'custom_logo_b64' in st.session_state:
-        st.markdown(f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" width="100%" style="border-radius:10px;">', unsafe_allow_html=True)
-    
     st.write("---")
-    
-    # Navigation with icons
     page = st.radio(
-        "Navigation Menu",
-        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "📅 Repayments", "⚙️ Settings"],
-        key="nav_menu"
+        "Navigation",
+        ["📈 Performance", "👥 Borrowers", "📄 Ledger", "⚙️ Settings"]
     )
-    
-    st.write("---")
-    # A permanent small KPI in the sidebar
-    if not df.empty:
+
+# --- 3. THE CODE THAT WAS CRASHING (Line 24) ---
+if not df.empty:
+    # Now Python knows exactly what 'df' is!
+    pass
         total_loaned = df['LOAN_AMOUNT'].sum()
         st.metric("Capital in Field", f"UGX {total_loaned:,.0f}")
 
