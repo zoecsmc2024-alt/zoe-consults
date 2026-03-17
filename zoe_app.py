@@ -220,60 +220,11 @@ def get_base64_image(image_path):
 # Replace the URL below with your actual hosted logo link
 LOGO_URL = "https://img.icons8.com/fluency/96/money-bag-euro.png" 
 
-import base64
-import io
-st.markdown("---")
-st.markdown("#### 💾 System Backups")
-
-def create_backup_zip():
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "x") as csv_zip:
-        # Add the main database
-        if os.path.exists(DB_FILE):
-            csv_zip.write(DB_FILE, arcname="zoe_borrowers_backup.csv")
-        # Add the payments ledger
-        if os.path.exists(PAYMENT_FILE):
-            csv_zip.write(PAYMENT_FILE, arcname="zoe_payments_backup.csv")
-    return buf.getvalue()
-
-# Trigger the Backup
-if os.path.exists(DB_FILE):
-    backup_data = create_backup_zip()
-    st.download_button(
-        label="📥 Generate Master Backup (.zip)",
-        data=backup_data,
-        file_name=f"Zoe_Consults_Backup_{datetime.now().strftime('%Y-%m-%d')}.zip",
-        mime="application/zip",
-        use_container_width=True,
-        key="master_backup_btn"
-    )
-    st.caption("This ZIP file contains your Borrowers list and all Payment history.")
-else:
-    st.info("No data found to backup yet.")
 
 # --- 1. LOGO STORAGE LOGIC ---
 # This ensures the image stays visible while you navigate tabs
 if 'custom_logo_b64' not in st.session_state:
     st.session_state['custom_logo_b64'] = None
-
-
-# --- 2. THE BLUE BRANDING BAR ---
-# We use the session state logo if it exists, otherwise a default icon
-logo_display = f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" style="height: 40px; border-radius: 5px;">' if st.session_state['custom_logo_b64'] else '<img src="https://img.icons8.com/fluency/96/money-bag-euro.png" style="height: 40px;">'
-
-header_html = f"""
-    <div style="background-color: #0f172a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0; margin-bottom: 10px;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-            {logo_display}
-            <div style="display: flex; flex-direction: column; line-height: 1.1;">
-                <b style="font-size: 1.2em; letter-spacing: 0.5px;">Zoe Consults</b>
-                <span style="font-size: 0.7em; opacity: 0.6; font-weight: 300;">Evans Ahuura | Admin</span>
-            </div>
-        </div>
-        <div style="font-size: 0.8em; opacity: 0.4;">{datetime.now().strftime('%d %b %H:%M')}</div>
-    </div>
-"""
-st.markdown(header_html, unsafe_allow_html=True)
 
 # --- REFRESHED ACTION BAR (All Buttons Fixed) ---
 with st.container():
