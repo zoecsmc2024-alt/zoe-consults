@@ -67,51 +67,62 @@ def init_db():
 
 init_db() # Run the fix immediately
 
-# --- RE-LOAD DATA ---
-@st.cache_data
-def load_collateral():
-    return pd.read_csv(COLLATERAL_FILE)
+# --- 1. INITIALIZE DATABASES ---
+init_db()
 
-# --- THE COLLATERAL TAB VIEW ---
-# (Inside your menu_tabs[3] section)
-with st.container():
+# --- 2. LOAD MAIN DATA (Crucial Step) ---
+# Ensure this happens BEFORE the tabs start
+df = load_data() 
+
+# --- 3. COLLATERAL TAB RE-FIXED ---
+with menu_tabs[3]:
     st.subheader("📑 Collateral Management")
     
-    # Manual Reset Button just in case
     if st.button("🚨 Emergency Repair Collateral File"):
         if os.path.exists(COLLATERAL_FILE):
             os.remove(COLLATERAL_FILE)
         st.rerun()
 
-    c_df = load_collateral()
+    # Load collateral specifically for this tab
+    c_df = pd.read_csv(COLLATERAL_FILE)
     
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        with st.form("new_collat", clear_on_submit=True):
-            # 1. Get the list of IDs from your main database (df)
-            if not df.empty:
+        # Check if df exists and has data
+        if df is not None and not df.empty:
+            with st.form("new_collat", clear_on_submit=True):
                 loan_ids = df['SN'].tolist()
                 l_id = st.selectbox("Assign to Loan ID", loan_ids)
                 
-                # 2. AUTOMATICALLY find the name for that ID
-                # This prevents you from having to type the name twice!
+                # Auto-find the name
                 cust_name = df[df['SN'] == l_id]['CUSTOMER_NAME'].values[0]
-                st.info(f"Borrower: **{cust_name}**") # Visual confirmation
-            else:
-                st.error("No loans found in database!")
-                st.stop()
+                st.info(f"Borrower: **{cust_name}**")
 
-            c_type = st.selectbox("Category", ["Logbook", "Land Title", "Electronics", "Household", "Other"])
-            c_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
-            c_desc = st.text_area("Item Details (Serial No, etc.)")
-            
-            if st.form_submit_button("🔒 Save Security"):
-                # Use the 'cust_name' we found above
-                new_data = pd.DataFrame([[l_id, cust_name, c_type, c_desc, c_val, "Held"]], 
-                                     columns=['ID', 'NAME', 'TYPE', 'DESC', 'VAL', 'STATUS'])
+                c_type = st.selectbox("Category", ["Logbook", "Land Title", "Electronics", "Household", "Other"])
+                c_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
+                c_desc = st.text_area("Item Details")
                 
-                new_data.to_csv(COLLATERAL_FILE, mode='a', header=False, index=False)
-                st.cache_data.clear()
-                st.success(f"Linked to {cust_name}!")
-                st.rerun()
+                if st.form_submit_button("🔒 Save Security"):
+                    new_data = pd.DataFrame([[l_id, cust_name, c_type, c_desc, c_val, "Held"]], 
+                                         columns=['ID', 'NAME', 'TYPE', 'DESC', 'VAL', 'STATUS'])
+                    new_data.to_csv(COLLATERAL_FILE, mode='a', header=False, index=False)
+                    st.cache_data.clear()
+                    st.success("Saved!")
+                    st.rerun()
+        else:
+            st.warning("⚠️ No borrowers found. Please add a loan in the 'Borrowers' tab first.")
+
+    with col2:
+        st.write("**Current Records:**")
+        if not c_df.empty:
+            st.dataframe(
+                c_df, 
+                column_config={
+                    "VAL": st.column_config.NumberColumn("Value", format="UGX %,d")
+                },
+                use_container_width=True, 
+                hide_index=True
+            )
+        else:
+            st.info("No items registered.")
