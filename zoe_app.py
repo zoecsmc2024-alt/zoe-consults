@@ -4,6 +4,29 @@ import os
 import zipfile
 import io
 
+# --- 0. SECURITY GATE ---
+def check_password():
+    def login_clicked():
+        # You can change 'admin' and 'Zoe2026' to whatever you prefer!
+        if st.session_state["user_input"] == "admin" and st.session_state["pass_input"] == "Zoe2026":
+            st.session_state["password_correct"] = True
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state or not st.session_state["password_correct"]:
+        st.markdown("## 🔐 ZoeLend IQ Pro Login")
+        st.text_input("Username", key="user_input")
+        st.text_input("Password", type="password", key="pass_input")
+        st.button("Login", on_click=login_clicked)
+        
+        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+            st.error("😕 Invalid Username or Password")
+        return False
+    return True
+
+if not check_password():
+    st.stop()
+
 # --- 1. LOAD DATA FIRST ---
 DB_FILE = "zoe_borrowers.csv"
 if os.path.exists(DB_FILE):
@@ -53,30 +76,6 @@ elif page == "⚙️ Settings":
     st.subheader("System Configuration")
     # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
     # (This keeps the settings page clean and focused)
-
-# --- 0. SECURITY GATE ---
-def check_password():
-    def login_clicked():
-        # You can change 'admin' and 'Zoe2026' to whatever you prefer!
-        if st.session_state["user_input"] == "admin" and st.session_state["pass_input"] == "Zoe2026":
-            st.session_state["password_correct"] = True
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state or not st.session_state["password_correct"]:
-        st.markdown("## 🔐 ZoeLend IQ Pro Login")
-        st.text_input("Username", key="user_input")
-        st.text_input("Password", type="password", key="pass_input")
-        st.button("Login", on_click=login_clicked)
-        
-        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-            st.error("😕 Invalid Username or Password")
-        return False
-    return True
-
-if not check_password():
-    st.stop()
-
 
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
