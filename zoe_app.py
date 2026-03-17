@@ -4,6 +4,23 @@ from datetime import datetime
 import os
 import zipfile
 import io
+# 1. Load Data FIRST
+DB_FILE = "zoe_borrowers.csv"
+if os.path.exists(DB_FILE):
+    df = pd.read_csv(DB_FILE)
+else:
+    # Create an empty dataframe if file doesn't exist yet
+    df = pd.DataFrame(columns=['CUSTOMER_NAME', 'LOAN_AMOUNT', 'STATUS']) 
+
+# 2. Define Sidebar SECOND
+with st.sidebar:
+    st.title("🛡️ Zoe Consults")
+    page = st.radio("Menu", ["📈 Performance", "👥 Borrowers", "📄 Ledger", "⚙️ Settings"])
+
+# 3. Use 'df' THIRD (Line 47)
+if not df.empty:
+    # This will now work because 'df' was defined in step 1!
+    total_loaned = df['LOAN_AMOUNT'].sum()
 # --- 0. SECURITY GATE ---
 def check_password():
     def login_clicked():
