@@ -24,6 +24,12 @@ st.markdown("""
 # --- 2. DATA ENGINE ---
 DB_FILE = "zoe_database.csv"
 PAYMENT_FILE = "repayments_log.csv"
+COLLATERAL_FILE = "collateral_log.csv"
+
+def init_db():
+    # ... existing DB_FILE and PAYMENT_FILE code ...
+    if not os.path.exists(COLLATERAL_FILE):
+        pd.DataFrame(columns=['LOAN_ID', 'CUSTOMER_NAME', 'ITEM_TYPE', 'DESCRIPTION', 'ESTIMATED_VALUE', 'STATUS']).to_csv(COLLATERAL_FILE, index=False)
 
 def init_db():
     if not os.path.exists(DB_FILE):
@@ -205,3 +211,49 @@ with menu_tabs[2]:
                 
                 st.cache_data.clear()
                 st.rerun()
+                
+    with menu_tabs[3]:
+        st.subheader("📑 Collateral Management")
+    
+        if not df.empty:
+        # 1. Entry Form
+          with st.expander("📝 Register Security Item", expanded=False):
+            with st.form("collateral_form", clear_on_submit=True):
+                # We show SN and Name to be precise
+                loan_choice = st.selectbox("Select Loan ID", 
+                                          options=df['SN'].tolist(),
+                                          format_func=lambda x: f"ID {x}: {df[df['SN']==x]['CUSTOMER_NAME'].values[0]}")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    item_type = st.selectbox("Item Category", ["Logbook", "Land Title", "Electronics", "Household", "Other"])
+                    est_value = st.number_input("Estimated Value (UGX)", min_value=0, step=100000)
+                with col2:
+                    description = st.text_area("Item Description (Serial Nos, Color, etc.)")
+                
+                if st.form_submit_button("Save Collateral"):
+                    owner_name = df[df['SN'] == loan_choice]['CUSTOMER_NAME'].values[0]
+                    new_item = pd.DataFrame([[loan_choice, owner_name, item_type, description, est_value, "In Possession"]], 
+                                          columns=['LOAN_ID', 'CUSTOMER_NAME', 'ITEM_TYPE', 'DESCRIPTION', 'ESTIMATED_VALUE', 'STATUS'])
+                    new_item.to_csv(COLLATERAL_FILE, mode='a', header=False, index=False)
+                    st.success(f"Registered {item_type} for {owner_name}")
+                    st.rerun()
+
+        # 2. Display Table
+        st.write("---")
+        if os.path.exists(COLLATERAL_FILE):
+            collat_df = pd.read_csv(COLLATERAL_FILE)
+            if not collat_df.empty:
+                st.dataframe(
+                    collat_df,
+                    column_config={
+                        "ESTIMATED_VALUE": st.column_config.NumberColumn("Est. Value", format="UGX %d"),
+                        "LOAN_ID": "ID"
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("No collateral items registered yet.")
+    else:
+        st.warning("Please add a loan before registering collateral.")
