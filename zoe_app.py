@@ -84,28 +84,7 @@ def calculate_reducing_balance(principal, annual_rate, periods=12):
 # --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
-st.markdown("""
-   <style>
-    /* Main Sidebar styling */
-    [data-testid="stSidebar"] {
-        background-color: #0f172a; /* Dark Navy */
-        color: white;
-    }
-    
-    /* Make the Navigation text white */
-    [data-testid="stSidebar"] .stRadio label {
-        color: white !important;
-        font-weight: 600;
-    }
-
-    /* KPI Card Colors */
-    div[data-testid="stMetric"] {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        padding: 15px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    }
+# --- REPLACE YOUR CSS BLOCK WITH THIS ---
 st.markdown("""
 <style>
     /* 1. Main Background and Sidebar */
@@ -135,35 +114,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-    # Copy and paste this EXACTLY to replace the styling text
-st.markdown("""
-<style>
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background-color: #0f172a !important;
-    }
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
-
-    /* Download Button Styling */
-    div[data-testid="stDownloadButton"] > button {
-        background-color: #334155 !important;
-        color: white !important;
-        border-radius: 8px !important;
-    }
-
-    /* WhatsApp Button Styling */
-    div.stLinkButton > a {
-        background-color: #25D366 !important;
-        color: white !important;
-        border-radius: 8px !important;
-        text-decoration: none !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-</style>
-""", unsafe_allow_html=True)
 
 /* Styling the WhatsApp Button */
 div.stLinkButton > a:has(div:contains("WhatsApp")) {
