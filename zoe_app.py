@@ -246,3 +246,30 @@ with menu_tabs[3]:
         st.write("---")
         st.dataframe(pd.read_csv(COLLATERAL_FILE), use_container_width=True)
 
+# --- TAB 4: CALENDAR & REMINDERS ---
+with menu_tabs[4]:
+    st.subheader("📅 Collection & Due Dates")
+    
+    if not df.empty:
+        # Calculate days remaining for each loan
+        cal_df = df.copy()
+        cal_df['DUE_DATE'] = pd.to_datetime(cal_df['DATE_ISSUED']) + pd.Timedelta(days=30)
+        cal_df['DAYS_TO_DUE'] = (cal_df['DUE_DATE'] - pd.Timestamp(datetime.now())).dt.days
+        
+        # Only show loans that aren't paid yet
+        active_loans = cal_df[cal_df['OUTSTANDING_AMOUNT'] > 0]
+        
+        col_late, col_soon = st.columns(2)
+        
+        with col_late:
+            st.error("🚨 Overdue (Immediate Action)")
+            overdue = active_loans[active_loans['DAYS_TO_DUE'] < 0]
+            st.dataframe(overdue[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DUE_DATE']], use_container_width=True, hide_index=True)
+            
+        with col_soon:
+            st.warning("⏳ Due within 7 Days")
+            soon = active_loans[(active_loans['DAYS_TO_DUE'] >= 0) & (active_loans['DAYS_TO_DUE'] <= 7)]
+            st.dataframe(soon[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DUE_DATE']], use_container_width=True, hide_index=True)
+    else:
+        st.info("No active loans to track.")
+
