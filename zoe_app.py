@@ -412,51 +412,86 @@ with menu_tabs[4]:
     else:
         st.info("No active loans to track.")
 
-# --- TAB 5: CLIENT REPORT (Reducing Balance) ---
+# --- TAB 5: DYNAMIC CLIENT LEDGER ---
 with menu_tabs[5]:
-    st.subheader("📄 Amortization Schedule (Reducing Balance)")
-    
     if not df.empty:
-        col_sel, col_terms = st.columns([2, 1])
+        # 1. Selection & Header Info
+        client_name = st.selectbox("Select Client for Ledger", options=df['CUSTOMER_NAME'].unique())
         
-        with col_sel:
-            client = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
-            client_data = df[df['CUSTOMER_NAME'] == client].iloc[0]
+        # Get client details from the main DB
+        c_details = df[df['CUSTOMER_NAME'] == client_name].iloc[0]
+        
+        # --- PROFESSIONAL CLIENT HEADER ---
+        st.markdown(f"""
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
+                <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em;">
+                    <span><b>NIN:</b> {c_details.get('NIN', 'N/A')}</span>
+                    <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
+                    <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
+                    <span><b>Principal:</b> UGX {c_details['LOAN_AMOUNT']:,.0f}</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 2. BUILD THE LEDGER FROM PAYMENTS
+        st.subheader("💳 Transaction Ledger")
+        
+        # Pull payments for this specific client
+        if os.path.exists(PAYMENT_FILE):
+            all_payments = pd.read_csv(PAYMENT_FILE)
+            client_pays = all_payments[all_payments['CUSTOMER_NAME'] == client_name].copy()
+            client_pays['DATE'] = pd.to_datetime(client_pays['DATE'])
+            client_pays = client_pays.sort_values('DATE')
             
-        with col_terms:
-            months = st.number_input("Loan Duration (Months)", min_value=1, value=12)
+            ledger_entries = []
+            current_balance = c_details['LOAN_AMOUNT']
+            annual_rate = c_details['INTEREST_RATE']
+            
+            # Initial State
+            ledger_entries.append({
+                "Date": c_details['DATE_ISSUED'],
+                "Description": "LOAN DISBURSED",
+                "Debit (Int)": 0,
+                "Credit (Pay)": 0,
+                "Balance": current_balance
+            })
 
-        # Generate the Schedule
-        sched_df, m_pay = calculate_reducing_balance(
-            client_data['LOAN_AMOUNT'], 
-            client_data['INTEREST_RATE'], 
-            periods=months
-        )
+            for _, pay in client_pays.iterrows():
+                # Calculate interest on the REDUCING balance since last payment
+                # For simplicity, we assume monthly recalculation
+                interest_charge = (current_balance * (annual_rate / 100) / 12)
+                payment_amt = pay['AMOUNT']
+                
+                # Update balance: New Bal = Old Bal + Interest - Payment
+                current_balance = (current_balance + interest_charge) - payment_amt
+                
+                ledger_entries.append({
+                    "Date": pay['DATE'].strftime('%Y-%m-%d'),
+                    "Description": f"Repayment (Ref: {pay['REF']})",
+                    "Debit (Int)": interest_charge,
+                    "Credit (Pay)": payment_amt,
+                    "Balance": max(0, current_balance)
+                })
 
-        # Display Summary KPIs
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Monthly Installment", f"UGX {m_pay:,.0f}")
-        k2.metric("Total Interest", f"UGX {sched_df['Interest'].sum():,.0f}")
-        k3.metric("Total Repayment", f"UGX {sched_df['Payment'].sum():,.0f}")
+            ledger_df = pd.DataFrame(ledger_entries)
+            
+            # Display Summary
+            m1, m2 = st.columns(2)
+            m1.metric("Current Outstanding", f"UGX {current_balance:,.0f}")
+            m2.metric("Total Interest Charged", f"UGX {ledger_df['Debit (Int)'].sum():,.0f}")
 
-        # Plot the Balance Trend
-        st.line_chart(sched_df.set_index('Month')['Balance'], color="#0ea5e9")
-
-        # The Detailed Table
-        st.dataframe(
-            sched_df,
-            column_config={
-                "Payment": st.column_config.NumberColumn("Total Installment", format="UGX %,d"),
-                "Principal": st.column_config.NumberColumn("Principal Portion", format="UGX %,d"),
-                "Interest": st.column_config.NumberColumn("Interest Portion", format="UGX %,d"),
-                "Balance": st.column_config.NumberColumn("Remaining Debt", format="UGX %,d"),
-            },
-            use_container_width=True, hide_index=True
-        )
-        
-        # Download Button for Client
-        csv_report = sched_df.to_csv(index=False).encode('utf-8')
-        st.download_button(f"📥 Download Schedule for {client}", csv_report, f"{client}_Schedule.csv", "text/csv")
+            # Show the Ledger Table
+            st.dataframe(
+                ledger_df,
+                column_config={
+                    "Debit (Int)": st.column_config.NumberColumn("Interest Accrued", format="UGX %,d"),
+                    "Credit (Pay)": st.column_config.NumberColumn("Amount Paid", format="UGX %,d"),
+                    "Balance": st.column_config.NumberColumn("Running Balance", format="UGX %,d"),
+                },
+                use_container_width=True, hide_index=True
+            )
+        else:
+            st.warning("No payment history found for this client.")
     else:
-        st.info("Add a borrower to generate a report.")
-
+        st.info("Please add a borrower to view the ledger.")
