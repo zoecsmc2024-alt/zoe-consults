@@ -405,3 +405,51 @@ with menu_tabs[4]:
     else:
         st.info("No active loans to track.")
 
+# --- TAB 5: CLIENT REPORT (Reducing Balance) ---
+with menu_tabs[5]:
+    st.subheader("📄 Amortization Schedule (Reducing Balance)")
+    
+    if not df.empty:
+        col_sel, col_terms = st.columns([2, 1])
+        
+        with col_sel:
+            client = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
+            client_data = df[df['CUSTOMER_NAME'] == client].iloc[0]
+            
+        with col_terms:
+            months = st.number_input("Loan Duration (Months)", min_value=1, value=12)
+
+        # Generate the Schedule
+        sched_df, m_pay = calculate_reducing_balance(
+            client_data['LOAN_AMOUNT'], 
+            client_data['INTEREST_RATE'], 
+            periods=months
+        )
+
+        # Display Summary KPIs
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Monthly Installment", f"UGX {m_pay:,.0f}")
+        k2.metric("Total Interest", f"UGX {sched_df['Interest'].sum():,.0f}")
+        k3.metric("Total Repayment", f"UGX {sched_df['Payment'].sum():,.0f}")
+
+        # Plot the Balance Trend
+        st.line_chart(sched_df.set_index('Month')['Balance'], color="#0ea5e9")
+
+        # The Detailed Table
+        st.dataframe(
+            sched_df,
+            column_config={
+                "Payment": st.column_config.NumberColumn("Total Installment", format="UGX %,d"),
+                "Principal": st.column_config.NumberColumn("Principal Portion", format="UGX %,d"),
+                "Interest": st.column_config.NumberColumn("Interest Portion", format="UGX %,d"),
+                "Balance": st.column_config.NumberColumn("Remaining Debt", format="UGX %,d"),
+            },
+            use_container_width=True, hide_index=True
+        )
+        
+        # Download Button for Client
+        csv_report = sched_df.to_csv(index=False).encode('utf-8')
+        st.download_button(f"📥 Download Schedule for {client}", csv_report, f"{client}_Schedule.csv", "text/csv")
+    else:
+        st.info("Add a borrower to generate a report.")
+
