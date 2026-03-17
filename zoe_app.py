@@ -27,34 +27,52 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 1. SIDEBAR NAVIGATION ---
+# --- 1. THE CLEAN SIDEBAR ---
 with st.sidebar:
-    st.markdown("### 🛡️ Zoe Consults")
-    page = st.radio("Navigation Menu", 
-                    ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "💰 Repayments", "⚙️ Settings"])
+    st.markdown("## 🛡️ Zoe Consults")
+    if 'custom_logo_b64' in st.session_state:
+        st.markdown(f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" width="100%" style="border-radius:10px;">', unsafe_allow_html=True)
+    
+    st.write("---")
+    
+    # Navigation with icons
+    page = st.radio(
+        "Navigation Menu",
+        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "📅 Repayments", "⚙️ Settings"],
+        key="nav_menu"
+    )
+    
+    st.write("---")
+    # A permanent small KPI in the sidebar
+    if not df.empty:
+        total_loaned = df['LOAN_AMOUNT'].sum()
+        st.metric("Capital in Field", f"UGX {total_loaned:,.0f}")
 
-# --- 2. PAGE CONTENT ---
+# --- 2. PAGE ROUTING (The "Rooms") ---
 
 if page == "📈 Performance":
-    st.subheader("Business Growth & Trends")
-    # MOVE: KPI Cards (Borrowers, Principal, Profit) here
-    # MOVE: Cash Flow Analysis chart here
+    st.title("Business Growth & Trends")
+    # --- PASTE ONLY YOUR CHARTS & KPI CARDS HERE ---
 
 elif page == "👥 Borrowers":
+    # --- HEADER & ACTION BAR ONLY SHOWS HERE ---
+    # (Paste your Blue Header and [Search, New Loan, Delete] buttons here)
+    
     st.subheader("Active Loan Registry")
-    # MOVE: Your main table (the one with the 'Risky' flags) here
+    # --- PASTE YOUR MAIN DATAFRAME TABLE HERE ---
 
 elif page == "📄 Client Ledger":
     st.subheader("Client Transaction Ledger")
-    # MOVE: The Client Selection dropdown, Blue Header, and WhatsApp button here
+    # --- PASTE YOUR LEDGER DROPDOWN, TABLE, AND WHATSAPP BUTTON HERE ---
 
-elif page == "💰 Repayments":
-    st.subheader("Repayment Calendar & Schedule")
-    # MOVE: Your Calendar and Repayment tracking code here
+elif page == "📅 Repayments":
+    st.subheader("Collection Schedule")
+    # --- PASTE YOUR CALENDAR AND REPAYMENT LIST HERE ---
 
 elif page == "⚙️ Settings":
-    st.subheader("System Backups & Branding")
-    # MOVE: The "System Backups" section and Logo Uploader here
+    st.subheader("System Configuration")
+    # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
+    # (This keeps the settings page clean and focused)
 
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
