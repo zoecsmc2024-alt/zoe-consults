@@ -580,7 +580,7 @@ elif page == "📅 Collection & Due Dates":
 elif page == "📄 Client Transaction Ledger":
     st.subheader("📄 Client Transaction Ledger")
     
-    if not df.empty:
+        if not df.empty:
         # 1. Selection UI
         client_name = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_client_sel")
         c_details = df[df['CUSTOMER_NAME'] == client_name].iloc[0]
