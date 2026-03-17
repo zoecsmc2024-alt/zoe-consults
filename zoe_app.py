@@ -69,8 +69,8 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. TOP CONTROLS (Updated & Fixed) ---
-col_search, col_btn, col_dl = st.columns([3, 1, 0.5]) 
+# --- 4. TOP CONTROLS ---
+col_search, col_btn, col_dl = st.columns([3, 1, 0.5])
 
 with col_search:
     search = st.text_input("", placeholder="🔍 Search borrower by name...", label_visibility="collapsed")
@@ -83,9 +83,11 @@ with col_btn:
             amount = st.number_input("Principal Amount (UGX)", min_value=0, step=50000)
             rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
             
-            if st.form_submit_button("Confirm & Save"):
+            submit_button = st.form_submit_button("Confirm & Save")
+
+            if submit_button:
                 if name:
-                    # Make sure this variable name matches what you use in to_csv()
+                    # 1. Define the data clearly
                     new_data = pd.DataFrame([{
                         'SN': len(df) + 1,
                         'CUSTOMER_NAME': name,
@@ -96,24 +98,19 @@ with col_btn:
                         'DATE_ISSUED': datetime.now().strftime("%Y-%m-%d")
                     }])
                     
-                    # Now new_data is defined and can be saved
+                    # 2. Save it (Notice this is inside the 'if name:' block)
                     new_data.to_csv(DB_FILE, mode='a', header=False, index=False)
                     
+                    # 3. Refresh the app
                     st.cache_data.clear()
                     st.success(f"Loan for {name} saved!")
                     st.rerun()
                 else:
-                    st.error("Please enter a name.")
+                    st.error("Please enter a customer name.")
 
 with col_dl:
-    csv_data = df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥",
-        data=csv_data,
-        file_name=f"Zoe_Lend_Report_{datetime.now().strftime('%Y-%m-%d')}.csv",
-        mime="text/csv",
-        help="Download current records as CSV"
-    )
+    csv_bytes = df.to_csv(index=False).encode('utf-8')
+    st.download_button(label="📥", data=csv_bytes, file_name="Zoe_Report.csv", mime="text/csv")
 
 # --- 5. DASHBOARD TABS ---
 menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📅 Calendar"])
