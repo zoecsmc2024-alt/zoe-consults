@@ -77,14 +77,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    # --- LOGO SECTION ---
+    # --- TAP TO EDIT LOGO ---
+    st.markdown("### Branding")
+    
+    # Check if we have a logo, otherwise use a placeholder
+    logo_display = st.session_state.get('custom_logo', "💰")
+    
+    # This creates a "clickable" area
+    if st.button("🔄 Change Logo", use_container_width=True):
+        st.session_state['show_uploader'] = True
+
+    if st.session_state.get('show_uploader', False):
+        new_logo = st.file_uploader("Choose a new logo", type=["png", "jpg", "jpeg"], key="sidebar_uploader")
+        if new_logo:
+            st.session_state['custom_logo'] = new_logo
+            st.session_state['show_uploader'] = False
+            st.rerun()
+
+    # Display the current Logo
     if 'custom_logo' in st.session_state:
         st.image(st.session_state['custom_logo'], use_container_width=True)
     else:
-        st.markdown("### 💰 Zoe Consults") # Default if no logo
+        st.title("Zoe Consults")
     
-    st.write(f"**Admin:** Evans Ahuura")
     st.write("---")
+    # ... rest of your navigation ...
     
     # Your existing navigation
     page = st.radio("Navigation", ["📈 Performance", "👥 Borrowers", "📄 Ledger", "⚙️ Settings"])
