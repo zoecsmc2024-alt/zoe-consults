@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
+import zipfile
+import io
 
 # --- 1. LOAD DATA FIRST ---
 DB_FILE = "zoe_borrowers.csv"
