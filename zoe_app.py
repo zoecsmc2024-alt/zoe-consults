@@ -80,23 +80,21 @@ def get_base64_image(image_path):
             return base64.b64encode(img_file.read()).decode()
     return None
 
-# --- 3. BRANDED LOGO HEADER ---
-logo_base64 = get_base64_image("logo.png") # Make sure your file is named logo.png
+# --- 3. BRANDED LOGO HEADER (Fail-Proof Version) ---
 
-if logo_base64:
-    # If logo exists, show the image
-    brand_content = f'<img src="data:image/png;base64,{logo_base64}" style="height: 40px; border-radius: 5px;">'
-else:
-    # Fallback to text if image is missing
-    brand_content = '<b style="font-size: 1.3em;">Zoe Consults</b>'
+# OPTION A: Use a direct URL (Best for Cloud/GitHub)
+# Replace the URL below with your actual hosted logo link
+LOGO_URL = "https://img.icons8.com/fluency/96/money-bag-euro.png" 
 
+# Check if you want to use the URL or a local file
 header_html = f"""
     <div style="background-color: #0f172a; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0;">
         <div style="display: flex; align-items: center; gap: 15px;">
-            {brand_content}
-            <span style="font-weight: 300; opacity: 0.6; font-size: 0.85em; margin-left: 5px; border-left: 1px solid #334155; padding-left: 15px;">
-                Evans Ahuura
-            </span>
+            <img src="{LOGO_URL}" style="height: 40px;">
+            <div style="display: flex; flex-direction: column; line-height: 1.1;">
+                <b style="font-size: 1.2em; letter-spacing: 0.5px;">Zoe Consults</b>
+                <span style="font-size: 0.7em; opacity: 0.6; font-weight: 300;">Evans Ahuura</span>
+            </div>
         </div>
     </div>
 """
