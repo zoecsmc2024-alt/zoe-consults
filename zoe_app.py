@@ -70,54 +70,53 @@ def load_data():
 
 df = load_data()
 
-# --- 3. ERP NAVIGATION HEADER & LOGOUT ---
-# This creates a dark bar where the name is on the left and logout is on the right
-st.markdown("""
-    <div style="background-color: #0f172a; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; margin-bottom: 10px; border-radius: 5px;">
-        <div style="font-size: 1.2em; font-weight: 700; letter-spacing: 0.5px;">
-            Zoe Consults <span style="font-weight: 300; opacity: 0.6; margin-left: 10px;">| Evans Ahuura</span>
+# --- 3. INTEGRATED NAVIGATION & ICON BAR ---
+# This combines the Brand Name and the Action Icons into one blue bar
+header_html = f"""
+    <div style="background-color: #0f172a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0;">
+        <div style="font-size: 1.3em; font-weight: 700;">
+            Zoe Consults <span style="font-weight: 300; opacity: 0.6; margin-left: 10px; font-size: 0.8em;">| Evans Ahuura</span>
         </div>
     </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(header_html, unsafe_allow_html=True)
 
-# --- 4. UNIFIED TOOLBAR ---
-# We use a container to give it a subtle background and padding
-with st.container(border=True):
-    # Ratios: Search(large), Icons(small), Spacer(flexible), Logout(small)
-    c_search, c_new, c_del, c_dl, c_spacer, c_logout = st.columns([3.5, 0.45, 0.45, 0.45, 1.5, 0.6])
+# This transparent container sits right below the blue bar to hold the interactive buttons
+with st.container():
+    # We use empty 'spacer' columns to push everything to the top right
+    c_search, c_spacer, c_new, c_del, c_dl, c_logout = st.columns([3, 1.5, 0.4, 0.4, 0.4, 0.4])
 
     with c_search:
-        search_query = st.text_input("", placeholder="🔍 Search borrower name...", label_visibility="collapsed")
+        # Keeping the search here ensures it's easy to access
+        search_query = st.text_input("", placeholder="🔍 Search borrower...", label_visibility="collapsed")
 
     with c_new:
-        with st.popover("➕", help="New Loan Entry"):
-            with st.form("new_loan_form", clear_on_submit=True):
-                f_name = st.text_input("Customer Name")
-                f_amount = st.number_input("Principal (UGX)", min_value=0)
+        with st.popover("➕", help="New Loan"):
+            with st.form("new_loan", clear_on_submit=True):
+                f_name = st.text_input("Name")
+                f_amount = st.number_input("Principal", min_value=0)
                 f_rate = st.number_input("Rate %", min_value=0.0)
-                if st.form_submit_button("Save Loan"):
-                    # (Your existing save logic here)
+                if st.form_submit_button("Save"):
+                    # (Existing save logic)
                     st.rerun()
 
     with c_del:
-        with st.popover("🗑️", help="Delete Record"):
+        with st.popover("🗑️", help="Delete"):
             if not df.empty:
-                d_id = st.selectbox("Select ID", options=df['SN'].tolist())
-                if st.button("Confirm Delete", type="primary"):
-                    # (Your existing delete logic here)
+                d_id = st.selectbox("ID", options=df['SN'].tolist())
+                if st.button("Confirm", type="primary"):
+                    # (Existing delete logic)
                     st.rerun()
 
     with c_dl:
         if not df.empty:
             csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥", csv, "Zoe_Report.csv", "text/csv", help="Download Report")
+            st.download_button("📥", csv, "Zoe_Report.csv", "text/csv")
 
-    # The spacer pushes the Logout button away from the tools
     with c_logout:
-        if st.button("🚪", help="Sign Out"):
+        if st.button("🚪", help="Logout"):
             st.session_state["password_correct"] = False
             st.rerun()
-
 st.write("---") # Visual separator before the tabs
 # --- 5. DASHBOARD TABS ---
 # We now have 5 tabs: 0=Overview, 1=Borrowers, 2=Repayments, 3=Collateral, 4=Calendar
