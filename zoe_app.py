@@ -27,8 +27,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. UPDATED ERP NAVIGATION HEADER ---
-# Deep Navy Top Bar (Tier 1)
+# --- 3. ERP NAVIGATION HEADER ---
+# 1. First, create the Top Bar (The HTML block)
 st.markdown("""
     <div style="background-color: #0f172a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 2px solid #00acc1;">
         <div style="display: flex; gap: 20px; align-items: center;">
@@ -42,9 +42,14 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Secondary Navigation (The Tabs)
+# 2. DEFINING THE VARIABLE (The fix for the NameError)
+# Make sure this line exists and is spelled exactly like this!
+menu_tabs = st.tabs(["👥 Borrowers", "⚖️ Loans", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
+
+# 3. NOW YOU CAN USE IT
 with menu_tabs[0]: # Borrowers/Dashboard View
-    st.write("") # One level in (4 spaces)
+    st.write("") 
+    # ... (Rest of your dashboard code here) ... # One level in (4 spaces)
     
     if not df.empty:
         # Two levels in (8 spaces)
