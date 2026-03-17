@@ -145,35 +145,49 @@ with menu_tabs[0]:
         
         st.write("---")
 
-        # 3. PERFORMANCE VISUALS (Fixed Indentation)
+       # 3. PERFORMANCE VISUALS (Unified Color Branding)
         chart_col1, chart_col2 = st.columns([2, 1])
         
+        # Define our "Zoe Brand" Colors
+        brand_colors = ['#0ea5e9', '#f59e0b', '#10b981', '#6366f1'] # Blue, Amber, Green, Indigo
+
         with chart_col1:
             st.subheader("📈 Cash Flow Analysis")
             perf_df = pd.DataFrame({
                 "Metric": ["Principal", "Collections", "Profit"],
                 "Amount": [total_principal, total_collected, actual_profit]
             })
-            st.bar_chart(data=perf_df, x="Metric", y="Amount", color="#0ea5e9")
+            # We use a custom color for the bars to match the KPI cards
+            st.bar_chart(data=perf_df, x="Metric", y="Amount", color="Metric", 
+                         color_config={"Principal": "#0ea5e9", "Collections": "#f59e0b", "Profit": "#10b981"})
 
         with chart_col2:
             st.subheader("🎯 Risk Distribution")
-            # Donut Chart using Vega-Lite (The "Eye-Catching" visual)
             status_df = df.copy()
-            # Logic for status
+            
             def get_stat(row):
                 due = pd.to_datetime(row['DATE_ISSUED']) + pd.Timedelta(days=30)
                 if row['OUTSTANDING_AMOUNT'] <= 0: return "Paid"
                 elif datetime.now() > due: return "Overdue"
                 else: return "Active"
+            
             status_df['Status'] = status_df.apply(get_stat, axis=1)
             
+            # Vega-Lite chart with EXPLICIT color mapping
             st.vega_lite_chart(status_df, {
                 'mark': {'type': 'arc', 'innerRadius': 45},
                 'encoding': {
                     'theta': {'field': 'SN', 'aggregate': 'count', 'type': 'quantitative'},
-                    'color': {'field': 'Status', 'type': 'nominal', 'scale': {'range': ['#0ea5e9', '#10b981', '#ef4444']}}
-                }
+                    'color': {
+                        'field': 'Status', 
+                        'type': 'nominal', 
+                        'scale': {
+                            'domain': ['Active', 'Overdue', 'Paid'],
+                            'range': ['#0ea5e9', '#ef4444', '#10b981'] # Blue, Red, Green
+                        }
+                    }
+                },
+                'view': {'stroke': None}
             }, use_container_width=True)
 
         st.write("---")
