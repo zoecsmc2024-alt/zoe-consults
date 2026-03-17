@@ -173,12 +173,18 @@ with c4:
             st.bar_chart(data=performance_data, x="Metric", y="Amount", color="#00acc1")
 
         with chart_col2:
-            st.subheader("🎯 Collection %")
-            # Simple Gauge-style calculation
-            collection_rate = (total_collected / total_principal * 100) if total_principal > 0 else 0
-            st.metric("Recovery Rate", f"{collection_rate:.1f}%", delta=f"{len(df)} Loans")
-            st.write("This shows how much of your issued capital has returned to the business.")
-
+    st.subheader("🎯 Risk Distribution")
+    # Count statuses
+    status_counts = display_df['STATUS'].value_counts()
+    # Streamlit native donut chart
+    st.vega_lite_chart(display_df, {
+        'mark': {'type': 'arc', 'innerRadius': 50},
+        'encoding': {
+            'theta': {'field': 'SN', 'aggregate': 'count', 'type': 'quantitative'},
+            'color': {'field': 'STATUS', 'type': 'nominal', 'scale': {'range': ['#10b981', '#ef4444', '#f59e0b', '#6366f1']}}
+        },
+        'view': {'stroke': None}
+    }, use_container_width=True)
         st.write("---")
         st.subheader("Loan Portfolio Details")
 
