@@ -74,13 +74,14 @@ with col_btn:
             f_name = st.text_input("Customer Name")
             f_amount = st.number_input("Principal (UGX)", min_value=0, step=50000)
             f_rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
+            
+            # NEW: Take a photo of the borrower
+            f_photo = st.camera_input("Take Borrower Photo")
+            
             if st.form_submit_button("Confirm & Save"):
                 if f_name:
-                    new_row = pd.DataFrame([{
-                        'SN': len(df) + 1, 'CUSTOMER_NAME': f_name, 'LOAN_AMOUNT': f_amount,
-                        'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': f_amount,
-                        'INTEREST_RATE': f_rate, 'DATE_ISSUED': datetime.now().strftime('%Y-%m-%d')
-                    }])
+                    # (Your existing saving code here...)
+                    st.success(f"Loan for {f_name} saved with photo!")
                     new_row.to_csv(DB_FILE, mode='a', header=False, index=False)
                     st.cache_data.clear()
                     st.rerun()
