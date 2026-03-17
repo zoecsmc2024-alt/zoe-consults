@@ -69,7 +69,81 @@ def load_data():
 
 # NOW you can call the function safely
 df = load_data()
- 
+
+# --- ADD THIS LINE HERE ---
+menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
+ with menu_tabs[0]:
+    if not df.empty:
+        # KPI Cards
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Borrowers", len(df))
+        c2.metric("Principal Issued", f"UGX {df['LOAN_AMOUNT'].sum():,.0f}")
+        c3.metric("Total Collections", f"UGX {df['AMOUNT_PAID'].sum():,.0f}")
+        c4.metric("Total Outstanding", f"UGX {df['OUTSTANDING_AMOUNT'].sum():,.0f}")
+        
+        st.write("---")
+        
+        # Simple Bar Chart
+        st.subheader("📈 Financial Summary")
+        chart_data = pd.DataFrame({
+            "Metric": ["Principal", "Collected", "Outstanding"],
+            "Amount": [df['LOAN_AMOUNT'].sum(), df['AMOUNT_PAID'].sum(), df['OUTSTANDING_AMOUNT'].sum()]
+        })
+        st.bar_chart(data=chart_data, x="Metric", y="Amount")
+    else:
+        st.info("No data yet. Go to the 'New Loan' button in the toolbar to start.")
+
+with menu_tabs[1]:
+    st.subheader("👥 Detailed Borrower Records")
+    if not df.empty:
+        # We use column_config to make the numbers look pretty with commas
+        st.dataframe(
+            df,
+            column_config={
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Paid", format="UGX %,d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                "INTEREST_RATE": "{:.1f}%",
+                "DATE_ISSUED": st.column_config.DateColumn("Date")
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("Borrower list is empty.")
+
+with menu_tabs[2]:
+    st.subheader("💰 Record a Payment")
+    if not df.empty:
+        with st.form("payment_entry", clear_on_submit=True):
+            # Select borrower by name
+            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+            p_amt = st.number_input("Amount (UGX)", min_value=0, step=10000)
+            p_ref = st.text_input("Receipt / Reference Number")
+            
+            if st.form_submit_button("Confirm Payment"):
+                # 1. Update the Repayments Log
+                new_payment = pd.DataFrame([[datetime.now().date(), p_name, p_amt, p_ref]], 
+                                         columns=['DATE', 'NAME', 'AMOUNT', 'REF'])
+                new_payment.to_csv(PAYMENT_FILE, mode='a', header=False, index=False)
+                
+                # 2. Update the Main Database
+                master_df = pd.read_csv(DB_FILE)
+                # Find the row for this customer
+                idx = master_df[master_df['CUSTOMER_NAME'] == p_name].index[-1]
+                master_df.at[idx, 'AMOUNT_PAID'] += p_amt
+                master_df.to_csv(DB_FILE, index=False)
+                
+                st.cache_data.clear()
+                st.success(f"Payment of UGX {p_amt:,.0f} recorded for {p_name}!")
+                st.rerun()
+                
+        # Show recent history below the form
+        if os.path.exists(PAYMENT_FILE):
+            st.write("---")
+            st.subheader("Recent Payment History")
+            hist_df = pd.read_csv(PAYMENT_FILE)
+            st.dataframe(hist_df.iloc[::-1], use_container_width=True, hide_index=True)
 
 # --- 3. COLLATERAL TAB RE-FIXED ---
 with menu_tabs[3]:
