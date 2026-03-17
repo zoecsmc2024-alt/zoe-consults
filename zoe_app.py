@@ -117,29 +117,42 @@ with st.sidebar:
     # 5. Navigation
     page = st.radio("Navigation", ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"])
 
-# --- MAIN PAGE CONTENT ---
+# --- 1. THE NAVIGATION RULES ---
+# This part stays at the top of your "Rooms" section
+
 if page == "📈 Performance":
-    st.title("Dashboard")
-    # ... your charts ...
+    st.title("📈 Business Growth & Trends")
+    # --- PASTE YOUR CHART CODE HERE ---
+    # Example: st.plotly_chart(fig) or st.write(metrics)
 
 elif page == "👥 Borrowers":
-    st.subheader("Active Loan Registry")
-    # ... your borrowers table ...
+    st.title("👥 Active Loan Registry")
+    # --- PASTE YOUR MAIN TABLE CODE HERE ---
+    # Example: st.dataframe(df)
 
 elif page == "📄 Client Ledger":
-    st.subheader("Client Transaction Ledger")
-    # ... your ledger code ...
-elif page == "💰 Record a Payment":
-    st.title("💰 Record a Paymenty")
-     # ... your Record a Payment table ...
+    st.title("📄 Transaction History")
+    # --- PASTE YOUR LEDGER/DROPDOWN CODE HERE ---
 
-elif page == "📑 Collateral Management":
-    st.subheader("Collateral & Reminders")
-    # --- PASTE YOUR COLLATERAL TABLE & REMINDER LIST HERE (INDENTED) ---
+elif page == "📅 Repayments & Collateral":
+    st.title("📅 Collections & Security")
+    
+    # We use Tabs to keep it clean
+    tab1, tab2 = st.tabs(["Repayment Calendar", "Collateral & Reminders"])
+    
+    with tab1:
+        st.subheader("Monthly Schedule")
+        # --- PASTE YOUR CALENDAR CODE HERE ---
+        # Look for: st.date_input or your repayment calendar table
+        
+    with tab2:
+        st.subheader("Security Assets")
+        # --- PASTE YOUR COLLATERAL LIST CODE HERE ---
+        # Look for: st.table(collateral_df) or your reminder list
 
-
-    # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
-    # (This keeps the settings page clean and focused)
+elif page == "⚙️ Settings":
+    st.title("⚙️ System Configuration")
+    # --- PASTE YOUR BACKUP & LOGO UPLOADER HERE ---
 
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
