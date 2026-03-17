@@ -160,6 +160,30 @@ with menu_tabs[0]:
         )
     else:
         st.info("No data found. Add a loan to begin.")
+        st.write("---")
+        st.subheader("📈 Performance & Cash Flow")
+        
+        # 1. Prepare Data for Bar Chart (Total Values)
+        chart_data = pd.DataFrame({
+            "Metric": ["Total Principal", "Total Repaid", "Est. Profit"],
+            "Amount": [
+                df['LOAN_AMOUNT'].sum(), 
+                df['AMOUNT_PAID'].sum(),
+                actual_profit # Uses the calculation we did for the KPI cards
+            ]
+        })
+        
+        # Display the Bar Chart
+        st.bar_chart(data=chart_data, x="Metric", y="Amount", color="#00acc1")
+
+        # 2. Daily Collection Trend (Optional but Pro)
+        if os.path.exists(PAYMENT_FILE):
+            st.markdown("#### 📅 Collection Trend (Recent)")
+            pay_history = pd.read_csv(PAYMENT_FILE)
+            if not pay_history.empty:
+                # Group by date to see how much you collect per day
+                trend_df = pay_history.groupby('DATE')['AMOUNT'].sum().reset_index()
+                st.line_chart(trend_df.set_index('DATE'), color="#10b981")
 # --- TAB 1: BORROWERS LIST (Rearranged & Fixed) ---
 with menu_tabs[1]:
     st.subheader("👥 Detailed Borrower Records")
