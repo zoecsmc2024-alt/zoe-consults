@@ -54,20 +54,31 @@ def calculate_reducing_balance(principal, annual_rate, periods=12):
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
-    <style>
-    .stApp { background: linear-gradient(to bottom, #f0f2f5, #ffffff); }
-    .box-card {
-        background: white; 
-        border: none;
-        padding: 24px; 
-        border-radius: 15px; 
-        text-align: center;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
-    }
-    .box-card:hover { transform: translateY(-5px); }
-    </style>
-""", unsafe_allow_html=True)
+    /* Styling the Popover Buttons to look premium */
+button[p-styled="true"] {
+    border-radius: 10px !important;
+}
+
+/* Green for New Loan */
+div[data-testid="stPopover"] > button:has(div:contains("New Loan")) {
+    background-color: #10b981 !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Red for Delete */
+div[data-testid="stPopover"] > button:has(div:contains("Delete")) {
+    background-color: #ef4444 !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Blue for Export */
+div[data-testid="stDownloadButton"] > button {
+    background-color: #0ea5e9 !important;
+    color: white !important;
+    border: none !important;
+}
 
 # --- 2. DATA ENGINE ---
 DB_FILE = "zoe_database.csv"
