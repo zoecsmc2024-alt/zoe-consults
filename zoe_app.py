@@ -140,12 +140,6 @@ LOGO_URL = "https://img.icons8.com/fluency/96/money-bag-euro.png"
 
 import base64
 import io
-
-# --- 1. LOGO STORAGE LOGIC ---
-# This ensures the image stays visible while you navigate tabs
-if 'custom_logo_b64' not in st.session_state:
-    st.session_state['custom_logo_b64'] = None
-
 st.markdown("---")
 st.markdown("#### 💾 System Backups")
 
@@ -174,6 +168,12 @@ if os.path.exists(DB_FILE):
     st.caption("This ZIP file contains your Borrowers list and all Payment history.")
 else:
     st.info("No data found to backup yet.")
+
+# --- 1. LOGO STORAGE LOGIC ---
+# This ensures the image stays visible while you navigate tabs
+if 'custom_logo_b64' not in st.session_state:
+    st.session_state['custom_logo_b64'] = None
+
 
 # --- 2. THE BLUE BRANDING BAR ---
 # We use the session state logo if it exists, otherwise a default icon
