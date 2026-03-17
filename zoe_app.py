@@ -304,56 +304,7 @@ with st.container():
                 del st.session_state[key]
             st.rerun()
 st.write("---") # Visual separator before the tabs
-# --- 1. THE SIDEBAR (Your New Navigation) ---
-with st.sidebar:
-    # Show logo if exists, else show title
-    if 'custom_logo_b64' in st.session_state and st.session_state['custom_logo_b64']:
-        st.markdown(f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" width="100%" style="border-radius:10px; margin-bottom:20px;">', unsafe_allow_html=True)
-    else:
-        st.title("🛡️ Zoe Consults")
-    
-    st.write("---")
-    
-    # Navigation Radio
-    page = st.radio(
-        "Main Menu",
-        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"],
-        index=0
-    )
-    
-    st.write("---")
-    # Quick KPI in Sidebar
-    if not df.empty:
-        total_out = df['LOAN_AMOUNT'].sum()
-        st.metric("Total Capital Out", f"UGX {total_out:,.0f}")
 
-# --- 2. THE TOP ACTION BAR (Keep this outside the if/else so it stays visible) ---
-# Paste your code for c_search, c_new, c_del, c_dl, c_set, c_logout here
-# (The colored buttons we fixed earlier)
-
-st.write("---")
-
-# --- 3. THE PAGE ROUTING (Replaces with menu_tabs) ---
-
-if page == "📈 Performance":
-    st.subheader("Business Growth & Trends")
-    # PASTE YOUR OVERVIEW/TRENDS CODE HERE
-    # (The metrics cards and the Growth & Liquidity line chart)
-
-elif page == "👥 Borrowers":
-    st.subheader("Active Loan Registry")
-    # PASTE YOUR MAIN DATAFRAME/TABLE CODE HERE
-
-elif page == "📄 Client Ledger":
-    st.subheader("Transaction History")
-    # PASTE YOUR ENTIRE LEDGER + WHATSAPP CODE HERE
-    # This includes the blue client header and the reducing balance table
-
-elif page == "⚙️ Settings":
-    st.subheader("System Configuration")
-    # PASTE YOUR LOGO UPLOADER AND MASTER BACKUP CODE HERE
-
-# --- END OF ROUTING ---
 # --- TAB 0: OVERVIEW (The Eye-Catching FinTech Dashboard) ---
 if page == "📈 Performance":
     if not df.empty:
