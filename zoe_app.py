@@ -167,34 +167,48 @@ with menu_tabs[0]:
         )
     else:
         st.info("No data found. Add a loan to begin.")
-# --- TAB 1: BORROWERS LIST (Organized CRM View) ---
+# --- TAB 1: BORROWERS LIST (Rearranged & Fixed) ---
 with menu_tabs[1]:
     st.subheader("👥 Detailed Borrower Records")
     if not df.empty:
-        # We use st.dataframe's column_config for a professional look
+        # 1. ENSURE NUMERIC & MATH (Fixes the "interest not working" issue)
+        crm_df = df.copy()
+        crm_df['LOAN_AMOUNT'] = pd.to_numeric(crm_df['LOAN_AMOUNT'], errors='coerce').fillna(0)
+        crm_df['INTEREST_RATE'] = pd.to_numeric(crm_df['INTEREST_RATE'], errors='coerce').fillna(0)
+        
+        # Calculate interest for display
+        crm_df['INTEREST_VALUE'] = (crm_df['LOAN_AMOUNT'] * crm_df['INTEREST_RATE']) / 100
+        
+        # 2. REARRANGE COLUMNS (Issue Date moved up)
+        # Defining the order here moves DATE_ISSUED before the financial math
+        cols_ordered = [
+            'SN', 'CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 
+            'INTEREST_RATE', 'INTEREST_VALUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT'
+        ]
+
+        # 3. DISPLAY WITH COMMAS
         st.dataframe(
-            df,
+            crm_df[cols_ordered],
             column_config={
-                "SN": st.column_config.NumberColumn("ID"),
-                "CUSTOMER_NAME": st.column_config.TextColumn("Client Name"),
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d"),
-                "AMOUNT_PAID": st.column_config.NumberColumn("Total Repaid", format="UGX %d"),
-                "OUTSTANDING_AMOUNT": st.column_config.ProgressColumn(
-                    "Outstanding Balance",
-                    help="Visual progress of loan repayment",
-                    format="UGX %d",
-                    min_value=0,
-                    max_value=int(df["LOAN_AMOUNT"].max()),
-                ),
+                "SN": "ID",
+                "CUSTOMER_NAME": "Client Name",
+                "DATE_ISSUED": st.column_config.DateColumn("Issue Date"),
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
                 "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%.1f%%"),
-                "DATE_ISSUED": st.column_config.DateColumn("Issuance Date"),
+                "INTEREST_VALUE": st.column_config.NumberColumn("Interest Amount", format="UGX %,d"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Total Repaid", format="UGX %,d"),
+                "OUTSTANDING_AMOUNT": st.column_config.ProgressColumn(
+                    "Balance Progress",
+                    format="UGX %,d",
+                    min_value=0,
+                    max_value=int(crm_df["LOAN_AMOUNT"].max() if not crm_df.empty else 1),
+                ),
             },
             use_container_width=True,
             hide_index=True,
         )
     else:
         st.info("No borrowers registered yet.")
-
 # --- TAB 2: REPAYMENTS ---
 with menu_tabs[2]:
     st.subheader("💰 Record a Payment")
