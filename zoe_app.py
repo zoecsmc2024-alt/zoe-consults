@@ -54,10 +54,12 @@ elif page == "⚙️ Settings":
     # MOVE your Backup button and Logo uploader HERE
 
 elif page == "👥 Borrowers":
-    # MOVE your main table HERE
+    st.subheader("Borrowers List")
+    st.write("Main table will appear here.") 
 
 elif page == "📄 Client Ledger":
-    # MOVE your Ledger and WhatsApp code HERE
+    st.subheader("Client Ledger")
+    st.write("Ledger details will appear here.")
 
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
