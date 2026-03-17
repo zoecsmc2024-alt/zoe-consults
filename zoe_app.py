@@ -118,6 +118,83 @@ elif page == "📅 Repayments":
 
 elif page == "⚙️ Settings":
     st.subheader("System Configuration")
+
+# --- REFRESHED ACTION BAR (All Buttons Fixed) ---
+with st.container():
+    # Adjusted column ratios for better spacing
+    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([2.5, 1, 1, 1, 1, 1])
+
+    with c_search:
+        search_query = st.text_input("", placeholder="🔍 Search...", label_visibility="collapsed")
+
+    with c_new:
+        with st.popover("➕ New Loan", use_container_width=True):
+            with st.form("new_loan_v4", clear_on_submit=True):
+                st.markdown("#### 📝 Add Borrower")
+                # ... (your existing form fields)
+                if st.form_submit_button("✅ Disburse", use_container_width=True):
+                    # ... (your save logic)
+                    st.rerun()
+
+    with c_del:
+        # Red "Delete" Button
+        with st.popover("🗑️ Delete", use_container_width=True):
+            st.markdown("#### ⚠️ Remove Loan Record")
+            if not df.empty:
+                # Create a list of labels like "1 - Evans Ahuura"
+                delete_options = {row['SN']: f"{row['SN']} - {row['CUSTOMER_NAME']}" for _, row in df.iterrows()}
+                
+                selected_sn = st.selectbox(
+                    "Select Record to Remove", 
+                    options=list(delete_options.keys()),
+                    format_func=lambda x: delete_options[x]
+                )
+                
+                st.warning(f"Are you sure you want to delete ID {selected_sn}?")
+                
+                # We use a unique key to ensure Streamlit tracks this specific button
+                if st.button("Confirm Delete", type="primary", use_container_width=True, key="btn_confirm_del"):
+                    # 1. Remove the row from the dataframe
+                    updated_df = df[df['SN'] != selected_sn]
+                    
+                    # 2. Save the new version to your CSV
+                    updated_df.to_csv(DB_FILE, index=False)
+                    
+                    st.success(f"Record {selected_sn} deleted!")
+                    # 3. Force the app to refresh and show the new list
+                    st.rerun()
+            else:
+                st.info("No records to delete.")
+
+    with c_dl:
+        if not df.empty:
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Export", csv, "Zoe_Data.csv", "text/csv", use_container_width=True)
+
+    with c_set:
+        # LOGO & BRAND SETTINGS (Fixed Popover)
+        with st.popover("⚙️ Settings", use_container_width=True):
+            st.markdown("#### 🖼️ Brand Settings")
+            new_logo = st.file_uploader("Upload New Logo", type=["png", "jpg", "jpeg"])
+            if new_logo:
+                encoded = base64.b64encode(new_logo.getvalue()).decode()
+                st.session_state['custom_logo_b64'] = encoded
+                st.success("Logo uploaded!")
+                if st.button("Apply Changes"):
+                    st.rerun()
+            
+            if st.button("Reset to Default", use_container_width=True):
+                st.session_state['custom_logo_b64'] = None
+                st.rerun()
+
+    with c_logout:
+        # LOGOUT (Fixed Button)
+        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
+            st.session_state["password_correct"] = False
+            # Clear everything to ensure a clean logout
+            for key in st.session_state.keys():
+                del st.session_state[key]
+            st.rerun()
     # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
     # (This keeps the settings page clean and focused)
 
@@ -226,82 +303,7 @@ LOGO_URL = "https://img.icons8.com/fluency/96/money-bag-euro.png"
 if 'custom_logo_b64' not in st.session_state:
     st.session_state['custom_logo_b64'] = None
 
-# --- REFRESHED ACTION BAR (All Buttons Fixed) ---
-with st.container():
-    # Adjusted column ratios for better spacing
-    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([2.5, 1, 1, 1, 1, 1])
 
-    with c_search:
-        search_query = st.text_input("", placeholder="🔍 Search...", label_visibility="collapsed")
-
-    with c_new:
-        with st.popover("➕ New Loan", use_container_width=True):
-            with st.form("new_loan_v4", clear_on_submit=True):
-                st.markdown("#### 📝 Add Borrower")
-                # ... (your existing form fields)
-                if st.form_submit_button("✅ Disburse", use_container_width=True):
-                    # ... (your save logic)
-                    st.rerun()
-
-    with c_del:
-        # Red "Delete" Button
-        with st.popover("🗑️ Delete", use_container_width=True):
-            st.markdown("#### ⚠️ Remove Loan Record")
-            if not df.empty:
-                # Create a list of labels like "1 - Evans Ahuura"
-                delete_options = {row['SN']: f"{row['SN']} - {row['CUSTOMER_NAME']}" for _, row in df.iterrows()}
-                
-                selected_sn = st.selectbox(
-                    "Select Record to Remove", 
-                    options=list(delete_options.keys()),
-                    format_func=lambda x: delete_options[x]
-                )
-                
-                st.warning(f"Are you sure you want to delete ID {selected_sn}?")
-                
-                # We use a unique key to ensure Streamlit tracks this specific button
-                if st.button("Confirm Delete", type="primary", use_container_width=True, key="btn_confirm_del"):
-                    # 1. Remove the row from the dataframe
-                    updated_df = df[df['SN'] != selected_sn]
-                    
-                    # 2. Save the new version to your CSV
-                    updated_df.to_csv(DB_FILE, index=False)
-                    
-                    st.success(f"Record {selected_sn} deleted!")
-                    # 3. Force the app to refresh and show the new list
-                    st.rerun()
-            else:
-                st.info("No records to delete.")
-
-    with c_dl:
-        if not df.empty:
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Export", csv, "Zoe_Data.csv", "text/csv", use_container_width=True)
-
-    with c_set:
-        # LOGO & BRAND SETTINGS (Fixed Popover)
-        with st.popover("⚙️ Settings", use_container_width=True):
-            st.markdown("#### 🖼️ Brand Settings")
-            new_logo = st.file_uploader("Upload New Logo", type=["png", "jpg", "jpeg"])
-            if new_logo:
-                encoded = base64.b64encode(new_logo.getvalue()).decode()
-                st.session_state['custom_logo_b64'] = encoded
-                st.success("Logo uploaded!")
-                if st.button("Apply Changes"):
-                    st.rerun()
-            
-            if st.button("Reset to Default", use_container_width=True):
-                st.session_state['custom_logo_b64'] = None
-                st.rerun()
-
-    with c_logout:
-        # LOGOUT (Fixed Button)
-        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
-            st.session_state["password_correct"] = False
-            # Clear everything to ensure a clean logout
-            for key in st.session_state.keys():
-                del st.session_state[key]
-            st.rerun()
 st.write("---") # Visual separator before the tabs
 
 # --- TAB 0: OVERVIEW (The Eye-Catching FinTech Dashboard) ---
