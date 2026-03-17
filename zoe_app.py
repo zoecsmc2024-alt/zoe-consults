@@ -643,3 +643,6 @@ if page == "📄 Client Ledger" and 'ledger_final' in locals():
             with col_wa:
                 # Your WhatsApp Link Button code here
                 st.link_button("📲 Send to WhatsApp", url=wa_url, use_container_width=True)
+                /* ... your other CSS rules ... */
+</style>
+""", unsafe_allow_html=True) # <--- MAKE SURE THESE TWO LINES ARE THERE
