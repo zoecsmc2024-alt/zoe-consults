@@ -119,15 +119,7 @@ st.markdown("""
         color: white !important;
     }
 
-   # --- ADD THIS WRAPPER AROUND YOUR CSS ---
-st.markdown("""
-<style>
-    /* Main Background */
-    [data-testid="stAppViewContainer"] {
-        background-color: #f8fafc;
-    }
-    
-    /* Buttons Styling */
+    /* 2. Style the Buttons */
     div[data-testid="stDownloadButton"] > button {
         background-color: #334155 !important;
         color: white !important;
