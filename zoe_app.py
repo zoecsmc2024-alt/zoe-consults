@@ -129,22 +129,13 @@ elif page == "👥 Borrowers":
 elif page == "📄 Client Ledger":
     st.subheader("Client Transaction Ledger")
     # ... your ledger code ...
-elif page == "📅 Repayments & Collateral":
-    st.title("📅 Collections & Security")
-    
-    tab1, tab2 = st.tabs(["Monthly Calendar", "Security/Collateral List"])
-    
-    with tab1:
-        st.subheader("Repayment Schedule")
-        # --- PASTE YOUR CALENDAR / DATE_INPUT CODE HERE (INDENTED) ---
-        
-    with tab2:
-        st.subheader("Collateral & Reminders")
-        # --- PASTE YOUR COLLATERAL TABLE & REMINDER LIST HERE (INDENTED) ---
+elif page == "💰 Record a Payment":
+    st.title("💰 Record a Paymenty")
+     # ... your Record a Payment table ...
 
-elif page == "⚙️ Settings":
-    st.subheader("System Configuration")
-    # ... your settings ...
+elif page == "📑 Collateral Management":
+    st.subheader("Collateral & Reminders")
+    # --- PASTE YOUR COLLATERAL TABLE & REMINDER LIST HERE (INDENTED) ---
 
 
     # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
