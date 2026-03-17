@@ -119,7 +119,7 @@ with st.sidebar:
 
 # --- MAIN PAGE CONTENT ---
 if page == "📈 Performance":
-    st.title("Business Growth & Trends")
+    st.title("Dashboard")
     # ... your charts ...
 
 elif page == "👥 Borrowers":
