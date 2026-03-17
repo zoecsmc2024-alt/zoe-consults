@@ -2,7 +2,33 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+# --- 0. SECURITY GATE ---
+def check_password():
+    """Returns True if the user had a correct password."""
+    def password_entered():
+        if st.session_state["password"] == "Zoe2026": # You can change this to any password!
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # don't store password
+        else:
+            st.session_state["password_correct"] = False
 
+    if "password_correct" not in st.session_state:
+        # First run, show input for password.
+        st.markdown("## 🔐 ZoeLend IQ Pro Login")
+        st.text_input("Enter Admin Password", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        # Password not correct, show input + error.
+        st.markdown("## 🔐 ZoeLend IQ Pro Login")
+        st.text_input("Enter Admin Password", type="password", on_change=password_entered, key="password")
+        st.error("😕 Password incorrect")
+        return False
+    else:
+        # Password correct.
+        return True
+
+if not check_password():
+    st.stop() # This prevents the rest of the app from loading
 # --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
