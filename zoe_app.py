@@ -38,44 +38,33 @@ else:
 
 st.markdown("""
 <style>
-    /* 1. The Main Sidebar Background (Deep Navy) */
-    [data-testid="stSidebar"] {
-        background-color: #0b1425 !important;
-        border-right: 3px solid #00a8b5; /* The Teal accent line */
+    /* 1. New Circular Logo Styling */
+    [data-testid="stSidebar"] img {
+        display: block;
+        margin-left: auto;   /* Center horizontally */
+        margin-right: auto;
+        width: 80px !important;  /* Set a small, fixed width */
+        height: 80px !important; /* Set the same fixed height to make it a square */
+        object-fit: cover;   /* This ensures the logo isn't squished inside the circle */
+        border-radius: 50% !important; /* The core circular command */
+        border: 3px solid #00a8b5; /* Adds the Teal border around the circle */
+        margin-top: 10px;
+        margin-bottom: 20px;
+        transition: 0.3s;
     }
 
-    /* 2. Sidebar Text & Icons (White) */
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
-
-    /* 3. The Navigation Selection (Teal Highlight) */
-    div[data-testid="stSidebarNav"]  {
-        background-color: transparent !important;
-    }
-    
-    /* Style the radio buttons to look like a menu */
-    div.stRadio > div {
-        background-color: transparent;
-    }
-    
-    /* Make the selected option stand out with Teal */
-    div.stRadio > div > label[data-baseweb="radio"] > div:first-child {
-        background-color: #00a8b5 !important;
-        border-color: #00a8b5 !important;
-    }
-
-    /* 4. Sidebar Title Styling */
+    /* 2. Style for the Title below the Logo */
     .sidebar-title {
+        text-align: center;   /* Centers "Zoe Consults" under the circle */
         color: #f1f5f9;
-        font-size: 24px;
+        font-size: 20px;
         font-weight: bold;
+        margin-top: 0px;
         padding-bottom: 10px;
         border-bottom: 1px solid #1e293b;
     }
 </style>
 """, unsafe_allow_html=True)
-
 with st.sidebar:
     # --- TAP TO EDIT LOGO ---
     st.markdown("### Welcome Back")
