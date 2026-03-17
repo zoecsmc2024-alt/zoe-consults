@@ -36,13 +36,56 @@ else:
     # This creates the 'df' so line 24 doesn't crash if the file is missing
     df = pd.DataFrame(columns=['CUSTOMER_NAME', 'LOAN_AMOUNT', 'STATUS'])
 
-# --- 2. THE CLEAN SIDEBAR SECOND ---
+st.markdown("""
+<style>
+    /* 1. The Main Sidebar Background (Deep Navy) */
+    [data-testid="stSidebar"] {
+        background-color: #0b1425 !important;
+        border-right: 3px solid #00a8b5; /* The Teal accent line */
+    }
+
+    /* 2. Sidebar Text & Icons (White) */
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+
+    /* 3. The Navigation Selection (Teal Highlight) */
+    div[data-testid="stSidebarNav"]  {
+        background-color: transparent !important;
+    }
+    
+    /* Style the radio buttons to look like a menu */
+    div.stRadio > div {
+        background-color: transparent;
+    }
+    
+    /* Make the selected option stand out with Teal */
+    div.stRadio > div > label[data-baseweb="radio"] > div:first-child {
+        background-color: #00a8b5 !important;
+        border-color: #00a8b5 !important;
+    }
+
+    /* 4. Sidebar Title Styling */
+    .sidebar-title {
+        color: #f1f5f9;
+        font-size: 24px;
+        font-weight: bold;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #1e293b;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- THE SIDEBAR CONTENT ---
 with st.sidebar:
-    st.markdown("## 🛡️ Zoe Consults")
+    # Use the blue bag icon or your logo here
+    st.markdown('<p class="sidebar-title">🛡️ Zoe Consults</p>', unsafe_allow_html=True)
+    st.write(f"**Admin:** Evans Ahuura")
     st.write("---")
+    
     page = st.radio(
         "Navigation",
-        ["📈 Performance", "👥 Borrowers", "📄 Ledger", "⚙️ Settings"]
+        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"]
     )
 
 # --- 3. THE CODE THAT WAS CRASHING (Line 24) ---
