@@ -80,44 +80,43 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. ICON-BASED ACTION BAR ---
-# We use more columns with smaller ratios to keep the buttons tight and "circular"
-c_search, c_new, c_del, c_dl, c_spacer, c_logout = st.columns([3, 0.4, 0.4, 0.4, 2, 0.6])
+# --- 4. UNIFIED TOOLBAR ---
+# We use a container to give it a subtle background and padding
+with st.container(border=True):
+    # Ratios: Search(large), Icons(small), Spacer(flexible), Logout(small)
+    c_search, c_new, c_del, c_dl, c_spacer, c_logout = st.columns([3.5, 0.45, 0.45, 0.45, 1.5, 0.6])
 
-with c_search:
-    search_query = st.text_input("", placeholder="🔍 Search borrower...", label_visibility="collapsed")
+    with c_search:
+        search_query = st.text_input("", placeholder="🔍 Search borrower name...", label_visibility="collapsed")
 
-with c_new:
-    # Popover with just a '+' icon
-    with st.popover("➕", help="New Loan", use_container_width=True):
-        with st.form("new_loan_form", clear_on_submit=True):
-            f_name = st.text_input("Name")
-            f_amount = st.number_input("Principal", min_value=0)
-            f_rate = st.number_input("Rate %", min_value=0.0)
-            if st.form_submit_button("Save"):
-                # ... (your existing save logic)
-                st.rerun()
+    with c_new:
+        with st.popover("➕", help="New Loan Entry"):
+            with st.form("new_loan_form", clear_on_submit=True):
+                f_name = st.text_input("Customer Name")
+                f_amount = st.number_input("Principal (UGX)", min_value=0)
+                f_rate = st.number_input("Rate %", min_value=0.0)
+                if st.form_submit_button("Save Loan"):
+                    # (Your existing save logic here)
+                    st.rerun()
 
-with c_del:
-    # Popover with just a trash icon
-    with st.popover("🗑️", help="Delete Entry", use_container_width=True):
+    with c_del:
+        with st.popover("🗑️", help="Delete Record"):
+            if not df.empty:
+                d_id = st.selectbox("Select ID", options=df['SN'].tolist())
+                if st.button("Confirm Delete", type="primary"):
+                    # (Your existing delete logic here)
+                    st.rerun()
+
+    with c_dl:
         if not df.empty:
-            d_id = st.selectbox("ID", options=df['SN'].tolist())
-            if st.button("Delete", type="primary"):
-                # ... (your existing delete logic)
-                st.rerun()
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥", csv, "Zoe_Report.csv", "text/csv", help="Download Report")
 
-with c_dl:
-    if not df.empty:
-        csv = df.to_csv(index=False).encode('utf-8')
-        # Download button with just a tray icon
-        st.download_button("📥", csv, "Zoe_Report.csv", "text/csv", help="Download CSV")
-
-# The c_spacer column pushes the Logout button to the far right
-with c_logout:
-    if st.button("🚪", help="Sign Out / Log Out", use_container_width=True):
-        st.session_state["password_correct"] = False
-        st.rerun()
+    # The spacer pushes the Logout button away from the tools
+    with c_logout:
+        if st.button("🚪", help="Sign Out"):
+            st.session_state["password_correct"] = False
+            st.rerun()
 
 st.write("---") # Visual separator before the tabs
 # --- 5. DASHBOARD TABS ---
