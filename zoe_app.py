@@ -160,9 +160,34 @@ with st.container():
                     st.rerun()
 
     with c_del:
+        # Red "Delete" Button
         with st.popover("🗑️ Delete", use_container_width=True):
-            # ... (your delete logic)
-            pass
+            st.markdown("#### ⚠️ Remove Loan Record")
+            if not df.empty:
+                # Create a list of labels like "1 - Evans Ahuura"
+                delete_options = {row['SN']: f"{row['SN']} - {row['CUSTOMER_NAME']}" for _, row in df.iterrows()}
+                
+                selected_sn = st.selectbox(
+                    "Select Record to Remove", 
+                    options=list(delete_options.keys()),
+                    format_func=lambda x: delete_options[x]
+                )
+                
+                st.warning(f"Are you sure you want to delete ID {selected_sn}?")
+                
+                # We use a unique key to ensure Streamlit tracks this specific button
+                if st.button("Confirm Delete", type="primary", use_container_width=True, key="btn_confirm_del"):
+                    # 1. Remove the row from the dataframe
+                    updated_df = df[df['SN'] != selected_sn]
+                    
+                    # 2. Save the new version to your CSV
+                    updated_df.to_csv(DB_FILE, index=False)
+                    
+                    st.success(f"Record {selected_sn} deleted!")
+                    # 3. Force the app to refresh and show the new list
+                    st.rerun()
+            else:
+                st.info("No records to delete.")
 
     with c_dl:
         if not df.empty:
