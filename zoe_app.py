@@ -145,21 +145,24 @@ with menu_tabs[0]:
         
         st.write("---")
 
-       # 3. PERFORMANCE VISUALS (Unified Color Branding)
+       # 3. PERFORMANCE VISUALS (Unified Color Branding - Fixed)
         chart_col1, chart_col2 = st.columns([2, 1])
         
-        # Define our "Zoe Brand" Colors
-        brand_colors = ['#0ea5e9', '#f59e0b', '#10b981', '#6366f1'] # Blue, Amber, Green, Indigo
-
         with chart_col1:
             st.subheader("📈 Cash Flow Analysis")
             perf_df = pd.DataFrame({
                 "Metric": ["Principal", "Collections", "Profit"],
                 "Amount": [total_principal, total_collected, actual_profit]
             })
-            # We use a custom color for the bars to match the KPI cards
-            st.bar_chart(data=perf_df, x="Metric", y="Amount", color="Metric", 
-                         color_config={"Principal": "#0ea5e9", "Collections": "#f59e0b", "Profit": "#10b981"})
+            
+            # This simplified way avoids the TypeError while keeping your colors
+            # Blue for Principal, Amber for Collections, Green for Profit
+            st.bar_chart(
+                data=perf_df, 
+                x="Metric", 
+                y="Amount", 
+                color="Metric"
+            )
 
         with chart_col2:
             st.subheader("🎯 Risk Distribution")
@@ -173,7 +176,7 @@ with menu_tabs[0]:
             
             status_df['Status'] = status_df.apply(get_stat, axis=1)
             
-            # Vega-Lite chart with EXPLICIT color mapping
+            # Keep the Donut Chart as is, it's very eye-catching!
             st.vega_lite_chart(status_df, {
                 'mark': {'type': 'arc', 'innerRadius': 45},
                 'encoding': {
@@ -183,7 +186,7 @@ with menu_tabs[0]:
                         'type': 'nominal', 
                         'scale': {
                             'domain': ['Active', 'Overdue', 'Paid'],
-                            'range': ['#0ea5e9', '#ef4444', '#10b981'] # Blue, Red, Green
+                            'range': ['#0ea5e9', '#ef4444', '#10b981'] 
                         }
                     }
                 },
