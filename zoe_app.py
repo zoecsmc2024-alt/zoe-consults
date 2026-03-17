@@ -196,17 +196,47 @@ with menu_tabs[0]:
         st.write("---")
         st.subheader("📋 Detailed Portfolio")
         
-        # Final display table with icons
+        # 4. RESTORED TABLE DISPLAY (With Status Icons & Date Logic)
+        def process_full_display(row):
+            # Calculate interest and due date
+            interest_amt = (row['LOAN_AMOUNT'] * row['INTEREST_RATE']) / 100
+            total_due = row['LOAN_AMOUNT'] + interest_amt
+            due_date = pd.to_datetime(row['DATE_ISSUED']) + pd.Timedelta(days=30)
+            
+            # Logic for icons
+            if row['OUTSTANDING_AMOUNT'] <= 0: status = "✅ Paid"
+            elif datetime.now() > due_date: status = "🚩 Overdue"
+            elif row['AMOUNT_PAID'] == 0: status = "⚠️ Risky"
+            else: status = "🔵 Active"
+            
+            return pd.Series([interest_amt, total_due, due_date.strftime('%Y-%m-%d'), status])
+
         display_df = df.copy()
+        display_df[['INT_AMT', 'TOTAL_DUE', 'DUE_DATE', 'STATUS']] = display_df.apply(process_full_display, axis=1)
+
+        # Specify exact column order
+        cols_to_show = [
+            'SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INT_AMT', 
+            'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 
+            'DUE_DATE', 'STATUS'
+        ]
+
         st.dataframe(
-            display_df,
+            display_df[cols_to_show],
             column_config={
+                "SN": "ID",
+                "CUSTOMER_NAME": "Client Name",
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "INT_AMT": st.column_config.NumberColumn("Interest", format="UGX %,d"),
+                "TOTAL_DUE": st.column_config.NumberColumn("Total Due", format="UGX %,d"),
                 "AMOUNT_PAID": st.column_config.NumberColumn("Repaid", format="UGX %,d"),
                 "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%.1f%%"),
+                "DUE_DATE": st.column_config.DateColumn("Due Date"),
+                "STATUS": "Loan Status"
             },
-            use_container_width=True, hide_index=True
+            use_container_width=True, 
+            hide_index=True
+        )
         )
     else:
         st.info("👋 Welcome! Please add a loan to see your dashboard come to life.")
