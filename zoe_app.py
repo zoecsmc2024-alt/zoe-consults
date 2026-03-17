@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# --- 1. CONFIG & UPDATED THEME ---
+# --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
@@ -18,41 +18,31 @@ st.markdown("""
     .box-value { color: #0f172a; font-size: 1.6em; font-weight: 800; }
     [data-testid="stSidebar"] {display: none;}
     [data-testid="collapsedControl"] {display: none;}
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #f1f5f9; border-radius: 4px 4px 0 0; padding: 10px 20px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 2. DATA ENGINE ---
+DB_FILE = "zoe_database.csv"
 PAYMENT_FILE = "repayments_log.csv"
 
 def init_db():
-    # Existing Loan DB init...
     if not os.path.exists(DB_FILE):
         pd.DataFrame(columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED']).to_csv(DB_FILE, index=False)
-    
-    # NEW: Repayment DB init
     if not os.path.exists(PAYMENT_FILE):
         pd.DataFrame(columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'RECEIPT_NO']).to_csv(PAYMENT_FILE, index=False)
-        df.to_csv(DB_FILE, index=False)
 
 @st.cache_data(show_spinner=False)
 def load_data():
-    if not os.path.exists(DB_FILE):
-        init_db()
+    init_db()
     try:
         data = pd.read_csv(DB_FILE)
-        # Ensure numeric types so math doesn't break
         for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
             if col in data.columns:
                 data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
         return data
-    except Exception:
+    except:
         return pd.DataFrame()
 
-# Initial Load
 df = load_data()
 
 # --- 3. ERP NAVIGATION HEADER ---
@@ -69,28 +59,22 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. TOP CONTROLS (FULL FIX) ---
+# --- 4. TOP CONTROLS ---
 col_search, col_btn, col_dl = st.columns([3, 1, 0.5])
 
 with col_search:
-    search = st.text_input("", placeholder="🔍 Search borrower by name...", label_visibility="collapsed")
+    search_query = st.text_input("", placeholder="🔍 Search borrower...", label_visibility="collapsed")
 
 with col_btn:
     with st.popover("➕ New Loan Entry", use_container_width=True):
-        # We use a unique key for the form to prevent conflicts
-        with st.form("add_new_loan_form", clear_on_submit=True):
-            st.markdown("### Client Details")
+        with st.form("new_loan_form", clear_on_submit=True):
             f_name = st.text_input("Customer Name")
-            f_amount = st.number_input("Principal Amount (UGX)", min_value=0, step=50000)
+            f_amount = st.number_input("Principal (UGX)", min_value=0, step=50000)
             f_rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
             
-            # The button is the gatekeeper
-            submitted = st.form_submit_button("Confirm & Save")
-            
-            if submitted:
+            if st.form_submit_button("Confirm & Save"):
                 if f_name:
-                    # new_data is created ONLY when button is clicked
-                    new_data = pd.DataFrame([{
+                    new_row = pd.DataFrame([{
                         'SN': len(df) + 1,
                         'CUSTOMER_NAME': f_name,
                         'LOAN_AMOUNT': f_amount,
@@ -99,62 +83,52 @@ with col_btn:
                         'INTEREST_RATE': f_rate,
                         'DATE_ISSUED': datetime.now().strftime("%Y-%m-%d")
                     }])
-                    
-                    # Saving happens ONLY inside this specific 'if' block
-                    new_data.to_csv(DB_FILE, mode='a', header=False, index=False)
-                    
-                    st.success(f"Successfully added {f_name}!")
+                    new_row.to_csv(DB_FILE, mode='a', header=False, index=False)
                     st.cache_data.clear()
                     st.rerun()
-                else:
-                    st.error("Please provide a name.")
 
 with col_dl:
-    # This just provides a download of whatever is currently in 'df'
     if not df.empty:
-        csv_output = df.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥", data=csv_output, file_name="Zoe_Lend_Data.csv", mime="text/csv")
+        csv_bytes = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥", csv_bytes, "Zoe_Lend_Report.csv", "text/csv")
+
+# Filter logic
+if search_query:
+    df = df[df['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]
 
 # --- 5. DASHBOARD TABS ---
 menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📅 Calendar"])
 
+with menu_tabs[0]:
+    if not df.empty:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown(f'<div class="box-card"><div class="box-title">Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div class="box-card"><div class="box-title">Principal</div><div class="box-value">UGX {df["LOAN_AMOUNT"].sum():,.0f}</div></div>', unsafe_allow_html=True)
+        c3.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
+        active_count = len(df[df['OUTSTANDING_AMOUNT'] > 0])
+        c4.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active_count}</div></div>', unsafe_allow_html=True)
+        
+        st.write("---")
+        st.subheader("Loan Records")
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No data found. Add a loan to begin.")
+
 with menu_tabs[2]:
-    st.subheader("Record New Payment")
-    
-    # 1. Payment Form
-    with st.expander("➕ Log a Transaction", expanded=True):
-        with st.form("repayment_form", clear_on_submit=True):
-            col_a, col_b = st.columns(2)
-            with col_a:
-                # Get list of names from our main DB for the dropdown
-                names = df['CUSTOMER_NAME'].tolist() if not df.empty else ["No Customers"]
-                p_name = st.selectbox("Select Borrower", options=names)
-            with col_b:
-                p_amount = st.number_input("Amount Paid (UGX)", min_value=0, step=5000)
-            
-            p_date = st.date_input("Payment Date")
-            p_receipt = st.text_input("Receipt / Reference Number")
-
+    st.subheader("Log a Payment")
+    if not df.empty:
+        with st.form("pay_form", clear_on_submit=True):
+            p_name = st.selectbox("Borrower", options=df['CUSTOMER_NAME'].unique())
+            p_amount = st.number_input("Amount (UGX)", min_value=0, step=10000)
+            p_ref = st.text_input("Receipt No.")
             if st.form_submit_button("Submit Payment"):
-                # Save to Repayment Log
-                new_payment = pd.DataFrame([[p_date, p_name, p_amount, p_receipt]], 
-                                         columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'RECEIPT_NO'])
-                new_payment.to_csv(PAYMENT_FILE, mode='a', header=False, index=False)
-
-                # UPDATE MAIN DATABASE: Add this amount to the total paid for this customer
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amount
-                df['OUTSTANDING_AMOUNT'] = df['LOAN_AMOUNT'] - df['AMOUNT_PAID']
-                df.to_csv(DB_FILE, index=False)
-
-                st.success(f"Recorded UGX {p_amount:,.0f} for {p_name}")
+                # Log transaction
+                pd.DataFrame([[datetime.now().date(), p_name, p_amount, p_ref]], 
+                           columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'RECEIPT_NO']).to_csv(PAYMENT_FILE, mode='a', header=False, index=False)
+                # Update Master DB
+                master_df = pd.read_csv(DB_FILE)
+                master_df.loc[master_df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amount
+                master_df['OUTSTANDING_AMOUNT'] = master_df['LOAN_AMOUNT'] - master_df['AMOUNT_PAID']
+                master_df.to_csv(DB_FILE, index=False)
                 st.cache_data.clear()
                 st.rerun()
-
-    # 2. History Table
-    st.write("---")
-    st.subheader("Payment History Log")
-    if os.path.exists(PAYMENT_FILE):
-        pay_df = pd.read_csv(PAYMENT_FILE)
-        st.dataframe(pay_df.sort_index(ascending=False), use_container_width=True) # Newest payments on top
-    else:
-        st.info("No payment history available yet.")
