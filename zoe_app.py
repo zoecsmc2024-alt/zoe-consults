@@ -228,9 +228,53 @@ with menu_tabs[2]:
                 st.cache_data.clear()
                 st.rerun()
 
-with menu_tabs[4]:
+with menu_tabs[3]:
+    st.subheader("📑 Collateral Management")
+    
     if not df.empty:
-        df['DUE_DATE'] = pd.to_datetime(df['DATE_ISSUED']) + timedelta(days=30)
-        overdue = df[(df['DUE_DATE'] < datetime.now()) & (df['OUTSTANDING_AMOUNT'] > 0)]
-        st.error(f"Found {len(overdue)} Overdue Accounts")
-        st.dataframe(overdue[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DUE_DATE']], hide_index=True)
+        # Create two columns: Form on left, Summary on right
+        col_form, col_stats = st.columns([1, 2])
+        
+        with col_form:
+            with st.form("collat_form", clear_on_submit=True):
+                # Ensure we use the SN (ID) from our main database
+                loan_id = st.selectbox("Assign to Loan ID", options=df['SN'].tolist())
+                i_type = st.selectbox("Category", ["Logbook", "Land Title", "Electronics", "Household", "Business Asset"])
+                i_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
+                i_desc = st.text_area("Item Details (Serial No, Condition, etc.)")
+                
+                if st.form_submit_button("🔒 Register Security"):
+                    # Get the name of the borrower for this ID
+                    cust_name = df[df['SN'] == loan_id]['CUSTOMER_NAME'].values[0]
+                    
+                    # Create the new entry (Matching the init_db columns exactly)
+                    new_collat = pd.DataFrame([[loan_id, cust_name, i_type, i_desc, i_val, "Held"]], 
+                                            columns=['ID', 'NAME', 'TYPE', 'DESC', 'VAL', 'STATUS'])
+                    
+                    # Append to file
+                    new_collat.to_csv(COLLATERAL_FILE, mode='a', header=False, index=False)
+                    st.success(f"Security registered for {cust_name}")
+                    st.rerun()
+
+        with col_stats:
+            if os.path.exists(COLLATERAL_FILE):
+                c_df = pd.read_csv(COLLATERAL_FILE)
+                if not c_df.empty:
+                    total_security = c_df['VAL'].sum()
+                    st.info(f"**Total Security Value Held:** UGX {total_security:,.0f}")
+                    
+                    st.dataframe(
+                        c_df,
+                        column_config={
+                            "ID": "Loan ID",
+                            "NAME": "Borrower",
+                            "VAL": st.column_config.NumberColumn("Value", format="UGX %,d"),
+                            "STATUS": st.column_config.SelectboxColumn("Status", options=["Held", "Released", "Liquidated"])
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.warning("No collateral items registered in the database.")
+    else:
+        st.info("You must add a Borrower first before registering collateral.")
