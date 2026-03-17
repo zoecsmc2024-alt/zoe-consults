@@ -24,6 +24,31 @@ def check_password():
 
 if not check_password():
     st.stop()
+    def calculate_reducing_balance(principal, annual_rate, periods=12):
+    # Monthly rate and payment calculation
+    monthly_rate = (annual_rate / 100) / 12
+    # Formula: M = P [ i(1 + i)^n ] / [ (1 + i)^n – 1 ]
+    if monthly_rate > 0:
+        monthly_payment = principal * (monthly_rate * (1 + monthly_rate)**periods) / ((1 + monthly_rate)**periods - 1)
+    else:
+        monthly_payment = principal / periods
+
+    schedule = []
+    remaining_balance = principal
+    
+    for i in range(1, periods + 1):
+        interest_payment = remaining_balance * monthly_rate
+        principal_payment = monthly_payment - interest_payment
+        remaining_balance -= principal_payment
+        
+        schedule.append({
+            "Month": i,
+            "Payment": monthly_payment,
+            "Principal": principal_payment,
+            "Interest": interest_payment,
+            "Balance": max(0, remaining_balance)
+        })
+    return pd.DataFrame(schedule), monthly_payment
 # --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
