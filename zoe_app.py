@@ -105,9 +105,8 @@ if search_query:
     df = df[df['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]
 
 # --- 5. DASHBOARD TABS ---
-# DEFINITION ORDER: 0=Overview, 1=Borrowers List, 2=Repayments, 3=Calendar/Collateral
-menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📑 Collateral"])
-
+# We now have 5 tabs: 0=Overview, 1=Borrowers, 2=Repayments, 3=Collateral, 4=Calendar
+menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
 # --- TAB 0: OVERVIEW ---
 with menu_tabs[0]:
     if not df.empty:
