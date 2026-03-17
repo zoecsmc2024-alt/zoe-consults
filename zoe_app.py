@@ -644,5 +644,8 @@ if page == "📄 Client Ledger" and 'ledger_final' in locals():
                 # Your WhatsApp Link Button code here
                 st.link_button("📲 Send to WhatsApp", url=wa_url, use_container_width=True)
                 /* ... your other CSS rules ... */
-</style>
-""", unsafe_allow_html=True) # <--- MAKE SURE THESE TWO LINES ARE THERE
+                /* ... all your button and sidebar colors ... */
+    </style>
+    """, unsafe_allow_html=True) 
+#   ^^^ THESE THREE QUOTES AND THE CLOSING BRACKET ARE WHAT'S MISSING
+
