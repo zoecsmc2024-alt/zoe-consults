@@ -270,16 +270,41 @@ with st.container():
                 del st.session_state[key]
             st.rerun()
 st.write("---") # Visual separator before the tabs
-# --- 5. DASHBOARD TABS ---
-# We now have 6 tabs (Index 0 to 5)
-menu_tabs = st.tabs([
-    "📊 Overview", 
-    "👥 Borrowers List", 
-    "💰 Repayments", 
-    "📑 Collateral", 
-    "📅 Calendar", 
-    "📄 Client Report"  # <--- This adds Tab 5
-])
+# --- 1. THE SIDEBAR NAVIGATION ---
+with st.sidebar:
+    # You can even put your logo here!
+    if 'custom_logo_b64' in st.session_state and st.session_state['custom_logo_b64']:
+        st.markdown(f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" width="100%">', unsafe_allow_html=True)
+    else:
+        st.title("Zoe Consults")
+        
+    st.write("---")
+    
+    # This replaces the tabs
+    page = st.sidebar.radio(
+        "Main Menu",
+        ["📈 Business Overview", "👥 Borrowers List", "📄 Client Ledger", "💰 Repayments", "⚙️ System Settings"]
+    )
+
+# --- 2. THE PAGE ROUTING ---
+# Instead of "with tab1:", we use "if page == ...:"
+
+if page == "📈 Business Overview":
+    # Paste your entire Overview code here
+    st.title("Business Performance")
+    # ... (Your metrics and charts)
+
+elif page == "👥 Borrowers List":
+    # Paste your Table code here
+    st.title("Current Borrowers")
+
+elif page == "📄 Client Ledger":
+    # Paste your Ledger and WhatsApp code here
+    st.title("Client Transaction Ledger")
+
+elif page == "⚙️ System Settings":
+    # Paste your Backup and Logo upload code here
+    st.title("Settings & Backups")
 # --- TAB 0: OVERVIEW (The Eye-Catching FinTech Dashboard) ---
 with menu_tabs[0]:
     if not df.empty:
