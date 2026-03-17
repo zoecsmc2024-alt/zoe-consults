@@ -101,16 +101,45 @@ menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", 
 
 with menu_tabs[0]:
     if not df.empty:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f'<div class="box-card"><div class="box-title">Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="box-card"><div class="box-title">Principal</div><div class="box-value">UGX {df["LOAN_AMOUNT"].sum():,.0f}</div></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
-        active_count = len(df[df['OUTSTANDING_AMOUNT'] > 0])
-        c4.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active_count}</div></div>', unsafe_allow_html=True)
-        
+        # --- KPI CARDS (Keep your existing ones) ---
+        # ... (c1, c2, c3, c4 code here) ...
+
         st.write("---")
-        st.subheader("Loan Records")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.subheader("Loan Portfolio Status")
+
+        # 1. Create the Status Column Logic
+        def calculate_status(row):
+            if row['OUTSTANDING_AMOUNT'] <= 0:
+                return "✅ Dormant (Paid)"
+            elif row['OUTSTANDING_AMOUNT'] > (row['LOAN_AMOUNT'] * 0.9):
+                return "⚠️ Risky (No Progress)"
+            else:
+                return "🔵 Active"
+
+        # Apply the logic to a temporary display dataframe
+        display_df = df.copy()
+        display_df['STATUS'] = display_df.apply(calculate_status, axis=1)
+
+        # 2. Reorder Columns: Move Interest Rate after Loan Amount
+        # Also include our new Status column
+        column_order = [
+            'SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INTEREST_RATE', 
+            'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS', 'DATE_ISSUED'
+        ]
+        
+        # Display the formatted table
+        st.dataframe(
+            display_df[column_order],
+            column_config={
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d"),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%.1f%%"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Paid", format="UGX %d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %d"),
+                "STATUS": st.column_config.TextColumn("Loan Status"),
+            },
+            use_container_width=True, 
+            hide_index=True
+        )
     else:
         st.info("No data found. Add a loan to begin.")
 
