@@ -79,38 +79,42 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. CONSOLIDATED ACTION BAR ---
-# We use 5 columns to keep everything perfectly aligned in one row
-c_search, c_new, c_del, c_dl, c_logout = st.columns([2.5, 1, 1, 0.4, 0.8])
+# --- 4. ICON-BASED ACTION BAR ---
+# We use more columns with smaller ratios to keep the buttons tight and "circular"
+c_search, c_new, c_del, c_dl, c_spacer, c_logout = st.columns([3, 0.4, 0.4, 0.4, 2, 0.6])
 
 with c_search:
     search_query = st.text_input("", placeholder="🔍 Search borrower...", label_visibility="collapsed")
 
 with c_new:
-    with st.popover("➕ New Loan", use_container_width=True):
+    # Popover with just a '+' icon
+    with st.popover("➕", help="New Loan", use_container_width=True):
         with st.form("new_loan_form", clear_on_submit=True):
             f_name = st.text_input("Name")
-            f_amount = st.number_input("Principal", min_value=0, step=50000)
-            f_rate = st.number_input("Rate %", min_value=0.0, step=0.5)
+            f_amount = st.number_input("Principal", min_value=0)
+            f_rate = st.number_input("Rate %", min_value=0.0)
             if st.form_submit_button("Save"):
                 # ... (your existing save logic)
                 st.rerun()
 
 with c_del:
-    with st.popover("🗑️ Delete", use_container_width=True):
+    # Popover with just a trash icon
+    with st.popover("🗑️", help="Delete Entry", use_container_width=True):
         if not df.empty:
             d_id = st.selectbox("ID", options=df['SN'].tolist())
-            if st.button("Confirm Delete", type="primary"):
+            if st.button("Delete", type="primary"):
                 # ... (your existing delete logic)
                 st.rerun()
 
 with c_dl:
     if not df.empty:
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥", csv, "Zoe_Report.csv", "text/csv")
+        # Download button with just a tray icon
+        st.download_button("📥", csv, "Zoe_Report.csv", "text/csv", help="Download CSV")
 
+# The c_spacer column pushes the Logout button to the far right
 with c_logout:
-    if st.button("🚪 Log Out", use_container_width=True):
+    if st.button("🚪", help="Sign Out / Log Out", use_container_width=True):
         st.session_state["password_correct"] = False
         st.rerun()
 
