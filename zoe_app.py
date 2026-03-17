@@ -444,34 +444,27 @@ with menu_tabs[5]:
             client_pays['DATE'] = pd.to_datetime(client_pays['DATE'])
             client_pays = client_pays.sort_values('DATE')
             
+        # ... (inside Tab 5, after loading client_pays)
             ledger_entries = []
             current_balance = c_details['LOAN_AMOUNT']
             annual_rate = c_details['INTEREST_RATE']
             
-            # Initial State
-            ledger_entries.append({
-                "Date": c_details['DATE_ISSUED'],
-                "Description": "LOAN DISBURSED",
-                "Debit (Int)": 0,
-                "Credit (Pay)": 0,
-                "Balance": current_balance
-            })
+        # Use .get() to avoid KeyErrors if columns are named differently
+            amt_col = 'AMOUNT' if 'AMOUNT' in client_pays.columns else 'AMOUNT_PAID'
 
             for _, pay in client_pays.iterrows():
-                # Calculate interest on the REDUCING balance since last payment
-                # For simplicity, we assume monthly recalculation
                 interest_charge = (current_balance * (annual_rate / 100) / 12)
-                payment_amt = pay['AMOUNT']
+        # Safe retrieval of the payment amount
+                payment_amt = pay[amt_col] 
                 
-                # Update balance: New Bal = Old Bal + Interest - Payment
                 current_balance = (current_balance + interest_charge) - payment_amt
                 
                 ledger_entries.append({
-                    "Date": pay['DATE'].strftime('%Y-%m-%d'),
-                    "Description": f"Repayment (Ref: {pay['REF']})",
-                    "Debit (Int)": interest_charge,
-                    "Credit (Pay)": payment_amt,
-                    "Balance": max(0, current_balance)
+                    "Date": pd.to_datetime(pay['DATE']).strftime('%Y-%m-%d'),
+                    "Description": f"Repayment (Ref: {pay.get('REF', 'N/A')})",
+                    "Interest Accrued": interest_charge,
+                    "Amount Paid": payment_amt,
+                    "Running Balance": max(0, current_balance)
                 })
 
             ledger_df = pd.DataFrame(ledger_entries)
