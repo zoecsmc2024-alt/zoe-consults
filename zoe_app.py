@@ -88,9 +88,6 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_s
 st.markdown("""
 <style>
     /* 1. Main Background and Sidebar */
-    [data-testid="stAppViewContainer"] {
-        background-color: #f8fafc;
-    }
     [data-testid="stSidebar"] {
         background-color: #0f172a !important;
     }
@@ -98,37 +95,21 @@ st.markdown("""
         color: white !important;
     }
 
-    /* 2. Style the Buttons */
+    /* 2. WhatsApp Button Styling */
+    div.stLinkButton > a:has(div:contains("WhatsApp")) {
+        background-color: #25D366 !important;
+        color: white !important;
+        border: none !important;
+        font-weight: bold !important;
+        text-decoration: none !important;
+    }
+
+    /* 3. Download Button Styling */
     div[data-testid="stDownloadButton"] > button {
         background-color: #334155 !important;
         color: white !important;
-        border-radius: 8px !important;
-    }
-
-    div.stLinkButton > a {
-        background-color: #25D366 !important;
-        color: white !important;
-        border-radius: 8px !important;
-        text-decoration: none !important;
     }
 </style>
-""", unsafe_allow_html=True)
-
-
-/* Styling the WhatsApp Button */
-div.stLinkButton > a:has(div:contains("WhatsApp")) {
-    background-color: #25D366 !important; /* WhatsApp Green */
-    color: white !important;
-    border: none !important;
-    text-decoration: none !important;
-}
-
-/* Hover effects to make them feel interactive */
-div.stLinkButton > a:has(div:contains("WhatsApp")):hover {
-    background-color: #128C7E !important;
-    opacity: 0.9;
-}
-    </style>
 """, unsafe_allow_html=True)
 
 # --- 2. DATA ENGINE ---
