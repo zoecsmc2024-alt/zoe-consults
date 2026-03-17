@@ -225,7 +225,7 @@ with menu_tabs[0]:
             })
             st.bar_chart(data=perf_df, x="Metric", y="Amount", color="Metric")
 
-         # --- 5. TIME-SERIES PERFORMANCE TRENDS (Error-Proof Version) ---
+       # --- 5. TIME-SERIES PERFORMANCE TRENDS (Error-Proof Version) ---
         st.write("---")
         st.subheader("📉 Growth & Liquidity Trends")
 
