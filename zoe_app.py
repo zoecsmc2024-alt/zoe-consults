@@ -66,10 +66,12 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. TOP CONTROLS ---
-col_search, col_btn = st.columns([3, 1])
+# --- 4. TOP CONTROLS (Updated & Fixed) ---
+col_search, col_btn, col_dl = st.columns([3, 1, 0.5]) 
+
 with col_search:
     search = st.text_input("", placeholder="🔍 Search borrower by name...", label_visibility="collapsed")
+
 with col_btn:
     with st.popover("➕ New Loan Entry", use_container_width=True):
         with st.form("loan_form", clear_on_submit=True):
@@ -93,9 +95,15 @@ with col_btn:
                 st.cache_data.clear()
                 st.rerun()
 
-# Filtering logic
-if search:
-    df = df[df['CUSTOMER_NAME'].str.contains(search, case=False, na=False)]
+with col_dl:
+    csv_data = df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥",
+        data=csv_data,
+        file_name=f"Zoe_Lend_Report_{datetime.now().strftime('%Y-%m-%d')}.csv",
+        mime="text/csv",
+        help="Download current records as CSV"
+    )
 
 # --- 5. DASHBOARD TABS ---
 menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📅 Calendar"])
