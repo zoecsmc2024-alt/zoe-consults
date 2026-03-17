@@ -28,103 +28,113 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 1. LOAD DATA FIRST ---
+# --- DATA LOADING (Must be at the top) ---
 DB_FILE = "zoe_borrowers.csv"
 if os.path.exists(DB_FILE):
     df = pd.read_csv(DB_FILE)
 else:
-    # This creates the 'df' so line 24 doesn't crash if the file is missing
+    # Create an empty dataframe if file doesn't exist yet
     df = pd.DataFrame(columns=['CUSTOMER_NAME', 'LOAN_AMOUNT', 'STATUS'])
 
+# --- SIDEBAR STYLING (At the top of your script) ---
 st.markdown("""
 <style>
-    /* 1. New Circular Logo Styling */
-    [data-testid="stSidebar"] img {
-        display: block;
-        margin-left: auto;   /* Center horizontally */
-        margin-right: auto;
-        width: 80px !important;  /* Set a small, fixed width */
-        height: 80px !important; /* Set the same fixed height to make it a square */
-        object-fit: cover;   /* This ensures the logo isn't squished inside the circle */
-        border-radius: 50% !important; /* The core circular command */
-        border: 3px solid #00a8b5; /* Adds the Teal border around the circle */
-        margin-top: 10px;
-        margin-bottom: 20px;
-        transition: 0.3s;
+    /* 1. Main Sidebar Background (Deep Navy) */
+    [data-testid="stSidebar"] {
+        background-color: #0b1425 !important;
+        border-right: 3px solid #00a8b5; /* Teal accent line */
     }
 
-    /* 2. Style for the Title below the Logo */
+    /* 2. Sidebar Text & Icons (White) */
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+
+    /* 3. FLATTEN THE PENCIL BUTTON (Remove the big white box) */
+    div.stButton > button#change_logo_btn {
+        background-color: transparent !important;
+        color: #ffffff !important;
+        border: none !important;
+        padding: 0px !important;
+        margin-top: 20px;
+        margin-bottom: 20px;
+        display: block;
+        margin-left: auto; /* Center horizontally */
+        margin-right: auto;
+        font-size: 24px !important; /* Make the pencil icon larger */
+        width: auto !important;
+        height: auto !important;
+        box-shadow: none !important;
+    }
+
+    /* Pencil hover effect */
+    div.stButton > button#change_logo_btn:hover {
+        color: #00a8b5 !important; /* Teal accent on hover */
+        background-color: transparent !important;
+    }
+
+    /* 4. Sidebar Title Styling */
     .sidebar-title {
-        text-align: center;   /* Centers "Zoe Consults" under the circle */
+        text-align: center;
         color: #f1f5f9;
         font-size: 20px;
         font-weight: bold;
-        margin-top: 0px;
         padding-bottom: 10px;
         border-bottom: 1px solid #1e293b;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- THE SIDEBAR CONTENT ---
 with st.sidebar:
-    # --- TAP TO EDIT LOGO ---
-    st.markdown("### Welcome Back")
-    
-    # Check if we have a logo, otherwise use a placeholder
-    logo_display = st.session_state.get('custom_logo', "💰")
-    
-    # This creates a "clickable" area
-    if st.button("🔄 Change Logo", use_container_width=True):
-        st.session_state['show_uploader'] = True
+    # Use columns to center the pencil icon button
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        # A borderless button with a pencil icon to change the logo
+        if st.button("✏️", key="change_logo_btn", help="Tap to change logo"):
+            st.session_state['show_uploader'] = True
 
-    if st.session_state.get('show_uploader', False):
-        new_logo = st.file_uploader("Choose a new logo", type=["png", "jpg", "jpeg"], key="sidebar_uploader")
-        if new_logo:
-            st.session_state['custom_logo'] = new_logo
-            st.session_state['show_uploader'] = False
-            st.rerun()
-
-    # Display the current Logo
+    # Check if a logo is currently set
     if 'custom_logo' in st.session_state:
-        st.image(st.session_state['custom_logo'], use_container_width=True)
+        st.image(st.session_state['custom_logo'], use_column_width=True)
     else:
-        st.title("Zoe Consults")
-    
+        # Title placeholder if no logo
+        st.markdown('<p class="sidebar-title">Zoe Consults</p>', unsafe_allow_html=True)
+
+    # The Uploader (shows only after tapping the pencil)
+    if st.session_state.get('show_uploader', False):
+        st.write("---")
+        uploaded_file = st.file_uploader("Choose new logo...", type=["png", "jpg", "jpeg"], key="sidebar_uploader")
+        if uploaded_file:
+            st.session_state['custom_logo'] = uploaded_file
+            st.session_state['show_uploader'] = False
+            st.rerun()  # Refresh to update the logo display
+
+    st.write(f"**Admin:** Evans Ahuura")
     st.write("---")
-    # ... rest of your navigation ...
-    
-    # Your existing navigation
-    page = st.radio("Navigation", ["📈 Performance", "👥 Borrowers", "📄 Ledger", "⚙️ Settings"])
 
-# --- 3. THE CODE THAT WAS CRASHING (Line 24) ---
-if not df.empty:
-    # Now Python knows exactly what 'df' is!
-    pass
-    total_loaned = df['LOAN_AMOUNT'].sum()
-    st.metric("Capital in Field", f"UGX {total_loaned:,.0f}")
+    page = st.radio(
+        "Navigation",
+        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"],
+        key="nav_menu"
+    )
 
-# --- 2. PAGE ROUTING (The "Rooms") ---
-
+# --- MAIN PAGE CONTENT ---
 if page == "📈 Performance":
     st.title("Business Growth & Trends")
-    # --- PASTE ONLY YOUR CHARTS & KPI CARDS HERE ---
+    # ... your charts ...
 
 elif page == "👥 Borrowers":
-    # --- HEADER & ACTION BAR ONLY SHOWS HERE ---
-    # (Paste your Blue Header and [Search, New Loan, Delete] buttons here)
-    
     st.subheader("Active Loan Registry")
-    # --- PASTE YOUR MAIN DATAFRAME TABLE HERE ---
+    # ... your borrowers table ...
 
 elif page == "📄 Client Ledger":
     st.subheader("Client Transaction Ledger")
-    # --- PASTE YOUR LEDGER DROPDOWN, TABLE, AND WHATSAPP BUTTON HERE ---
-
-elif page == "📅 Repayments":
-    st.subheader("Collection Schedule")
-    # --- PASTE YOUR CALENDAR AND REPAYMENT LIST HERE ---
+    # ... your ledger code ...
 
 elif page == "⚙️ Settings":
     st.subheader("System Configuration")
+    # ... your settings ...
 
 
     # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
