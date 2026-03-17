@@ -1,30 +1,39 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
-# --- 1. SETTINGS & THEMING ---
+# --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
 st.markdown("""
     <style>
-    /* Premium Sidebar */
+    /* Gradient Sidebar */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
         border-right: 1px solid #334155 !important;
     }
-    /* Logo Styling */
-    .logo-container { text-align: center; padding: 20px; }
-    .logo-circle {
-        width: 80px; height: 80px; background: #00acc1;
-        border-radius: 50%; display: inline-block;
-        line-height: 80px; color: white; font-size: 24px; font-weight: bold;
-        box-shadow: 0 4px 15px rgba(0,172,193,0.3);
+    /* Admin Header Style */
+    .admin-header {
+        background-color: #f7f7f7;
+        border: 1px solid #e0e0e0;
+        padding: 8px 15px;
+        margin-bottom: 20px;
+        font-weight: bold;
+        color: #555;
+        border-radius: 4px;
     }
-    /* Tables & Metrics */
-    [data-testid="stMetric"] {
-        background-color: white !important; border: 1px solid #e2e8f0 !important;
-        padding: 20px !important; border-radius: 12px !important;
+    /* Box Cards (col-md-3 style) */
+    .box-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        padding: 20px;
+        border-radius: 4px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
+    .box-title { color: #888; font-size: 0.8em; text-transform: uppercase; margin-bottom: 8px; }
+    .box-value { color: #333; font-size: 1.6em; font-weight: bold; }
+    
+    /* Clean Tables */
     .stTable thead tr th { background-color: #00acc1 !important; color: white !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -32,8 +41,10 @@ st.markdown("""
 # --- 2. DATA ENGINE ---
 def load_data():
     try:
+        # Load the CSV
         df = pd.read_csv("zoe_database.csv")
-        df['DATE_OF_ISSUE'] = pd.to_datetime(df['DATE_OF_ISSUE'])
+        # Basic cleanup
+        df['DATE_OF_ISSUE'] = pd.to_datetime(df['DATE_OF_ISSUE'], errors='coerce')
         for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -43,66 +54,43 @@ def load_data():
 
 df = load_data()
 
-# --- 3. SIDEBAR NAVIGATION ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
-    st.markdown('<div class="logo-container"><div class="logo-circle">ZC</div></div>', unsafe_allow_html=True)
-    st.markdown("<h3 style='color:white; text-align:center;'>Zoe Consults</h3>", unsafe_allow_html=True)
-    choice = st.radio("Navigation", ["📊 Daily Report", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
-    # --- 4. DASHBOARD LOGIC ---
+    st.markdown("<h2 style='color:white; text-align:center;'>ZoeLend IQ</h2>", unsafe_allow_html=True)
+    choice = st.radio("MAIN MENU", ["📊 Dashboard", "👤 Onboarding", "💰 Payments", "📄 Client Report"])
 
-if choice == "📊 Daily Report":
-    st.title("📊 Portfolio Insights")
-    
+# --- 4. MAIN CONTENT ---
+
+# BREADCRUMB
+st.markdown(f'<div class="admin-header">Main Content > {choice.split(" ")[1]}</div>', unsafe_allow_html=True)
+
+if choice == "📊 Dashboard":
     if not df.empty:
-        # Profit Calculations (Safety added for division by zero)
-        df['profit_ratio'] = (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100)) / (df['LOAN_AMOUNT'] + (df['LOAN_AMOUNT'] * (df['INTEREST_RATE']/100) + 0.0001))
-        total_profit = (df['AMOUNT_PAID'] * df['profit_ratio']).sum()
-
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Total Principal", f"UGX {df['LOAN_AMOUNT'].sum():,.0f}")
-        m2.metric("Total Collected", f"UGX {df['AMOUNT_PAID'].sum():,.0f}")
-        m3.metric("Outstanding", f"UGX {df['OUTSTANDING_AMOUNT'].sum():,.0f}")
-        m4.metric("Total Profit", f"UGX {total_profit:,.0f}")
-
-        # The Loan Registry Table
-        st.subheader("📋 Loan Portfolio Registry")
-        cols = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS']
-        safe_cols = [c for c in cols if c in df.columns]
-        st.table(df[safe_cols].sort_values('SN', ascending=False))
-    else:
-        st.info("No data found in zoe_database.csv")
-
-elif choice == "📄 Client Report":
-    st.title("📄 Client Statement")
-    if not df.empty:
-        # Combined ID and Name for search
-        search_list = df['SN'].astype(str) + " - " + df['CUSTOMER_NAME']
-        search = st.selectbox("Select Client", search_list)
+        # 4-Column Box Row
+        c1, c2, c3, c4 = st.columns(4)
         
-        if search:
-            sn = int(search.split(" - ")[0])
-            c = df[df['SN'] == sn].iloc[0]
-            
-            # Detailed Profile Card
-            st.markdown(f"""
-                <div style="background:#f8fafc; padding:20px; border-radius:12px; border-left:6px solid #00acc1;">
-                    <h2 style="margin:0; color:#0f172a;">{c.get('CUSTOMER_NAME')}</h2>
-                    <p style="margin:5px 0; color:#64748b;"><b>NIN:</b> {c.get('NIN', 'N/A')} | <b>Phone:</b> {c.get('PHONE', 'N/A')}</p>
-                    <p style="margin:5px 0; color:#64748b;"><b>Location:</b> {c.get('LOCATION', 'N/A')} | <b>Next of Kin:</b> {c.get('NEXT_OF_KIN', 'N/A')}</p>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            st.write("")
-            t1, t2 = st.tabs(["💰 Ledger Summary", "📅 Loan Schedule"])
-            with t1:
-                summary_data = {
-                    "Description": ["Total Loan Amount", "Total Repaid", "Current Balance Due"],
-                    "Amount (UGX)": [f"{c['LOAN_AMOUNT']:,.0f}", f"{c['AMOUNT_PAID']:,.0f}", f"{c['OUTSTANDING_AMOUNT']:,.0f}"]
-                }
-                st.table(pd.DataFrame(summary_data))
+        with c1:
+            st.markdown(f'<div class="box-card"><div class="box-title">Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown(f'<div class="box-card"><div class="box-title">Principal Released</div><div class="box-value">UGX {df["LOAN_AMOUNT"].sum():,.0f}</div></div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
+        with c4:
+            # Active vs Closed logic
+            active = len(df[df['STATUS'] == 'Active'])
+            st.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active}</div></div>', unsafe_allow_html=True)
+
+        st.write("")
+        st.subheader("📋 Recent Loan Portfolio")
+        cols = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'STATUS']
+        st.table(df[cols].tail(10)) # Show last 10 entries
     else:
-        st.info("No clients found in the database.")
+        st.info("No data found. Please check your zoe_database.csv file.")
+
+elif choice == "👤 Onboarding":
+    st.title("👤 New Client Onboarding")
+    st.write("We will build the form logic here next!")
 
 else:
     st.title(choice)
-    st.info("This section is under construction. Your data is safe!")
+    st.info("Section pending configuration.")
