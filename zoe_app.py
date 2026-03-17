@@ -39,27 +39,47 @@ else:
 # --- SIDEBAR STYLING (At the top of your script) ---
 st.markdown("""
 <style>
-    /* 1. Force the logo into a small, sharp circle */
-    [data-testid="stSidebar"] img {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 80px !important;  /* Small & consistent size */
-        height: 80px !important; /* Must match width for a perfect circle */
-        object-fit: cover;       /* Prevents stretching */
-        border-radius: 50% !important; /* The magic circle line */
-        border: 2px solid #00a8b5;     /* Teal border to match your brand */
-        margin-top: 10px;
-        margin-bottom: 10px;
+    /* 1. REMOVE TOP PADDING (This pushes everything UP) */
+    [data-testid="stSidebarContent"] {
+        padding-top: 0rem !important;
     }
 
-    /* 2. Center the text under the circle */
-    .sidebar-brand-text {
+    /* 2. THE PENCIL (Transparent & Borderless) */
+    div.stButton > button[key="change_logo_btn"] {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: white !important;
+        font-size: 20px !important;
+        padding: 0px !important;
+        margin: 0px auto !important;
+        display: block;
+    }
+    
+    /* Remove the white box on hover too */
+    div.stButton > button[key="change_logo_btn"]:hover {
+        background-color: transparent !important;
+        color: #00a8b5 !important;
+        border: none !important;
+    }
+
+    /* 3. THE CIRCULAR LOGO */
+    [data-testid="stSidebar"] img {
+        display: block;
+        margin: 5px auto !important; /* Small margin to keep it tight */
+        width: 80px !important;
+        height: 80px !important;
+        object-fit: cover;
+        border-radius: 50% !important;
+        border: 2px solid #00a8b5;
+    }
+
+    /* 4. ADMIN TEXT */
+    .admin-text {
         text-align: center;
-        color: white;
-        font-weight: bold;
-        font-size: 18px;
-        margin-bottom: 20px;
+        font-size: 14px;
+        color: #f1f5f9;
+        margin-top: -5px;
     }
 </style>
 """, unsafe_allow_html=True)
