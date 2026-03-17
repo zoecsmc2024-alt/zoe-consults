@@ -250,42 +250,64 @@ with menu_tabs[0]:
         
     else:
         st.info("👋 Welcome! Please add a loan to see your dashboard come to life.")
-# --- TAB 1: BORROWERS LIST (With Edit Pencil Logic) ---
+# --- TAB 1: BORROWERS LIST (Formatted & Editable) ---
 with menu_tabs[1]:
     st.subheader("👥 Manage Loan Records")
     
-    # 1. The Edit Toggle (The "Pencil" behavior)
-    edit_mode = st.toggle("✏️ Enable Edit Mode", help="Turn this on to modify names, amounts, or rates directly in the table.")
+    # 1. PRE-PROCESS THE MATH (Same logic as Overview)
+    def calculate_row_data(row):
+        interest_amt = (row['LOAN_AMOUNT'] * row['INTEREST_RATE']) / 100
+        total_due = row['LOAN_AMOUNT'] + interest_amt
+        return pd.Series([interest_amt, total_due])
 
     if not df.empty:
+        display_df = df.copy()
+        # Ensure your missing columns (Interest & Total Due) are calculated first
+        display_df[['INT_AMT', 'TOTAL_DUE']] = display_df.apply(calculate_row_data, axis=1)
+
+        # 2. EDIT TOGGLE
+        edit_mode = st.toggle("✏️ Enable Edit Mode", help="Modify principal, rates, or names.")
+
+        # 3. UNIFIED COLUMN CONFIG (This brings back the commas!)
+        col_setup = {
+            "SN": st.column_config.NumberColumn("ID", disabled=True),
+            "CUSTOMER_NAME": "Client Name",
+            "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+            "INT_AMT": st.column_config.NumberColumn("Interest", format="UGX %,d", disabled=True),
+            "TOTAL_DUE": st.column_config.NumberColumn("Total Due", format="UGX %,d", disabled=True),
+            "AMOUNT_PAID": st.column_config.NumberColumn("Repaid", format="UGX %,d"),
+            "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d", disabled=True),
+            "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%.1f%%"),
+            "DATE_ISSUED": st.column_config.DateColumn("Date Issued")
+        }
+
         if edit_mode:
-            st.info("💡 Double-click any cell to edit. Changes are saved when you click 'Save Changes' below.")
-            
-            # The Magic Widget: st.data_editor
+            st.warning("⚠️ Manual edits will recalculate totals after saving.")
+            # Editable table
             edited_df = st.data_editor(
-                df, 
-                key="borrower_editor",
-                num_rows="dynamic", # Allows you to add/delete rows too!
+                display_df, 
+                key="borrower_editor_pro",
                 use_container_width=True,
                 hide_index=True,
-                column_config={
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                    "AMOUNT_PAID": st.column_config.NumberColumn("Repaid", format="UGX %,d"),
-                    "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%.1f%%"),
-                }
+                column_config=col_setup
             )
 
-            # 2. Save Logic
             if st.button("💾 Save All Changes", type="primary"):
-                edited_df.to_csv(DB_FILE, index=False)
-                st.success("Database updated successfully!")
+                # We only save the original columns back to the CSV (to avoid duplicating math columns)
+                original_cols = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED']
+                edited_df[original_cols].to_csv(DB_FILE, index=False)
+                st.success("Database updated!")
                 st.rerun()
-        
         else:
-            # Standard View Mode (The clean table you already have)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            # Standard View (All columns with commas)
+            st.dataframe(
+                display_df, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config=col_setup
+            )
     else:
-        st.info("No records to edit.")
+        st.info("No records to display.")
 # --- TAB 2: REPAYMENTS ---
 with menu_tabs[2]:
     st.subheader("💰 Record a Payment")
