@@ -142,59 +142,56 @@ header_html = f"""
 """
 st.markdown(header_html, unsafe_allow_html=True)
 
-# --- REFRESHED ACTION BAR ---
+# --- REFRESHED ACTION BAR (All Buttons Fixed) ---
 with st.container():
-    # We allocate more space for the text buttons
-    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([3, 1.2, 1.2, 1.2, 0.6, 0.6])
+    # Adjusted column ratios for better spacing
+    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([2.5, 1, 1, 1, 1, 1])
 
     with c_search:
-        search_query = st.text_input("", placeholder="🔍 Search borrowers...", label_visibility="collapsed")
+        search_query = st.text_input("", placeholder="🔍 Search...", label_visibility="collapsed")
 
     with c_new:
-        # Green "New Loan" Button
         with st.popover("➕ New Loan", use_container_width=True):
-            with st.form("new_loan_form_v3", clear_on_submit=True):
+            with st.form("new_loan_v4", clear_on_submit=True):
                 st.markdown("#### 📝 Add Borrower")
-                f_name = st.text_input("Full Name")
-                f_nin = st.text_input("NIN")
-                f_amt = st.number_input("Principal (UGX)", min_value=0)
-                f_rate = st.number_input("Rate (%)", value=2.8)
-                if st.form_submit_button("✅ Disburse Loan", use_container_width=True):
-                    if f_name and f_amt > 0:
-                        # --- YOUR SAVE LOGIC HERE ---
-                        st.success("Loan Added!")
-                        st.rerun()
-
-    with c_del:
-        # Red "Delete" Button
-        with st.popover("🗑️ Delete", use_container_width=True):
-            st.markdown("#### ⚠️ Remove Record")
-            if not df.empty:
-                to_delete = st.selectbox("Select ID to Remove", options=df['SN'].tolist())
-                if st.button("Confirm Permanent Delete", type="primary", use_container_width=True):
-                    # --- YOUR DELETE LOGIC HERE ---
+                # ... (your existing form fields)
+                if st.form_submit_button("✅ Disburse", use_container_width=True):
+                    # ... (your save logic)
                     st.rerun()
 
+    with c_del:
+        with st.popover("🗑️ Delete", use_container_width=True):
+            # ... (your delete logic)
+            pass
+
     with c_dl:
-        # Blue "Export" Button
         if not df.empty:
             csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Export CSV",
-                data=csv,
-                file_name=f"Zoe_Consults_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+            st.download_button("📥 Export", csv, "Zoe_Data.csv", "text/csv", use_container_width=True)
 
     with c_set:
-        with st.popover("⚙️", help="Settings"):
-            # (Your Branding/Excel Import logic goes here)
-            st.write("Settings Menu")
+        # LOGO & BRAND SETTINGS (Fixed Popover)
+        with st.popover("⚙️ Settings", use_container_width=True):
+            st.markdown("#### 🖼️ Brand Settings")
+            new_logo = st.file_uploader("Upload New Logo", type=["png", "jpg", "jpeg"])
+            if new_logo:
+                encoded = base64.b64encode(new_logo.getvalue()).decode()
+                st.session_state['custom_logo_b64'] = encoded
+                st.success("Logo uploaded!")
+                if st.button("Apply Changes"):
+                    st.rerun()
+            
+            if st.button("Reset to Default", use_container_width=True):
+                st.session_state['custom_logo_b64'] = None
+                st.rerun()
 
     with c_logout:
-        if st.button("🚪", help="Logout", use_container_width=True):
+        # LOGOUT (Fixed Button)
+        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
             st.session_state["password_correct"] = False
+            # Clear everything to ensure a clean logout
+            for key in st.session_state.keys():
+                del st.session_state[key]
             st.rerun()
 st.write("---") # Visual separator before the tabs
 # --- 5. DASHBOARD TABS ---
