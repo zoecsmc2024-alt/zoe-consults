@@ -143,12 +143,33 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+    # Copy and paste this EXACTLY to replace the styling text
+st.markdown("""
+<style>
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+
+    /* Download Button Styling */
+    div[data-testid="stDownloadButton"] > button {
+        background-color: #334155 !important;
+        color: white !important;
+        border-radius: 8px !important;
+    }
+
+    /* WhatsApp Button Styling */
     div.stLinkButton > a {
         background-color: #25D366 !important;
         color: white !important;
         border-radius: 8px !important;
         text-decoration: none !important;
     }
+</style>
+""", unsafe_allow_html=True)
 </style>
 """, unsafe_allow_html=True)
 
