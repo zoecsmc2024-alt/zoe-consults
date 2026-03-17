@@ -225,6 +225,36 @@ with menu_tabs[0]:
             })
             st.bar_chart(data=perf_df, x="Metric", y="Amount", color="Metric")
 
+         # --- 5. TIME-SERIES PERFORMANCE TRENDS ---
+        st.write("---")
+        st.subheader("📉 Growth & Liquidity Trends")
+
+        if not df.empty and os.path.exists(PAYMENT_FILE):
+            # Process Loans by Month
+            df['MONTH'] = pd.to_datetime(df['DATE_ISSUED']).dt.strftime('%Y-%m')
+            monthly_loans = df.groupby('MONTH')['LOAN_AMOUNT'].sum().reset_index()
+            
+            # Process Payments by Month
+            pay_df = pd.read_csv(PAYMENT_FILE)
+            pay_df['MONTH'] = pd.to_datetime(pay_df['DATE']).dt.strftime('%Y-%m')
+            monthly_pays = pay_df.groupby('MONTH')['AMOUNT'].sum().reset_index()
+
+            # Merge for a combined chart
+            trend_df = pd.merge(monthly_loans, monthly_pays, on='MONTH', how='outer').fillna(0)
+            trend_df.columns = ['Month', 'Principal Issued', 'Total Collected']
+            trend_df = trend_df.sort_values('Month')
+
+            # Display the Dual Line Chart
+            st.line_chart(
+                trend_df.set_index('Month'), 
+                color=["#0ea5e9", "#10b981"], # Blue for out, Green for in
+                use_container_width=True
+            )
+            
+            st.caption("The blue line shows your capital investment; the green line shows your recovery/revenue.")
+        else:
+            st.info("Trend data will appear once you have payments recorded across different months.")
+
         with chart_col2:
             st.subheader("🎯 Risk Distribution")
             status_df = df.copy()
