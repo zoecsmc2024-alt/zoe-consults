@@ -133,16 +133,32 @@ with menu_tabs[0]:
         total_interest_expected = (df['LOAN_AMOUNT'] * df['INTEREST_RATE'] / 100).sum()
         actual_profit = (total_collected / total_principal * total_interest_expected) if total_principal > 0 else 0
 
-        # 2. KPI CARDS
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f'<div class="box-card"><div class="box-title">Total Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="box-card"><div class="box-title">Principal Issued</div><div class="box-value">UGX {total_principal:,.0f}</div></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="box-card"><div class="box-title">Total Collections</div><div class="box-value">UGX {total_collected:,.0f}</div></div>', unsafe_allow_html=True)
-        
-        profit_color = "#10b981" if actual_profit > 0 else "#ef4444"
-        c4.markdown(f'<div class="box-card"><div class="box-title">Realized Profit</div><div class="box-value" style="color: {profit_color};">UGX {actual_profit:,.0f}</div></div>', unsafe_allow_html=True)
-        
-        st.write("---")
+        # --- ENHANCED KPI CARDS ---
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    st.markdown(f'''<div class="box-card" style="border-top: 4px solid #6366f1;">
+        <div class="box-title">👥 Total Borrowers</div>
+        <div class="box-value">{len(df)}</div>
+    </div>''', unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f'''<div class="box-card" style="border-top: 4px solid #0ea5e9;">
+        <div class="box-title">💰 Principal Issued</div>
+        <div class="box-value">UGX {total_principal:,.0f}</div>
+    </div>''', unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f'''<div class="box-card" style="border-top: 4px solid #f59e0b;">
+        <div class="box-title">📥 Total Collections</div>
+        <div class="box-value">UGX {total_collected:,.0f}</div>
+    </div>''', unsafe_allow_html=True)
+
+with c4:
+    st.markdown(f'''<div class="box-card" style="border-top: 4px solid #10b981;">
+        <div class="box-title">📈 Realized Profit</div>
+        <div class="box-value" style="color: #10b981;">UGX {actual_profit:,.0f}</div>
+    </div>''', unsafe_allow_html=True)
         
         # 3. PERFORMANCE CHARTS SECTION
         chart_col1, chart_col2 = st.columns([2, 1])
