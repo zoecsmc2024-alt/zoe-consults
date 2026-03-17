@@ -121,7 +121,17 @@ with menu_tabs[0]:
         c1.markdown(f'<div class="box-card"><div class="box-title">Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
         c2.markdown(f'<div class="box-card"><div class="box-title">Principal</div><div class="box-value">UGX {total_principal:,.0f}</div></div>', unsafe_allow_html=True)
         c3.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
-        c4.markdown(f'<div class="box-card"><div class="box-title">Est. Profit</div><div class="box-value" style="color: #10b981;">UGX {actual_profit:,.0f}</div></div>', unsafe_allow_html=True)
+        # Highlight profit in green if it's positive
+        profit_color = "#10b981" if actual_profit > 0 else "#ef4444"
+        
+        c4.markdown(f"""
+            <div class="box-card">
+                <div class="box-title">Realized Profit</div>
+                <div class="box-value" style="color: {profit_color};">
+                    UGX {actual_profit:,.0f}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
         
         st.write("---")
         st.subheader("Loan Portfolio Status")
