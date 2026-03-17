@@ -258,23 +258,30 @@ with menu_tabs[3]:
 
         with col_stats:
             if os.path.exists(COLLATERAL_FILE):
-                c_df = pd.read_csv(COLLATERAL_FILE)
-                if not c_df.empty:
-                    total_security = c_df['VAL'].sum()
-                    st.info(f"**Total Security Value Held:** UGX {total_security:,.0f}")
+                try:
+                    c_df = pd.read_csv(COLLATERAL_FILE)
                     
-                    st.dataframe(
-                        c_df,
-                        column_config={
-                            "ID": "Loan ID",
-                            "NAME": "Borrower",
-                            "VAL": st.column_config.NumberColumn("Value", format="UGX %,d"),
-                            "STATUS": st.column_config.SelectboxColumn("Status", options=["Held", "Released", "Liquidated"])
-                        },
-                        use_container_width=True,
-                        hide_index=True
-                    )
-                else:
-                    st.warning("No collateral items registered in the database.")
-    else:
-        st.info("You must add a Borrower first before registering collateral.")
+                    # SAFETY CHECK: If 'VAL' is missing, the file is outdated
+                    if not c_df.empty and 'VAL' in c_df.columns:
+                        total_security = pd.to_numeric(c_df['VAL'], errors='coerce').sum()
+                        st.info(f"**Total Security Value Held:** UGX {total_security:,.0f}")
+                        
+                        st.dataframe(
+                            c_df,
+                            column_config={
+                                "ID": "Loan ID",
+                                "NAME": "Borrower",
+                                "TYPE": "Category",
+                                "DESC": "Details",
+                                "VAL": st.column_config.NumberColumn("Value", format="UGX %,d"),
+                                "STATUS": "Status"
+                            },
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.warning("⚠️ Collateral file found but format is outdated. Please delete 'collateral_log.csv' and try again.")
+                except Exception as e:
+                    st.error(f"Error reading collateral: {e}")
+            else:
+                st.info("No security items registered yet.")
