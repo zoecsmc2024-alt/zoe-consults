@@ -106,13 +106,34 @@ st.markdown("""
         border-radius: 12px;
         box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     }
+st.markdown("""
+<style>
+    /* 1. Main Background and Sidebar */
+    [data-testid="stAppViewContainer"] {
+        background-color: #f8fafc;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #0f172a !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+
+    /* 2. Style the Buttons */
+    div[data-testid="stDownloadButton"] > button {
+        background-color: #334155 !important;
+        color: white !important;
+        border-radius: 8px !important;
+    }
+
+    div.stLinkButton > a {
+        background-color: #25D366 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        text-decoration: none !important;
+    }
 </style>
-    /* Styling the Download Ledger Button */
-div[data-testid="stDownloadButton"] > button:has(div:contains("Download")) {
-    background-color: #334155 !important; /* Slate Blue */
-    color: white !important;
-    border: none !important;
-}
+""", unsafe_allow_html=True)
 
 /* Styling the WhatsApp Button */
 div.stLinkButton > a:has(div:contains("WhatsApp")) {
