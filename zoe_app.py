@@ -2,33 +2,33 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-# --- 0. SECURITY GATE ---
+# --- 0. SECURITY GATE (Username + Password) ---
 def check_password():
-    """Returns True if the user had a correct password."""
     def password_entered():
-        if st.session_state["password"] == "Zoe2026": # You can change this to any password!
+        # Change these to whatever you like!
+        if st.session_state["username"] == "admin" and st.session_state["password"] == "1234":
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # don't store password
+            del st.session_state["password"] 
+            del st.session_state["username"]
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # First run, show input for password.
         st.markdown("## 🔐 ZoeLend IQ Pro Login")
-        st.text_input("Enter Admin Password", type="password", on_change=password_entered, key="password")
+        st.text_input("Username", key="username")
+        st.text_input("Password", type="password", on_change=password_entered, key="password")
         return False
     elif not st.session_state["password_correct"]:
-        # Password not correct, show input + error.
         st.markdown("## 🔐 ZoeLend IQ Pro Login")
-        st.text_input("Enter Admin Password", type="password", on_change=password_entered, key="password")
-        st.error("😕 Password incorrect")
+        st.text_input("Username", key="username")
+        st.text_input("Password", type="password", on_change=password_entered, key="password")
+        st.error("😕 Username or Password incorrect")
         return False
     else:
-        # Password correct.
         return True
 
 if not check_password():
-    st.stop() # This prevents the rest of the app from loading
+    st.stop()
 # --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
