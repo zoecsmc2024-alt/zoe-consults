@@ -664,9 +664,9 @@ elif page == "📄 Client Transaction Ledger":
                     mime="text/csv",
                     use_container_width=True
                 )
-            else:
+    else:
                 st.info("No payments recorded for this borrower yet.")
-        else:
+    else:
             st.warning("Payment database not found. Please record a payment first.")
     else:
         st.info("No borrowers in the system. Add one via the 'New Loan' button above.")
