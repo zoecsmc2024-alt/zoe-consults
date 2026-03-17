@@ -85,37 +85,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # --- THE SIDEBAR CONTENT ---
 with st.sidebar:
-    # Use columns to center the pencil icon button
-    col1, col2, col3 = st.columns([1, 1, 1])
+    # Smallest possible gap at the top
+    st.markdown('<div style="margin-top: -30px;"></div>', unsafe_allow_html=True)
+
+    # 1. The Pencil (Centered)
+    col1, col2, col3 = st.columns([1,1,1])
     with col2:
-        # A borderless button with a pencil icon to change the logo
-        if st.button("✏️", key="change_logo_btn", help="Tap to change logo"):
-            st.session_state['show_uploader'] = True
+        if st.button("✏️", key="change_logo_btn"):
+            st.session_state['show_uploader'] = not st.session_state.get('show_uploader', False)
 
-    # Check if a logo is currently set
+    # 2. The Logo
     if 'custom_logo' in st.session_state:
-        st.image(st.session_state['custom_logo'], use_column_width=True)
+        st.image(st.session_state['custom_logo'])
     else:
-        # Title placeholder if no logo
-        st.markdown('<p class="sidebar-title">Zoe Consults</p>', unsafe_allow_html=True)
+        # Default placeholder if no logo
+        st.markdown('<div style="width:80px;height:80px;border-radius:50%;background-color:#1e293b;border:2px solid #00a8b5;margin:0 auto;display:flex;align-items:center;justify-content:center;">💰</div>', unsafe_allow_html=True)
 
-    # The Uploader (shows only after tapping the pencil)
+    # 3. The Admin Name
+    st.markdown(f'<p class="admin-text"><b>Admin:</b> Evans Ahuura</p>', unsafe_allow_html=True)
+
+    # 4. The Uploader (only shows when pencil is clicked)
     if st.session_state.get('show_uploader', False):
-        st.write("---")
-        uploaded_file = st.file_uploader("Choose new logo...", type=["png", "jpg", "jpeg"], key="sidebar_uploader")
+        uploaded_file = st.file_uploader("Upload Logo", type=["png", "jpg", "jpeg"])
         if uploaded_file:
             st.session_state['custom_logo'] = uploaded_file
             st.session_state['show_uploader'] = False
-            st.rerun()  # Refresh to update the logo display
+            st.rerun()
 
-    st.write(f"**Admin:** Evans Ahuura")
     st.write("---")
-
-    page = st.radio(
-        "Navigation",
-        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"],
-        key="nav_menu"
-    )
+    
+    # 5. Navigation
+    page = st.radio("Navigation", ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"])
 
 # --- MAIN PAGE CONTENT ---
 if page == "📈 Performance":
