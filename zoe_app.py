@@ -619,5 +619,23 @@ if not ledger_final.empty:
     # 3. Create the WhatsApp URL
     wa_url = f"https://wa.me/{clean_phone}?text={message}"
     
-    # 4. The Button
-    st.link_button(f"📲 Send Statement to {client_name} via WhatsApp", wa_url, use_container_width=True)
+   # --- COLORED BUTTONS ---
+c_dl_ledg, c_wa_ledg = st.columns(2)
+
+with c_dl_ledg:
+    csv_data = ledger_final.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label=f"📥 Download {client_name}'s Ledger",
+        data=csv_data,
+        file_name=f"{client_name}_Ledger.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+
+with c_wa_ledg:
+    # Use the wa_url we built in the previous step
+    st.link_button(
+        label=f"📲 Send Statement via WhatsApp", 
+        url=wa_url, 
+        use_container_width=True
+    )
