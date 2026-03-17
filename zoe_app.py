@@ -580,7 +580,7 @@ elif page == "📅 Collection & Due Dates":
 elif page == "📄 Client Transaction Ledger":
     st.subheader("📄 Client Transaction Ledger")
     
-        if not df.empty:
+    if not df.empty:
         # 1. Selection UI
         client_name = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_client_sel")
         c_details = df[df['CUSTOMER_NAME'] == client_name].iloc[0]
@@ -606,7 +606,7 @@ elif page == "📄 Client Transaction Ledger":
 """, unsafe_allow_html=True)
 
         # 4. Ledger Calculation Logic
-        if os.path.exists(PAYMENT_FILE):
+    if os.path.exists(PAYMENT_FILE):
             pay_df = pd.read_csv(PAYMENT_FILE)
             client_pays = pay_df[pay_df['CUSTOMER_NAME'] == client_name].copy()
             client_pays['DATE'] = pd.to_datetime(client_pays['DATE'])
@@ -619,7 +619,7 @@ elif page == "📄 Client Transaction Ledger":
             # Auto-detect column name for amount
             amt_col = 'AMOUNT' if 'AMOUNT' in client_pays.columns else 'AMOUNT_PAID'
 
-            for _, row in client_pays.iterrows():
+        for _, row in client_pays.iterrows():
                 # Reducing Balance: Interest is (Current Balance * Rate) / 12
                 interest_accrued = (curr_bal * (annual_rate / 100) / 12)
                 payment_received = row[amt_col]
@@ -637,7 +637,7 @@ elif page == "📄 Client Transaction Ledger":
 
             ledger_final = pd.DataFrame(ledger_entries)
 
-            if not ledger_final.empty:
+        if not ledger_final.empty:
                 # Summary Metrics
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Current Balance", f"UGX {curr_bal:,.0f}")
