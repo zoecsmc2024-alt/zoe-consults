@@ -70,6 +70,26 @@ st.markdown("""
         border-radius: 8px;
         font-weight: 600;
     }
+    /* Styling the Download Ledger Button */
+div[data-testid="stDownloadButton"] > button:has(div:contains("Download")) {
+    background-color: #334155 !important; /* Slate Blue */
+    color: white !important;
+    border: none !important;
+}
+
+/* Styling the WhatsApp Button */
+div.stLinkButton > a:has(div:contains("WhatsApp")) {
+    background-color: #25D366 !important; /* WhatsApp Green */
+    color: white !important;
+    border: none !important;
+    text-decoration: none !important;
+}
+
+/* Hover effects to make them feel interactive */
+div.stLinkButton > a:has(div:contains("WhatsApp")):hover {
+    background-color: #128C7E !important;
+    opacity: 0.9;
+}
     </style>
 """, unsafe_allow_html=True)
 
