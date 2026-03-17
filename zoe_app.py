@@ -36,20 +36,21 @@ def init_db():
         ])
         df.to_csv(DB_FILE, index=False)
 
-@st.cache_data(ttl=60) # Refresh cache every minute
+@st.cache_data(show_spinner=False)
 def load_data():
+    if not os.path.exists(DB_FILE):
+        init_db()
     try:
         data = pd.read_csv(DB_FILE)
-        data.columns = data.columns.str.strip()
-        numeric_cols = ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE']
-        for col in numeric_cols:
+        # Ensure numeric types so math doesn't break
+        for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
             if col in data.columns:
                 data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
         return data
     except Exception:
         return pd.DataFrame()
 
-init_db()
+# Initial Load
 df = load_data()
 
 # --- 3. ERP NAVIGATION HEADER ---
