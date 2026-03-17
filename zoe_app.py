@@ -463,92 +463,97 @@ with menu_tabs[4]:
     else:
         st.info("No active loans to track.")
 
-# --- TAB 5: DYNAMIC CLIENT LEDGER (Fixed Indentation) ---
+# --- TAB 5: DYNAMIC CLIENT LEDGER ---
 with menu_tabs[5]:
-    st.subheader("📄 Transaction Ledger")
+    st.subheader("📄 Client Transaction Ledger")
     
     if not df.empty:
-        # 1. Selection
-        client_name = st.selectbox("Select Client for Ledger", options=df['CUSTOMER_NAME'].unique(), key="ledger_select")
+        # 1. Selection UI
+        client_name = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_client_sel")
         c_details = df[df['CUSTOMER_NAME'] == client_name].iloc[0]
         
-        # --- CLIENT HEADER ---
-        st.markdown(f"""
-            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
-                <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em;">
-                    <span><b>NIN:</b> {c_details.get('NIN', 'N/A')}</span>
-                    <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
-                    <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
-                    # --- FIXED LINE ---
-                    # 1. Format the money first
-# 1. Format the money
+        # 2. Prepare Formatted Header Values
         p_val = int(c_details['LOAN_AMOUNT'])
         formatted_principal = f"{p_val:,.0f}"
+        client_nin = c_details.get('NIN', 'N/A')
+        client_contact = c_details.get('CONTACT', 'N/A')
+        client_addr = c_details.get('ADDRESS', 'Kampala, Uganda')
 
-        # 2. The Header (Ensure 'st.markdown' is aligned with 'p_val' above)
+        # 3. Branded Client Header
         st.markdown(f"""
 <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
     <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em;">
-        <span><b>NIN:</b> {c_details.get('NIN', 'N/A')}</span>
-        <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
-        <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em; color: #475569;">
+        <span><b>NIN:</b> {client_nin}</span>
+        <span><b>Contact:</b> {client_contact}</span>
+        <span><b>Address:</b> {client_addr}</span>
         <span><b>Principal:</b> UGX {formatted_principal}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
 
-        # 2. LEDGER PROCESSING
+        # 4. Ledger Calculation Logic
         if os.path.exists(PAYMENT_FILE):
-            all_payments = pd.read_csv(PAYMENT_FILE)
-            client_pays = all_payments[all_payments['CUSTOMER_NAME'] == client_name].copy()
+            pay_df = pd.read_csv(PAYMENT_FILE)
+            client_pays = pay_df[pay_df['CUSTOMER_NAME'] == client_name].copy()
+            client_pays['DATE'] = pd.to_datetime(client_pays['DATE'])
+            client_pays = client_pays.sort_values('DATE')
             
             ledger_entries = []
-            curr_bal = c_details['LOAN_AMOUNT']
-            rate = c_details['INTEREST_RATE']
+            curr_bal = p_val
+            annual_rate = c_details['INTEREST_RATE']
             
-            # Use 'AMOUNT' or 'AMOUNT_PAID' depending on your CSV
+            # Auto-detect column name for amount
             amt_col = 'AMOUNT' if 'AMOUNT' in client_pays.columns else 'AMOUNT_PAID'
 
-            for _, pay in client_pays.iterrows():
-                int_chg = (curr_bal * (rate / 100) / 12)
-                p_amt = pay[amt_col]
-                curr_bal = (curr_bal + int_chg) - p_amt
+            for _, row in client_pays.iterrows():
+                # Reducing Balance: Interest is (Current Balance * Rate) / 12
+                interest_accrued = (curr_bal * (annual_rate / 100) / 12)
+                payment_received = row[amt_col]
+                
+                # New Balance = Old Balance + Interest - Payment
+                curr_bal = (curr_bal + interest_accrued) - payment_received
                 
                 ledger_entries.append({
-                    "Date": pd.to_datetime(pay['DATE']).strftime('%Y-%m-%d'),
-                    "Description": f"Repayment (Ref: {pay.get('REF', 'N/A')})",
-                    "Interest": int_chg,
-                    "Paid": p_amt,
-                    "Balance": max(0, curr_bal)
+                    "Date": row['DATE'].strftime('%d %b, %Y'),
+                    "Description": f"Repayment (Ref: {row.get('REF', 'N/A')})",
+                    "Interest Charged": interest_accrued,
+                    "Payment Rec'd": payment_received,
+                    "Running Balance": max(0, curr_bal)
                 })
 
-            ledger_df = pd.DataFrame(ledger_entries)
+            ledger_final = pd.DataFrame(ledger_entries)
 
-            if not ledger_df.empty:
-                m1, m2 = st.columns(2)
-                m1.metric("Current Outstanding", f"UGX {curr_bal:,.0f}")
-                m2.metric("Total Interest Accrued", f"UGX {ledger_df['Interest'].sum():,.0f}")
+            if not ledger_final.empty:
+                # Summary Metrics
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Current Balance", f"UGX {curr_bal:,.0f}")
+                m2.metric("Total Interest Paid", f"UGX {ledger_final['Interest Charged'].sum():,.0f}")
+                m3.metric("Total Payments", f"UGX {ledger_final['Payment Rec\'d'].sum():,.0f}")
 
+                # The Detailed Ledger Table
                 st.dataframe(
-                    ledger_df,
+                    ledger_final,
                     column_config={
-                        "Interest": st.column_config.NumberColumn(format="UGX %,d"),
-                        "Paid": st.column_config.NumberColumn(format="UGX %,d"),
-                        "Balance": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Interest Charged": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Payment Rec'd": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Running Balance": st.column_config.NumberColumn(format="UGX %,d"),
                     },
                     use_container_width=True, hide_index=True
                 )
+                
+                # Download Button for the Ledger
+                csv_data = ledger_final.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label=f"📥 Download {client_name}'s Ledger",
+                    data=csv_data,
+                    file_name=f"{client_name}_Ledger.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
             else:
-                st.info("No payments recorded yet. The balance is still at the full principal.")
+                st.info("No payments recorded for this borrower yet.")
         else:
-            st.error("Payment database file not found.")
+            st.warning("Payment database not found. Please record a payment first.")
     else:
-        st.info("Please add a borrower to view the ledger.")
+        st.info("No borrowers in the system. Add one via the 'New Loan' button above.")
