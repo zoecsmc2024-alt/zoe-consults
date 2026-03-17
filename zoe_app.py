@@ -29,16 +29,17 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_s
 
 st.markdown("""
     <style>
-    .stApp { background-color: #f8fafc; }
+    .stApp { background: linear-gradient(to bottom, #f0f2f5, #ffffff); }
     .box-card {
-        background: white; border: 1px solid #e2e8f0;
-        padding: 20px; border-radius: 8px; text-align: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        background: white; 
+        border: none;
+        padding: 24px; 
+        border-radius: 15px; 
+        text-align: center;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
     }
-    .box-title { color: #64748b; font-size: 0.85em; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
-    .box-value { color: #0f172a; font-size: 1.6em; font-weight: 800; }
-    [data-testid="stSidebar"] {display: none;}
-    [data-testid="collapsedControl"] {display: none;}
+    .box-card:hover { transform: translateY(-5px); }
     </style>
 """, unsafe_allow_html=True)
 
