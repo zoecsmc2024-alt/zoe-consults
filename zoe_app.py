@@ -70,18 +70,19 @@ def load_data():
 df = load_data()
 
 # --- 3. ERP NAVIGATION HEADER ---
-st.markdown("""
-    <div style="background-color: #0f172a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; margin-bottom: 20px;">
-        <div style="display: flex; gap: 20px; align-items: center;">
-            <span style="opacity: 0.8; font-size: 0.9em;">👤 Evans Ahuura</span>
-            <b style="font-size: 1.4em; letter-spacing: 0.5px;">Zoe Consults</b>
-            <span style="background: #00acc1; padding: 2px 12px; border-radius: 20px; font-size: 0.75em; font-weight: 700;">BRANCH #1</span>
+header_col1, header_col2 = st.columns([4, 1])
+
+with header_col1:
+    st.markdown("""
+        <div style="background-color: #0f172a; padding: 10px 20px; border-radius: 5px; color: white; border-bottom: 3px solid #00acc1;">
+            <b style="font-size: 1.2em;">Zoe Consults</b> | <span style="opacity: 0.8;">Evans Ahuura</span>
         </div>
-        <div style="display: flex; gap: 20px; font-size: 0.85em; opacity: 0.9;">
-            <span>⚙️ Admin</span><span>🔗 Settings</span><span style="color: #fbbf24;">❓ Help</span>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+with header_col2:
+    if st.button("🚪 Log Out", use_container_width=True):
+        st.session_state["password_correct"] = False
+        st.rerun()
 
 # --- 4. TOP CONTROLS ---
 col_search, col_btn, col_del, col_dl = st.columns([2.5, 1, 1, 0.5])
