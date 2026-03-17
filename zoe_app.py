@@ -637,7 +637,7 @@ elif page == "📄 Client Transaction Ledger":
         
     ledger_final = pd.DataFrame(ledger_entries)
 
-        if not ledger_final.empty:
+    if not ledger_final.empty:
                 # Summary Metrics
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Current Balance", f"UGX {curr_bal:,.0f}")
