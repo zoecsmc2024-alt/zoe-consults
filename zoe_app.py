@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import zipfile
+import io
 # --- 0. SECURITY GATE ---
 def check_password():
     def login_clicked():
@@ -143,6 +145,35 @@ import io
 # This ensures the image stays visible while you navigate tabs
 if 'custom_logo_b64' not in st.session_state:
     st.session_state['custom_logo_b64'] = None
+
+st.markdown("---")
+st.markdown("#### 💾 System Backups")
+
+def create_backup_zip():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "x") as csv_zip:
+        # Add the main database
+        if os.path.exists(DB_FILE):
+            csv_zip.write(DB_FILE, arcname="zoe_borrowers_backup.csv")
+        # Add the payments ledger
+        if os.path.exists(PAYMENT_FILE):
+            csv_zip.write(PAYMENT_FILE, arcname="zoe_payments_backup.csv")
+    return buf.getvalue()
+
+# Trigger the Backup
+if os.path.exists(DB_FILE):
+    backup_data = create_backup_zip()
+    st.download_button(
+        label="📥 Generate Master Backup (.zip)",
+        data=backup_data,
+        file_name=f"Zoe_Consults_Backup_{datetime.now().strftime('%Y-%m-%d')}.zip",
+        mime="application/zip",
+        use_container_width=True,
+        key="master_backup_btn"
+    )
+    st.caption("This ZIP file contains your Borrowers list and all Payment history.")
+else:
+    st.info("No data found to backup yet.")
 
 # --- 2. THE BLUE BRANDING BAR ---
 # We use the session state logo if it exists, otherwise a default icon
