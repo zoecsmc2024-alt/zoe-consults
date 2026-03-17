@@ -27,39 +27,34 @@ def check_password():
 if not check_password():
     st.stop()
 
-# 1. SIDEBAR (Put this ABOVE your Header/Action Bar)
+# --- 1. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.title("🛡️ Zoe Consults")
-    st.write("---")
-    page = st.radio(
-        "Navigation Menu",
-        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"]
-    )
+    st.markdown("### 🛡️ Zoe Consults")
+    page = st.radio("Navigation Menu", 
+                    ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "💰 Repayments", "⚙️ Settings"])
 
-# 2. YOUR HEADER (The dark blue bar in your image)
-# (Your header code stays here)
+# --- 2. PAGE CONTENT ---
 
-# 3. YOUR ACTION BAR (Search, New Loan, etc.)
-# (Your column code stays here)
-
-st.write("---")
-
-# 4. THE ROUTING (This stops all pages from showing at once)
 if page == "📈 Performance":
     st.subheader("Business Growth & Trends")
-    # MOVE your KPI cards (Total Borrowers, Principal, etc.) HERE
-
-elif page == "⚙️ Settings":
-    st.subheader("System Backups")
-    # MOVE your Backup button and Logo uploader HERE
+    # MOVE: KPI Cards (Borrowers, Principal, Profit) here
+    # MOVE: Cash Flow Analysis chart here
 
 elif page == "👥 Borrowers":
-    st.subheader("Borrowers List")
-    st.write("Main table will appear here.") 
+    st.subheader("Active Loan Registry")
+    # MOVE: Your main table (the one with the 'Risky' flags) here
 
 elif page == "📄 Client Ledger":
-    st.subheader("Client Ledger")
-    st.write("Ledger details will appear here.")
+    st.subheader("Client Transaction Ledger")
+    # MOVE: The Client Selection dropdown, Blue Header, and WhatsApp button here
+
+elif page == "💰 Repayments":
+    st.subheader("Repayment Calendar & Schedule")
+    # MOVE: Your Calendar and Repayment tracking code here
+
+elif page == "⚙️ Settings":
+    st.subheader("System Backups & Branding")
+    # MOVE: The "System Backups" section and Logo Uploader here
 
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
@@ -90,22 +85,28 @@ def calculate_reducing_balance(principal, annual_rate, periods=12):
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
-    <style>
-    /* Main Background */
-    .stApp {
-        background-color: #f1f5f9;
+   <style>
+    /* Main Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a; /* Dark Navy */
+        color: white;
     }
     
-    /* Style for the sidebar and containers */
-    [data-testid="stSidebar"] {
-        background-color: #ffffff;
-    }
-
-    /* Target the buttons we created */
-    div.stButton > button {
-        border-radius: 8px;
+    /* Make the Navigation text white */
+    [data-testid="stSidebar"] .stRadio label {
+        color: white !important;
         font-weight: 600;
     }
+
+    /* KPI Card Colors */
+    div[data-testid="stMetric"] {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+</style>
     /* Styling the Download Ledger Button */
 div[data-testid="stDownloadButton"] > button:has(div:contains("Download")) {
     background-color: #334155 !important; /* Slate Blue */
