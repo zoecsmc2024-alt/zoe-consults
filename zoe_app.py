@@ -129,26 +129,85 @@ menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers", "💰 Payments", "📑 C
 # Filter logic for search
 filtered_df = df[df['CUSTOMER_NAME'].str.contains(search_query, case=False)] if not df.empty else df
 
+# --- TAB 0: OVERVIEW (Charts Restored) ---
 with menu_tabs[0]:
     if not df.empty:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Borrowers", len(df))
-        c2.metric("Total Principal", f"UGX {df['LOAN_AMOUNT'].sum():,.00f}")
-        c3.metric("Collected", f"UGX {df['AMOUNT_PAID'].sum():,.00f}")
-        c4.metric("Realized Profit", f"UGX {(df['AMOUNT_PAID'] - df['LOAN_AMOUNT']).clip(lower=0).sum():,.00f}")
+        # 1. KPI Metrics
+        total_principal = df['LOAN_AMOUNT'].sum()
+        total_collected = df['AMOUNT_PAID'].sum()
+        total_outstanding = df['OUTSTANDING_AMOUNT'].sum()
         
-        st.subheader("Portfolio Health")
-        st.dataframe(filtered_df[['SN', 'CUSTOMER_NAME', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'DATE_ISSUED']], 
-                     use_container_width=True, hide_index=True)
-    else:
-        st.info("No data available.")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Borrowers", len(df))
+        c2.metric("Principal Issued", f"UGX {total_principal:,.0f}")
+        c3.metric("Total Collections", f"UGX {total_collected:,.0f}")
+        c4.metric("Outstanding", f"UGX {total_outstanding:,.0f}")
+        
+        st.write("---")
 
+        # 2. Charts Section
+        col_chart1, col_chart2 = st.columns([2, 1])
+        with col_chart1:
+            st.subheader("📊 Collection vs Principal")
+            # Creating a simple bar chart for visual comparison
+            chart_data = pd.DataFrame({
+                "Category": ["Principal", "Collected", "Balance"],
+                "Amount": [total_principal, total_collected, total_outstanding]
+            })
+            st.bar_chart(data=chart_data, x="Category", y="Amount", color="Category")
+
+        with col_chart2:
+            st.subheader("🎯 Loan Status")
+            # Calculate status for the pie chart
+            status_counts = df['OUTSTANDING_AMOUNT'].apply(lambda x: 'Paid' if x <= 0 else 'Active').value_counts()
+            st.vega_lite_chart(df, {
+                'mark': {'type': 'arc', 'innerRadius': 50},
+                'encoding': {
+                    'theta': {'field': 'SN', 'aggregate': 'count', 'type': 'quantitative'},
+                    'color': {'field': 'OUTSTANDING_AMOUNT', 'bin': True, 'type': 'quantitative', 'scale': {'scheme': 'category20b'}}
+                }
+            }, use_container_width=True)
+
+        st.write("---")
+        st.subheader("📋 Portfolio Health")
+        
+        # 3. Data Table with COMMAS (st.column_config is key here)
+        st.dataframe(
+            filtered_df,
+            column_config={
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "TOTAL_DUE": st.column_config.NumberColumn("Total Due", format="UGX %,d"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Paid", format="UGX %,d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                "DATE_ISSUED": st.column_config.DateColumn("Issued Date"),
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No data found. Add a loan to see the dashboard.")
+
+# --- TAB 1: BORROWERS LIST (Commas Fixed) ---
 with menu_tabs[1]:
-    st.subheader("Detailed Records")
-    st.dataframe(filtered_df, column_config={
-        "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-        "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-    }, use_container_width=True, hide_index=True)
+    st.subheader("👥 Detailed Records")
+    if not filtered_df.empty:
+        st.dataframe(
+            filtered_df[['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INT_AMT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']],
+            column_config={
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "INT_AMT": st.column_config.NumberColumn("Interest (UGX)", format="UGX %,d"),
+                "TOTAL_DUE": st.column_config.NumberColumn("Total Debt", format="UGX %,d"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Repaid", format="UGX %,d"),
+                "OUTSTANDING_AMOUNT": st.column_config.ProgressColumn(
+                    "Balance",
+                    format="UGX %,d",
+                    min_value=0,
+                    max_value=int(df["TOTAL_DUE"].max())
+                ),
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
 
 with menu_tabs[2]:
     st.subheader("Record Payment")
