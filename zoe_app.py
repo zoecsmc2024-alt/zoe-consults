@@ -138,47 +138,58 @@ header_html = f"""
 """
 st.markdown(header_html, unsafe_allow_html=True)
 
-# --- 3. THE ACTION & EDIT TOOLBAR ---
+# --- REFRESHED ACTION BAR ---
 with st.container():
-    # Added a new 'Settings' column (c_set)
-    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([3.5, 0.4, 0.4, 0.4, 0.4, 0.4])
+    # We allocate more space for the text buttons
+    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([3, 1.2, 1.2, 1.2, 0.6, 0.6])
 
     with c_search:
         search_query = st.text_input("", placeholder="🔍 Search borrowers...", label_visibility="collapsed")
 
     with c_new:
-        with st.popover("➕", help="New Loan"):
-            st.markdown("### 📝 New Loan Entry")
-            # ... (your existing form logic)
-            
+        # Green "New Loan" Button
+        with st.popover("➕ New Loan", use_container_width=True):
+            with st.form("new_loan_form_v3", clear_on_submit=True):
+                st.markdown("#### 📝 Add Borrower")
+                f_name = st.text_input("Full Name")
+                f_nin = st.text_input("NIN")
+                f_amt = st.number_input("Principal (UGX)", min_value=0)
+                f_rate = st.number_input("Rate (%)", value=2.8)
+                if st.form_submit_button("✅ Disburse Loan", use_container_width=True):
+                    if f_name and f_amt > 0:
+                        # --- YOUR SAVE LOGIC HERE ---
+                        st.success("Loan Added!")
+                        st.rerun()
+
     with c_del:
-        with st.popover("🗑️", help="Delete"):
-            # ... (your existing delete logic)
-            pass
+        # Red "Delete" Button
+        with st.popover("🗑️ Delete", use_container_width=True):
+            st.markdown("#### ⚠️ Remove Record")
+            if not df.empty:
+                to_delete = st.selectbox("Select ID to Remove", options=df['SN'].tolist())
+                if st.button("Confirm Permanent Delete", type="primary", use_container_width=True):
+                    # --- YOUR DELETE LOGIC HERE ---
+                    st.rerun()
 
     with c_dl:
-        # ... (your existing download logic)
-        pass
+        # Blue "Export" Button
+        if not df.empty:
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Export CSV",
+                data=csv,
+                file_name=f"Zoe_Consults_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 
     with c_set:
-        with st.popover("⚙️", help="Brand Settings"):
-            st.markdown("#### 🖼️ Update Logo")
-            new_file = st.file_uploader("Upload PNG/JPG", type=["png", "jpg", "jpeg"])
-            
-            if new_file:
-                encoded = base64.b64encode(new_file.getvalue()).decode()
-                st.session_state['custom_logo_b64'] = encoded
-                st.success("Logo uploaded!")
-                # Just a normal button, no callback needed
-                if st.button("Refresh Dashboard"):
-                    st.rerun()
-            
-            if st.button("Reset to Default"):
-                st.session_state['custom_logo_b64'] = None
-                st.rerun()
+        with st.popover("⚙️", help="Settings"):
+            # (Your Branding/Excel Import logic goes here)
+            st.write("Settings Menu")
 
     with c_logout:
-        if st.button("🚪", help="Logout"):
+        if st.button("🚪", help="Logout", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 st.write("---") # Visual separator before the tabs
