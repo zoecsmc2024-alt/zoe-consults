@@ -145,7 +145,7 @@ with menu_tabs[0]:
         
         st.write("---")
 
-       # 3. PERFORMANCE VISUALS (Unified Color Branding - Fixed)
+       # --- 3. PERFORMANCE VISUALS ---
         chart_col1, chart_col2 = st.columns([2, 1])
         
         with chart_col1:
@@ -154,29 +154,18 @@ with menu_tabs[0]:
                 "Metric": ["Principal", "Collections", "Profit"],
                 "Amount": [total_principal, total_collected, actual_profit]
             })
-            
-            # This simplified way avoids the TypeError while keeping your colors
-            # Blue for Principal, Amber for Collections, Green for Profit
-            st.bar_chart(
-                data=perf_df, 
-                x="Metric", 
-                y="Amount", 
-                color="Metric"
-            )
+            st.bar_chart(data=perf_df, x="Metric", y="Amount", color="Metric")
 
         with chart_col2:
             st.subheader("🎯 Risk Distribution")
             status_df = df.copy()
-            
             def get_stat(row):
                 due = pd.to_datetime(row['DATE_ISSUED']) + pd.Timedelta(days=30)
                 if row['OUTSTANDING_AMOUNT'] <= 0: return "Paid"
                 elif datetime.now() > due: return "Overdue"
                 else: return "Active"
-            
             status_df['Status'] = status_df.apply(get_stat, axis=1)
             
-            # Keep the Donut Chart as is, it's very eye-catching!
             st.vega_lite_chart(status_df, {
                 'mark': {'type': 'arc', 'innerRadius': 45},
                 'encoding': {
@@ -184,10 +173,7 @@ with menu_tabs[0]:
                     'color': {
                         'field': 'Status', 
                         'type': 'nominal', 
-                        'scale': {
-                            'domain': ['Active', 'Overdue', 'Paid'],
-                            'range': ['#0ea5e9', '#ef4444', '#10b981'] 
-                        }
+                        'scale': {'domain': ['Active', 'Overdue', 'Paid'], 'range': ['#0ea5e9', '#ef4444', '#10b981']}
                     }
                 },
                 'view': {'stroke': None}
@@ -196,48 +182,36 @@ with menu_tabs[0]:
         st.write("---")
         st.subheader("📋 Detailed Portfolio")
         
-        # 4. RESTORED TABLE DISPLAY (With Status Icons & Date Logic)
+        # --- 4. DATA TABLE ---
         def process_full_display(row):
-            # Calculate interest and due date
             interest_amt = (row['LOAN_AMOUNT'] * row['INTEREST_RATE']) / 100
             total_due = row['LOAN_AMOUNT'] + interest_amt
             due_date = pd.to_datetime(row['DATE_ISSUED']) + pd.Timedelta(days=30)
-            
-            # Logic for icons
             if row['OUTSTANDING_AMOUNT'] <= 0: status = "✅ Paid"
             elif datetime.now() > due_date: status = "🚩 Overdue"
             elif row['AMOUNT_PAID'] == 0: status = "⚠️ Risky"
             else: status = "🔵 Active"
-            
             return pd.Series([interest_amt, total_due, due_date.strftime('%Y-%m-%d'), status])
 
         display_df = df.copy()
         display_df[['INT_AMT', 'TOTAL_DUE', 'DUE_DATE', 'STATUS']] = display_df.apply(process_full_display, axis=1)
 
-        # Specify exact column order
-        cols_to_show = [
-            'SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INT_AMT', 
-            'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 
-            'DUE_DATE', 'STATUS'
-        ]
-
+        cols_to_show = ['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'INT_AMT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'DUE_DATE', 'STATUS']
+        
         st.dataframe(
             display_df[cols_to_show],
             column_config={
-                "SN": "ID",
-                "CUSTOMER_NAME": "Client Name",
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
                 "INT_AMT": st.column_config.NumberColumn("Interest", format="UGX %,d"),
                 "TOTAL_DUE": st.column_config.NumberColumn("Total Due", format="UGX %,d"),
                 "AMOUNT_PAID": st.column_config.NumberColumn("Repaid", format="UGX %,d"),
                 "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
                 "DUE_DATE": st.column_config.DateColumn("Due Date"),
-                "STATUS": "Loan Status"
             },
             use_container_width=True, 
             hide_index=True
-        )
-        )
+        ) # <--- Only ONE closing parenthesis here!
+        
     else:
         st.info("👋 Welcome! Please add a loan to see your dashboard come to life.")
 # --- TAB 1: BORROWERS LIST (Rearranged & Fixed) ---
