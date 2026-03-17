@@ -469,21 +469,26 @@ with menu_tabs[5]:
 
             ledger_df = pd.DataFrame(ledger_entries)
             
-            # Display Summary
-            m1, m2 = st.columns(2)
-            m1.metric("Current Outstanding", f"UGX {current_balance:,.0f}")
-            m2.metric("Total Interest Charged", f"UGX {ledger_df['Debit (Int)'].sum():,.0f}")
+            # --- 3. DISPLAY SUMMARY METRICS ---
+m1, m2 = st.columns(2)
 
-            # Show the Ledger Table
-            st.dataframe(
-                ledger_df,
-                column_config={
-                    "Debit (Int)": st.column_config.NumberColumn("Interest Accrued", format="UGX %,d"),
-                    "Credit (Pay)": st.column_config.NumberColumn("Amount Paid", format="UGX %,d"),
-                    "Balance": st.column_config.NumberColumn("Running Balance", format="UGX %,d"),
-                },
-                use_container_width=True, hide_index=True
-            )
+# Use the column names we actually defined in ledger_entries
+m1.metric("Current Outstanding", f"UGX {current_balance:,.0f}")
+
+# Fix: Change 'Debit (Int)' to 'Interest Accrued'
+total_int = ledger_df['Interest Accrued'].sum() if not ledger_df.empty else 0
+m2.metric("Total Interest Accrued", f"UGX {total_int:,.0f}")
+
+# --- 4. SHOW THE LEDGER TABLE ---
+st.dataframe(
+    ledger_df,
+    column_config={
+        "Interest Accrued": st.column_config.NumberColumn("Interest Charged", format="UGX %,d"),
+        "Amount Paid": st.column_config.NumberColumn("Payment Rec'd", format="UGX %,d"),
+        "Running Balance": st.column_config.NumberColumn("New Balance", format="UGX %,d"),
+    },
+    use_container_width=True, hide_index=True
+)
         else:
             st.warning("No payment history found for this client.")
     else:
