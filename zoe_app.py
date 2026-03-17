@@ -606,25 +606,29 @@ col_dl, col_wa = st.columns(2)
 # Check if we are on the Ledger page AND if the ledger actually exists
 if page == "📄 Client Ledger" and 'ledger_final' in locals():
     if not ledger_final.empty:
-            st.markdown("---")
-            col_dl, col_wa = st.columns(2)
-            
-            with col_dl:
-                # This is line 639 - now it only runs when safe!
-                csv_data = ledger_final.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label=f"📥 Download Ledger",
-                    data=csv_data,
-                    file_name=f"Ledger.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    key="final_dl_btn"
-                )
+            st.markdown("""
+<style>
+    /* Navy Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
 
-            with col_wa:
-                # Your WhatsApp Link Button code here
-                st.link_button("📲 Send to WhatsApp", url=wa_url, use_container_width=True)
-                /* ... your other CSS rules ... */
-                /* ... all your button and sidebar colors ... */
-    </style>
+    /* Green WhatsApp Button */
+    div.stLinkButton > a {
+        background-color: #25D366 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        text-decoration: none !important;
+    }
+
+    /* Slate Download Button */
+    div[data-testid="stDownloadButton"] > button {
+        background-color: #334155 !important;
+        color: white !important;
+    }
+</style>
+""", unsafe_allow_html=True)
      
