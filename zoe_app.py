@@ -231,27 +231,32 @@ with menu_tabs[2]:
 with menu_tabs[3]:
     st.subheader("📑 Collateral Management")
     
+    # --- EMERGENCY REPAIR BUTTON ---
+    # This button deletes the old file and makes a new one with the right columns
+    with st.expander("🛠️ Troubleshooting & Repair"):
+        if st.button("Flush & Reset Collateral Database"):
+            if os.path.exists(COLLATERAL_FILE):
+                os.remove(COLLATERAL_FILE) # Deletes the bad file
+            # Recreate it immediately with the correct 'VAL' header
+            pd.DataFrame(columns=['ID', 'NAME', 'TYPE', 'DESC', 'VAL', 'STATUS']).to_csv(COLLATERAL_FILE, index=False)
+            st.success("Database Repaired! You can now add collateral.")
+            st.rerun()
+    
     if not df.empty:
-        # Create two columns: Form on left, Summary on right
         col_form, col_stats = st.columns([1, 2])
         
         with col_form:
             with st.form("collat_form", clear_on_submit=True):
-                # Ensure we use the SN (ID) from our main database
                 loan_id = st.selectbox("Assign to Loan ID", options=df['SN'].tolist())
                 i_type = st.selectbox("Category", ["Logbook", "Land Title", "Electronics", "Household", "Business Asset"])
                 i_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
-                i_desc = st.text_area("Item Details (Serial No, Condition, etc.)")
+                i_desc = st.text_area("Item Details")
                 
                 if st.form_submit_button("🔒 Register Security"):
-                    # Get the name of the borrower for this ID
                     cust_name = df[df['SN'] == loan_id]['CUSTOMER_NAME'].values[0]
-                    
-                    # Create the new entry (Matching the init_db columns exactly)
+                    # This MUST match the columns in the Repair Button above
                     new_collat = pd.DataFrame([[loan_id, cust_name, i_type, i_desc, i_val, "Held"]], 
                                             columns=['ID', 'NAME', 'TYPE', 'DESC', 'VAL', 'STATUS'])
-                    
-                    # Append to file
                     new_collat.to_csv(COLLATERAL_FILE, mode='a', header=False, index=False)
                     st.success(f"Security registered for {cust_name}")
                     st.rerun()
@@ -260,28 +265,14 @@ with menu_tabs[3]:
             if os.path.exists(COLLATERAL_FILE):
                 try:
                     c_df = pd.read_csv(COLLATERAL_FILE)
-                    
-                    # SAFETY CHECK: If 'VAL' is missing, the file is outdated
+                    # If the file is empty or missing 'VAL', show the warning
                     if not c_df.empty and 'VAL' in c_df.columns:
                         total_security = pd.to_numeric(c_df['VAL'], errors='coerce').sum()
                         st.info(f"**Total Security Value Held:** UGX {total_security:,.0f}")
-                        
-                        st.dataframe(
-                            c_df,
-                            column_config={
-                                "ID": "Loan ID",
-                                "NAME": "Borrower",
-                                "TYPE": "Category",
-                                "DESC": "Details",
-                                "VAL": st.column_config.NumberColumn("Value", format="UGX %,d"),
-                                "STATUS": "Status"
-                            },
-                            use_container_width=True,
-                            hide_index=True
-                        )
+                        st.dataframe(c_df, use_container_width=True, hide_index=True)
                     else:
-                        st.warning("⚠️ Collateral file found but format is outdated. Please delete 'collateral_log.csv' and try again.")
-                except Exception as e:
-                    st.error(f"Error reading collateral: {e}")
-            else:
-                st.info("No security items registered yet.")
+                        st.warning("⚠️ The database file is empty or formatted incorrectly. Use the 'Repair' button above.")
+                except:
+                    st.error("Could not read file. Please use the Repair button.")
+    else:
+        st.info("Please add a borrower in the 'Borrowers' tab first.")
