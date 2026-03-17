@@ -72,7 +72,7 @@ df = load_data()
 
 # --- ADD THIS LINE HERE ---
 menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
- with menu_tabs[0]:
+with menu_tabs[0]:
     if not df.empty:
         # KPI Cards
         c1, c2, c3, c4 = st.columns(4)
@@ -92,8 +92,7 @@ menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", 
         st.bar_chart(data=chart_data, x="Metric", y="Amount")
     else:
         st.info("No data yet. Go to the 'New Loan' button in the toolbar to start.")
-
-with menu_tabs[1]:
+        with menu_tabs[1]:
     st.subheader("👥 Detailed Borrower Records")
     if not df.empty:
         # We use column_config to make the numbers look pretty with commas
@@ -145,8 +144,8 @@ with menu_tabs[2]:
             hist_df = pd.read_csv(PAYMENT_FILE)
             st.dataframe(hist_df.iloc[::-1], use_container_width=True, hide_index=True)
 
-# --- 3. COLLATERAL TAB RE-FIXED ---
-with menu_tabs[3]:
+# --- 3. COLLATERAL TAB RE-FIXED --- 
+    with menu_tabs[3]:
     st.subheader("📑 Collateral Management")
     
     if st.button("🚨 Emergency Repair Collateral File"):
