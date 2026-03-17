@@ -621,24 +621,24 @@ if not ledger_final.empty:
     clean_phone = str(client_contact).replace(" ", "").replace("+", "").replace("-", "")
     wa_url = f"https://wa.me/{clean_phone}?text={encoded_message}"
 
-    # 2. DISPLAY BUTTONS IN COLUMNS
-    col_dl, col_wa = st.columns(2)
-    
-    with col_dl:
-        csv_data = ledger_final.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label=f"📥 Download {client_name}'s Ledger",
-            data=csv_data,
-            file_name=f"{client_name}_Ledger.csv",
-            mime="text/csv",
-            use_container_width=True,
-            key=f"dl_btn_{client_name.replace(' ', '_')}" # UNIQUE KEY
-        )
+    # --- 2. DISPLAY BUTTONS IN COLUMNS ---
+col_dl, col_wa = st.columns(2)
 
-    with col_wa:
-        st.link_button(
-            label=f"📲 Send to WhatsApp", 
-            url=wa_url, 
-            use_container_width=True,
-            key=f"wa_btn_{client_name.replace(' ', '_')}" # UNIQUE KEY
-        )
+with col_dl:
+    csv_data = ledger_final.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label=f"📥 Download {client_name}'s Ledger",
+        data=csv_data,
+        file_name=f"{client_name}_Ledger.csv",
+        mime="text/csv",
+        use_container_width=True,
+        key=f"dl_btn_{client_name.replace(' ', '_')}" # This stays!
+    )
+
+with col_wa:
+    # We remove the 'key' parameter here to fix the TypeError
+    st.link_button(
+        label=f"📲 Send to WhatsApp ({client_name.split()[0]})", 
+        url=wa_url, 
+        use_container_width=True
+    )
