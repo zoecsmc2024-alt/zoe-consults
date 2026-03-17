@@ -23,8 +23,8 @@ with st.sidebar:
 if not df.empty:
     # Now Python knows exactly what 'df' is!
     pass
-        total_loaned = df['LOAN_AMOUNT'].sum()
-        st.metric("Capital in Field", f"UGX {total_loaned:,.0f}")
+    total_loaned = df['LOAN_AMOUNT'].sum()
+    st.metric("Capital in Field", f"UGX {total_loaned:,.0f}")
 
 # --- 2. PAGE ROUTING (The "Rooms") ---
 
