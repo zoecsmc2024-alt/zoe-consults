@@ -88,27 +88,30 @@ with st.container():
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        with st.form("new_collat"):
-            # Use a dummy list if df is empty to prevent errors
-            loan_ids = [1] if 'df' not in locals() or df.empty else df['SN'].tolist()
-            l_id = st.selectbox("Loan ID", loan_ids)
-            c_type = st.selectbox("Type", ["Logbook", "Title", "Other"])
-            c_val = st.number_input("Value (UGX)", min_value=0)
-            c_desc = st.text_input("Description")
-            
-            if st.form_submit_button("Save"):
-                # Logic to get name
-                name = "Unknown" 
-                if 'df' in locals() and not df.empty:
-                    name = df[df['SN'] == l_id]['CUSTOMER_NAME'].values[0]
+        with st.form("new_collat", clear_on_submit=True):
+            # 1. Get the list of IDs from your main database (df)
+            if not df.empty:
+                loan_ids = df['SN'].tolist()
+                l_id = st.selectbox("Assign to Loan ID", loan_ids)
                 
-                new_data = pd.DataFrame([[l_id, name, c_type, c_desc, c_val, "Held"]], 
+                # 2. AUTOMATICALLY find the name for that ID
+                # This prevents you from having to type the name twice!
+                cust_name = df[df['SN'] == l_id]['CUSTOMER_NAME'].values[0]
+                st.info(f"Borrower: **{cust_name}**") # Visual confirmation
+            else:
+                st.error("No loans found in database!")
+                st.stop()
+
+            c_type = st.selectbox("Category", ["Logbook", "Land Title", "Electronics", "Household", "Other"])
+            c_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
+            c_desc = st.text_area("Item Details (Serial No, etc.)")
+            
+            if st.form_submit_button("🔒 Save Security"):
+                # Use the 'cust_name' we found above
+                new_data = pd.DataFrame([[l_id, cust_name, c_type, c_desc, c_val, "Held"]], 
                                      columns=['ID', 'NAME', 'TYPE', 'DESC', 'VAL', 'STATUS'])
+                
                 new_data.to_csv(COLLATERAL_FILE, mode='a', header=False, index=False)
                 st.cache_data.clear()
-                st.success("Saved!")
+                st.success(f"Linked to {cust_name}!")
                 st.rerun()
-
-    with col2:
-        st.write("Current Records:")
-        st.dataframe(c_df, use_container_width=True, hide_index=True)
