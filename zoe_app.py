@@ -636,8 +636,8 @@ elif page == "📄 Client Ledger":
 col_dl, col_wa = st.columns(2)
 
 # Check if we are on the Ledger page AND if the ledger actually exists
-    if page == "📄 Client Ledger" and 'ledger_final' in locals():
-        if not ledger_final.empty:
+if page == "📄 Client Ledger" and 'ledger_final' in locals():
+    if not ledger_final.empty:
             st.markdown("---")
             col_dl, col_wa = st.columns(2)
             
