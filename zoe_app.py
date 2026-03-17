@@ -321,7 +321,7 @@ elif page == "⚙️ Settings":
 
 # --- END OF ROUTING ---
 # --- TAB 0: OVERVIEW (The Eye-Catching FinTech Dashboard) ---
-with menu_tabs[0]:
+if page == "📈 Performance":
     if not df.empty:
         # 1. CALCULATE FINANCIALS
         total_principal = df['LOAN_AMOUNT'].sum()
@@ -448,7 +448,7 @@ with menu_tabs[0]:
     else:
         st.info("👋 Welcome! Please add a loan to see your dashboard come to life.")
 # --- TAB 1: BORROWERS LIST (Formatted & Editable) ---
-with menu_tabs[1]:
+elif page == "👥 Borrowers":
     st.subheader("👥 Manage Loan Records")
     
     # 1. PRE-PROCESS THE MATH (Same logic as Overview)
@@ -506,7 +506,7 @@ with menu_tabs[1]:
     else:
         st.info("No records to display.")
 # --- TAB 2: REPAYMENTS ---
-with menu_tabs[2]:
+elif page == "💰 Record a Payment":
     st.subheader("💰 Record a Payment")
     if not df.empty:
         with st.form("pay_form", clear_on_submit=True):
@@ -533,7 +533,7 @@ with menu_tabs[2]:
         st.dataframe(pd.read_csv(PAYMENT_FILE).iloc[::-1], use_container_width=True)
 
 # --- TAB 3: COLLATERAL ---
-with menu_tabs[3]:
+elif page == "📑 Collateral Management":
     st.subheader("📑 Collateral Management")
     if not df.empty:
         with st.form("collat_form", clear_on_submit=True):
@@ -550,7 +550,7 @@ with menu_tabs[3]:
         st.dataframe(pd.read_csv(COLLATERAL_FILE), use_container_width=True)
 
 # --- TAB 4: CALENDAR & REMINDERS ---
-with menu_tabs[4]:
+elif page == "📅 Collection & Due Dates":
     st.subheader("📅 Collection & Due Dates")
     
     if not df.empty:
@@ -577,7 +577,7 @@ with menu_tabs[4]:
         st.info("No active loans to track.")
 
 # --- TAB 5: DYNAMIC CLIENT LEDGER ---
-with menu_tabs[5]:
+elif page == "📄 Client Transaction Ledger":
     st.subheader("📄 Client Transaction Ledger")
     
     if not df.empty:
