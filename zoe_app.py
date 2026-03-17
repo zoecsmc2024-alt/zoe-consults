@@ -41,38 +41,35 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# --- DATA ENGINE (Self-Healing) ---
+# --- 2. DATA ENGINE ---
 DB_FILE = "zoe_database.csv"
 PAYMENT_FILE = "repayments_log.csv"
 COLLATERAL_FILE = "collateral_log.csv"
 
 def init_db():
-    # 1. Initialize Main DB
     if not os.path.exists(DB_FILE):
         pd.DataFrame(columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'INTEREST_RATE', 'DATE_ISSUED']).to_csv(DB_FILE, index=False)
-    
-    # 2. Initialize Payments
-    if not os.path.exists(PAYMENT_FILE):
-        pd.DataFrame(columns=['DATE', 'NAME', 'AMOUNT', 'REF']).to_csv(PAYMENT_FILE, index=False)
-    
-    # 3. Initialize Collateral with the CORRECT headers
-    # If the file exists but is wrong (missing 'VAL'), we DELETE and FIX it automatically
-    if os.path.exists(COLLATERAL_FILE):
-        temp_df = pd.read_csv(COLLATERAL_FILE)
-        if 'VAL' not in temp_df.columns:
-            os.remove(COLLATERAL_FILE)
-    
-    if not os.path.exists(COLLATERAL_FILE):
-        pd.DataFrame(columns=['ID', 'NAME', 'TYPE', 'DESC', 'VAL', 'STATUS']).to_csv(COLLATERAL_FILE, index=False)
+    # ... (rest of your init_db code)
 
-init_db() # Run the fix immediately
+@st.cache_data(show_spinner=False)
+def load_data():
+    init_db()
+    if os.path.exists(DB_FILE):
+        data = pd.read_csv(DB_FILE)
+        if not data.empty:
+            # Ensure numbers are treated as numbers, not text
+            data['LOAN_AMOUNT'] = pd.to_numeric(data['LOAN_AMOUNT'], errors='coerce').fillna(0)
+            data['AMOUNT_PAID'] = pd.to_numeric(data['AMOUNT_PAID'], errors='coerce').fillna(0)
+            data['INTEREST_RATE'] = pd.to_numeric(data['INTEREST_RATE'], errors='coerce').fillna(0)
+            data['INT_AMT'] = (data['LOAN_AMOUNT'] * data['INTEREST_RATE']) / 100
+            data['TOTAL_DUE'] = data['LOAN_AMOUNT'] + data['INT_AMT']
+            data['OUTSTANDING_AMOUNT'] = data['TOTAL_DUE'] - data['AMOUNT_PAID']
+        return data
+    return pd.DataFrame()
 
-# --- 1. INITIALIZE DATABASES ---
-init_db()
-
-# --- 2. LOAD MAIN DATA (Crucial Step) ---
-# Ensure this happens BEFORE the tabs start
-df = load_data() 
+# NOW you can call the function safely
+df = load_data()
+ 
 
 # --- 3. COLLATERAL TAB RE-FIXED ---
 with menu_tabs[3]:
