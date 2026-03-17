@@ -26,14 +26,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. DATA ENGINE ---
-DB_FILE = "zoe_database.csv"
+PAYMENT_FILE = "repayments_log.csv"
 
 def init_db():
+    # Existing Loan DB init...
     if not os.path.exists(DB_FILE):
-        df = pd.DataFrame(columns=[
-            'SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 
-            'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED'
-        ])
+        pd.DataFrame(columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED']).to_csv(DB_FILE, index=False)
+    
+    # NEW: Repayment DB init
+    if not os.path.exists(PAYMENT_FILE):
+        pd.DataFrame(columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'RECEIPT_NO']).to_csv(PAYMENT_FILE, index=False)
         df.to_csv(DB_FILE, index=False)
 
 @st.cache_data(show_spinner=False)
@@ -109,62 +111,43 @@ with col_dl:
 # --- 5. DASHBOARD TABS ---
 menu_tabs = st.tabs(["📊 Overview", "👥 Borrowers List", "💰 Repayments", "📅 Calendar"])
 
-with menu_tabs[0]:
-    st.write("") 
-    if not df.empty:
-        # --- KPI CARDS ---
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            st.markdown(f'<div class="box-card"><div class="box-title">Total Borrowers</div><div class="box-value">{len(df)}</div></div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown(f'<div class="box-card"><div class="box-title">Total Principal</div><div class="box-value">UGX {df["LOAN_AMOUNT"].sum():,.0f}</div></div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown(f'<div class="box-card"><div class="box-title">Collections</div><div class="box-value">UGX {df["AMOUNT_PAID"].sum():,.0f}</div></div>', unsafe_allow_html=True)
-        with c4:
-            active = len(df[df['AMOUNT_PAID'] < df['LOAN_AMOUNT']])
-            st.markdown(f'<div class="box-card"><div class="box-title">Active Loans</div><div class="box-value">{active}</div></div>', unsafe_allow_html=True)
-        
-        st.write("---")
-        
-       # --- SMART DATA EDITOR WITH DELETE ---
-        st.subheader("Interactive Loan Manager")
-        st.info("💡 Edit 'AMOUNT_PAID' directly in the table, or select rows to delete.")
+with menu_tabs[2]:
+    st.subheader("Record New Payment")
+    
+    # 1. Payment Form
+    with st.expander("➕ Log a Transaction", expanded=True):
+        with st.form("repayment_form", clear_on_submit=True):
+            col_a, col_b = st.columns(2)
+            with col_a:
+                # Get list of names from our main DB for the dropdown
+                names = df['CUSTOMER_NAME'].tolist() if not df.empty else ["No Customers"]
+                p_name = st.selectbox("Select Borrower", options=names)
+            with col_b:
+                p_amount = st.number_input("Amount Paid (UGX)", min_value=0, step=5000)
+            
+            p_date = st.date_input("Payment Date")
+            p_receipt = st.text_input("Receipt / Reference Number")
 
-        # Create the editor with Row Selection enabled
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "SN": st.column_config.NumberColumn("ID", disabled=True),
-                "CUSTOMER_NAME": st.column_config.TextColumn("Borrower", disabled=True),
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %d", disabled=True),
-                "AMOUNT_PAID": st.column_config.NumberColumn("Total Paid", format="UGX %d"),
-                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %d", disabled=True),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate %", format="%d%%"),
-                "DATE_ISSUED": st.column_config.DateColumn("Date", disabled=True),
-            },
-            hide_index=True,
-            num_rows="dynamic", # Allows you to add/delete rows if you prefer manual entry
-            use_container_width=True,
-            key="data_editor_key"
-        )
+            if st.form_submit_button("Submit Payment"):
+                # Save to Repayment Log
+                new_payment = pd.DataFrame([[p_date, p_name, p_amount, p_receipt]], 
+                                         columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'RECEIPT_NO'])
+                new_payment.to_csv(PAYMENT_FILE, mode='a', header=False, index=False)
 
-        # Action Buttons
-        btn_save, btn_delete = st.columns([1, 4])
-        
-        with btn_save:
-            if st.button("💾 Save Changes", type="primary", use_container_width=True):
-                # Recalculate balances before saving
-                edited_df['OUTSTANDING_AMOUNT'] = edited_df['LOAN_AMOUNT'] - edited_df['AMOUNT_PAID']
-                edited_df.to_csv(DB_FILE, index=False)
-                st.success("Database Updated!")
+                # UPDATE MAIN DATABASE: Add this amount to the total paid for this customer
+                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amount
+                df['OUTSTANDING_AMOUNT'] = df['LOAN_AMOUNT'] - df['AMOUNT_PAID']
+                df.to_csv(DB_FILE, index=False)
+
+                st.success(f"Recorded UGX {p_amount:,.0f} for {p_name}")
                 st.cache_data.clear()
                 st.rerun()
 
-        with btn_delete:
-            # This is a safety feature: only shows if the dataframe actually changed (rows removed)
-            if len(edited_df) < len(df):
-                if st.button("🗑️ Confirm Deletion of Rows", type="secondary", use_container_width=True):
-                    edited_df.to_csv(DB_FILE, index=False)
-                    st.warning("Selected records deleted.")
-                    st.cache_data.clear()
-                    st.rerun()
+    # 2. History Table
+    st.write("---")
+    st.subheader("Payment History Log")
+    if os.path.exists(PAYMENT_FILE):
+        pay_df = pd.read_csv(PAYMENT_FILE)
+        st.dataframe(pay_df.sort_index(ascending=False), use_container_width=True) # Newest payments on top
+    else:
+        st.info("No payment history available yet.")
