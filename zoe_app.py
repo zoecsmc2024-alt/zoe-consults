@@ -78,7 +78,7 @@ st.markdown("""
 
 with st.sidebar:
     # --- TAP TO EDIT LOGO ---
-    st.markdown("### Branding")
+    st.markdown("### Welcome Back")
     
     # Check if we have a logo, otherwise use a placeholder
     logo_display = st.session_state.get('custom_logo', "💰")
