@@ -24,7 +24,8 @@ def check_password():
 
 if not check_password():
     st.stop()
-    def calculate_reducing_balance(principal, annual_rate, periods=12):
+
+def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
     monthly_rate = (annual_rate / 100) / 12
     # Formula: M = P [ i(1 + i)^n ] / [ (1 + i)^n – 1 ]
