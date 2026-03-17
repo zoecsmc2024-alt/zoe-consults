@@ -86,64 +86,69 @@ def get_base64_image(image_path):
 # Replace the URL below with your actual hosted logo link
 LOGO_URL = "https://img.icons8.com/fluency/96/money-bag-euro.png" 
 
-# --- 3. DYNAMIC BRANDED HEADER ---
+import base64
 import io
 
-# Determine which logo to show
-if 'custom_logo' in st.session_state:
-    # Get the uploaded file from session state
-    logo_file = st.session_state['custom_logo']
-    # Convert to base64 so HTML can read it
-    base64_logo = base64.b64encode(logo_file.getvalue()).decode()
-    brand_display = f'<img src="data:image/png;base64,{base64_logo}" style="height: 45px; border-radius: 5px;">'
-else:
-    # Default placeholder icon if no upload exists
-    brand_display = '<img src="https://img.icons8.com/fluency/96/money-bag-euro.png" style="height: 40px;">'
+# --- 1. LOGO STORAGE LOGIC ---
+# This ensures the image stays visible while you navigate tabs
+if 'custom_logo_b64' not in st.session_state:
+    st.session_state['custom_logo_b64'] = None
+
+# --- 2. THE BLUE BRANDING BAR ---
+# We use the session state logo if it exists, otherwise a default icon
+logo_display = f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" style="height: 40px; border-radius: 5px;">' if st.session_state['custom_logo_b64'] else '<img src="https://img.icons8.com/fluency/96/money-bag-euro.png" style="height: 40px;">'
 
 header_html = f"""
-    <div style="background-color: #0f172a; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0;">
+    <div style="background-color: #0f172a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0; margin-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 15px;">
-            {brand_display}
+            {logo_display}
             <div style="display: flex; flex-direction: column; line-height: 1.1;">
                 <b style="font-size: 1.2em; letter-spacing: 0.5px;">Zoe Consults</b>
-                <span style="font-size: 0.7em; opacity: 0.6; font-weight: 300;">Admin Dashboard</span>
+                <span style="font-size: 0.7em; opacity: 0.6; font-weight: 300;">Evans Ahuura | Admin</span>
             </div>
         </div>
-        <div style="font-size: 0.8em; opacity: 0.5;">{datetime.now().strftime('%d %b, %Y')}</div>
+        <div style="font-size: 0.8em; opacity: 0.4;">{datetime.now().strftime('%d %b %H:%M')}</div>
     </div>
 """
 st.markdown(header_html, unsafe_allow_html=True)
 
-# --- 4. THE COMPACT ICON BAR (Floating Right) ---
-# We use columns to place the search and icons right below the header
+# --- 3. THE ACTION & EDIT TOOLBAR ---
 with st.container():
-    c_search, c_spacer, c_new, c_del, c_dl, c_logout = st.columns([3, 1.5, 0.4, 0.4, 0.4, 0.4])
+    # Added a new 'Settings' column (c_set)
+    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([3.5, 0.4, 0.4, 0.4, 0.4, 0.4])
 
     with c_search:
-        search_query = st.text_input("", placeholder="🔍 Search borrower...", label_visibility="collapsed")
+        search_query = st.text_input("", placeholder="🔍 Search borrowers...", label_visibility="collapsed")
 
     with c_new:
         with st.popover("➕", help="New Loan"):
-            with st.form("new_loan", clear_on_submit=True):
-                f_name = st.text_input("Name")
-                f_amount = st.number_input("Principal", min_value=0)
-                f_rate = st.number_input("Rate %", min_value=0.0)
-                if st.form_submit_button("Save"):
-                    # (Existing save logic)
-                    st.rerun()
-
+            st.markdown("### 📝 New Loan Entry")
+            # ... (your existing form logic)
+            
     with c_del:
         with st.popover("🗑️", help="Delete"):
-            if not df.empty:
-                d_id = st.selectbox("ID", options=df['SN'].tolist())
-                if st.button("Confirm", type="primary"):
-                    # (Existing delete logic)
-                    st.rerun()
+            # ... (your existing delete logic)
+            pass
 
     with c_dl:
-        if not df.empty:
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥", csv, "Zoe_Report.csv", "text/csv")
+        # ... (your existing download logic)
+        pass
+
+    with c_set:
+        # NEW: The "Edit Logo" Popover
+        with st.popover("⚙️", help="Brand Settings"):
+            st.markdown("#### 🖼️ Update Logo")
+            new_file = st.file_uploader("Upload PNG/JPG", type=["png", "jpg", "jpeg"])
+            if new_file:
+                # Convert to base64 immediately and save to session
+                encoded = base64.b64encode(new_file.getvalue()).decode()
+                st.session_state['custom_logo_b64'] = encoded
+                st.success("Logo updated!")
+                st.button("Apply Changes", on_click=st.rerun)
+            
+            if st.button("Reset to Default"):
+                st.session_state['custom_logo_b64'] = None
+                st.rerun()
 
     with c_logout:
         if st.button("🚪", help="Logout"):
