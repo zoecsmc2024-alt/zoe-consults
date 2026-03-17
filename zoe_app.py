@@ -6,22 +6,14 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_s
 
 st.markdown("""
     <style>
-    /* 1. App Background - Very Light Blue/Off-White */
     .stApp { background-color: #f8fafc; }
-
-    /* 2. Admin Box Cards - Clean White with Soft Shadows */
     .box-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        padding: 25px;
-        border-radius: 6px;
-        text-align: center;
+        background: white; border: 1px solid #e2e8f0;
+        padding: 25px; border-radius: 6px; text-align: center;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .box-title { color: #94a3b8; font-size: 0.8em; text-transform: uppercase; margin-bottom: 10px; font-weight: 600; }
     .box-value { color: #1e293b; font-size: 1.8em; font-weight: 800; }
-
-    /* Hide Sidebar things */
     [data-testid="stSidebar"] {display: none;}
     [data-testid="collapsedControl"] {display: none;}
     </style>
@@ -30,17 +22,15 @@ st.markdown("""
 # --- 2. DATA ENGINE ---
 def load_data():
     try:
-        df = pd.read_csv("zoe_database.csv")
-        df.columns = df.columns.str.strip()
+        data = pd.read_csv("zoe_database.csv")
+        data.columns = data.columns.str.strip()
         for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        return df
+            if col in data.columns:
+                data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
+        return data
     except:
-        # Placeholder if file is missing
-        return pd.DataFrame({'SN': [1], 'CUSTOMER_NAME': ['System Test'], 'LOAN_AMOUNT': [0], 'AMOUNT_PAID': [0]})
+        return pd.DataFrame({'SN':[1], 'CUSTOMER_NAME':['Test'], 'LOAN_AMOUNT':[0], 'AMOUNT_PAID':[0]})
 
-# IMPORTANT: Anchor the data in memory
 df = load_data()
 
 # --- 3. ERP NAVIGATION HEADER ---
@@ -59,7 +49,7 @@ st.markdown("""
 
 menu_tabs = st.tabs(["👥 Borrowers", "⚖️ Loans", "💰 Repayments", "📑 Collateral", "📅 Calendar"])
 
-# --- 4. DASHBOARD CONTENT (Inside first tab) ---
+# --- 4. DASHBOARD CONTENT ---
 with menu_tabs[0]:
     st.write("") 
     if not df.empty:
