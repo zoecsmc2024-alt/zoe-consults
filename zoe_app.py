@@ -487,7 +487,8 @@ with menu_tabs[5]:
                     <span><b>NIN:</b> {c_details.get('NIN', 'N/A')}</span>
                     <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
                     <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
-                    <span><b>Principal:</b> UGX {c_details['LOAN_AMOUNT']:,.0f}</span>
+                    # --- FIXED LINE ---
+                    <span><b>Principal:</b> UGX {int(c_details['LOAN_AMOUNT']):,.0f}</span>
                 </div>
             </div>
         """, unsafe_allow_html=True)
