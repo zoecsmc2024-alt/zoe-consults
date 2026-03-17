@@ -71,23 +71,43 @@ def load_data():
 df = load_data()
 
 # --- 3. INTEGRATED NAVIGATION & ICON BAR ---
-# This combines the Brand Name and the Action Icons into one blue bar
+import base64
+
+# Function to convert local image to base64 (required for HTML in Streamlit)
+def get_base64_image(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return None
+
+# --- 3. BRANDED LOGO HEADER ---
+logo_base64 = get_base64_image("logo.png") # Make sure your file is named logo.png
+
+if logo_base64:
+    # If logo exists, show the image
+    brand_content = f'<img src="data:image/png;base64,{logo_base64}" style="height: 40px; border-radius: 5px;">'
+else:
+    # Fallback to text if image is missing
+    brand_content = '<b style="font-size: 1.3em;">Zoe Consults</b>'
+
 header_html = f"""
-    <div style="background-color: #0f172a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0;">
-        <div style="font-size: 1.3em; font-weight: 700;">
-            Zoe Consults <span style="font-weight: 300; opacity: 0.6; margin-left: 10px; font-size: 0.8em;">| Evans Ahuura</span>
+    <div style="background-color: #0f172a; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            {brand_content}
+            <span style="font-weight: 300; opacity: 0.6; font-size: 0.85em; margin-left: 5px; border-left: 1px solid #334155; padding-left: 15px;">
+                Evans Ahuura
+            </span>
         </div>
     </div>
 """
 st.markdown(header_html, unsafe_allow_html=True)
 
-# This transparent container sits right below the blue bar to hold the interactive buttons
+# --- 4. THE COMPACT ICON BAR (Floating Right) ---
+# We use columns to place the search and icons right below the header
 with st.container():
-    # We use empty 'spacer' columns to push everything to the top right
     c_search, c_spacer, c_new, c_del, c_dl, c_logout = st.columns([3, 1.5, 0.4, 0.4, 0.4, 0.4])
 
     with c_search:
-        # Keeping the search here ensures it's easy to access
         search_query = st.text_input("", placeholder="🔍 Search borrower...", label_visibility="collapsed")
 
     with c_new:
