@@ -59,33 +59,49 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. TOP CONTROLS ---
-col_search, col_btn, col_dl = st.columns([3, 1, 0.5])
+# --- 4. TOP CONTROLS (With Delete Option) ---
+col_search, col_btn, col_del, col_dl = st.columns([2.5, 1, 1, 0.5])
 
 with col_search:
     search_query = st.text_input("", placeholder="🔍 Search borrower...", label_visibility="collapsed")
 
 with col_btn:
-    with st.popover("➕ New Loan Entry", use_container_width=True):
+    with st.popover("➕ New Loan", use_container_width=True):
         with st.form("new_loan_form", clear_on_submit=True):
             f_name = st.text_input("Customer Name")
             f_amount = st.number_input("Principal (UGX)", min_value=0, step=50000)
             f_rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
-            
             if st.form_submit_button("Confirm & Save"):
                 if f_name:
                     new_row = pd.DataFrame([{
                         'SN': len(df) + 1,
-                        'CUSTOMER_NAME': f_name,
-                        'LOAN_AMOUNT': f_amount,
-                        'AMOUNT_PAID': 0,
-                        'OUTSTANDING_AMOUNT': f_amount,
-                        'INTEREST_RATE': f_rate,
-                        'DATE_ISSUED': datetime.now().strftime("%Y-%m-%d")
+                        'CUSTOMER_NAME': f_name, 'LOAN_AMOUNT': f_amount,
+                        'AMOUNT_PAID': 0, 'OUTSTANDING_AMOUNT': f_amount,
+                        'INTEREST_RATE': f_rate, 'DATE_ISSUED': datetime.now().strftime('%Y-%m-%d')
                     }])
                     new_row.to_csv(DB_FILE, mode='a', header=False, index=False)
                     st.cache_data.clear()
                     st.rerun()
+
+with col_del:
+    with st.popover("🗑️ Delete Entry", use_container_width=True):
+        st.warning("Action cannot be undone!")
+        if not df.empty:
+            # Dropdown to select by SN and Name
+            delete_id = st.selectbox("Select Loan to Delete", 
+                                     options=df['SN'].tolist(),
+                                     format_func=lambda x: f"ID {x}: {df[df['SN']==x]['CUSTOMER_NAME'].values[0]}")
+            
+            if st.button("Confirm Delete", type="primary", use_container_width=True):
+                # Filter out the selected SN
+                updated_df = df[df['SN'] != delete_id]
+                # Save the new filtered dataframe back to CSV
+                updated_df.to_csv(DB_FILE, index=False)
+                st.cache_data.clear()
+                st.success(f"Loan ID {delete_id} removed.")
+                st.rerun()
+        else:
+            st.write("No records to delete.")
 
 with col_dl:
     if not df.empty:
