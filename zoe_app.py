@@ -2,30 +2,25 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-# --- 0. SECURITY GATE (Username + Password) ---
+# --- 0. SECURITY GATE ---
 def check_password():
-    def password_entered():
-        # Change these to whatever you like!
-        if st.session_state["username"] == "admin" and st.session_state["password"] == "1234":
+    def login_clicked():
+        # You can change 'admin' and 'Zoe2026' to whatever you prefer!
+        if st.session_state["user_input"] == "admin" and st.session_state["pass_input"] == "Zoe2026":
             st.session_state["password_correct"] = True
-            del st.session_state["password"] 
-            del st.session_state["username"]
         else:
             st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
+    if "password_correct" not in st.session_state or not st.session_state["password_correct"]:
         st.markdown("## 🔐 ZoeLend IQ Pro Login")
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
+        st.text_input("Username", key="user_input")
+        st.text_input("Password", type="password", key="pass_input")
+        st.button("Login", on_click=login_clicked)
+        
+        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+            st.error("😕 Invalid Username or Password")
         return False
-    elif not st.session_state["password_correct"]:
-        st.markdown("## 🔐 ZoeLend IQ Pro Login")
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
-        st.error("😕 Username or Password incorrect")
-        return False
-    else:
-        return True
+    return True
 
 if not check_password():
     st.stop()
