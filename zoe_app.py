@@ -27,6 +27,38 @@ def check_password():
 if not check_password():
     st.stop()
 
+# 1. SIDEBAR (Put this ABOVE your Header/Action Bar)
+with st.sidebar:
+    st.title("🛡️ Zoe Consults")
+    st.write("---")
+    page = st.radio(
+        "Navigation Menu",
+        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"]
+    )
+
+# 2. YOUR HEADER (The dark blue bar in your image)
+# (Your header code stays here)
+
+# 3. YOUR ACTION BAR (Search, New Loan, etc.)
+# (Your column code stays here)
+
+st.write("---")
+
+# 4. THE ROUTING (This stops all pages from showing at once)
+if page == "📈 Performance":
+    st.subheader("Business Growth & Trends")
+    # MOVE your KPI cards (Total Borrowers, Principal, etc.) HERE
+
+elif page == "⚙️ Settings":
+    st.subheader("System Backups")
+    # MOVE your Backup button and Logo uploader HERE
+
+elif page == "👥 Borrowers":
+    # MOVE your main table HERE
+
+elif page == "📄 Client Ledger":
+    # MOVE your Ledger and WhatsApp code HERE
+
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
     monthly_rate = (annual_rate / 100) / 12
