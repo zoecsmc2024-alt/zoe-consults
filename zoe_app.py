@@ -135,16 +135,17 @@ with st.container():
         pass
 
     with c_set:
-        # NEW: The "Edit Logo" Popover
         with st.popover("⚙️", help="Brand Settings"):
             st.markdown("#### 🖼️ Update Logo")
             new_file = st.file_uploader("Upload PNG/JPG", type=["png", "jpg", "jpeg"])
+            
             if new_file:
-                # Convert to base64 immediately and save to session
                 encoded = base64.b64encode(new_file.getvalue()).decode()
                 st.session_state['custom_logo_b64'] = encoded
-                st.success("Logo updated!")
-                st.button("Apply Changes", on_click=st.rerun)
+                st.success("Logo uploaded!")
+                # Just a normal button, no callback needed
+                if st.button("Refresh Dashboard"):
+                    st.rerun()
             
             if st.button("Reset to Default"):
                 st.session_state['custom_logo_b64'] = None
