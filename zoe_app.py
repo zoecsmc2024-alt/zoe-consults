@@ -292,71 +292,83 @@ if not held_assets.empty:
     st.info("No assets are currently being held in the vault.")
     
 elif page == "Ledger":
-    st.markdown('<div class="main-title">📄 Client Financial Ledger</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. CLIENT SELECTION
-        target = st.selectbox("Select Client to View", options=df['NAME'].unique() if 'NAME' in df.columns else df['CUSTOMER_NAME'].unique())
+        # 1. SELECT CLIENT
+        name_options = df['NAME'].unique() if 'NAME' in df.columns else df['CUSTOMER_NAME'].unique()
+        target = st.selectbox("Select Client for Report", options=name_options)
         
-        # Filter data for this specific client
+        # Pull specific client data
         client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
-        client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target]
+        client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target].sort_values(by='DATE', ascending=False)
         
-        # Load collateral safely
-        try:
-            collateral_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
-            client_assets = collateral_df[collateral_df['NAME'] == target]
-        except:
-            client_assets = pd.DataFrame()
-
-        # 2. TOP LEVEL SUMMARY TILES
-        st.write(f"### 📊 Financial Summary: {target}")
-        c1, c2, c3 = st.columns(3)
-        
-        # Calculating Real Outstanding (including the 2.8% interest logic)
+        # Calculate Finance Specifics
         interest_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
         total_due = client_info['LOAN_AMOUNT'] + interest_amt
         balance = total_due - client_info['AMOUNT_PAID']
+        recovery_rate = (client_info['AMOUNT_PAID'] / total_due) * 100 if total_due > 0 else 0
 
-        c1.metric("Total Debt", f"UGX {total_due:,.0f}")
-        c2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}", delta=f"{ (client_info['AMOUNT_PAID']/total_due)*100:.1f}% Recovery")
-        c3.metric("Current Balance", f"UGX {balance:,.0f}", delta="🔴 DEBT" if balance > 0 else "🟢 CLEARED")
+        # --- 📝 THE REPORT BOX ---
+        st.markdown(f"""
+            <div style="background-color: #f8fafc; padding: 25px; border-radius: 15px; border: 1px solid #e2e8f0; color: #1e293b;">
+                <h2 style="color: #0f172a; margin-bottom: 5px;">Zoe Consults</h2>
+                <p style="color: #64748b; margin-top: 0;">Official Statement of Account | {datetime.now().strftime('%d %B %Y')}</p>
+                <hr style="border: 0.5px solid #cbd5e1;">
+                <div style="display: flex; justify-content: space-between;">
+                    <div>
+                        <small style="color: #94a3b8;">CLIENT NAME</small>
+                        <p style="font-weight: bold; font-size: 1.1rem;">{target}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <small style="color: #94a3b8;">ACCOUNT STATUS</small>
+                        <p style="font-weight: bold; color: {'#10b981' if balance <= 0 else '#ef4444'};">
+                            {'✅ CLEARED' if balance <= 0 else '🚩 ACTIVE DEBT'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
+        # 2. KEY FINANCIAL METRICS
+        st.write("### 💵 Financial Summary")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Principal", f"UGX {client_info['LOAN_AMOUNT']:,.0f}")
+        c2.metric("Interest (2.8%)", f"UGX {interest_amt:,.0f}")
+        c3.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
+        c4.metric("BALANCE DUE", f"UGX {balance:,.0f}")
+
+        # 3. PAYMENT BREAKDOWN TABLE
         st.write("---")
-
-        # 3. PAYMENT HISTORY & COLLATERAL TABS
-        tab1, tab2 = st.tabs(["💰 Payment Timeline", "📑 Associated Collateral"])
+        t1, t2 = st.tabs(["📊 Transaction History", "🔐 Collateral Status"])
         
-        with tab1:
+        with t1:
+            st.write("Detailed record of all payments received:")
             if not client_payments.empty:
                 st.dataframe(
-                    client_payments[['DATE', 'AMOUNT_PAID', 'REF']].sort_values(by='DATE', ascending=False),
+                    client_payments[['DATE', 'AMOUNT_PAID', 'REF']],
                     column_config={
-                        "AMOUNT_PAID": st.column_config.NumberColumn("Amount (UGX)", format="UGX %,d"),
-                        "DATE": "Date Received",
-                        "REF": "Reference/Receipt"
+                        "AMOUNT_PAID": st.column_config.NumberColumn("Amount Recieved", format="UGX %,d"),
+                        "REF": "Receipt Reference"
                     },
-                    use_container_width=True,
-                    hide_index=True
+                    use_container_width=True, hide_index=True
                 )
             else:
-                st.info("No payment transactions recorded for this client.")
+                st.info("No payments recorded yet.")
 
-        with tab2:
-            if not client_assets.empty:
-                st.dataframe(
-                    client_assets[['ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS']],
-                    column_config={
-                        "VALUE": st.column_config.NumberColumn("Est. Value", format="UGX %,d")
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
-            else:
-                st.info("No security assets registered for this client.")
+        with t2:
+            st.write("Assets currently held as security:")
+            try:
+                client_assets = collateral_df[collateral_df['NAME'] == target]
+                if not client_assets.empty:
+                    st.table(client_assets[['ASSET_TYPE', 'DESCRIPTION', 'STATUS']])
+                else:
+                    st.info("No collateral registered for this client.")
+            except:
+                st.error("Could not load collateral data.")
 
     else:
-        st.warning("⚠️ No borrower data found. Please add a borrower first.")
+        st.warning("Please add a borrower in the Borrowers tab to generate reports.")
 elif page == "Settings":
     st.title("⚙️ Settings")
     st.write("Settings logic goes here.")
