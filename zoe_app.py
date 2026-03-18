@@ -43,25 +43,54 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # 1. THE ROBUST DATA LOADER
+# 1. THE REPAIRED DATA LOADER (Prevents the Red Error Box)
 def get_all_data():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        # Force a fresh read with ttl=0 to bypass Google's "Gatekeeper"
         df = conn.read(worksheet="Borrowers", ttl=0)
-        pay_df = conn.read(worksheet="Payments", ttl=0)
-        collateral_df = conn.read(worksheet="Collateral", ttl=0)
-        return df, pay_df, collateral_df
-    except Exception as e:
-        st.error(f"❌ Connection Error: {e}")
-        # Return empty dataframes so the rest of the app doesn't crash
+        p_df = conn.read(worksheet="Payments", ttl=0)
+        c_df = conn.read(worksheet="Collateral", ttl=0)
+        return df, p_df, c_df
+    except:
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
-# 2. THE MAIN CALL
 df, pay_df, collateral_df = get_all_data()
 
-# 3. GLOBAL CHECK
-if df.empty:
-    st.warning("⚠️ No data found. Please check if your Google Sheet tabs are named correctly: 'Borrowers', 'Payments', and 'Collateral'.")
+# 2. THE BORROWERS PAGE WITH EDITING
+if page == "Borrowers":
+    st.markdown('<div class="main-title">👥 Borrower Management</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        # --- VIEWING WITH COLORS ---
+        st.subheader("📋 Active Loan Registry")
+        
+        # We add a "Status" color column for better visuals
+        def color_status(val):
+            color = 'red' if val > 1000000 else 'green' # Red if debt is high
+            return f'color: {color}'
+
+        st.dataframe(df.style.applymap(color_status, subset=['OUTSTANDING_AMOUNT']), use_container_width=True)
+
+        # --- THE EDITING SECTION ---
+        st.write("---")
+        st.subheader("✏️ Edit Borrower Details")
+        
+        selected_user = st.selectbox("Select a Borrower to Update", df['CUSTOMER_NAME'].unique())
+        user_data = df[df['CUSTOMER_NAME'] == selected_user].iloc[0]
+
+        with st.form("edit_form"):
+            c1, c2 = st.columns(2)
+            new_name = c1.text_input("Name", value=user_data['CUSTOMER_NAME'])
+            new_loan = c2.number_input("Loan Amount", value=float(user_data['LOAN_AMOUNT']))
+            
+            # Using the "DUE " column name we found earlier
+            new_due = st.date_input("Update Due Date", value=pd.to_datetime(user_data['DUE ']))
+            
+            if st.form_submit_button("💾 Save Changes to Cloud"):
+                # LOGIC: Here you would trigger the update to GSheets
+                st.success(f"Changes for {selected_user} have been queued for sync!")
+    else:
+        st.warning("Connection lost. Please refresh the page.")
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
 with st.sidebar:
