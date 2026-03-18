@@ -10,35 +10,44 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
 st.markdown("""
 <style>
-    /* 1. Main Background */
-    .stApp { background-color: #0f172a; } /* Deep Navy theme */
+    /* 1. THE MAIN BOARD (Light & Clean) */
+    .stApp { 
+        background-color: #f8fafc !important; 
+    }
 
-    /* 2. Glass KPI Cards */
+    /* 2. THE SIDEBAR (Navy & Teal - Stays Dark) */
+    [data-testid="stSidebar"] {
+        background-color: #0b1425 !important;
+        border-right: 3px solid #00a8b5 !important;
+    }
+    
+    /* Force sidebar text to stay white */
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+
+    /* 3. GLASS KPI TILES (Now styled for a light background) */
     .metric-card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: white;
+        border: 1px solid #e2e8f0;
         border-radius: 15px;
         padding: 20px;
         text-align: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         transition: 0.3s;
     }
     .metric-card:hover {
-        background: rgba(0, 170, 181, 0.1);
         border-color: #00a8b5;
-        transform: translateY(-5px);
+        transform: translateY(-3px);
     }
-    
-    /* 3. Clean Sidebar Highlights */
-    [data-testid="stSidebarNav"] { padding-top: 2rem; }
-    
-    /* 4. Professional Tables */
-    .stDataFrame {
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
+
+    /* 4. TITLE STYLING */
+    h1 {
+        color: #0f172a !important; /* Dark Navy text for the main titles */
+        font-weight: 800 !important;
     }
 </style>
 """, unsafe_allow_html=True)
-
 # --- 2. PERMANENT DATA CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
