@@ -251,8 +251,9 @@ if not held_assets.empty:
             st.balloons()
             st.success(f"Asset '{target_asset}' has been dismissed!")
             st.rerun()
-else:
+    else:
     st.info("No assets are currently being held in the vault.")
+    
 elif page == "Ledger":
     st.title("📄 Client Ledger")
     st.write("Ledger logic goes here.")
