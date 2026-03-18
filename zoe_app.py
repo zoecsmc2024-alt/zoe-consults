@@ -105,7 +105,7 @@ elif page == "💰 Repayments":
     st.dataframe(pay_df.iloc[::-1], use_container_width=True)
 
 elif page == "📅 Calendar":
-    st.title("📅 Collection Schedule")
+    st.title("📅 Calendar Schedule")
     if not df.empty:
         df['DUE_DATE'] = pd.to_datetime(df['DATE_ISSUED']) + pd.Timedelta(days=30)
         df['DAYS_LEFT'] = (df['DUE_DATE'] - pd.Timestamp(datetime.now().date())).dt.days
