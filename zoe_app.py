@@ -78,29 +78,7 @@ if page == "Borrowers":
         # 1. NAVIGATION TABS
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
 with tab_view:
-            
-            # 1. CREATE THE DATA (Must happen before we try to show the table)
-            if not df.empty:
-                # Make a clean copy to work with
-                display_df = df.copy()
-                
-                # Math Safety
-                rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
-                paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
-                
-                # Calculations
-                display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
-                display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
-                
-                # Check for "DUE " (with space) or "DUE"
-                d_col = "DUE " if "DUE " in display_df.columns else "DUE"
-                
-                # List only columns that actually exist to prevent KeyErrors
-                cols_to_show = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount']
-                if d_col in display_df.columns: cols_to_show.append(d_col)
-                if 'STATUS' in display_df.columns: cols_to_show.append('STATUS')
-
-                # 2. RENDER THE SINGLE TABLE
+    # 2. RENDER THE SINGLE TABLE
                 st.dataframe(
                     display_df[cols_to_show],
                     column_config={
