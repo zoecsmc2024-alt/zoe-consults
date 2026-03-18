@@ -59,64 +59,84 @@ def get_all_data():
 
 df, pay_df, collateral_df = get_all_data()
 
-# --- SIMPLIFIED NAVIGATION ---
-# In your sidebar, remove 'Overview' from the options list
+# --- 1. THE SIDEBAR (Simplified) ---
 with st.sidebar:
-    page = option_menu(
-        menu_title=None,
-        options=["Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-        icons=["people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
-        default_index=0
-    )
-
-# --- THE MAIN DASHBOARD (Replaces Overview & Borrowers) ---
-if page == "Borrowers":
-    st.markdown('<h1 style="color: #1E3A8A;">📈 Zoe Consults Dashboard</h1>', unsafe_allow_html=True)
+    # Logo
+    c1, col_img, c3 = st.columns([0.1, 0.8, 0.1])
+    with col_img:
+        try:
+            st.image("logo.png", use_container_width=True)
+        except:
+            st.markdown("<h1 style='text-align: center;'>🌐</h1>", unsafe_allow_html=True)
+            
+    st.markdown("<h3 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h3>", unsafe_allow_html=True)
+    st.write("---")
     
-    # 1. KEY METRICS (Adding a touch of the 'Overview' feel back in)
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Borrowers", len(df))
-    col2.metric("Total Principal", f"UGX {df['LOAN_AMOUNT'].sum():,.0f}")
-    col3.metric("Interest Expected", f"UGX {(df['LOAN_AMOUNT'].sum() * 0.028):,.0f}")
+    # Simple Navigation
+    page = st.radio("Navigation", ["Dashboard", "Ledger", "Settings"], label_visibility="collapsed")
     
     st.write("---")
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 
-    # 2. THE REGISTRY TABLE (The Star of the Show)
-    st.markdown("### 📋 Active Loan Registry")
-    display_df = df.copy()
-    # (Insert your Math and Column Picking logic here as we did before)
-    # ... display_df['Interest Charged'] = ...
-    # ... display_df['Outstanding Amount'] = ...
+# --- 2. THE MAIN DASHBOARD ---
+if page == "Dashboard":
+    st.markdown('<h1 style="color: #1E3A8A;">📈 Executive Dashboard</h1>', unsafe_allow_html=True)
     
-    st.dataframe(
-        display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', 'DUE ', 'STATUS']],
-        column_config={
-            "CUSTOMER_NAME": "NAME",
-            "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-            "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-            "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
-        },
-        use_container_width=True,
-        hide_index=True
-    )
+    if not df.empty:
+        # A. TOP-LEVEL METRICS (Replacing the old Overview)
+        m1, m2, m3 = st.columns(3)
+        total_p = df['LOAN_AMOUNT'].sum()
+        m1.metric("Active Borrowers", len(df))
+        m2.metric("Total Principal", f"UGX {total_p:,.0f}")
+        m3.metric("Monthly Interest", f"UGX {(total_p * 0.028):,.0f}")
+        
+        st.write("---")
 
-    # 3. THE ACTION HUB (Everything else in organized Expanders)
-    st.write("---")
-    c_left, c_right = st.columns(2)
-    
-    with c_left:
-        with st.expander("➕ Register New Borrower", expanded=False):
-            with st.form("new_borrower"):
-                st.text_input("Name")
-                st.number_input("Amount", step=10000)
-                st.form_submit_button("Register Client")
+        # B. THE REGISTRY (The view you liked)
+        st.markdown("### 📋 Active Loan Registry")
+        
+        # Calculation Logic
+        display_df = df.copy()
+        rate = display_df.get('INTEREST_RATE', 2.8)
+        display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
+        display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - display_df.get('AMOUNT_PAID', 0)
+        d_col = "DUE " if "DUE " in display_df.columns else "DUE"
+        
+        st.dataframe(
+            display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', d_col, 'STATUS']],
+            column_config={
+                "CUSTOMER_NAME": "NAME",
+                "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+                "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+                "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"]),
+                d_col: "DUE DATE"
+            },
+            use_container_width=True,
+            hide_index=True
+        )
 
-    with c_right:
-        with st.expander("✏️ Edit Client Details", expanded=False):
-            target = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
-            # (Insert your Edit Form logic here)
-            with st.form("edit_form"):
-                st.button("Save Changes")
+        # C. THE ACTION HUB (Editing & Adding Below)
+        st.write("---")
+        col_edit, col_add = st.columns(2)
+        
+        with col_edit:
+            with st.expander("✏️ Quick Edit Client"):
+                target = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
+                row = df[df['CUSTOMER_NAME'] == target].iloc[0]
+                with st.form("edit_form"):
+                    new_amt = st.number_input("New Amount", value=float(row['LOAN_AMOUNT']))
+                    if st.form_submit_button("💾 Save Changes"):
+                        st.success("Updated!")
+
+        with col_add:
+            with st.expander("➕ New Registration"):
+                with st.form("reg_form"):
+                    st.text_input("Full Name")
+                    st.number_input("Amount", step=10000)
+                    if st.form_submit_button("✅ Register"):
+                        st.success("Registered!")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
