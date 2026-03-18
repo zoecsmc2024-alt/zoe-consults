@@ -60,8 +60,9 @@ def get_all_data():
 df, pay_df, collateral_df = get_all_data()
 
 # --- 1. THE SIDEBAR (Simplified) ---
+# --- 1. THE SIDEBAR (The Look You Loved) ---
 with st.sidebar:
-    # Logo
+    # Logo Center
     c1, col_img, c3 = st.columns([0.1, 0.8, 0.1])
     with col_img:
         try:
@@ -72,69 +73,64 @@ with st.sidebar:
     st.markdown("<h3 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h3>", unsafe_allow_html=True)
     st.write("---")
     
-    # Simple Navigation
-    page = st.radio("Navigation", ["Dashboard", "Ledger", "Settings"], label_visibility="collapsed")
-    
-    st.write("---")
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
+    # Restoring the Premium Menu
+    # Ensure 'from streamlit_option_menu import option_menu' is at the top of your file!
+    page = option_menu(
+        menu_title=None,
+        options=["Overview", "Borrowers", "Repayments", "Ledger", "Settings"],
+        icons=["house", "people", "cash-stack", "file-earmark-text", "gear"],
+        default_index=0,
+        styles={"nav-link-selected": {"background-color": "#1E3A8A"}}
+    )
 
-# --- 2. THE MAIN DASHBOARD ---
-if page == "Dashboard":
-    st.markdown('<h1 style="color: #1E3A8A;">📈 Executive Dashboard</h1>', unsafe_allow_html=True)
-    
+# --- 2. OVERVIEW PAGE (Clean & Simple) ---
+if page == "Overview":
+    st.markdown('<h1 style="color: #1E3A8A;">🏠 Executive Summary</h1>', unsafe_allow_html=True)
     if not df.empty:
-        # 1. TOP-LEVEL METRICS (These are working well!)
         m1, m2, m3 = st.columns(3)
         total_p = df['LOAN_AMOUNT'].sum()
         m1.metric("Active Borrowers", len(df))
         m2.metric("Total Principal", f"UGX {total_p:,.0f}")
-        m3.metric("Monthly Interest", f"UGX {(total_p * 0.028):,.0f}")
-        
-        st.write("---")
+        m3.metric("Expected Interest", f"UGX {(total_p * 0.028):,.0f}")
 
-        # 2. THE REGISTRY (The "Safety First" version)
-        st.markdown("### 📋 Active Loan Registry")
-        
-        display_df = df.copy()
-        
-        # Calculate these inside the app so they always exist
-        display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * 2.8) / 100
-        display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - display_df.get('AMOUNT_PAID', 0)
-        
-        # --- THE SAFETY CHECK ---
-        # List what we WANT to show
-        wanted = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ', 'DUE', 'STATUS']
-        # Only keep what actually EXISTS in your sheet + what we just calculated
-        available_cols = [c for c in wanted if c in display_df.columns]
+# --- 3. BORROWERS PAGE (The "Indestructible" Table) ---
+elif page == "Borrowers":
+    st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        # TABS
+        tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
 
-        st.dataframe(
-            display_df[available_cols],
-            column_config={
-                "CUSTOMER_NAME": "NAME",
-                "DATE_ISSUED": "ISSUED",
-                "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-                "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
-                "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                "DUE ": "DUE DATE",
-                "DUE": "DUE DATE",
-                "STATUS": "STATUS"
-            },
-            use_container_width=True,
-            hide_index=True
-        )
+        with tab_view:
+            st.markdown("### 📋 Active Loan Registry")
+            
+            # --- SAFETY MATH ---
+            display_df = df.copy()
+            # If columns are missing, we use defaults so it doesn't crash
+            rate = display_df.get('INTEREST_RATE', 2.8)
+            paid = display_df.get('AMOUNT_PAID', 0)
+            
+            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
+            display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
+            
+            # Detect the Due Date column (handles 'DUE ' or 'DUE')
+            d_col = "DUE " if "DUE " in display_df.columns else "DUE"
+            
+            # --- DYNAMIC COLUMN PICKER ---
+            # Only show what exists + what we just calculated
+            wanted = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', d_col, 'STATUS']
+            final_cols = [c for c in wanted if c in display_df.columns]
 
-        # 3. ACTION HUB
-        st.write("---")
-        with st.expander("⚙️ Management Tools"):
-            c1, c2 = st.columns(2)
-            with c1:
-                st.write("**Quick Edit**")
-                # Add your selectbox/edit form here
-            with c2:
-                st.write("**New Registration**")
-                # Add your registration form here
+            st.dataframe(
+                display_df[final_cols],
+                column_config={
+                    "CUSTOMER_NAME": "NAME",
+                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+                    "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
+                },
+                use_container_width=True, hide_index=True
+            )
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
