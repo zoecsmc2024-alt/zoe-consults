@@ -42,7 +42,7 @@ st.markdown("""
 # --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-@st.cache_data(ttl=600) # Keep data for 10 mins to save API quota
+@st.cache_data(ttl=600)
 def get_all_data():
     try:
         b_df = conn.read(worksheet="Borrowers").dropna(how="all")
@@ -50,20 +50,28 @@ def get_all_data():
         c_df = conn.read(worksheet="Collateral").dropna(how="all")
         s_df = conn.read(worksheet="Settings").dropna(how="all")
         return b_df, p_df, c_df, s_df
-    except Exception as e:
-        # If API is busy, show a warning and return empty data to prevent crash
-        st.warning("⚠️ Google Sheets is currently busy. Please wait a few seconds and refresh.")
+    except Exception:
+        # Returns empty dataframes if the API is busy or tab is missing
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
-# Global Load
+# 1. Load the data
 df, pay_df, collateral_df, settings_df = get_all_data()
-from streamlit_option_menu import option_menu # Add this to your imports at the top!
-# Get dynamic values
-brand_name = get_setting("Company Name", "ADMIN")
-brand_tagline = get_setting("Tagline", "ZOE CONSULTS SMC LTD")
-brand_logo_type = get_setting("Logo Type", "Emoji") # 'Emoji' or 'URL'
-brand_logo_val = get_setting("Logo Value", "🛡️")
 
+# 2. Define the helper (This fixes your NameError!)
+def get_setting(prop, default):
+    try:
+        if not settings_df.empty:
+            val = settings_df.loc[settings_df['Property'] == prop, 'Value'].values[0]
+            return val if pd.notna(val) else default
+        return default
+    except:
+        return default
+
+# 3. Now you can safely use it
+brand_name = get_setting("Company Name", "ZOE")
+brand_tagline = get_setting("Tagline", "CONSULTS")
+brand_logo_type = get_setting("Logo Type", "Emoji")
+brand_logo_val = get_setting("Logo Value", "🛡️")
 with st.sidebar:
     st.markdown("<div style='text-align: center; padding-bottom: 10px;'>", unsafe_allow_html=True)
     
