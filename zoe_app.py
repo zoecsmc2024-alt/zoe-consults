@@ -77,8 +77,7 @@ if page == "Borrowers":
     if not df.empty:
         # 1. NAVIGATION TABS
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
-
-       with tab_view:
+        with tab_view:
             st.markdown("### 📋 Active Loan Registry")
             
             if not df.empty:
