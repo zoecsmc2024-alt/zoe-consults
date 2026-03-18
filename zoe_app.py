@@ -65,19 +65,30 @@ def get_setting(prop, default):
         return default
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 # Get dynamic values
-brand_name = get_setting("Company Name", "ZOE")
-brand_tagline = get_setting("Tagline", "CONSULTS")
-brand_logo = get_setting("Logo Emoji", "🛡️")
+brand_name = get_setting("Company Name", "ADMIN")
+brand_tagline = get_setting("Tagline", "ZOE CONSULTS SMC LTD")
+brand_logo_type = get_setting("Logo Type", "Emoji") # 'Emoji' or 'URL'
+brand_logo_val = get_setting("Logo Value", "🛡️")
 
 with st.sidebar:
-    st.markdown(f"""
-        <div style="text-align: center; padding-bottom: 20px;">
+    st.markdown("<div style='text-align: center; padding-bottom: 20px;'>", unsafe_allow_html=True)
+    
+    if brand_logo_type == "URL":
+        try:
+            st.image(brand_logo_val, width=80)
+        except:
+            st.markdown(f"<h1>{brand_logo_val}</h1>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
                         width: 60px; height: 60px; border-radius: 15px; 
                         display: flex; align-items: center; justify-content: center; 
                         margin: 0 auto 15px auto;">
-                <span style="font-size: 30px; color: white;">{brand_logo}</span>
+                <span style="font-size: 30px; color: white;">{brand_logo_val}</span>
             </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown(f"""
             <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0;">{brand_name}</h1>
             <p style="color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0;">{brand_tagline}</p>
         </div>
@@ -646,21 +657,27 @@ elif page == "Settings":
             st.rerun()
 
     with tab_branding:
-        st.subheader("Edit Company Profile")
-        with st.form("branding_form"):
-            new_name = st.text_input("Company Name", value=brand_name)
-            new_tagline = st.text_input("Tagline", value=brand_tagline)
-            new_emoji = st.text_input("Logo Emoji", value=brand_logo, help="Windows: Win + . | Mac: Ctrl + Cmd + Space")
+    st.subheader("Edit Company Profile")
+    with st.form("branding_form"):
+        new_name = st.text_input("Company Name", value=brand_name)
+        new_tagline = st.text_input("Tagline", value=brand_tagline)
+        
+        logo_choice = st.radio("Logo Style", ["Emoji", "URL"], index=0 if brand_logo_type == "Emoji" else 1)
+        new_logo_val = st.text_input("Logo (Emoji or Image URL)", 
+                                     value=brand_logo_val,
+                                     help="Paste an emoji OR a direct link to a logo image (png/jpg)")
+        
+        if st.form_submit_button("💾 Save Branding Changes", use_container_width=True):
+            # Create the data to save
+            new_settings = pd.DataFrame([
+                ["Company Name", new_name],
+                ["Tagline", new_tagline],
+                ["Logo Type", logo_choice],
+                ["Logo Value", new_logo_val]
+            ], columns=["Property", "Value"])
             
-            if st.form_submit_button("💾 Save Branding Changes", use_container_width=True):
-                # Update the Settings DataFrame
-                new_settings = pd.DataFrame([
-                    ["Company Name", new_name],
-                    ["Tagline", new_tagline],
-                    ["Logo Emoji", new_emoji]
-                ], columns=["Property", "Value"])
-                
-                conn.update(worksheet="Settings", data=new_settings)
-                st.success("Branding updated! Refreshing...")
-                st.cache_data.clear()
-                st.rerun()
+            # This will now work because you created the 'Settings' tab!
+            conn.update(worksheet="Settings", data=new_settings)
+            st.success("Identity updated! Refreshing...")
+            st.cache_data.clear()
+            st.rerun()
