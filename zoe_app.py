@@ -10,16 +10,32 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
 st.markdown("""
 <style>
-    /* This removes the massive gap at the top of the main screen */
+    /* 1. THE ULTIMATE TOP RESET */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    /* 2. REMOVE THE HEADER GAP */
+    header {
+        visibility: hidden;
+        height: 0% !important;
+    }
+
+    /* 3. THE MAIN VIEWPORT */
     [data-testid="stAppViewContainer"] {
-        padding-top: 0rem !important;
+        background-color: #ffffff !important;
     }
-    [data-testid="stHeader"] {
-        background: transparent !important;
-    }
-    [data-testid="stMainViewContainer"] {
-        padding-top: 0rem !important;
-        margin-top: -50px !important; /* Pulls content up */
+
+    /* 4. FIX TITLE POSITION */
+    .main-title {
+        color: #0f172a !important;
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        margin-top: -20px !important;
+        margin-bottom: 20px !important;
+        letter-spacing: -1px;
     }
 </style>
 """, unsafe_allow_html=True)
