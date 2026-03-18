@@ -60,21 +60,12 @@ def get_all_data():
 df, pay_df, collateral_df = get_all_data()
 
 # --- 1. THE SIDEBAR (Simplified) ---
-# --- 1. THE SIDEBAR (The Look You Loved) ---
+# --- 1. THE SIDEBAR ---
 with st.sidebar:
-    # Logo Center
-    c1, col_img, c3 = st.columns([0.1, 0.8, 0.1])
-    with col_img:
-        try:
-            st.image("logo.png", use_container_width=True)
-        except:
-            st.markdown("<h1 style='text-align: center;'>🌐</h1>", unsafe_allow_html=True)
-            
     st.markdown("<h3 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h3>", unsafe_allow_html=True)
     st.write("---")
     
     # Restoring the Premium Menu
-    # Ensure 'from streamlit_option_menu import option_menu' is at the top of your file!
     page = option_menu(
         menu_title=None,
         options=["Overview", "Borrowers", "Repayments", "Ledger", "Settings"],
@@ -83,7 +74,7 @@ with st.sidebar:
         styles={"nav-link-selected": {"background-color": "#1E3A8A"}}
     )
 
-# --- 2. OVERVIEW PAGE (Clean & Simple) ---
+# --- 2. THE PAGES ---
 if page == "Overview":
     st.markdown('<h1 style="color: #1E3A8A;">🏠 Executive Summary</h1>', unsafe_allow_html=True)
     if not df.empty:
@@ -93,44 +84,24 @@ if page == "Overview":
         m2.metric("Total Principal", f"UGX {total_p:,.0f}")
         m3.metric("Expected Interest", f"UGX {(total_p * 0.028):,.0f}")
 
-# --- 3. BORROWERS PAGE (The "Indestructible" Table) ---
 elif page == "Borrowers":
     st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
-    
     if not df.empty:
-        # TABS
-        tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
-
-        with tab_view:
-            st.markdown("### 📋 Active Loan Registry")
-            
-            # --- SAFETY MATH ---
-            display_df = df.copy()
-            # If columns are missing, we use defaults so it doesn't crash
-            rate = display_df.get('INTEREST_RATE', 2.8)
-            paid = display_df.get('AMOUNT_PAID', 0)
-            
-            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
-            display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
-            
-            # Detect the Due Date column (handles 'DUE ' or 'DUE')
-            d_col = "DUE " if "DUE " in display_df.columns else "DUE"
-            
-            # --- DYNAMIC COLUMN PICKER ---
-            # Only show what exists + what we just calculated
-            wanted = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', d_col, 'STATUS']
-            final_cols = [c for c in wanted if c in display_df.columns]
-
-            st.dataframe(
-                display_df[final_cols],
-                column_config={
-                    "CUSTOMER_NAME": "NAME",
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-                    "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
-                },
-                use_container_width=True, hide_index=True
-            )
+        # One clean table, zero stress
+        display_df = df.copy()
+        
+        # Calculate extra info safely
+        display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * 0.028)
+        display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - display_df.get('AMOUNT_PAID', 0)
+        
+        st.dataframe(
+            display_df[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding']],
+            column_config={
+                "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+                "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d")
+            },
+            use_container_width=True, hide_index=True
+        )
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
