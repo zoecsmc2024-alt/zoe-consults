@@ -123,9 +123,17 @@ if page == "📊 Overview":
     else:
         st.info("👋 Welcome, Admin! Add your first loan to see the magic happen.")
         
-        # --- THE CHART ---
-        st.markdown('<h3 style="color: #0f172a;">📈 Recovery Progress</h3>', unsafe_allow_html=True)
-        st.bar_chart(df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']], color=["#0ea5e9", "#10b981"])
+       # --- 4. THE PRO RECOVERY CHART ---
+st.markdown('<h3 style="color: #0f172a; margin-top: 30px;">📈 Recovery Progress</h3>', unsafe_allow_html=True)
+
+# This adds a nice background and rounded corners to the chart area
+with st.container():
+    st.bar_chart(
+        df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']], 
+        color=["#0ea5e9", "#10b981"], # Teal for Principal, Green for Recovered
+        use_container_width=True
+    )
+    st.caption("🔵 Principal Issued (Investment) vs 🟢 Total Collected (Recovery)")
     
     # 2. THE WHITE WRAPPER END
     st.markdown('</div>', unsafe_allow_html=True)
