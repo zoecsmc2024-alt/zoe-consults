@@ -383,36 +383,85 @@ elif page == "Calendar":
         st.info("No borrower data found.")
 
 elif page == "Collateral":
-    st.markdown('<div class="main-title">🔐 Collateral Vault</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">🔐 Collateral Vault Control</div>', unsafe_allow_html=True)
     
-    # Ensure collateral_df exists even if sheet read fails
-    if 'collateral_df' not in locals():
-        collateral_df = pd.DataFrame(columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+    # --- 1. VAULT OVERVIEW STATS ---
+    if not collateral_df.empty:
+        held_assets = collateral_df[collateral_df['STATUS'].str.contains("HELD", na=False)]
+        total_vault_value = held_assets['VALUE'].sum()
+        
+        st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 25px; border-radius: 15px; color: white; margin-bottom: 25px; border: 1px solid #334155;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <p style="margin: 0; font-size: 0.8rem; opacity: 0.7; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Total Vault Valuation</p>
+                        <h1 style="margin: 5px 0; color: #f8fafc; font-size: 2.2rem;">UGX {total_vault_value:,.0f}</h1>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="background: #10b981; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">{len(held_assets)} ASSETS SECURED</span>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # 1. Registration Form
-    with st.expander("📥 Register & Save New Asset", expanded=False):
+    # --- 2. REGISTRATION (SECURE ENTRY) ---
+    with st.expander("📥 Register & Secure New Asset", expanded=False):
         with st.form("permanent_collateral"):
             borrower_list = df['CUSTOMER_NAME'].unique().tolist() if not df.empty else ["No Borrowers Found"]
-            c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
-            c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
-            c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
-            c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
             
-            if st.form_submit_button("🔒 Secure Asset to Cloud"):
+            c1, c2 = st.columns(2)
+            with c1:
+                c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
+                c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Household", "Other"])
+            with c2:
+                c_val = st.number_input("Estimated Market Value (UGX)", min_value=0, step=100000)
+                c_desc = st.text_input("Serial Number / Plate Number / Description")
+            
+            if st.form_submit_button("🔒 Lock Asset to Vault", use_container_width=True):
                 new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
                                        columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
                 updated_c = pd.concat([collateral_df, new_asset], ignore_index=True)
                 conn.update(worksheet="Collateral", data=updated_c)
-                st.success("Asset Locked!")
+                st.success("Asset successfully encrypted and stored in vault.")
                 st.rerun()
 
-    # 2. Vault View
+    # --- 3. THE VAULT TABLE ---
     st.write("---")
     st.subheader("📋 Assets Currently Held")
+    
     if not collateral_df.empty:
-        st.dataframe(collateral_df, use_container_width=True, hide_index=True)
+        st.dataframe(
+            collateral_df,
+            column_config={
+                "NAME": "Owner",
+                "ASSET_TYPE": "Category",
+                "DESCRIPTION": "Details",
+                "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
+                "STATUS": st.column_config.TextColumn("Vault Status")
+            },
+            use_container_width=True, hide_index=True
+        )
+        
+        # --- 4. ASSET RELEASE CONTROL (Functional) ---
+        st.write("")
+        st.subheader("🔓 Asset Release Control")
+        active_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
+        
+        if not active_assets.empty:
+            with st.popover("Release Asset to Client"):
+                target_asset = st.selectbox("Select Asset to Release:", options=active_assets['DESCRIPTION'].unique())
+                confirm_date = datetime.now().strftime('%Y-%m-%d')
+                
+                if st.button("Confirm Release", use_container_width=True, type="primary"):
+                    collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({confirm_date})"
+                    conn.update(worksheet="Collateral", data=collateral_df)
+                    st.toast(f"Asset {target_asset} released!")
+                    st.rerun()
+        else:
+            st.info("No assets are currently available for release.")
+            
     else:
-        st.info("The vault is currently empty.")
+        st.info("The vault is currently empty. Assets will appear here once registered.")
 elif page == "Ledger":
     st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
     
