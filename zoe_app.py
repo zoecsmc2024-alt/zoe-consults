@@ -297,73 +297,86 @@ elif page == "Ledger":
         client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
         client_pay = pay_df[pay_df['CUSTOMER_NAME'] == target].sort_values(by='DATE', ascending=False)
         
-        # 2. Math Calculations
+        # 2. Financial Math
         int_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
         total_due = client_info['LOAN_AMOUNT'] + int_amt
         bal = total_due - client_info['AMOUNT_PAID']
 
-        # 3. Financial Metrics (The 3 Columns)
-        st.subheader(f"Financial Status: {target}")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Original Principal", f"UGX {client_info['LOAN_AMOUNT']:,.0f}")
-        c2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
-        c3.metric("Outstanding Balance", f"UGX {bal:,.0f}", delta="Reduces as they pay", delta_color="inverse")
-        
-        st.write("---")
-       # --- STYLED WHATSAPP BUTTON ---
-        st.write("---")
-        
-        # 1. Prepare the Message (Same as before)
+        # 3. PROFESSIONAL HEADER (Company Details)
+        st.markdown(f"""
+            <div style="background-color: #f8fafc; padding: 25px; border-radius: 15px; border: 1px solid #e2e8f0; margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <h2 style="color: #1e3a8a; margin: 0;">ZOE CONSULTS LTD</h2>
+                        <p style="color: #64748b; font-size: 0.9rem; margin: 2px 0;">
+                            📍 Plot 45, Kampala Road, Uganda<br>
+                            📞 +256 700 000 000 | 📧 info@zoeconsults.com
+                        </p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h4 style="margin: 0; color: #1e3a8a;">OFFICIAL STATEMENT</h4>
+                        <p style="color: #64748b; font-size: 0.8rem;">Date: {datetime.now().strftime('%d %b %Y')}</p>
+                    </div>
+                </div>
+                <hr style="border: 0.5px solid #e2e8f0; margin: 15px 0;">
+                <div style="display: flex; justify-content: space-between;">
+                    <div>
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Client Name</p>
+                        <p style="font-weight: bold; font-size: 1.1rem; color: #1e293b;">{target}</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Account Status</p>
+                        <p style="font-weight: bold; color: {'#10b981' if bal <= 0 else '#ef4444'};">
+                            {'✅ FULLY PAID' if bal <= 0 else '🚩 OUTSTANDING'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 4. COMPACT FINANCIAL SUMMARY
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Principal", f"UGX {client_info['LOAN_AMOUNT']:,.0f}")
+        c2.metric("Interest ({0}%)".format(client_info['INTEREST_RATE']), f"UGX {int_amt:,.0f}")
+        c3.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
+        c4.metric("Balance", f"UGX {bal:,.0f}", delta_color="inverse")
+
+        # 5. WHATSAPP BUTTON
         message = (
             f"Hello%20{target},%20this%20is%20Zoe%20Consults.%0A%0A"
-            f"Your%20Loan%20Statement%20Update:%0A"
-            f"•%20Principal:%20UGX%20{client_info['LOAN_AMOUNT']:,.0f}%0A"
-            f"•%20Total%20Paid:%20UGX%20{client_info['AMOUNT_PAID']:,.0f}%0A"
-            f"•%20Current%20Balance:%20UGX%20{bal:,.0f}%0A%0A"
-            f"Please%20reach%20out%20if%20you%20have%20any%20questions."
+            f"Your%20Statement:%0A"
+            f"Principal:%20UGX%20{client_info['LOAN_AMOUNT']:,.0f}%0A"
+            f"Interest:%20UGX%20{int_amt:,.0f}%0A"
+            f"Total%20Paid:%20UGX%20{client_info['AMOUNT_PAID']:,.0f}%0A"
+            f"Balance:%20UGX%20{bal:,.0f}"
         )
         wa_url = f"https://wa.me/?text={message}"
-
-        # 2. The Green, Smaller Button using HTML/CSS
+        
         st.markdown(f"""
             <a href="{wa_url}" target="_blank" style="text-decoration: none;">
-                <div style="
-                    background-color: #25D366;
-                    color: white;
-                    padding: 10px 20px;
-                    border-radius: 25px;
-                    text-align: center;
-                    font-weight: bold;
-                    width: fit-content;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
-                ">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="20px">
-                    Send to WhatsApp
+                <div style="background-color: #25D366; color: white; padding: 8px 16px; border-radius: 8px; width: fit-content; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="18px"> Send Statement
                 </div>
             </a>
         """, unsafe_allow_html=True)
-        st.write("") # Just a little spacing at the bottom
-        # 4. THE RETURNED TABLE (Detailed Transactions)
-        st.write("🔍 **Transaction History**")
+
+        # 6. TRANSACTION HISTORY
+        st.write("---")
+        st.subheader("🔍 Transaction History")
         if not client_pay.empty:
             st.dataframe(
-                client_pay[['DATE', 'AMOUNT_PAID', 'REF']], # We hide CUSTOMER_NAME here to save space
+                client_pay[['DATE', 'AMOUNT_PAID', 'REF']], 
                 column_config={
                     "DATE": "Payment Date",
                     "AMOUNT_PAID": st.column_config.NumberColumn("Amount Received", format="UGX %,d"),
                     "REF": "Receipt/Ref #"
                 },
-                use_container_width=True,
-                hide_index=True
+                use_container_width=True, hide_index=True
             )
         else:
-            st.info(f"No payments recorded for {target} yet.")
-            
+            st.info("No payments recorded yet.")
     else:
-        st.info("No borrowers found. Please add data in the Borrowers tab.")
+        st.info("No borrowers found.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
