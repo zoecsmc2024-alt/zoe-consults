@@ -89,28 +89,29 @@ with st.sidebar:
 if page == "Overview":
     st.markdown('<div class="main-title">🛡️ Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
     
-    if not df.empty:
-        # Calculate totals from the Google Sheet data
+    # DEBUG: This will show you if the app sees any data at all
+    if df.empty:
+        st.warning("🕵️ Your 'Borrowers' sheet appears to be empty. Please add a loan in the Borrowers tab.")
+    else:
+        # 📊 1. CALCULATE TOTALS
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
         risk = total_p - total_c
         
-        # 📊 NEW BEAUTIFUL KPI TILES
+        # 💎 2. PREMIUM TILES
         c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric("Total Principal", f"UGX {total_p:,.0f}", delta_color="normal")
-        with c2:
-            st.metric("Total Recovered", f"UGX {total_c:,.0f}", delta_color="normal")
-        with c3:
-            st.metric("Outstanding Risk", f"UGX {risk:,.0f}", delta="-High" if risk > 0 else "Clear")
+        c1.metric("Principal Issued", f"UGX {total_p:,.0f}")
+        c2.metric("Total Collected", f"UGX {total_c:,.0f}")
+        c3.metric("Outstanding Risk", f"UGX {risk:,.0f}")
             
         st.write("---")
         
-        # 📈 THE RECOVERY CHART (Bringing it back!)
+        # 📈 3. THE RECOVERY CHART (Forced Mapping)
         st.subheader("Recovery Progress by Client")
-        st.bar_chart(df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']], color=["#0ea5e9", "#10b981"])
-    else:
-        st.info("👋 Welcome, Admin! Add your first loan in the 'Borrowers' tab to see your charts.")
+        
+        # We explicitly tell the chart which columns to use
+        chart_data = df[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID']].set_index('CUSTOMER_NAME')
+        st.bar_chart(chart_data, color=["#0ea5e9", "#10b981"])
 
 elif page == "Borrowers":
     st.title("👥 Active Loan Registry")
