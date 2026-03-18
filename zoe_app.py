@@ -114,21 +114,70 @@ if page == "Overview":
         st.bar_chart(chart_data, color=["#0ea5e9", "#10b981"])
 
 elif page == "Borrowers":
-    st.title("👥 Active Loan Registry")
-    # Show the main table from Google Sheets
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
-    with st.popover("➕ New Loan Disbursal"):
-        with st.form("new_loan_cloud"):
-            name = st.text_input("Client Name")
-            amt = st.number_input("Principal Amount", min_value=0)
-            rate = st.number_input("Interest Rate (%)", value=10.0)
-            if st.form_submit_button("✅ Save to Cloud"):
+    if not df.empty:
+        # 1. CALCULATE DYNAMIC COLUMNS
+        display_df = df.copy()
+        
+        # Ensure dates are in the correct format
+        display_df['ISSUED DATE'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
+        display_df['DUE DATE'] = (pd.to_datetime(display_df['DATE_ISSUED']) + pd.Timedelta(days=30)).dt.date
+        
+        # Mapping your sheet headers to your requested display names
+        display_df = display_df.rename(columns={
+            'CUSTOMER_NAME': 'NAME',
+            'LOAN_AMOUNT': 'PRINCIPLE',
+            'INTEREST_RATE': 'INTEREST %'
+        })
+
+        # 2. STATUS LOGIC
+        def get_status(row):
+            if row['OUTSTANDING_AMOUNT'] <= 0:
+                return "✅ PAID"
+            elif datetime.now().date() > row['DUE DATE']:
+                return "🚩 OVERDUE"
+            else:
+                return "🔵 ACTIVE"
+        
+        display_df['STATUS'] = display_df.apply(get_status, axis=1)
+
+        # 3. PROFESSIONAL TABLE DISPLAY
+        cols_to_show = ['NAME', 'ISSUED DATE', 'PRINCIPLE', 'INTEREST %', 'OUTSTANDING_AMOUNT', 'DUE DATE', 'STATUS']
+        
+        st.dataframe(
+            display_df[cols_to_show],
+            column_config={
+                "PRINCIPLE": st.column_config.NumberColumn(format="UGX %,d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn(format="UGX %,d"),
+                "ISSUED DATE": st.column_config.DateColumn(),
+                "DUE DATE": st.column_config.DateColumn(),
+                "STATUS": st.column_config.TextColumn("Status"),
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No records found in the Google Sheet.")
+
+    # 4. NEW LOAN FORM (Updated to match these columns)
+    with st.popover("➕ Register New Borrower"):
+        with st.form("new_loan_v2"):
+            st.markdown("### 📝 Enter Details")
+            c_name = st.text_input("Full Name")
+            c_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
+            c_rate = st.number_input("Interest Rate (%)", value=10)
+            c_date = st.date_input("Issuance Date", datetime.now())
+            
+            if st.form_submit_button("✅ Disburse & Sync", use_container_width=True):
                 new_id = int(df['SN'].max() + 1) if not df.empty else 1
-                new_row = pd.DataFrame([[new_id, name, amt, 0, amt, rate, str(datetime.now().date())]], columns=df.columns)
+                # Save using the sheet's original header names
+                new_row = pd.DataFrame([[new_id, c_name, c_amt, 0, c_amt, c_rate, str(c_date)]], 
+                                     columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED'])
+                
                 updated_df = pd.concat([df, new_row], ignore_index=True)
                 conn.update(worksheet="Borrowers", data=updated_df)
-                st.success("Saved to Google Sheets!")
+                st.success(f"Loan for {c_name} has been synced to Google Sheets!")
                 st.rerun()
 
 elif page == "Repayments":
