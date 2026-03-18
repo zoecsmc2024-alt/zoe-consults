@@ -43,33 +43,46 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_data():
+    b_df = conn.read(worksheet="Borrowers", ttl="600").dropna(how="all")
+    p_df = conn.read(worksheet="Payments", ttl="600").dropna(how="all")
+    c_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
+    # New Settings Sheet: Should have columns 'Property' and 'Value'
     try:
-        b_df = conn.read(worksheet="Borrowers", ttl="600").dropna(how="all")
-        p_df = conn.read(worksheet="Payments", ttl="600").dropna(how="all")
-        c_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
-        return b_df, p_df, c_df
+        s_df = conn.read(worksheet="Settings", ttl="600").dropna(how="all")
     except:
-        # Fallback to empty dataframes if sheets aren't created yet
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        # Fallback if sheet doesn't exist yet
+        s_df = pd.DataFrame([["Company Name", "ZOE"], ["Tagline", "CONSULTS"], ["Logo Emoji", "🛡️"]], 
+                            columns=["Property", "Value"])
+    return b_df, p_df, c_df, s_df
 
-df, pay_df, collateral_df = get_all_data()
+df, pay_df, collateral_df, settings_df = get_all_data()
+
+# Helper to get setting value
+def get_setting(prop, default):
+    try:
+        return settings_df.loc[settings_df['Property'] == prop, 'Value'].values[0]
+    except:
+        return default
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
+# Get dynamic values
+brand_name = get_setting("Company Name", "ZOE")
+brand_tagline = get_setting("Tagline", "CONSULTS")
+brand_logo = get_setting("Logo Emoji", "🛡️")
 
 with st.sidebar:
-    # 1. PREMIUM LOGO & BRANDING
-    st.markdown("""
+    st.markdown(f"""
         <div style="text-align: center; padding-bottom: 20px;">
             <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
                         width: 60px; height: 60px; border-radius: 15px; 
                         display: flex; align-items: center; justify-content: center; 
-                        margin: 0 auto 15px auto; box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);">
-                <span style="font-size: 30px; color: white;">🛡️</span>
+                        margin: 0 auto 15px auto;">
+                <span style="font-size: 30px; color: white;">{brand_logo}</span>
             </div>
-            <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0; letter-spacing: -0.5px;">ZOE</h1>
-            <p style="color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0; text-transform: uppercase;">Consults IQ</p>
+            <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0;">{brand_name}</h1>
+            <p style="color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0;">{brand_tagline}</p>
         </div>
-        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 10px 0 20px 0;">
     """, unsafe_allow_html=True)
+    # ... rest of your option_menu ...
 
     # 2. THE OPTION MENU (Modern Styling)
     # Using 'option_menu' for a more mobile-responsive, centered feel
