@@ -95,7 +95,7 @@ if page == "Borrowers":
                     hide_index=True
                 )
             # 4. --- REGISTER NEW BORROWER FORM ---
-            with st.expander("➕ Register New Borrower"):
+        with st.expander("➕ Register New Borrower"):
                 with st.form("add_new_borrower"):
                     st.write("Enter the details for the new Zoe Consults client:")
                     c1, c2 = st.columns(2)
