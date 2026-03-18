@@ -94,7 +94,6 @@ if page == "Borrowers":
                     use_container_width=True,
                     hide_index=True
                 )
-            
             # 4. --- REGISTER NEW BORROWER FORM ---
             with st.expander("➕ Register New Borrower"):
                 with st.form("add_new_borrower"):
