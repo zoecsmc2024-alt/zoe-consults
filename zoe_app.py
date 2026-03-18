@@ -249,8 +249,8 @@ if not collateral_df.empty:
     )
 else:
     st.info("The vault data is still loading or empty. Click 'Sync' above if you have assets in your Google Sheet.")
-                    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
-                                           columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
+                                columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
                     updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
                     conn.update(worksheet="Collateral", data=updated_collateral)
                     st.success("Asset Locked!")
