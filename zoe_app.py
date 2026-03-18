@@ -58,7 +58,7 @@ with st.sidebar:
             <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; margin-top: -5px; letter-spacing: 3px;">CONSULTS</p>
             <hr style="border: 0.5px solid #f1f5f9; margin: 15px 0;">
             <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <span style="font-size: 1.5rem;">💰</span>
+                <span style="font-size: 1.5rem;"></span>
                 <div style="text-align: left;">
                     <p style="color: #94a3b8; font-size: 0.6rem; margin: 0; font-weight: bold;">ADMINISTRATOR</p>
                     <p style="color: #1e293b; font-size: 0.9rem; margin: 0; font-weight: bold;">{st.session_state.get('user_name', 'Evans Ahuura')}</p>
