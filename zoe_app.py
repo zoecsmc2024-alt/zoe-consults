@@ -199,6 +199,8 @@ elif page == "Calendar":
     st.markdown('<div class="main-title">🗓️ Collection & Due Date Calendar</div>', unsafe_allow_html=True)
     
     if not df.empty:
+        # TEMPORARY: This will list all your column names so we can see the right one
+    st.write("Columns found in your sheet:", list(df.columns))
         # 1. FIND THE DATE COLUMN AUTOMATICALLY
         # This checks for common names so the app doesn't crash
         possible_names = ['DUE_DATE', 'Due Date', 'DATE_DUE', 'Due_Date']
