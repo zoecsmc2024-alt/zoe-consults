@@ -78,7 +78,6 @@ if page == "Borrowers":
         # 1. NAVIGATION TABS
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
 with tab_view:
-            st.markdown("### 📋 Active Loan Registry")
             
             # 1. CREATE THE DATA (Must happen before we try to show the table)
             if not df.empty:
