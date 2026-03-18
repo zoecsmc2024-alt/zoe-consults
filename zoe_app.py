@@ -42,14 +42,14 @@ st.markdown("""
 # --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def get_data():
-    # We change ttl from "0" to 600 (10 minutes)
-    # This stores the data in the app's memory so it doesn't keep pestering Google
-    df = conn.read(worksheet="Borrowers", ttl=600).dropna(how="all")
-    pay_df = conn.read(worksheet="Payments", ttl=600).dropna(how="all")
-    return df, pay_df
+def get_all_data():
+    b_df = conn.read(worksheet="Borrowers", ttl="600").dropna(how="all")
+    p_df = conn.read(worksheet="Payments", ttl="600").dropna(how="all")
+    # Add this line here so it's loaded globally!
+    c_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
+    return b_df, p_df, c_df
 
-df, pay_df = get_data()
+df, pay_df, collateral_df = get_all_data()
 # --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.markdown('<div style="margin-top: -30px;"></div>', unsafe_allow_html=True)
