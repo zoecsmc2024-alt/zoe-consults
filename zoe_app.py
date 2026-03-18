@@ -39,17 +39,30 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-# --- 2. PERMANENT DATA CONNECTION ---
+# --- 2. PERMANENT DATA CONNECTION (FORCE-LOAD) ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
-    # Fetching both tables from Google Sheets
-    borrowers = conn.read(worksheet="Borrowers", ttl="0")
-    payments = conn.read(worksheet="Payments", ttl="0")
-    return borrowers.dropna(how="all"), payments.dropna(how="all")
+    try:
+        # We use ttl="0" to ensure it doesn't show old "cached" data
+        borrowers = conn.read(worksheet="Borrowers", ttl="0")
+        payments = conn.read(worksheet="Payments", ttl="0")
+        
+        # Clean up empty rows
+        borrowers = borrowers.dropna(how="all")
+        payments = payments.dropna(how="all")
+        
+        # Ensure numbers are actually numbers (Crucial for Charts!)
+        for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
+            if col in borrowers.columns:
+                borrowers[col] = pd.to_numeric(borrowers[col], errors='coerce').fillna(0)
+                
+        return borrowers, payments
+    except Exception as e:
+        st.error(f"⚠️ Connection Error: {e}")
+        return pd.DataFrame(), pd.DataFrame()
 
 df, pay_df = get_data()
-
 # --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.markdown('<div style="margin-top: -30px;"></div>', unsafe_allow_html=True)
