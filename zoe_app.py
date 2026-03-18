@@ -1,10 +1,7 @@
-from datetime import datetime
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 import os
-import zipfile
-import io
-
 # --- 0. SECURITY GATE ---
 def check_password():
     def login_clicked():
@@ -27,96 +24,6 @@ def check_password():
 
 if not check_password():
     st.stop()
-
-# --- DATA LOADING (Must be at the top) ---
-DB_FILE = "zoe_borrowers.csv"
-if os.path.exists(DB_FILE):
-    df = pd.read_csv(DB_FILE)
-else:
-    # Create an empty dataframe if file doesn't exist yet
-    df = pd.DataFrame(columns=['CUSTOMER_NAME', 'LOAN_AMOUNT', 'STATUS'])
-
-# --- SIDEBAR STYLING (At the top of your script) ---
-st.markdown("""
-<style>
-    /* 1. Force the logo into a small, sharp circle */
-    [data-testid="stSidebar"] img {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 80px !important;  /* Small & consistent size */
-        height: 80px !important; /* Must match width for a perfect circle */
-        object-fit: cover;       /* Prevents stretching */
-        border-radius: 50% !important; /* The magic circle line */
-        border: 2px solid #00a8b5;     /* Teal border to match your brand */
-        margin-top: 10px;
-        margin-bottom: 10px;
-    }
-
-    /* 2. Center the text under the circle */
-    .sidebar-brand-text {
-        text-align: center;
-        color: white;
-        font-weight: bold;
-        font-size: 18px;
-        margin-bottom: 20px;
-    }
-</style>
-""", unsafe_allow_html=True)
-# --- THE SIDEBAR CONTENT ---
-with st.sidebar:
-    # Use columns to center the pencil icon button
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        # A borderless button with a pencil icon to change the logo
-        if st.button("✏️", key="change_logo_btn", help="Tap to change logo"):
-            st.session_state['show_uploader'] = True
-
-    # Check if a logo is currently set
-    if 'custom_logo' in st.session_state:
-        st.image(st.session_state['custom_logo'], use_column_width=True)
-    else:
-        # Title placeholder if no logo
-        st.markdown('<p class="sidebar-title">Zoe Consults</p>', unsafe_allow_html=True)
-
-    # The Uploader (shows only after tapping the pencil)
-    if st.session_state.get('show_uploader', False):
-        st.write("---")
-        uploaded_file = st.file_uploader("Choose new logo...", type=["png", "jpg", "jpeg"], key="sidebar_uploader")
-        if uploaded_file:
-            st.session_state['custom_logo'] = uploaded_file
-            st.session_state['show_uploader'] = False
-            st.rerun()  # Refresh to update the logo display
-
-    st.write(f"**Admin:** Evans Ahuura")
-    st.write("---")
-
-    page = st.radio(
-        "Navigation",
-        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"],
-        key="nav_menu"
-    )
-
-# --- MAIN PAGE CONTENT ---
-if page == "📈 Performance":
-    st.title("Business Growth & Trends")
-    # ... your charts ...
-
-elif page == "👥 Borrowers":
-    st.subheader("Active Loan Registry")
-    # ... your borrowers table ...
-
-elif page == "📄 Client Ledger":
-    st.subheader("Client Transaction Ledger")
-    # ... your ledger code ...
-
-elif page == "⚙️ Settings":
-    st.subheader("System Configuration")
-    # ... your settings ...
-
-
-    # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
-    # (This keeps the settings page clean and focused)
 
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
@@ -146,32 +53,20 @@ def calculate_reducing_balance(principal, annual_rate, periods=12):
 # --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# --- REPLACE YOUR CSS BLOCK WITH THIS ---
 st.markdown("""
-<style>
-    /* 1. Main Background and Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #0f172a !important;
+    <style>
+    .stApp { background: linear-gradient(to bottom, #f0f2f5, #ffffff); }
+    .box-card {
+        background: white; 
+        border: none;
+        padding: 24px; 
+        border-radius: 15px; 
+        text-align: center;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
     }
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
-
-    /* 2. WhatsApp Button Styling */
-    div.stLinkButton > a:has(div:contains("WhatsApp")) {
-        background-color: #25D366 !important;
-        color: white !important;
-        border: none !important;
-        font-weight: bold !important;
-        text-decoration: none !important;
-    }
-
-    /* 3. Download Button Styling */
-    div[data-testid="stDownloadButton"] > button {
-        background-color: #334155 !important;
-        color: white !important;
-    }
-</style>
+    .box-card:hover { transform: translateY(-5px); }
+    </style>
 """, unsafe_allow_html=True)
 
 # --- 2. DATA ENGINE ---
@@ -217,17 +112,88 @@ def get_base64_image(image_path):
 # Replace the URL below with your actual hosted logo link
 LOGO_URL = "https://img.icons8.com/fluency/96/money-bag-euro.png" 
 
+import base64
+import io
 
 # --- 1. LOGO STORAGE LOGIC ---
 # This ensures the image stays visible while you navigate tabs
 if 'custom_logo_b64' not in st.session_state:
     st.session_state['custom_logo_b64'] = None
 
+# --- 2. THE BLUE BRANDING BAR ---
+# We use the session state logo if it exists, otherwise a default icon
+logo_display = f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}" style="height: 40px; border-radius: 5px;">' if st.session_state['custom_logo_b64'] else '<img src="https://img.icons8.com/fluency/96/money-bag-euro.png" style="height: 40px;">'
 
+header_html = f"""
+    <div style="background-color: #0f172a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 3px solid #00acc1; border-radius: 8px 8px 0 0; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            {logo_display}
+            <div style="display: flex; flex-direction: column; line-height: 1.1;">
+                <b style="font-size: 1.2em; letter-spacing: 0.5px;">Zoe Consults</b>
+                <span style="font-size: 0.7em; opacity: 0.6; font-weight: 300;">Evans Ahuura | Admin</span>
+            </div>
+        </div>
+        <div style="font-size: 0.8em; opacity: 0.4;">{datetime.now().strftime('%d %b %H:%M')}</div>
+    </div>
+"""
+st.markdown(header_html, unsafe_allow_html=True)
+
+# --- 3. THE ACTION & EDIT TOOLBAR ---
+with st.container():
+    # Added a new 'Settings' column (c_set)
+    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([3.5, 0.4, 0.4, 0.4, 0.4, 0.4])
+
+    with c_search:
+        search_query = st.text_input("", placeholder="🔍 Search borrowers...", label_visibility="collapsed")
+
+    with c_new:
+        with st.popover("➕", help="New Loan"):
+            st.markdown("### 📝 New Loan Entry")
+            # ... (your existing form logic)
+            
+    with c_del:
+        with st.popover("🗑️", help="Delete"):
+            # ... (your existing delete logic)
+            pass
+
+    with c_dl:
+        # ... (your existing download logic)
+        pass
+
+    with c_set:
+        with st.popover("⚙️", help="Brand Settings"):
+            st.markdown("#### 🖼️ Update Logo")
+            new_file = st.file_uploader("Upload PNG/JPG", type=["png", "jpg", "jpeg"])
+            
+            if new_file:
+                encoded = base64.b64encode(new_file.getvalue()).decode()
+                st.session_state['custom_logo_b64'] = encoded
+                st.success("Logo uploaded!")
+                # Just a normal button, no callback needed
+                if st.button("Refresh Dashboard"):
+                    st.rerun()
+            
+            if st.button("Reset to Default"):
+                st.session_state['custom_logo_b64'] = None
+                st.rerun()
+
+    with c_logout:
+        if st.button("🚪", help="Logout"):
+            st.session_state["password_correct"] = False
+            st.rerun()
 st.write("---") # Visual separator before the tabs
-
+# --- 5. DASHBOARD TABS ---
+# We now have 6 tabs (Index 0 to 5)
+menu_tabs = st.tabs([
+    "📊 Overview", 
+    "👥 Borrowers List", 
+    "💰 Repayments", 
+    "📑 Collateral", 
+    "📅 Calendar", 
+    "📄 Client Report"  # <--- This adds Tab 5
+])
 # --- TAB 0: OVERVIEW (The Eye-Catching FinTech Dashboard) ---
-if page == "📈 Performance":
+with menu_tabs[0]:
     if not df.empty:
         # 1. CALCULATE FINANCIALS
         total_principal = df['LOAN_AMOUNT'].sum()
@@ -258,42 +224,6 @@ if page == "📈 Performance":
                 "Amount": [total_principal, total_collected, actual_profit]
             })
             st.bar_chart(data=perf_df, x="Metric", y="Amount", color="Metric")
-
-       # --- 5. TIME-SERIES PERFORMANCE TRENDS (Error-Proof Version) ---
-        st.write("---")
-        st.subheader("📉 Growth & Liquidity Trends")
-
-        if not df.empty and os.path.exists(PAYMENT_FILE):
-            try:
-                # 1. Process Loans
-                loan_trend_df = df.copy()
-                loan_trend_df['MONTH'] = pd.to_datetime(loan_trend_df['DATE_ISSUED']).dt.strftime('%Y-%m')
-                monthly_loans = loan_trend_df.groupby('MONTH')['LOAN_AMOUNT'].sum().reset_index()
-                
-                # 2. Process Payments (Safe Column Detection)
-                pay_df = pd.read_csv(PAYMENT_FILE)
-                pay_df['MONTH'] = pd.to_datetime(pay_df['DATE']).dt.strftime('%Y-%m')
-                
-                # Check for column name variations
-                pay_col = 'AMOUNT' if 'AMOUNT' in pay_df.columns else 'AMOUNT_PAID'
-                monthly_pays = pay_df.groupby('MONTH')[pay_col].sum().reset_index()
-                monthly_pays.columns = ['MONTH', 'Total Collected'] # Rename for merge
-
-                # 3. Merge and Chart
-                trend_df = pd.merge(monthly_loans, monthly_pays, on='MONTH', how='outer').fillna(0)
-                trend_df.columns = ['Month', 'Principal Issued', 'Total Collected']
-                trend_df = trend_df.sort_values('Month')
-
-                st.line_chart(
-                    trend_df.set_index('Month'), 
-                    color=["#0ea5e9", "#10b981"]
-                )
-                st.caption("🔵 Principal Issued (Investment) vs 🟢 Total Collected (Recovery)")
-            
-            except Exception as e:
-                st.warning(f"Could not generate trends: Ensure your dates are in YYYY-MM-DD format.")
-        else:
-            st.info("Growth trends will appear once you have a history of payments recorded.")
 
         with chart_col2:
             st.subheader("🎯 Risk Distribution")
@@ -354,7 +284,7 @@ if page == "📈 Performance":
     else:
         st.info("👋 Welcome! Please add a loan to see your dashboard come to life.")
 # --- TAB 1: BORROWERS LIST (Formatted & Editable) ---
-elif page == "👥 Borrowers":
+with menu_tabs[1]:
     st.subheader("👥 Manage Loan Records")
     
     # 1. PRE-PROCESS THE MATH (Same logic as Overview)
@@ -412,7 +342,7 @@ elif page == "👥 Borrowers":
     else:
         st.info("No records to display.")
 # --- TAB 2: REPAYMENTS ---
-elif page == "💰 Record a Payment":
+with menu_tabs[2]:
     st.subheader("💰 Record a Payment")
     if not df.empty:
         with st.form("pay_form", clear_on_submit=True):
@@ -439,7 +369,7 @@ elif page == "💰 Record a Payment":
         st.dataframe(pd.read_csv(PAYMENT_FILE).iloc[::-1], use_container_width=True)
 
 # --- TAB 3: COLLATERAL ---
-elif page == "📑 Collateral Management":
+with menu_tabs[3]:
     st.subheader("📑 Collateral Management")
     if not df.empty:
         with st.form("collat_form", clear_on_submit=True):
@@ -456,7 +386,7 @@ elif page == "📑 Collateral Management":
         st.dataframe(pd.read_csv(COLLATERAL_FILE), use_container_width=True)
 
 # --- TAB 4: CALENDAR & REMINDERS ---
-elif page == "📅 Collection & Due Dates":
+with menu_tabs[4]:
     st.subheader("📅 Collection & Due Dates")
     
     if not df.empty:
@@ -482,91 +412,72 @@ elif page == "📅 Collection & Due Dates":
     else:
         st.info("No active loans to track.")
 
-# --- TAB 5: DYNAMIC CLIENT LEDGER ---
-# --- THE LEDGER ROOM ---
-elif page == "📄 Client Ledger":
-    st.subheader("Transaction History")
+# --- TAB 5: DYNAMIC CLIENT LEDGER (Fixed Indentation) ---
+with menu_tabs[5]:
+    st.subheader("📄 Transaction Ledger")
     
     if not df.empty:
         # 1. Selection
-        client_name = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_sel")
+        client_name = st.selectbox("Select Client for Ledger", options=df['CUSTOMER_NAME'].unique(), key="ledger_select")
         c_details = df[df['CUSTOMER_NAME'] == client_name].iloc[0]
         
-        # 2. Process Ledger (Only if file exists)
+        # --- CLIENT HEADER ---
+        st.markdown(f"""
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
+                <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em;">
+                    <span><b>NIN:</b> {c_details.get('NIN', 'N/A')}</span>
+                    <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
+                    <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
+                    <span><b>Principal:</b> UGX {c_details['LOAN_AMOUNT']:,.0f}</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 2. LEDGER PROCESSING
         if os.path.exists(PAYMENT_FILE):
-            pay_df = pd.read_csv(PAYMENT_FILE)
-            client_pays = pay_df[pay_df['CUSTOMER_NAME'] == client_name].copy()
+            all_payments = pd.read_csv(PAYMENT_FILE)
+            client_pays = all_payments[all_payments['CUSTOMER_NAME'] == client_name].copy()
             
-            # ... (Calculation loop for ledger_final goes here) ...
-            # Assume ledger_final is created here
+            ledger_entries = []
+            curr_bal = c_details['LOAN_AMOUNT']
+            rate = c_details['INTEREST_RATE']
             
-            # 3. Display Everything
-            st.dataframe(ledger_final, use_container_width=True)
-            
-            # 4. WhatsApp & Download Buttons
-            # (Paste the WhatsApp code we built here)
-            
+            # Use 'AMOUNT' or 'AMOUNT_PAID' depending on your CSV
+            amt_col = 'AMOUNT' if 'AMOUNT' in client_pays.columns else 'AMOUNT_PAID'
+
+            for _, pay in client_pays.iterrows():
+                int_chg = (curr_bal * (rate / 100) / 12)
+                p_amt = pay[amt_col]
+                curr_bal = (curr_bal + int_chg) - p_amt
+                
+                ledger_entries.append({
+                    "Date": pd.to_datetime(pay['DATE']).strftime('%Y-%m-%d'),
+                    "Description": f"Repayment (Ref: {pay.get('REF', 'N/A')})",
+                    "Interest": int_chg,
+                    "Paid": p_amt,
+                    "Balance": max(0, curr_bal)
+                })
+
+            ledger_df = pd.DataFrame(ledger_entries)
+
+            if not ledger_df.empty:
+                m1, m2 = st.columns(2)
+                m1.metric("Current Outstanding", f"UGX {curr_bal:,.0f}")
+                m2.metric("Total Interest Accrued", f"UGX {ledger_df['Interest'].sum():,.0f}")
+
+                st.dataframe(
+                    ledger_df,
+                    column_config={
+                        "Interest": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Paid": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Balance": st.column_config.NumberColumn(format="UGX %,d"),
+                    },
+                    use_container_width=True, hide_index=True
+                )
+            else:
+                st.info("No payments recorded yet. The balance is still at the full principal.")
         else:
-            st.warning("No payments file found. Record a payment first.")
-            
+            st.error("Payment database file not found.")
     else:
-        st.info("No borrowers found. Add one to view the ledger.")
-
-# --- END OF LEDGER ROOM ---
-
-# --- WHATSAPP MESSAGE GENERATION ---
-# --- COLORED BUTTONS WITH UNIQUE KEYS ---
-# Change line 613 to this:
-    if 'ledger_final' in locals() and not ledger_final.empty:
-        # (The rest of your WhatsApp/Download button code stays indented under here)
-        st.markdown("---")
-        # ... buttons ...
-    
-    # 1. MESSAGE GENERATION (Calculated once)
-    current_bal_amt = ledger_final['Running Balance'].iloc[-1]
-    total_interest = ledger_final['Interest Charged'].sum()
-    
-    import urllib.parse
-    raw_message = (
-        f"Hello {client_name},\n\n"
-        f"This is Zoe Consults Admin. Your statement:\n"
-        f"🔹 Principal: UGX {int(c_details['LOAN_AMOUNT']):,}\n"
-        f"🔹 Interest: UGX {total_interest:,.0f}\n"
-        f"🔹 Balance: UGX {current_bal_amt:,.0f}"
-    )
-    encoded_message = urllib.parse.quote(raw_message)
-    clean_phone = str(client_contact).replace(" ", "").replace("+", "").replace("-", "")
-    wa_url = f"https://wa.me/{clean_phone}?text={encoded_message}"
-
-    # --- 2. DISPLAY BUTTONS IN COLUMNS ---
-col_dl, col_wa = st.columns(2)
-
-# Check if we are on the Ledger page AND if the ledger actually exists
-if page == "📄 Client Ledger" and 'ledger_final' in locals():
-    if not ledger_final.empty:
-            st.markdown("""
-<style>
-    /* Navy Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #0f172a !important;
-    }
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
-
-    /* Green WhatsApp Button */
-    div.stLinkButton > a {
-        background-color: #25D366 !important;
-        color: white !important;
-        border-radius: 8px !important;
-        text-decoration: none !important;
-    }
-
-    /* Slate Download Button */
-    div[data-testid="stDownloadButton"] > button {
-        background-color: #334155 !important;
-        color: white !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-     
+        st.info("Please add a borrower to view the ledger.")
