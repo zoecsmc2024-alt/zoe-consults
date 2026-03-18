@@ -53,13 +53,19 @@ df, pay_df, collateral_df = get_all_data()
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
 with st.sidebar:
-    # 1. CENTERED LOGO
-    c1, c2, c3 = st.columns([1, 2, 1])
+    # --- 1. THE EDITABLE LARGE LOGO ---
+    # We look for a 'custom_logo' in the session or use the default
+    logo_to_show = st.session_state.get("custom_logo", "logo.png")
+    
+    c1, c2, c3 = st.columns([0.1, 0.8, 0.1]) # Wide center column for a bigger logo
     with c2:
         try:
-            st.image("logo.png", use_container_width=True)
+            # We forced it to be a circle via CSS border-radius
+            st.image(logo_to_show, use_container_width=True)
         except:
-            st.markdown("<h1 style='text-align: center; margin: 0;'>🌐</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center; font-size: 80px;'>🌐</h1>", unsafe_allow_html=True)
+
+    # (Your existing ZOE CONSULTS text and Navigation below...)
 
     # 2. BRAND NAME
     st.markdown("""
