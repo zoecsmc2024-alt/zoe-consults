@@ -1,23 +1,23 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import os
-import base64
-import urllib.parse
 from streamlit_gsheets import GSheetsConnection
+import os
 
-# 1. Establish Connection
+# --- 1. ESTABLISH PERMANENT CONNECTION ---
+# This looks at the "Secrets" you just pasted
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 2. Read the Data (Instead of pd.read_csv)
-df = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/your_sheet_id_here")
+def load_perf_data():
+    # Reads the "Borrowers" tab from your Google Sheet
+    return conn.read(worksheet="Borrowers", ttl="0")
 
-# 3. Save Data (When you add a new loan)
-if st.form_submit_button("✅ Disburse"):
-    # ... your existing logic to create 'new_row' ...
-    updated_df = pd.concat([df, new_row], ignore_index=True)
-    conn.update(spreadsheet="https://docs.google.com/spreadsheets/d/your_sheet_id_here", data=updated_df)
-    st.success("Saved to Google Sheets!")
+def load_payment_data():
+    # Reads the "Payments" tab from your Google Sheet
+    return conn.read(worksheet="Payments", ttl="0")
+
+# Load your data into the app
+df = load_perf_data()
+pay_df = load_payment_data()
 # --- 0. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
