@@ -79,20 +79,7 @@ if page == "Borrowers":
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
 
         with tab_view:
-            st.markdown("### 📋 Active Loan Registry")
             
-            # --- THE "BRAIN" (Define your variables here) ---
-            display_df = df.copy()
-            
-            # Math for Interest and Outstanding
-            rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
-            paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
-            
-            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
-            display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
-            
-            # Identify the Due Date column (handles 'DUE ' or 'DUE')
-            d_col = "DUE " if "DUE " in display_df.columns else "DUE"
             
             # Identify which columns we can safely show
             cols_to_show = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount']
