@@ -10,39 +10,16 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
 st.markdown("""
 <style>
-    /* 1. FORCE THE MAIN BOARD TO WHITE */
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background-color: #ffffff !important;
+    /* This removes the massive gap at the top of the main screen */
+    [data-testid="stAppViewContainer"] {
+        padding-top: 0rem !important;
     }
-
-    /* 2. FORCE MAIN TEXT TO DARK NAVY (So you can see the titles) */
-    h1, h2, h3, p, span, div, label {
-        color: #0f172a !important;
+    [data-testid="stHeader"] {
+        background: transparent !important;
     }
-
-    /* 3. KEEP THE SIDEBAR DARK NAVY */
-    [data-testid="stSidebar"], [data-testid="stSidebarContent"] {
-        background-color: #0b1425 !important;
-        border-right: 3px solid #00a8b5 !important;
-    }
-
-    /* 4. FORCE SIDEBAR TEXT TO STAY WHITE */
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3, 
-    [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] span, 
-    [data-testid="stSidebar"] label {
-        color: #ffffff !important;
-    }
-
-    /* 5. STYLE THE KPI TILES FOR THE WHITE BACKGROUND */
-    .metric-card {
-        background-color: #f8fafc !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 15px !important;
-        padding: 20px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+    [data-testid="stMainViewContainer"] {
+        padding-top: 0rem !important;
+        margin-top: -50px !important; /* Pulls content up */
     }
 </style>
 """, unsafe_allow_html=True)
