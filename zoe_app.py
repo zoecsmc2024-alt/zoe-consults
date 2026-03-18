@@ -42,15 +42,26 @@ st.markdown("""
 # --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# 1. THE ROBUST DATA LOADER
 def get_all_data():
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    
-    # We add ttl=0 to force a fresh connection without using old "saved" data
-    df = conn.read(worksheet="Borrowers", ttl=0)
-    p_df = conn.read(worksheet="Payments", ttl=0)
-    c_df = conn.read(worksheet="Collateral", ttl=0)
-    
-    return df, p_df, c_df
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        # Force a fresh read with ttl=0 to bypass Google's "Gatekeeper"
+        df = conn.read(worksheet="Borrowers", ttl=0)
+        pay_df = conn.read(worksheet="Payments", ttl=0)
+        collateral_df = conn.read(worksheet="Collateral", ttl=0)
+        return df, pay_df, collateral_df
+    except Exception as e:
+        st.error(f"❌ Connection Error: {e}")
+        # Return empty dataframes so the rest of the app doesn't crash
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+# 2. THE MAIN CALL
+df, pay_df, collateral_df = get_all_data()
+
+# 3. GLOBAL CHECK
+if df.empty:
+    st.warning("⚠️ No data found. Please check if your Google Sheet tabs are named correctly: 'Borrowers', 'Payments', and 'Collateral'.")
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
 with st.sidebar:
