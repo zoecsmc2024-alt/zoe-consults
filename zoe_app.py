@@ -329,27 +329,42 @@ elif page == "Ledger":
         c3.metric("Outstanding Balance", f"UGX {bal:,.0f}", delta="Reduces as they pay", delta_color="inverse")
         
         st.write("---")
-        # --- WHATSAPP QUICK-SEND ---
+       # --- STYLED WHATSAPP BUTTON ---
         st.write("---")
-        st.subheader("📲 Send Instant Update")
         
-        # 1. Prepare the Message
-        # We use %20 for spaces and %0A for new lines so WhatsApp understands it
+        # 1. Prepare the Message (Same as before)
         message = (
             f"Hello%20{target},%20this%20is%20Zoe%20Consults.%0A%0A"
             f"Your%20Loan%20Statement%20Update:%0A"
             f"•%20Principal:%20UGX%20{client_info['LOAN_AMOUNT']:,.0f}%0A"
             f"•%20Total%20Paid:%20UGX%20{client_info['AMOUNT_PAID']:,.0f}%0A"
             f"•%20Current%20Balance:%20UGX%20{bal:,.0f}%0A%0A"
-            f"Please%20reach%20out%20if%20you%20have%20any%20questions.%20Thank%20you!"
+            f"Please%20reach%20out%20if%20you%20have%20any%20questions."
         )
-        
-        # 2. The Button (You can add the client's phone number if you have a 'PHONE' column)
-        # For now, it opens a general chat where you just pick the contact
         wa_url = f"https://wa.me/?text={message}"
-        
-        st.link_button("💬 Send Statement via WhatsApp", wa_url, use_container_width=True)
 
+        # 2. The Green, Smaller Button using HTML/CSS
+        st.markdown(f"""
+            <a href="{wa_url}" target="_blank" style="text-decoration: none;">
+                <div style="
+                    background-color: #25D366;
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 25px;
+                    text-align: center;
+                    font-weight: bold;
+                    width: fit-content;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
+                ">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="20px">
+                    Send to WhatsApp
+                </div>
+            </a>
+        """, unsafe_allow_html=True)
+        st.write("") # Just a little spacing at the bottom
         # 4. THE RETURNED TABLE (Detailed Transactions)
         st.write("🔍 **Transaction History**")
         if not client_pay.empty:
