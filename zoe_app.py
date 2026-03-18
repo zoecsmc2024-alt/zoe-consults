@@ -224,27 +224,35 @@ elif page == "Collateral":
 
     st.write("---")
     
-    # 3. THE "RELEASE ASSET" ACTION
-    st.subheader("🔓 Asset Release Control")
-    held_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
-    
-    if not held_assets.empty:
-        with st.popover("Select Asset to Dismiss"):
-            target_asset = st.selectbox("Which item are you returning?", 
-                                      options=held_assets['DESCRIPTION'].unique())
-            
-            if st.form_submit_button("✅ Confirm Return to Client"):
-                # Logic: Find the row and change status to RETURNED
-                collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({datetime.now().date()})"
-                
-                # Sync back to Google Sheets
-                conn.update(worksheet="Collateral", data=collateral_df)
-                st.balloons() # Celebration!
-                st.success(f"Asset '{target_asset}' has been officially dismissed.")
-                st.rerun()
-    else:
-        st.info("No assets are currently being held.")
+    # --- 3. THE "RELEASE ASSET" ACTION ---
+st.subheader("🔓 Asset Release Control")
+held_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
 
+if not held_assets.empty:
+    with st.popover("Select Asset to Dismiss"):
+        st.write("Confirm which item you are returning to the client:")
+        
+        # We use a unique key to prevent any "Duplicate Widget" errors
+        target_asset = st.selectbox(
+            "Which item are you returning?", 
+            options=held_assets['DESCRIPTION'].unique(),
+            key="dismiss_selector"
+        )
+        
+        # CHANGE: We use st.button instead of st.form_submit_button
+        if st.button("✅ Confirm Return to Client", use_container_width=True):
+            # 1. Update the status in our local copy
+            collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({datetime.now().date()})"
+            
+            # 2. Push the update to Google Sheets
+            conn.update(worksheet="Collateral", data=collateral_df)
+            
+            # 3. Success feedback
+            st.balloons()
+            st.success(f"Asset '{target_asset}' has been dismissed!")
+            st.rerun()
+else:
+    st.info("No assets are currently being held in the vault.")
     # 4. THE COMPLETE HISTORY (HELD & RETURNED)
     st.subheader("📋 Full Vault History")
     st.dataframe(
