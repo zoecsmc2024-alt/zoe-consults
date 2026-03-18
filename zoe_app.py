@@ -4,6 +4,7 @@ from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 import base64
 import urllib.parse
+from datetime import datetime, timedelta  # Ensure ', timedelta' is added here!
 
 # --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
