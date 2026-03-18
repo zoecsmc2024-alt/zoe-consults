@@ -195,9 +195,48 @@ elif page == "Repayments":
     st.subheader("Recent Payment History")
     st.dataframe(pay_df.iloc[::-1], use_container_width=True)
 elif page == "Calendar":
-    st.title("📅 Due Dates")
-    st.write("Calendar logic goes here.")
+    st.markdown('<div class="main-title">🗓️ Collection & Due Date Calendar</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        # 1. SETUP DATES
+        today = datetime.now().date()
+        this_week_end = today + timedelta(days=7)
+        
+        # Convert DUE_DATE column to datetime safely
+        df['DUE_DATE'] = pd.to_datetime(df['DUE_DATE']).dt.date
 
+        # 2. THE "URGENT" TABS
+        tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ Future Collections"])
+
+        with tab1:
+            # Overdue = Due date passed AND balance still exists
+            overdue = df[(df['DUE_DATE'] < today) & (df['OUTSTANDING_AMOUNT'] > 0)]
+            if not overdue.empty:
+                st.error(f"There are {len(overdue)} loans past their due date!")
+                st.dataframe(overdue[['CUSTOMER_NAME', 'DUE_DATE', 'OUTSTANDING_AMOUNT']], 
+                             column_config={"OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d")},
+                             use_container_width=True, hide_index=True)
+            else:
+                st.success("Great job! No loans are currently overdue.")
+
+        with tab2:
+            # Due this week
+            this_week = df[(df['DUE_DATE'] >= today) & (df['DUE_DATE'] <= this_week_end)]
+            if not this_week.empty:
+                st.info(f"You have {len(this_week)} collections scheduled for the next 7 days.")
+                st.dataframe(this_week[['CUSTOMER_NAME', 'DUE_DATE', 'OUTSTANDING_AMOUNT']], 
+                             column_config={"OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Expected", format="UGX %,d")},
+                             use_container_width=True, hide_index=True)
+            else:
+                st.write("No collections due this week.")
+
+        with tab3:
+            # All future
+            future = df[df['DUE_DATE'] > this_week_end]
+            st.dataframe(future[['CUSTOMER_NAME', 'DUE_DATE', 'OUTSTANDING_AMOUNT']], use_container_width=True, hide_index=True)
+
+    else:
+        st.info("No borrowers found. Add a borrower with a due date to see them here.")
 elif page == "Collateral":
         st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
         
