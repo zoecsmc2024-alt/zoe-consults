@@ -292,6 +292,32 @@ if not held_assets.empty:
     st.info("No assets are currently being held in the vault.")
     
 elif page == "Ledger":
+    st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
+    
+    # This reaches out to your Google Sheet to get the LATEST data
+    if not df.empty:
+        target = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
+        client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
+        
+        # Pull payments for this person from the 'Payments' sheet
+        client_pay = pay_df[pay_df['CUSTOMER_NAME'] == target]
+        
+        # Calculate the 2.8% interest for the report
+        int_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
+        total_due = client_info['LOAN_AMOUNT'] + int_amt
+        bal = total_due - client_info['AMOUNT_PAID']
+
+        # THE DISPLAY (This won't look like the Collateral page anymore!)
+        st.subheader(f"Financial Status: {target}")
+        col1, col2 = st.columns(2)
+        col1.metric("Total Outstanding", f"UGX {bal:,.0f}")
+        col2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
+        
+        st.write("---")
+        st.write("🔍 **Recent Transactions**")
+        st.dataframe(client_pay, use_container_width=True, hide_index=True)
+    else:
+        st.info("Add a borrower to see their ledger.")
     
 elif page == "Settings":
     st.title("⚙️ Settings")
