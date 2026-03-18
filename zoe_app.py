@@ -292,75 +292,7 @@ if not held_assets.empty:
     st.info("No assets are currently being held in the vault.")
     
 elif page == "Ledger":
-    st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
     
-    if not df.empty:
-        # 1. SELECT CLIENT (The Trigger for the Report)
-        name_options = df['NAME'].unique() if 'NAME' in df.columns else df['CUSTOMER_NAME'].unique()
-        target = st.selectbox("Select Client for Report", options=name_options)
-        
-        # Pull specific client data
-        client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
-        client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target].sort_values(by='DATE', ascending=False)
-        
-        # Calculate Finance Specifics (Same 2.8% Logic)
-        interest_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
-        total_due = client_info['LOAN_AMOUNT'] + interest_amt
-        balance = total_due - client_info['AMOUNT_PAID']
-
-        # --- 📝 THE OFFICIAL HEADER BOX ---
-        st.markdown(f"""
-            <div style="background-color: #f8fafc; padding: 25px; border-radius: 15px; border: 1px solid #e2e8f0; color: #1e293b; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 style="color: #0f172a; margin: 0;">Zoe Consults</h2>
-                    <span style="background: {'#dcfce7' if balance <= 0 else '#fee2e2'}; color: {'#166534' if balance <= 0 else '#991b1b'}; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.8rem;">
-                        {'✅ CLEARED' if balance <= 0 else '🚩 ACTIVE DEBT'}
-                    </span>
-                </div>
-                <p style="color: #64748b; margin-top: 5px;">Official Statement | Date: {datetime.now().strftime('%d %B %Y')}</p>
-                <hr style="border: 0.5px solid #cbd5e1; margin: 15px 0;">
-                <p style="margin: 0; color: #94a3b8; font-size: 0.8rem;">PREPARED FOR</p>
-                <p style="font-weight: bold; font-size: 1.2rem; margin: 0;">{target}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # 2. THE SUMMARY TILES
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Principal + Interest", f"UGX {total_due:,.0f}")
-        c2.metric("Total Paid to Date", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
-        c3.metric("CURRENT BALANCE", f"UGX {balance:,.0f}")
-
-        # 3. THE BREAKDOWN TABS
-        st.write("---")
-        t1, t2 = st.tabs(["💰 Payment History", "📑 Security Assets"])
-        
-        with t1:
-            if not client_payments.empty:
-                st.dataframe(
-                    client_payments[['DATE', 'AMOUNT_PAID', 'REF']],
-                    column_config={
-                        "AMOUNT_PAID": st.column_config.NumberColumn("Amount (UGX)", format="UGX %,d"),
-                        "DATE": "Date Received",
-                        "REF": "Receipt #"
-                    },
-                    use_container_width=True, hide_index=True
-                )
-            else:
-                st.info("No payments recorded yet.")
-
-        with t2:
-            try:
-                # We filter the global collateral_df we loaded at the top
-                client_assets = collateral_df[collateral_df['NAME'] == target]
-                if not client_assets.empty:
-                    st.dataframe(client_assets[['ASSET_TYPE', 'DESCRIPTION', 'STATUS']], use_container_width=True, hide_index=True)
-                else:
-                    st.info("No security assets registered for this client.")
-            except:
-                st.error("Could not load collateral data for this report.")
-
-    else:
-        st.warning("⚠️ No borrower data found. Please add a borrower first.")
 elif page == "Settings":
     st.title("⚙️ Settings")
     st.write("Settings logic goes here.")
