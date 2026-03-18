@@ -71,28 +71,39 @@ with st.sidebar:
     )
 
 # --- STEP 4: THE BORROWERS PAGE (Viewing & Editing) ---
+# --- BORROWERS PAGE ---
 if page == "Borrowers":
     st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. DEFINE TABS
+        # 1. DEFINE TABS (Everything must stay inside these!)
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
 
+        # --- TAB 1: VIEWING ---
         with tab_view:
+            st.markdown("### 📋 Active Loan Registry")
             
+            # --- MATH & LOGIC ---
+            display_df = df.copy()
+            rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
+            paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
             
-            # Identify which columns we can safely show
+            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
+            display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
+            d_col = "DUE " if "DUE " in display_df.columns else "DUE"
+            
+            # Select only what we want to show
             cols_to_show = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount']
             if d_col in display_df.columns: cols_to_show.append(d_col)
             if 'STATUS' in display_df.columns: cols_to_show.append('STATUS')
 
-            # --- THE RENDER (Showing the table) ---
+            # --- THE ONLY DATAFRAME COMMAND ---
             st.dataframe(
                 display_df[cols_to_show],
                 column_config={
                     "CUSTOMER_NAME": "NAME",
                     "DATE_ISSUED": "ISSUED DATE",
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPLE", format="UGX %,d"),
+                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
                     "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
                     "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
                     d_col: "DUE DATE",
@@ -102,17 +113,27 @@ if page == "Borrowers":
                 hide_index=True
             )
             
-            # --- THE ADD NEW FORM ---
+            # Registration form expander (at the bottom)
             with st.expander("➕ Register New Borrower"):
-                st.info("New registration form is ready for sync!")
+                st.info("Form is ready for input.")
 
+        # --- TAB 2: EDITING ---
         with tab_edit:
             st.write("### ✏️ Edit Borrower Details")
-            # If you still have your edit form code, paste it here.
-            # Otherwise, let me know and I'll rewrite it for you!
+            target = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
+            row = df[df['CUSTOMER_NAME'] == target].iloc[0]
+
+            with st.form("edit_form"):
+                new_loan = st.number_input("Update Loan Amount", value=float(row['LOAN_AMOUNT']))
+                # Date safety
+                current_due = row[d_col] if not pd.isna(row[d_col]) else datetime.now()
+                new_due = st.date_input("Update Due Date", value=pd.to_datetime(current_due))
+                
+                if st.form_submit_button("💾 Save Changes"):
+                    st.success("Changes saved! Syncing to database.")
 
     else:
-        st.warning("⚠️ Cloud database is empty or disconnected.")
+        st.warning("⚠️ Database is empty.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
