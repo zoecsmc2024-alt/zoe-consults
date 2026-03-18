@@ -133,12 +133,34 @@ elif page == "💰 Repayments":
 
 elif page == "📅 Calendar":
     st.title("📅 Collection Schedule")
+    # RELOAD DATA TO ENSURE IT'S FRESH
+    df = pd.read_csv(DB_FILE) 
+    
     if not df.empty:
         cal_df = df.copy()
-        cal_df['DUE_DATE'] = pd.to_datetime(cal_df['DATE_ISSUED']) + pd.Timedelta(days=30)
-        cal_df['DAYS_LEFT'] = (cal_df['DUE_DATE'] - pd.Timestamp(datetime.now())).dt.days
-        st.subheader("🚨 Overdue or Upcoming Payments")
-        st.dataframe(cal_df[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DUE_DATE', 'DAYS_LEFT']], use_container_width=True)
+        # Ensure dates are readable
+        cal_df['DATE_ISSUED'] = pd.to_datetime(cal_df['DATE_ISSUED'])
+        cal_df['DUE_DATE'] = cal_df['DATE_ISSUED'] + pd.Timedelta(days=30)
+        
+        # Calculate how many days left
+        today = pd.Timestamp(datetime.now().date())
+        cal_df['DAYS_LEFT'] = (cal_df['DUE_DATE'] - today).dt.days
+        
+        # Filter for only unpaid loans
+        active_loans = cal_df[cal_df['OUTSTANDING_AMOUNT'] > 0]
+        
+        st.subheader("🚨 Overdue & Upcoming Payments")
+        st.dataframe(
+            active_loans[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DUE_DATE', 'DAYS_LEFT']], 
+            use_container_width=True,
+            column_config={
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                "DUE_DATE": st.column_config.DateColumn("Due on"),
+                "DAYS_LEFT": st.column_config.NumberColumn("Days Remaining")
+            }
+        )
+    else:
+        st.info("No active loans found in the database.")
 
 elif page == "📑 Collateral":
     st.title("📑 Collateral Management")
@@ -156,18 +178,34 @@ elif page == "📑 Collateral":
 
 elif page == "📄 Client Ledger":
     st.title("📄 Client Transaction Ledger")
+    df = pd.read_csv(DB_FILE)
+    
     if not df.empty:
         target = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique())
+        
         if os.path.exists(PAYMENT_FILE):
             p_log = pd.read_csv(PAYMENT_FILE)
-            client_log = p_log[p_log['CUSTOMER_NAME'] == target]
-            st.subheader(f"Ledger for {target}")
-            st.dataframe(client_log, use_container_width=True)
+            # Filter for this specific client
+            client_log = p_log[p_log['CUSTOMER_NAME'] == target].copy()
             
-            # WhatsApp Logic
-            balance = df[df['CUSTOMER_NAME'] == target]['OUTSTANDING_AMOUNT'].values[0]
-            msg = urllib.parse.quote(f"Hello {target}, your current outstanding balance with Zoe Consults is UGX {balance:,.0f}.")
-            st.link_button(f"📲 Send Balance to {target}", f"https://wa.me/?text={msg}")
+            if not client_log.empty:
+                st.subheader(f"Payment History for {target}")
+                st.dataframe(
+                    client_log, 
+                    use_container_width=True,
+                    column_config={
+                        "AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d"),
+                        "DATE": st.column_config.DateColumn("Date")
+                    }
+                )
+                
+                # Add a quick Balance check
+                balance = df[df['CUSTOMER_NAME'] == target]['OUTSTANDING_AMOUNT'].values[0]
+                st.metric("Remaining Balance", f"UGX {balance:,.0f}")
+            else:
+                st.warning(f"No payments found for {target} in {PAYMENT_FILE}")
+        else:
+            st.error("The Repayments Log file is missing!")
 
 elif page == "⚙️ Settings":
     st.title("⚙️ System Settings")
