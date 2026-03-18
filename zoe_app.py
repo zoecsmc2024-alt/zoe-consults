@@ -78,25 +78,7 @@ if page == "Borrowers":
         # 1. NAVIGATION TABS
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
         with tab_view:
-            st.markdown("### 📋 Active Loan Registry")
-            
-            if not df.empty:
-                # 1. --- CALCULATE DISPLAY DATA ---
-                display_df = df.copy()
-                
-                # Safety checks for rates and payments
-                rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
-                paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
-                
-                display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
-                display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
-                
-                # 2. --- DYNAMIC COLUMN PICKER ---
-                # We list the columns we want. If they exist in df OR we just calculated them, we keep them.
-                target_cols = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', 'DUE ', 'DUE', 'STATUS']
-                final_cols = [col for col in target_cols if col in display_df.columns]
-
-                # 3. --- THE ONE AND ONLY TABLE ---
+            # 3. --- THE ONE AND ONLY TABLE ---
                 st.dataframe(
                     display_df[final_cols],
                     column_config={
