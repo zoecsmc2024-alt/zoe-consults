@@ -261,8 +261,7 @@ else:
             "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
             "STATUS": st.column_config.TextColumn("Current Status"),
         },
-        use_container_width=True,
-        hide_index=True
+        use_container_width=True,hide_index=True
     )
 
 elif page == "Ledger":
