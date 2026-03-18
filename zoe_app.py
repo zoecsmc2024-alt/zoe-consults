@@ -199,39 +199,42 @@ elif page == "Calendar":
     st.markdown('<div class="main-title">🗓️ Collection & Due Date Calendar</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # TEMPORARY: This will list all your column names so we can see the right one
-       st.write("Columns found in your sheet:", list(df.columns))
-        # 1. FIND THE DATE COLUMN AUTOMATICALLY
-        # This checks for common names so the app doesn't crash
-possible_names = ['DUE_DATE', 'Due Date', 'DATE_DUE', 'Due_Date']
-date_col = next((col for col in possible_names if col in df.columns), None)
+        # --- STEP 1: DEBUGGER (This helps us find the right column) ---
+        st.info("🔍 Checking your Google Sheet columns...")
+        st.write("Columns found:", list(df.columns))
+        
+        # --- STEP 2: COLUMN SEARCH ---
+        # Add the EXACT name you see in the list above to this 'possible_names' list
+        possible_names = ['DUE_DATE', 'Due Date', 'DATE_DUE', 'DUE', 'Deadline', 'PAYMENT_DATE']
+        date_col = next((col for col in possible_names if col in df.columns), None)
 
-if date_col:
-        # 2. SETUP DATES
-        today = datetime.now().date()
-        this_week_end = today + timedelta(days=7)
+        if date_col:
+            today = datetime.now().date()
+            this_week_end = today + timedelta(days=7)
             
-        # Convert to date format safely
-        df[date_col] = pd.to_datetime(df[date_col]).dt.date
-
-        # 3. THE URGENT TABS (Updated to use our date_col)
-        tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ Future"])
-    
-with tab1:
-    # Use OUTSTANDING_AMOUNT if it exists, otherwise use LOAN_AMOUNT
-    bal_col = 'OUTSTANDING_AMOUNT' if 'OUTSTANDING_AMOUNT' in df.columns else 'LOAN_AMOUNT'
-    overdue = df[(df[date_col] < today) & (df[bal_col] > 0)]
-    
-    if not overdue.empty:
-        st.error(f"⚠️ {len(overdue)} Loans are past due!")
-        st.dataframe(overdue[['CUSTOMER_NAME', date_col, bal_col]], use_container_width=True, hide_index=True)
+            # Convert to date safely
+            df[date_col] = pd.to_datetime(df[date_col]).dt.date
+            
+            # THE TABS
+            t1, t2 = st.tabs(["🚨 Overdue", "📅 Due This Week"])
+            
+            with t1:
+                # Use a flexible balance check
+                bal_col = 'OUTSTANDING_AMOUNT' if 'OUTSTANDING_AMOUNT' in df.columns else 'LOAN_AMOUNT'
+                overdue = df[(df[date_col] < today) & (df[bal_col] > 0)]
+                if not overdue.empty:
+                    st.error(f"⚠️ {len(overdue)} Loans are past due!")
+                    st.dataframe(overdue[['CUSTOMER_NAME', date_col, bal_col]], use_container_width=True, hide_index=True)
+                else:
+                    st.success("No overdue loans!")
+            
+            with t2:
+                this_week = df[(df[date_col] >= today) & (df[date_col] <= this_week_end)]
+                st.dataframe(this_week[['CUSTOMER_NAME', date_col]], use_container_width=True, hide_index=True)
+        else:
+            st.warning("Still looking for the date column. Look at the 'Columns found' list above and let me know the name!")
     else:
-        st.success("All collections are up to date!")
-        # ... (Rest of your tabs follow the same pattern)
-else:
-st.error("⚠️ I couldn't find a 'Due Date' column in your Google Sheet. Please check the spelling in your Borrowers tab.")
-else:
-st.info("No borrowers found.")
+        st.info("No borrower data available.")
     
 elif page == "Collateral":
         st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
