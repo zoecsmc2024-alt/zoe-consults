@@ -100,29 +100,85 @@ with st.sidebar:
 if page == "Overview":
     st.markdown('<div class="main-title">🛡️ Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
     
-    # DEBUG: This will show you if the app sees any data at all
     if df.empty:
-        st.warning("🕵️ Your 'Borrowers' sheet appears to be empty. Please add a loan in the Borrowers tab.")
+        st.warning("🕵️ Your 'Borrowers' sheet appears to be empty.")
     else:
-        # 📊 1. CALCULATE TOTALS
+        # 1. CALCULATIONS
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
-        risk = total_p - total_c
-        
-        # 💎 2. PREMIUM TILES
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Principal Issued", f"UGX {total_p:,.0f}")
-        c2.metric("Total Collected", f"UGX {total_c:,.0f}")
-        c3.metric("Outstanding Risk", f"UGX {risk:,.0f}")
-            
+        # Including Interest in the risk calculation
+        df['INTEREST_AMT'] = (df['LOAN_AMOUNT'] * df['INTEREST_RATE']) / 100
+        total_expected = total_p + df['INTEREST_AMT'].sum()
+        risk = total_expected - total_c
+        recovery_rate = (total_c / total_expected) * 100 if total_expected > 0 else 0
+
+        # 2. PREMIUM KPI TILES (Custom HTML)
+        st.markdown(f"""
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                <div style="background: linear-gradient(135.47deg, #1E3A8A 0%, #3B82F6 100%); padding: 20px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                    <p style="margin: 0; font-size: 0.8rem; opacity: 0.8; text-transform: uppercase; font-weight: 600;">Principal Issued</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem;">UGX {total_p:,.0f}</h2>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Total Collected</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #10B981;">UGX {total_c:,.0f}</h2>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Outstanding Risk</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #EF4444;">UGX {risk:,.0f}</h2>
+                </div>
+                <div style="background: #F8FAFC; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px dashed #CBD5E1;">
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Recovery Rate</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #1E3A8A;">{recovery_rate:.1f}%</h2>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
         st.write("---")
         
-        # 📈 3. THE RECOVERY CHART (Forced Mapping)
-        st.subheader("Recovery Progress by Client")
+        # 3. ENHANCED RECOVERY CHART
+        st.subheader("📊 Portfolio Performance by Client")
         
-        # We explicitly tell the chart which columns to use
-        chart_data = df[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID']].set_index('CUSTOMER_NAME')
-        st.bar_chart(chart_data, color=["#0ea5e9", "#10b981"])
+        # Prepare Data: Show Amount Paid vs Total Debt (Principal + Interest)
+        df_chart = df.copy()
+        df_chart['TOTAL_DEBT'] = df_chart['LOAN_AMOUNT'] + (df_chart['LOAN_AMOUNT'] * df_chart['INTEREST_RATE'] / 100)
+        
+        chart_data = df_chart[['CUSTOMER_NAME', 'TOTAL_DEBT', 'AMOUNT_PAID']].set_index('CUSTOMER_NAME')
+        
+        # Streamlit Bar Chart with specific colors
+        st.bar_chart(
+            chart_data, 
+            color=["#CBD5E1", "#1E3A8A"], # Light gray for total, Deep Blue for paid
+            height=400,
+            use_container_width=True
+        )
+        
+        st.markdown("""
+            <div style="display: flex; gap: 20px; font-size: 0.8rem; color: #64748B; justify-content: center;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <div style="width: 12px; height: 12px; background: #CBD5E1; border-radius: 2px;"></div> Total Debt (Incl. Interest)
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <div style="width: 12px; height: 12px; background: #1E3A8A; border-radius: 2px;"></div> Amount Recovered
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 4. RECENT ACTIVITY (Mini Ledger)
+        st.write("")
+        st.write("")
+        st.subheader("🕒 Recent Payments")
+        if not pay_df.empty:
+            st.dataframe(
+                pay_df.sort_values(by='DATE', ascending=False).head(5),
+                column_config={
+                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d"),
+                    "DATE": "Date"
+                },
+                use_container_width=True, hide_index=True
+            )
+        else:
+            st.info("No payments recorded yet.")
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
