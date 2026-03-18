@@ -271,35 +271,86 @@ elif page == "Borrowers":
                     st.error("Please fill in the Name and Loan Amount.")
 
 elif page == "Repayments":
-    st.title("💰 Record a Payment")
+    st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        with st.form("cloud_pay_form"):
-            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
-            p_amt = st.number_input("Amount Paid", min_value=0)
-            p_ref = st.text_input("Receipt / Ref No.")
-            
-            if st.form_submit_button("Submit Payment"):
-                # 1. Update Payments Sheet
-                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
-                                   columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
-                updated_pay = pd.concat([pay_df, new_p], ignore_index=True)
-                conn.update(worksheet="Payments", data=updated_pay)
-                
-                # 2. Update Borrowers Balance Logic (Correctly Nested)
-                current_val = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
-                new_bal = current_val - p_amt
-                
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] = new_bal
-                
-                conn.update(worksheet="Borrowers", data=df)
-                st.success(f"Payment of UGX {p_amt:,.0f} Synced for {p_name}!")
-                st.rerun()
+        # 1. THE INPUT CARD
+        st.markdown("""
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 30px;">
+                <h4 style="margin: 0 0 15px 0; color: #1e3a8a;">➕ Record New Receipt</h4>
+            </div>
+        """, unsafe_allow_html=True)
 
+        # Place the form inside a column to keep it centered and professional
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            with st.form("cloud_pay_form", clear_on_submit=True):
+                p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+                
+                c_a, c_b = st.columns(2)
+                with c_a:
+                    p_amt = st.number_input("Amount Paid (UGX)", min_value=0, step=10000)
+                with c_b:
+                    p_ref = st.text_input("Receipt / Ref No.", placeholder="e.g. MPESA-123")
+                
+                st.write("") # Spacer
+                if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
+                    if p_amt > 0:
+                        # 1. Update Payments Sheet
+                        new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+                                           columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                        updated_pay = pd.concat([pay_df, new_p], ignore_index=True)
+                        conn.update(worksheet="Payments", data=updated_pay)
+                        
+                        # 2. Update Borrowers Balance
+                        # We find the current balance and subtract the payment
+                        current_bal = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
+                        df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+                        df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] = current_bal - p_amt
+                        
+                        conn.update(worksheet="Borrowers", data=df)
+                        st.success(f"Successfully posted UGX {p_amt:,.0f} for {p_name}")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error("Please enter a valid amount.")
+
+        with col2:
+            # 2. MINI SUMMARY WIDGET
+            st.markdown("""
+                <div style="background-color: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #bfdbfe;">
+                    <h5 style="color: #1e40af; margin-top: 0;">System Tip</h5>
+                    <p style="font-size: 0.85rem; color: #1e3a8a; line-height: 1.5;">
+                        Recording a payment here automatically updates the <b>Ledger</b> and reduces the <b>Outstanding Risk</b> on the Executive Summary.
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # 3. STYLED HISTORY TABLE
         st.write("---")
-        st.subheader("Recent Payment History")
-        st.dataframe(pay_df.iloc[::-1], use_container_width=True, hide_index=True)
+        st.subheader("📋 Recent Transaction History")
+        
+        if not pay_df.empty:
+            # Sort by date newest first
+            history_df = pay_df.copy()
+            history_df['DATE'] = pd.to_datetime(history_df['DATE']).dt.date
+            
+            st.dataframe(
+                history_df.iloc[::-1], # Newest on top
+                column_config={
+                    "DATE": st.column_config.DateColumn("Payment Date", format="DD/MM/YYYY"),
+                    "CUSTOMER_NAME": "Borrower",
+                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount (UGX)", format="%,d"),
+                    "REF": "Reference #"
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No payment history available yet.")
+    else:
+        st.info("Please register a borrower before recording payments.")
 elif page == "Calendar":
     st.markdown('<div class="main-title">🗓️ Collection Calendar</div>', unsafe_allow_html=True)
     
