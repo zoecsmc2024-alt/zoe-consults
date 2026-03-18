@@ -237,107 +237,30 @@ elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. ENHANCED DATA PROCESSING
-        display_df = df.copy()
-        display_df['INTEREST_AMT'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
-        display_df['TOTAL_EXPECTED'] = display_df['LOAN_AMOUNT'] + display_df['INTEREST_AMT']
-        display_df['REAL_OUTSTANDING'] = display_df['TOTAL_EXPECTED'] - display_df['AMOUNT_PAID']
-        display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
-        display_df['DUE_DT'] = (pd.to_datetime(display_df['DATE_ISSUED']) + pd.Timedelta(days=30)).dt.date
-        
-        def get_status(row):
-            if row['REAL_OUTSTANDING'] <= 0: return "✅ SETTLED"
-            if datetime.now().date() > row['DUE_DT']: return "🚩 OVERDUE"
-            return "🔵 ACTIVE"
-        display_df['Status'] = display_df.apply(get_status, axis=1)
+        # ... (Your existing display_df calculations here) ...
 
-        # 2. TOP SUMMARY TILES
-        c1, c2, c3, c4 = st.columns(4)
-        total_active = len(display_df[display_df['Status'] != "✅ SETTLED"])
-        overdue_count = len(display_df[display_df['Status'] == "🚩 OVERDUE"])
-        
-        c1.metric("Total Clients", len(display_df))
-        c2.metric("Active Loans", total_active)
-        c3.metric("Overdue Cases", overdue_count, delta=overdue_count, delta_color="inverse")
-        c4.metric("Total Outstanding", f"UGX {display_df['REAL_OUTSTANDING'].sum():,.0f}")
-
-        st.write("---")
-
-        # 3. INTERACTIVE TABS
-        view_tab, manage_tab = st.tabs(["📋 View Registry", "🛠️ Manage Records"])
-
-        with view_tab:
-            st.dataframe(
-                display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_AMT', 'AMOUNT_PAID', 'REAL_OUTSTANDING', 'DUE_DT', 'Status']],
-                column_config={
-                    "CUSTOMER_NAME": "Client Name",
-                    "ISSUED_DT": "Issued",
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                    "INTEREST_AMT": st.column_config.NumberColumn("Interest", format="UGX %,d"),
-                    "AMOUNT_PAID": st.column_config.NumberColumn("Paid", format="UGX %,d"),
-                    "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-                    "DUE_DT": "Due Date",
-                    "Status": "Status"
-                },
-                use_container_width=True, hide_index=True
-            )
-
-        with manage_tab:
-            st.subheader("Edit or Remove a Loan")
-            target_client = st.selectbox("Select Client to Manage:", options=df['CUSTOMER_NAME'].unique())
-            client_row = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
-
-            col_edit, col_del = st.columns([2, 1])
-
-            with col_edit:
-                with st.form(f"edit_form_{target_client}"):
-                    st.markdown(f"**Editing Profile:** {target_client}")
-                    new_name = st.text_input("Correct Name", value=client_row['CUSTOMER_NAME'])
-                    new_loan = st.number_input("Principal (UGX)", value=int(client_row['LOAN_AMOUNT']), step=50000)
-                    new_rate = st.number_input("Interest Rate (%)", value=int(client_row['INTEREST_RATE']))
-                    
-                    if st.form_submit_button("💾 Save Changes", use_container_width=True):
-                        # Update the dataframe logic
-                        df.loc[df['CUSTOMER_NAME'] == target_client, 'CUSTOMER_NAME'] = new_name
-                        df.loc[df['CUSTOMER_NAME'] == new_name, 'LOAN_AMOUNT'] = new_loan
-                        df.loc[df['CUSTOMER_NAME'] == new_name, 'INTEREST_RATE'] = new_rate
-                        # Recalculate outstanding for the sheet
-                        new_int = (new_loan * new_rate) / 100
-                        df.loc[df['CUSTOMER_NAME'] == new_name, 'OUTSTANDING_AMOUNT'] = (new_loan + new_int) - client_row['AMOUNT_PAID']
-                        
-                        conn.update(worksheet="Borrowers", data=df)
-                        st.success("Record updated!")
-                        st.rerun()
-
-            with col_del:
-                st.markdown("**Danger Zone**")
-                if st.button(f"🗑️ Delete {target_client}", use_container_width=True, type="primary"):
-                    if st.checkbox("Confirm permanent deletion"):
-                        updated_df = df[df['CUSTOMER_NAME'] != target_client]
-                        conn.update(worksheet="Borrowers", data=updated_df)
-                        st.warning("Record deleted.")
-                        st.rerun()
-
-    else:
-        st.info("No records found.")
-
-    # 4. NEW LOAN REGISTRATION (Bottom Popover)
-    st.write("")
-    with st.popover("➕ Register New Loan", use_container_width=True):
-        with st.form("new_loan_v3", clear_on_submit=True):
-            c_name = st.text_input("Full Name")
-            c_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
-            c_rate = st.number_input("Monthly Interest (%)", value=10)
-            c_date = st.date_input("Issuance Date", datetime.now())
-            
-            if st.form_submit_button("✅ Sync to Cloud", use_container_width=True):
-                new_id = int(df['SN'].max() + 1) if not df.empty else 1
-                starting_bal = c_amt + (c_amt * c_rate / 100)
-                new_row = pd.DataFrame([[new_id, c_name, c_amt, 0, starting_bal, c_rate, str(c_date)]], 
-                                     columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED'])
-                conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                st.success("Loan Created!")
-                st.rerun()
+        st.dataframe(
+            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'REAL_OUTSTANDING', 'Status']],
+            column_config={
+                "CUSTOMER_NAME": st.column_config.TextColumn("Client Name", help="Full name of the borrower"),
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "AMOUNT_PAID": st.column_config.ProgressColumn(
+                    "Recovery Progress",
+                    help="Amount paid vs Total Loan",
+                    format="UGX %,d",
+                    min_value=0,
+                    max_value=int(display_df['TOTAL_EXPECTED'].max()),
+                ),
+                "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                "Status": st.column_config.SelectboxColumn(
+                    "Status",
+                    options=["✅ SETTLED", "🚩 OVERDUE", "🔵 ACTIVE"],
+                    required=True,
+                )
+            },
+            use_container_width=True,
+            hide_index=True
+        )
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
