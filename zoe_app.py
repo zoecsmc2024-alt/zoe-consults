@@ -51,52 +51,56 @@ def get_all_data():
 
 df, pay_df, collateral_df = get_all_data()
 with st.sidebar:
-    # --- 1. CENTERED CIRCULAR LOGO ---
-    # We use columns to perfectly center the Streamlit image widget
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+    # 1. CENTERED LOGO (Using Columns for best alignment)
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
         try:
             st.image("logo.png", use_container_width=True)
         except:
-            st.markdown("🌐") # Fallback icon if logo.png isn't found
+            st.markdown("<h1 style='text-align: center; margin: 0;'>🌐</h1>", unsafe_allow_html=True)
 
-    # --- 2. CENTERED BRAND NAME ---
+    # 2. BRAND NAME
     st.markdown("""
         <div style="text-align: center; margin-top: 10px;">
-            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.4rem;">ZOE</h2>
+            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.4rem; letter-spacing: 2px;">ZOE</h2>
             <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; letter-spacing: 3px; margin-top: -5px;">CONSULTS</p>
         </div>
-        <hr style="margin: 15px 0;">
+        <hr style="margin: 15px 0; border: 0.5px solid #e2e8f0;">
     """, unsafe_allow_html=True)
 
-    # --- 3. THE CENTER-ALIGN MAGIC (CSS) ---
+    # 3. NAVIGATION (Simplified Centered Radio)
+    st.markdown("<p style='text-align: center; font-weight: bold; color: #1E3A8A; font-size: 0.8rem; letter-spacing: 1px;'>NAVIGATION</p>", unsafe_allow_html=True)
+    
+    # CSS to force the radio options to look centered without the huge gaps
     st.markdown("""
         <style>
-            /* This forces the radio group and its labels to center */
-            [data-testid="stSidebarNav"] {text-align: center;}
-            [data-testid="stWidgetLabel"] {text-align: center; width: 100%;}
-            div[role="radiogroup"] {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-            }
-            div[role="radiogroup"] > label {
-                justify-content: center;
-            }
+        div[role="radiogroup"] {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        div[role="radiogroup"] label {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+            padding: 5px 0px;
+        }
+        /* Removes the radio dot entirely for a cleaner menu look */
+        div[role="radiogroup"] [data-testid="stWidgetLabel"] {
+            margin-left: 0px !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- 4. NAVIGATION ---
-    st.markdown("<p style='text-align: center; font-weight: bold; color: #1E3A8A;'>NAVIGATION</p>", unsafe_allow_html=True)
-    
-    page = st.radio("Menu Selection", 
-                    ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-                    label_visibility="collapsed")
+    page = st.radio(
+        "Menu",
+        ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        label_visibility="collapsed"
+    )
     
     st.markdown("---")
     
+    # 4. LOGOUT
     if st.button("🚪 Secure Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
