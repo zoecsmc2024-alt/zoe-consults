@@ -75,28 +75,57 @@ if page == "Borrowers":
     st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. NAVIGATION TABS
+        # 1. DEFINE TABS
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
-with tab_view:
-    # 2. RENDER THE SINGLE TABLE
-                st.dataframe(
-                    display_df[cols_to_show],
-                    column_config={
-                        "CUSTOMER_NAME": "NAME",
-                        "DATE_ISSUED": "ISSUED DATE",
-                        "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPLE", format="UGX %,d"),
-                        "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
-                        "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                        d_col: "DUE DATE",
-                        "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
+
+        with tab_view:
+            st.markdown("### 📋 Active Loan Registry")
             
-            # 3. THE EXPANDER (Stays at the very bottom)
-with st.expander("➕ Register New Borrower"):
-                st.info("Registration form is ready for data sync!")
+            # --- THE "BRAIN" (Define your variables here) ---
+            display_df = df.copy()
+            
+            # Math for Interest and Outstanding
+            rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
+            paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
+            
+            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
+            display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
+            
+            # Identify the Due Date column (handles 'DUE ' or 'DUE')
+            d_col = "DUE " if "DUE " in display_df.columns else "DUE"
+            
+            # Identify which columns we can safely show
+            cols_to_show = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount']
+            if d_col in display_df.columns: cols_to_show.append(d_col)
+            if 'STATUS' in display_df.columns: cols_to_show.append('STATUS')
+
+            # --- THE RENDER (Showing the table) ---
+            st.dataframe(
+                display_df[cols_to_show],
+                column_config={
+                    "CUSTOMER_NAME": "NAME",
+                    "DATE_ISSUED": "ISSUED DATE",
+                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPLE", format="UGX %,d"),
+                    "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
+                    "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+                    d_col: "DUE DATE",
+                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # --- THE ADD NEW FORM ---
+            with st.expander("➕ Register New Borrower"):
+                st.info("New registration form is ready for sync!")
+
+        with tab_edit:
+            st.write("### ✏️ Edit Borrower Details")
+            # If you still have your edit form code, paste it here.
+            # Otherwise, let me know and I'll rewrite it for you!
+
+    else:
+        st.warning("⚠️ Cloud database is empty or disconnected.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
