@@ -73,17 +73,26 @@ brand_logo_val = get_setting("Logo Value", "🛡️")
 with st.sidebar:
     st.markdown("<div style='text-align: center; padding-bottom: 10px;'>", unsafe_allow_html=True)
     
-    if brand_logo_type == "URL" and brand_logo_val != "nan":
-        # This will render your uploaded image professionally
-        st.image(brand_logo_val, use_container_width=True)
-    else:
-        # Fallback to the Emoji style if URL is empty or 'nan'
+    # --- SAFE LOGO LOGIC ---
+    show_emoji_fallback = True
+    
+    # Check if we have a valid URL string that isn't empty or 'nan'
+    if brand_logo_type == "URL" and isinstance(brand_logo_val, str) and len(brand_logo_val) > 5:
+        try:
+            # We use a container to catch errors if the URL is not a real image
+            st.image(brand_logo_val, use_container_width=True)
+            show_emoji_fallback = False # If it worked, don't show the emoji
+        except Exception:
+            show_emoji_fallback = True # If the link is broken, use emoji
+            
+    if show_emoji_fallback:
+        # Professional fallback icon
         st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
-                        width: 60px; height: 60px; border-radius: 15px; 
+                        width: 70px; height: 70px; border-radius: 18px; 
                         display: flex; align-items: center; justify-content: center; 
-                        margin: 0 auto 15px auto;">
-                <span style="font-size: 30px; color: white;">🛡️</span>
+                        margin: 0 auto 15px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <span style="font-size: 35px; color: white;">{brand_logo_val if brand_logo_type == "Emoji" else "🛡️"}</span>
             </div>
         """, unsafe_allow_html=True)
     
@@ -91,6 +100,7 @@ with st.sidebar:
             <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0;">{brand_name}</h1>
             <p style="color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0;">{brand_tagline}</p>
         </div>
+        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 10px 0 20px 0;">
     """, unsafe_allow_html=True)
     # ... rest of your option_menu ...
 
