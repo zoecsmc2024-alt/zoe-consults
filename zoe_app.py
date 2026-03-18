@@ -85,7 +85,7 @@ if page == "Dashboard":
     st.markdown('<h1 style="color: #1E3A8A;">📈 Executive Dashboard</h1>', unsafe_allow_html=True)
     
     if not df.empty:
-        # A. TOP-LEVEL METRICS (Replacing the old Overview)
+        # 1. TOP-LEVEL METRICS (These are working well!)
         m1, m2, m3 = st.columns(3)
         total_p = df['LOAN_AMOUNT'].sum()
         m1.metric("Active Borrowers", len(df))
@@ -94,49 +94,47 @@ if page == "Dashboard":
         
         st.write("---")
 
-        # B. THE REGISTRY (The view you liked)
+        # 2. THE REGISTRY (The "Safety First" version)
         st.markdown("### 📋 Active Loan Registry")
         
-        # Calculation Logic
         display_df = df.copy()
-        rate = display_df.get('INTEREST_RATE', 2.8)
-        display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
-        display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - display_df.get('AMOUNT_PAID', 0)
-        d_col = "DUE " if "DUE " in display_df.columns else "DUE"
         
+        # Calculate these inside the app so they always exist
+        display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * 2.8) / 100
+        display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - display_df.get('AMOUNT_PAID', 0)
+        
+        # --- THE SAFETY CHECK ---
+        # List what we WANT to show
+        wanted = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ', 'DUE', 'STATUS']
+        # Only keep what actually EXISTS in your sheet + what we just calculated
+        available_cols = [c for c in wanted if c in display_df.columns]
+
         st.dataframe(
-            display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', d_col, 'STATUS']],
+            display_df[available_cols],
             column_config={
                 "CUSTOMER_NAME": "NAME",
+                "DATE_ISSUED": "ISSUED",
                 "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+                "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
                 "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"]),
-                d_col: "DUE DATE"
+                "DUE ": "DUE DATE",
+                "DUE": "DUE DATE",
+                "STATUS": "STATUS"
             },
             use_container_width=True,
             hide_index=True
         )
 
-        # C. THE ACTION HUB (Editing & Adding Below)
+        # 3. ACTION HUB
         st.write("---")
-        col_edit, col_add = st.columns(2)
-        
-        with col_edit:
-            with st.expander("✏️ Quick Edit Client"):
-                target = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
-                row = df[df['CUSTOMER_NAME'] == target].iloc[0]
-                with st.form("edit_form"):
-                    new_amt = st.number_input("New Amount", value=float(row['LOAN_AMOUNT']))
-                    if st.form_submit_button("💾 Save Changes"):
-                        st.success("Updated!")
-
-        with col_add:
-            with st.expander("➕ New Registration"):
-                with st.form("reg_form"):
-                    st.text_input("Full Name")
-                    st.number_input("Amount", step=10000)
-                    if st.form_submit_button("✅ Register"):
-                        st.success("Registered!")
+        with st.expander("⚙️ Management Tools"):
+            c1, c2 = st.columns(2)
+            with c1:
+                st.write("**Quick Edit**")
+                # Add your selectbox/edit form here
+            with c2:
+                st.write("**New Registration**")
+                # Add your registration form here
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
