@@ -52,7 +52,16 @@ def get_all_data():
 df, pay_df, collateral_df = get_all_data()
 # --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.markdown('<div style="margin-top: -30px;"></div>', unsafe_allow_html=True)
+    # 1. ADD YOUR LOGO (Or a professional icon if you don't have the file yet)
+    st.markdown("""
+        <div style="text-align: center; padding: 10px;">
+            <h1 style="color: #1E3A8A; margin-bottom: 0;">ZOE</h1>
+            <p style="color: #64748B; font-weight: bold; letter-spacing: 2px;">CONSULTS</p>
+            <div style="height: 2px; background: linear-gradient(to right, #1E3A8A, #3B82F6); margin: 10px 0;"></div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # ... your existing menu code follows ...
     
     # Logo Logic
     if 'custom_logo_b64' in st.session_state and st.session_state['custom_logo_b64']:
