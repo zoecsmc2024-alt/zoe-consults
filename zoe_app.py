@@ -371,32 +371,26 @@ elif page == "Repayments":
         )
 
 elif page == "Repayments":
-    st.markdown('<div class="main-title">💰 Payment Processing</div>', unsafe_allow_html=True)
-    
-    if not df.empty:
-        with st.form("repayment_form_final"):
-            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
-            p_amt = st.number_input("Amount Paid", min_value=0)
-            p_ref = st.text_input("Receipt Reference")
-            
-            if st.form_submit_button("🚀 Post Payment"):
-                # Update Logic
-                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
-                conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
-                
-                # Deduct from Borrowers
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
-                conn.update(worksheet="Borrowers", data=df)
-                st.success("Payment Received!")
-                st.rerun()
+    # ... (Your existing form code here) ...
 
-        st.write("---")
-        st.subheader("📋 Recent History")
+    st.write("---")
+    st.subheader("📋 Recent Transaction History")
+    
+    if not pay_df.empty:
         st.dataframe(
-            pay_df.iloc[::-1],
-            column_config={"AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d")},
-            use_container_width=True, hide_index=True
+            pay_df.iloc[::-1], 
+            column_config={
+                "DATE": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
+                "CUSTOMER_NAME": "Borrower",
+                "AMOUNT_PAID": st.column_config.NumberColumn(
+                    "Amount Received 💰", 
+                    format="UGX %,d",
+                    help="Total money collected in this transaction"
+                ),
+                "REF": "Receipt #"
+            },
+            use_container_width=True,
+            hide_index=True
         )
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
