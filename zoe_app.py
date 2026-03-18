@@ -93,11 +93,11 @@ if page == "Borrowers":
         st.warning("Connection lost. Please refresh the page.")
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
-# --- 1. THE SIDEBAR (Defining the 'page' variable) ---
+# --- 1. THE SIDEBAR (Guaranteed to define 'page') ---
 with st.sidebar:
-    # Large Logo Center-Aligned
-    c1, c2, c3 = st.columns([0.1, 0.8, 0.1])
-    with c2:
+    # Large centered Logo (using standard columns)
+    c1, col_img, c3 = st.columns([0.1, 0.8, 0.1])
+    with col_img:
         try:
             st.image("logo.png", use_container_width=True)
         except:
@@ -106,31 +106,33 @@ with st.sidebar:
     st.markdown("<h3 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h3>", unsafe_allow_html=True)
     st.write("---")
 
-    # This is the line that was missing or broken:
-    page = option_menu(
-        menu_title=None,
-        options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-        icons=["house", "people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
-        default_index=1,
-        styles={
-            "nav-link": {"text-align": "center"},
-            "nav-link-selected": {"background-color": "#1E3A8A"},
-        }
+    # --- THE NAVIGATION (This creates the 'page' variable) ---
+    st.write("📍 **Main Menu**")
+    page = st.radio(
+        "Select Page",
+        ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        label_visibility="collapsed"
     )
+    
+    st.write("---")
+    if st.button("🚪 Secure Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 
-# --- 2. BORROWERS PAGE (Viewing & Editing with Colors) ---
+# --- 2. THE BORROWERS PAGE (Viewing & Editing) ---
 if page == "Borrowers":
     st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
     
     if not df.empty:
-        # TABS: Viewing vs Editing
+        # TABS: One for looking, one for changing
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Details Editor"])
 
         with tab_view:
-            st.write("### 📋 Loan Status Registry")
+            st.write("### 📋 Active Loan Registry")
             
             # Color Logic: Red for high exposure (>1M), Green for managed debt
             def highlight_risk(val):
+                # Using hex colors for professional look
                 color = '#ff4b4b' if val > 1000000 else '#28a745'
                 return f'color: white; background-color: {color}; font-weight: bold; border-radius: 5px;'
 
@@ -143,7 +145,6 @@ if page == "Borrowers":
 
         with tab_edit:
             st.write("### ✏️ Edit Borrower Details")
-            # Searchable selectbox
             target = st.selectbox("Select Client to Edit", df['CUSTOMER_NAME'].unique())
             row = df[df['CUSTOMER_NAME'] == target].iloc[0]
 
@@ -152,7 +153,7 @@ if page == "Borrowers":
                 up_name = col1.text_input("Name", value=row['CUSTOMER_NAME'])
                 up_loan = col2.number_input("Loan Amount", value=float(row['LOAN_AMOUNT']))
                 
-                # Check for column naming space
+                # Check for the specific "DUE " space we found in your sheet
                 date_col = "DUE " if "DUE " in df.columns else "DUE"
                 up_due = st.date_input("Repayment Date", value=pd.to_datetime(row[date_col]))
 
@@ -160,7 +161,7 @@ if page == "Borrowers":
                     st.success(f"Changes for {target} recorded! Data will sync to Google Sheets.")
                     st.balloons()
     else:
-        st.warning("No data found. Check your Google Sheets connection.")
+        st.warning("⚠️ No data available. Please check your 'Borrowers' tab in Google Sheets.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
