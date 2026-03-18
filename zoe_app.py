@@ -51,26 +51,17 @@ def get_all_data():
 
 df, pay_df, collateral_df = get_all_data()
 with st.sidebar:
-    # --- 1. THE UNIFIED BRAND & PROFILE HEADER ---
-    # We use a container to keep the logo and name together
-    with st.container():
-        # Replace 'logo.png' with your actual file name (e.g., 'zoe_logo.png')
-        try:
-            st.image("logo.png", use_container_width=True)
-        except:
-            # Fallback if image is missing
-            st.markdown("<h2 style='text-align:center; color:#1E3A8A;'>ZOE CONSULTS</h2>", unsafe_allow_html=True)
-            
-        st.markdown(f"""
-            <div style="background-color: #ffffff; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; text-align: center; margin-top: -10px;">
-                <p style="color: #94a3b8; font-size: 0.6rem; margin: 0; font-weight: bold; letter-spacing: 1px;">ADMINISTRATOR</p>
-                <p style="color: #1e293b; font-size: 1rem; margin: 0; font-weight: bold;">{st.session_state.get('user_name', 'Evans Ahuura')}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.write("") # Spacer
+    # (Your Branding/Logo Code is here)
+    st.markdown("---")
     
-    # Logout at the bottom
+    # 🚨 THIS IS THE MISSING LINE:
+    page = st.radio("Navigation", 
+                    ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+                    label_visibility="collapsed")
+    
+    st.write("---")
+    
+    # Logout button below
     if st.button("🚪 Secure Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
