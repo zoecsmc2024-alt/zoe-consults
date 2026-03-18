@@ -39,69 +39,59 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-# --- STEP 1: SAFETY FALLBACK ---
-# This ensures 'page' ALWAYS exists, even if the sidebar crashes
-page = "Overview" 
+# --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- STEP 2: REPAIRED DATA LOADING ---
-@st.cache_data(ttl=0) # ttl=0 forces a fresh connection
 def get_all_data():
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Borrowers")
-        p_df = conn.read(worksheet="Payments")
-        c_df = conn.read(worksheet="Collateral")
-        return df, p_df, c_df
-    except Exception as e:
-        # If Google fails, we show a helpful message instead of a crash
-        st.sidebar.error(f"Google Connection Error: {e}")
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    b_df = conn.read(worksheet="Borrowers", ttl="600").dropna(how="all")
+    p_df = conn.read(worksheet="Payments", ttl="600").dropna(how="all")
+    # Add this line here so it's loaded globally!
+    c_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
+    return b_df, p_df, c_df
 
 df, pay_df, collateral_df = get_all_data()
+from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
-# --- 1. THE SIDEBAR (Simplified) ---
-# --- 1. THE SIDEBAR ---
 with st.sidebar:
-    st.markdown("<h3 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h3>", unsafe_allow_html=True)
-    st.write("---")
-    
-    # Restoring the Premium Menu
+    # 1. CENTERED LOGO
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        try:
+            st.image("logo.png", use_container_width=True)
+        except:
+            st.markdown("<h1 style='text-align: center; margin: 0;'>🌐</h1>", unsafe_allow_html=True)
+
+    # 2. BRAND NAME
+    st.markdown("""
+        <div style="text-align: center; margin-top: 10px;">
+            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.4rem; letter-spacing: 2px;">ZOE</h2>
+            <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; letter-spacing: 3px; margin-top: -5px;">CONSULTS</p>
+        </div>
+        <hr style="margin: 15px 0; border: 0.5px solid #e2e8f0;">
+    """, unsafe_allow_html=True)
+
+    # 3. CENTERED OPTION MENU (The Fix!)
+    # This component is much better for centered mobile-style menus
     page = option_menu(
-        menu_title=None,
-        options=["Overview", "Borrowers", "Repayments", "Ledger", "Settings"],
-        icons=["house", "people", "cash-stack", "file-earmark-text", "gear"],
+        menu_title=None,  # No title needed
+        options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        icons=["house", "people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
+        menu_icon="cast", 
         default_index=0,
-        styles={"nav-link-selected": {"background-color": "#1E3A8A"}}
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "icon": {"color": "#1E3A8A", "font-size": "18px"}, 
+            "nav-link": {"font-size": "16px", "text-align": "center", "margin":"0px", "--hover-color": "#f1f5f9"},
+            "nav-link-selected": {"background-color": "#1E3A8A"},
+        }
     )
-
-# --- 2. THE PAGES ---
-if page == "Overview":
-    st.markdown('<h1 style="color: #1E3A8A;">🏠 Executive Summary</h1>', unsafe_allow_html=True)
-    if not df.empty:
-        m1, m2, m3 = st.columns(3)
-        total_p = df['LOAN_AMOUNT'].sum()
-        m1.metric("Active Borrowers", len(df))
-        m2.metric("Total Principal", f"UGX {total_p:,.0f}")
-        m3.metric("Expected Interest", f"UGX {(total_p * 0.028):,.0f}")
-
-elif page == "Borrowers":
-    st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
-    if not df.empty:
-        # One clean table, zero stress
-        display_df = df.copy()
-        
-        # Calculate extra info safely
-        display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * 0.028)
-        display_df['Outstanding'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - display_df.get('AMOUNT_PAID', 0)
-        
-        st.dataframe(
-            display_df[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding']],
-            column_config={
-                "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-                "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d")
-            },
-            use_container_width=True, hide_index=True
-        )
+    
+    st.markdown("---")
+    
+    # 4. LOGOUT
+    if st.button("🚪 Secure Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
@@ -416,22 +406,5 @@ elif page == "Ledger":
         st.info("No borrowers found. Please add data in the Borrowers tab.")
     
 elif page == "Settings":
-    st.markdown('<div class="main-title">⚙️ System Settings</div>', unsafe_allow_html=True)
-    
-    # --- LOGO CUSTOMIZATION ---
-    st.subheader("🖼️ App Branding")
-    uploaded_logo = st.file_uploader("Upload a new logo for Zoe Consults", type=["png", "jpg", "jpeg"])
-    
-    if uploaded_logo is not None:
-        # Save the uploaded file to the session so the sidebar updates immediately
-        st.session_state["custom_logo"] = uploaded_logo
-        st.success("Logo updated! Look at your sidebar.")
-        st.rerun() # Refresh to show the new logo
-        
-    if st.button("🔄 Reset to Default Logo"):
-        if "custom_logo" in st.session_state:
-            del st.session_state["custom_logo"]
-        st.rerun()
-
-    st.write("---")
-    # (Your existing Backup/Export buttons follow below...)
+    st.title("⚙️ Settings")
+    st.write("Settings logic goes here.")
