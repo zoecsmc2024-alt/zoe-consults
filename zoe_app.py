@@ -4,7 +4,20 @@ from datetime import datetime
 import os
 import base64
 import urllib.parse
+from streamlit_gsheets import GSheetsConnection
 
+# 1. Establish Connection
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# 2. Read the Data (Instead of pd.read_csv)
+df = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/your_sheet_id_here")
+
+# 3. Save Data (When you add a new loan)
+if st.form_submit_button("✅ Disburse"):
+    # ... your existing logic to create 'new_row' ...
+    updated_df = pd.concat([df, new_row], ignore_index=True)
+    conn.update(spreadsheet="https://docs.google.com/spreadsheets/d/your_sheet_id_here", data=updated_df)
+    st.success("Saved to Google Sheets!")
 # --- 0. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
