@@ -51,48 +51,46 @@ def get_all_data():
 
 df, pay_df, collateral_df = get_all_data()
 with st.sidebar:
-    # --- 1. THE CIRCULAR LOGO ---
-    # We use CSS to force the image into a perfect circle
-    st.markdown("""
-        <div style="display: flex; justify-content: center; padding-top: 20px;">
-            <div style="
-                width: 120px;
-                height: 120px;
-                border-radius: 50%;
-                overflow: hidden;
-                border: 3px solid #1E3A8A;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                background-color: white;
-            ">
-                <img src="https://via.placeholder.com/120" style="width: 100%; height: auto;" id="logo_img">
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Note: Replace the URL above with your actual logo path: st.image("logo.png")
-    # If using a local file, use this instead of the <img> tag above:
-    # st.image("logo.png", width=120) 
+    # --- 1. CENTERED CIRCULAR LOGO ---
+    # We use columns to perfectly center the Streamlit image widget
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        try:
+            st.image("logo.png", use_container_width=True)
+        except:
+            st.markdown("🌐") # Fallback icon if logo.png isn't found
 
-    # --- 2. THE BRAND NAME ---
+    # --- 2. CENTERED BRAND NAME ---
     st.markdown("""
         <div style="text-align: center; margin-top: 10px;">
             <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.4rem;">ZOE</h2>
             <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; letter-spacing: 3px; margin-top: -5px;">CONSULTS</p>
         </div>
+        <hr style="margin: 15px 0;">
     """, unsafe_allow_html=True)
-    
-    st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
 
-    # --- 3. THE ADMIN NAME ---
-    st.markdown(f"""
-        <p style="text-align: center; color: #1e293b; font-size: 0.9rem; font-weight: bold; margin-bottom: 20px;">
-             {st.session_state.get('user_name', 'NAVIGATION')}
-        </p>
+    # --- 3. THE CENTER-ALIGN MAGIC (CSS) ---
+    st.markdown("""
+        <style>
+            /* This forces the radio group and its labels to center */
+            [data-testid="stSidebarNav"] {text-align: center;}
+            [data-testid="stWidgetLabel"] {text-align: center; width: 100%;}
+            div[role="radiogroup"] {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+            }
+            div[role="radiogroup"] > label {
+                justify-content: center;
+            }
+        </style>
     """, unsafe_allow_html=True)
 
     # --- 4. NAVIGATION ---
+    st.markdown("<p style='text-align: center; font-weight: bold; color: #1E3A8A;'>NAVIGATION</p>", unsafe_allow_html=True)
+    
     page = st.radio("Menu Selection", 
                     ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
                     label_visibility="collapsed")
@@ -102,7 +100,6 @@ with st.sidebar:
     if st.button("🚪 Secure Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
-
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
