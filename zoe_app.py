@@ -206,7 +206,7 @@ elif page == "Calendar":
 possible_names = ['DUE_DATE', 'Due Date', 'DATE_DUE', 'Due_Date']
 date_col = next((col for col in possible_names if col in df.columns), None)
 
-    if date_col:
+if date_col:
         # 2. SETUP DATES
         today = datetime.now().date()
         this_week_end = today + timedelta(days=7)
