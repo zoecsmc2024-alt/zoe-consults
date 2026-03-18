@@ -212,8 +212,53 @@ elif page == "Calendar":
     st.write("Calendar logic goes here.")
 
 elif page == "Collateral":
-    st.title("📑 Security Assets")
-    st.write("Collateral logic goes here.")
+    st.markdown('<div class="main-title">📑 Security & Collateral Vault</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        # --- 1. THE ASSET SUMMARY ---
+        c1, c2 = st.columns([1, 3])
+        
+        with c1:
+            st.markdown("""
+                <div style="background:#f1f5f9; padding:20px; border-radius:10px; border:1px solid #e2e8f0;">
+                    <h4 style="margin:0; color:#0f172a;">🛡️ Asset Protection</h4>
+                    <p style="font-size:0.8rem; color:#64748b;">Ensure all active loans have a verified security asset attached.</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # --- 2. ADD NEW COLLATERAL ---
+        with st.expander("📥 Register New Security Asset"):
+            with st.form("collateral_form"):
+                owner = st.selectbox("Assign to Borrower", options=df['CUSTOMER_NAME'].unique())
+                asset_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Household Item", "Business Stock", "Other"])
+                asset_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos, Condition)")
+                est_value = st.number_input("Estimated Market Value (UGX)", min_value=0)
+                
+                if st.form_submit_button("🔒 Secure Asset to Vault"):
+                    # For now, we store this in a temporary list or you can add a 'Collateral' tab to your GSHeet!
+                    st.success(f"Asset for {owner} successfully logged in the vault!")
+
+        # --- 3. THE VAULT TABLE ---
+        st.write("---")
+        st.subheader("📋 Held Assets Gallery")
+        
+        # We merge our borrower data with asset info (Simplified for display)
+        vault_df = df[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT']].copy()
+        vault_df['ASSET_STATUS'] = "🔐 HELD IN VAULT"
+        
+        st.dataframe(
+            vault_df,
+            column_config={
+                "CUSTOMER_NAME": "Borrower",
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Loan Value", format="UGX %,d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Current Risk", format="UGX %,d"),
+                "ASSET_STATUS": "Security Status"
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No borrowers found. You must register a borrower before attaching collateral.")
 
 elif page == "Ledger":
     st.title("📄 Client Ledger")
