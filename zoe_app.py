@@ -212,53 +212,55 @@ elif page == "Calendar":
     st.write("Calendar logic goes here.")
 
 elif page == "Collateral":
-    st.markdown('<div class="main-title">📑 Security & Collateral Vault</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
     
+    # --- 1. CONNECT TO THE NEW COLLATERAL TAB ---
+    try:
+        collateral_df = conn.read(worksheet="Collateral", ttl="0").dropna(how="all")
+    except:
+        st.error("⚠️ Please create a tab named 'Collateral' in your Google Sheet first!")
+        st.stop()
+
     if not df.empty:
-        # --- 1. THE ASSET SUMMARY ---
-        c1, c2 = st.columns([1, 3])
-        
-        with c1:
-            st.markdown("""
-                <div style="background:#f1f5f9; padding:20px; border-radius:10px; border:1px solid #e2e8f0;">
-                    <h4 style="margin:0; color:#0f172a;">🛡️ Asset Protection</h4>
-                    <p style="font-size:0.8rem; color:#64748b;">Ensure all active loans have a verified security asset attached.</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-        # --- 2. ADD NEW COLLATERAL ---
-        with st.expander("📥 Register New Security Asset"):
-            with st.form("collateral_form"):
-                owner = st.selectbox("Assign to Borrower", options=df['CUSTOMER_NAME'].unique())
-                asset_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Household Item", "Business Stock", "Other"])
-                asset_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos, Condition)")
-                est_value = st.number_input("Estimated Market Value (UGX)", min_value=0)
+        # --- 2. REGISTRATION FORM ---
+        with st.expander("📥 Register & Save New Asset"):
+            with st.form("permanent_collateral"):
+                c_owner = st.selectbox("Assign to Borrower", options=df['NAME'].unique() if 'NAME' in df.columns else df['CUSTOMER_NAME'].unique())
+                c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Household Item", "Business Stock", "Other"])
+                c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos, Condition)")
+                c_val = st.number_input("Estimated Market Value (UGX)", min_value=0, step=100000)
                 
-                if st.form_submit_button("🔒 Secure Asset to Vault"):
-                    # For now, we store this in a temporary list or you can add a 'Collateral' tab to your GSHeet!
-                    st.success(f"Asset for {owner} successfully logged in the vault!")
+                if st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True):
+                    # Create the new data row
+                    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
+                                           columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+                    
+                    # Upload to Google Sheets
+                    updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
+                    conn.update(worksheet="Collateral", data=updated_collateral)
+                    
+                    st.success(f"Asset for {c_owner} is now locked in the Google Sheet Vault!")
+                    st.rerun()
 
-        # --- 3. THE VAULT TABLE ---
+        # --- 3. THE LIVE VAULT VIEW ---
         st.write("---")
-        st.subheader("📋 Held Assets Gallery")
+        st.subheader("📋 Assets Currently Held")
         
-        # We merge our borrower data with asset info (Simplified for display)
-        vault_df = df[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT']].copy()
-        vault_df['ASSET_STATUS'] = "🔐 HELD IN VAULT"
-        
-        st.dataframe(
-            vault_df,
-            column_config={
-                "CUSTOMER_NAME": "Borrower",
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Loan Value", format="UGX %,d"),
-                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Current Risk", format="UGX %,d"),
-                "ASSET_STATUS": "Security Status"
-            },
-            use_container_width=True,
-            hide_index=True
-        )
+        if not collateral_df.empty:
+            st.dataframe(
+                collateral_df,
+                column_config={
+                    "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
+                    "STATUS": "Vault Status"
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("The vault is currently empty. Register an asset above to begin.")
+            
     else:
-        st.info("No borrowers found. You must register a borrower before attaching collateral.")
+        st.warning("⚠️ No borrowers found. You must have a client before you can hold their collateral.")
 
 elif page == "Ledger":
     st.title("📄 Client Ledger")
