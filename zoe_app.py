@@ -72,37 +72,56 @@ with st.sidebar:
 # --- 4. PAGE LOGIC ---
 
 if page == "📊 Overview":
-    # This is the "Anchor" that pulls everything to the top
-    st.markdown('<div class="main-title"> Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
+    # 1. The Title (Already working, keep this!)
+    st.markdown('<div class="main-title">🛡️ Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
     
+    # 2. Add some "Air" (Spacing)
+    st.write("") 
+
     if not df.empty:
+        # Calculate the money
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
         balance = total_p - total_c
         
-        # --- THE KPI CARDS ---
+        # 3. PREMIUM KPI CARDS (Styled to look like Glass)
         c1, c2, c3 = st.columns(3)
         
+        card_style = """
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        """
+
         with c1:
-            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                <p style="color: #64748b; font-size: 0.8rem; margin:0; font-weight: 600;">TOTAL CAPITAL ISSUED</p>
-                <h2 style="color: #0f172a; margin:0;">UGX {total_p:,.0f}</h2>
+            st.markdown(f'''<div style="{card_style} border-top: 5px solid #0ea5e9;">
+                <p style="color: #64748b; font-size: 0.9rem; font-weight: 600; margin:0;">TOTAL CAPITAL ISSUED</p>
+                <h1 style="color: #0f172a; margin: 10px 0; font-size: 2rem;">UGX {total_p:,.0f}</h1>
             </div>''', unsafe_allow_html=True)
             
         with c2:
-            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                <p style="color: #64748b; font-size: 0.8rem; margin:0; font-weight: 600;">TOTAL RECOVERED</p>
-                <h2 style="color: #10b981; margin:0;">UGX {total_c:,.0f}</h2>
+            st.markdown(f'''<div style="{card_style} border-top: 5px solid #10b981;">
+                <p style="color: #64748b; font-size: 0.9rem; font-weight: 600; margin:0;">TOTAL RECOVERED</p>
+                <h1 style="color: #10b981; margin: 10px 0; font-size: 2rem;">UGX {total_c:,.0f}</h1>
             </div>''', unsafe_allow_html=True)
             
         with c3:
-            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                <p style="color: #64748b; font-size: 0.8rem; margin:0; font-weight: 600;">OUTSTANDING RISK</p>
-                <h2 style="color: #ef4444; margin:0;">UGX {balance:,.0f}</h2>
+            st.markdown(f'''<div style="{card_style} border-top: 5px solid #ef4444;">
+                <p style="color: #64748b; font-size: 0.9rem; font-weight: 600; margin:0;">OUTSTANDING RISK</p>
+                <h1 style="color: #ef4444; margin: 10px 0; font-size: 2rem;">UGX {balance:,.0f}</h1>
             </div>''', unsafe_allow_html=True)
 
         st.write("---")
-        # (Rest of your charts...)
+        
+        # 4. RECOVERY PROGRESS CHART
+        st.subheader("📈 Recovery Progress by Client")
+        st.bar_chart(df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']], color=["#0ea5e9", "#10b981"])
+
+    else:
+        st.info("👋 Welcome, Admin! Add your first loan to see the magic happen.")
         
         # --- THE CHART ---
         st.markdown('<h3 style="color: #0f172a;">📈 Recovery Progress</h3>', unsafe_allow_html=True)
