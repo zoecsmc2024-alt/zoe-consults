@@ -71,41 +71,74 @@ with st.sidebar:
         st.session_state["password_correct"] = False
         st.rerun()
 
-# --- 4. PAGE LOGIC (CLEAN VERSION) ---
+# --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
     st.markdown('<div class="main-title">🛡️ Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
+    
     if not df.empty:
+        # Calculate totals from the Google Sheet data
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
+        risk = total_p - total_c
+        
+        # 📊 NEW BEAUTIFUL KPI TILES
         c1, c2, c3 = st.columns(3)
-        c1.metric("Principal", f"{total_p:,.0f}")
-        c2.metric("Collected", f"{total_c:,.0f}")
-        c3.metric("Outstanding", f"{total_p - total_c:,.0f}")
+        with c1:
+            st.metric("Total Principal", f"UGX {total_p:,.0f}", delta_color="normal")
+        with c2:
+            st.metric("Total Recovered", f"UGX {total_c:,.0f}", delta_color="normal")
+        with c3:
+            st.metric("Outstanding Risk", f"UGX {risk:,.0f}", delta="-High" if risk > 0 else "Clear")
+            
+        st.write("---")
+        
+        # 📈 THE RECOVERY CHART (Bringing it back!)
+        st.subheader("Recovery Progress by Client")
+        st.bar_chart(df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']], color=["#0ea5e9", "#10b981"])
     else:
-        st.info("Welcome! Add your first loan to see the dashboard.")
+        st.info("👋 Welcome, Admin! Add your first loan in the 'Borrowers' tab to see your charts.")
 
 elif page == "Borrowers":
-    st.title("👥 Active Borrowers")
+    st.title("👥 Active Loan Registry")
+    # Show the main table from Google Sheets
     st.dataframe(df, use_container_width=True, hide_index=True)
-    with st.popover("➕ New Loan"):
-        with st.form("new_loan_form"):
-            name = st.text_input("Name")
-            amt = st.number_input("Amount", min_value=0)
-            if st.form_submit_button("Save"):
-                # Save logic here...
-                pass
+    
+    with st.popover("➕ New Loan Disbursal"):
+        with st.form("new_loan_cloud"):
+            name = st.text_input("Client Name")
+            amt = st.number_input("Principal Amount", min_value=0)
+            rate = st.number_input("Interest Rate (%)", value=10.0)
+            if st.form_submit_button("✅ Save to Cloud"):
+                new_id = int(df['SN'].max() + 1) if not df.empty else 1
+                new_row = pd.DataFrame([[new_id, name, amt, 0, amt, rate, str(datetime.now().date())]], columns=df.columns)
+                updated_df = pd.concat([df, new_row], ignore_index=True)
+                conn.update(worksheet="Borrowers", data=updated_df)
+                st.success("Saved to Google Sheets!")
+                st.rerun()
 
 elif page == "Repayments":
-    st.title("💰 Record Payment")
+    st.title("💰 Record a Payment")
     if not df.empty:
-        with st.form("pay_form"):
-            p_name = st.selectbox("Client", df['CUSTOMER_NAME'].unique())
-            p_amt = st.number_input("Amount", min_value=0)
-            if st.form_submit_button("Submit"):
-                # Payment logic here...
-                pass
-
+        with st.form("cloud_pay_form"):
+            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+            p_amt = st.number_input("Amount Paid", min_value=0)
+            p_ref = st.text_input("Receipt / Ref No.")
+            if st.form_submit_button("Submit Payment"):
+                # 1. Update Payments Sheet
+                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                updated_pay = pd.concat([pay_df, new_p], ignore_index=True)
+                conn.update(worksheet="Payments", data=updated_pay)
+                
+                # 2. Update Borrowers Balance
+                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+                df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
+                conn.update(worksheet="Borrowers", data=df)
+                st.success("Payment Synced!")
+                st.rerun()
+    st.write("---")
+    st.subheader("Recent Payment History")
+    st.dataframe(pay_df.iloc[::-1], use_container_width=True)
 elif page == "Calendar":
     st.title("📅 Due Dates")
     st.write("Calendar logic goes here.")
