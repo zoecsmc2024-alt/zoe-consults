@@ -226,10 +226,29 @@ elif page == "Collateral":
             c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
             c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
             
-            if st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True):
-                if c_owner == "No Borrowers Found":
-                    st.error("You must add a borrower first!")
-                else:
+            # --- RECOVERY BUTTON ---
+if st.button("🔄 Sync with Google Sheets Now"):
+    st.cache_data.clear() # This kills the "empty memory"
+    st.rerun()
+
+# --- THE VAULT VIEW ---
+st.write("---")
+st.subheader("📋 Assets Currently Held")
+
+# Make sure we check if the data exists before trying to show it
+if not collateral_df.empty:
+    # Filter for only held assets if you want
+    st.dataframe(
+        collateral_df,
+        column_config={
+            "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
+            "STATUS": "Vault Status"
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+else:
+    st.info("The vault data is still loading or empty. Click 'Sync' above if you have assets in your Google Sheet.")
                     new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
                                            columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
                     updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
