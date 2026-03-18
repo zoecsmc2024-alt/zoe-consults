@@ -87,28 +87,35 @@ if page == "Borrowers":
 
             st.dataframe(df.style.applymap(highlight_debt, subset=['OUTSTANDING_AMOUNT']), use_container_width=True)
 
-        with tab_edit:
-            st.write("### ✏️ Edit Borrower")
-            target = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
-            row = df[df['CUSTOMER_NAME'] == target].iloc[0]
-
-            with st.form("edit_form"):
-                new_loan = st.number_input("Update Loan Amount", value=float(row['LOAN_AMOUNT']))
-                
-                # --- THE FIX: HANDLE 'NONE' DATES ---
-                date_key = "DUE " if "DUE " in df.columns else "DUE"
-                
-                # If the value is 'None' or NaT, use today. Otherwise, use the saved date.
-                current_due_val = row[date_key]
-                if pd.isna(current_due_val) or current_due_val == "None":
-                    start_date = datetime.now().date()
-                else:
-                    start_date = pd.to_datetime(current_due_val).date()
-
-                new_due = st.date_input("Update Due Date", value=start_date)
-                
-                if st.form_submit_button("💾 Save Changes"):
-                    st.success(f"Updated {target}! Syncing to Google Sheets...")
+        with tab_view:
+            st.markdown("### 📋 Active Loan Registry")
+            
+            # 1. Create a display version of the data for the table
+            display_df = df.copy()
+            
+            # 2. Add Interest Calculation Logic (Match your Ledger math)
+            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
+            display_df['Total Due'] = display_df['LOAN_AMOUNT'] + display_df['Interest Charged']
+            display_df['Outstanding'] = display_df['Total Due'] - display_df['AMOUNT_PAID']
+            
+            # 3. THE PROFESSIONAL TABLE (Only keep this one)
+            st.dataframe(
+                display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ']],
+                column_config={
+                    "CUSTOMER_NAME": "NAME",
+                    "DATE_ISSUED": "ISSUED DATE",
+                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+                    "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
+                    "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+                    "DUE ": "DUE DATE"
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # 4. EXPANDER FOR NEW ENTRIES
+            with st.expander("➕ Register New Borrower"):
+                st.write("Registration form would go here.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
