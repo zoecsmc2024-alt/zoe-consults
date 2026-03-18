@@ -259,7 +259,7 @@ elif page == "Collateral":
                     st.balloons()
                     st.rerun()
 
-    elif page == "Ledger":
+elif page == "Ledger":
         st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
         if not df.empty:
             target = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
