@@ -68,10 +68,10 @@ if page == "📊 Overview":
         st.info("Your Google Sheet is empty. Add a borrower to begin!")
 
 elif page == "👥 Borrowers":
-    st.title("👥 Active Loan Registry")
+    st.title("👥 Borrowers")
     st.dataframe(df, use_container_width=True, hide_index=True)
     
-    with st.popover("➕ New Loan Disbursal"):
+    with st.popover("➕ New Loan"):
         with st.form("new_loan"):
             name = st.text_input("Client Name")
             amt = st.number_input("Principal Amount", min_value=0)
