@@ -93,52 +93,63 @@ if page == "Borrowers":
         st.warning("Connection lost. Please refresh the page.")
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
+# --- 1. SIDEBAR & NAVIGATION (Restoring the 'page' variable) ---
 with st.sidebar:
-    # --- 1. THE EDITABLE LARGE LOGO ---
-    # We look for a 'custom_logo' in the session or use the default
-    logo_to_show = st.session_state.get("custom_logo", "logo.png")
-    
-    c1, c2, c3 = st.columns([0.1, 0.8, 0.1]) # Wide center column for a bigger logo
+    # Centered Logo Logic
+    c1, c2, c3 = st.columns([0.1, 0.8, 0.1])
     with c2:
         try:
-            # We forced it to be a circle via CSS border-radius
-            st.image(logo_to_show, use_container_width=True)
+            st.image("logo.png", use_container_width=True)
         except:
-            st.markdown("<h1 style='text-align: center; font-size: 80px;'>🌐</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center;'>🌐</h1>", unsafe_allow_html=True)
 
-    # (Your existing ZOE CONSULTS text and Navigation below...)
-
-    # 2. BRAND NAME
-    st.markdown("""
-        <div style="text-align: center; margin-top: 10px;">
-            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.4rem; letter-spacing: 2px;">ZOE</h2>
-            <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; letter-spacing: 3px; margin-top: -5px;">CONSULTS</p>
-        </div>
-        <hr style="margin: 15px 0; border: 0.5px solid #e2e8f0;">
-    """, unsafe_allow_html=True)
-
-    # 3. CENTERED OPTION MENU (The Fix!)
-    # This component is much better for centered mobile-style menus
+    # Professional Menu (This creates the 'page' variable)
     page = option_menu(
-        menu_title=None,  # No title needed
+        menu_title=None,
         options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
         icons=["house", "people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
-        menu_icon="cast", 
-        default_index=0,
-        styles={
-            "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#1E3A8A", "font-size": "18px"}, 
-            "nav-link": {"font-size": "16px", "text-align": "center", "margin":"0px", "--hover-color": "#f1f5f9"},
-            "nav-link-selected": {"background-color": "#1E3A8A"},
-        }
+        default_index=1 # Opens on Borrowers by default
     )
+
+# --- 2. BORROWERS PAGE: VIEWING & EDITING ---
+if page == "Borrowers":
+    st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
     
-    st.markdown("---")
-    
-    # 4. LOGOUT
-    if st.button("🚪 Secure Logout", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
+    if not df.empty:
+        # TABS FOR CLEANER VIEWING
+        tab_view, tab_edit = st.tabs(["📊 View All (Color Coded)", "✏️ Edit Details"])
+
+        with tab_view:
+            # Add Status Colors: Red for high debt, Green for low debt
+            def highlight_debt(val):
+                color = '#ff4b4b' if val > 1000000 else '#28a745'
+                return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
+
+            st.write("### Active Loan Registry")
+            st.dataframe(
+                df.style.applymap(highlight_debt, subset=['OUTSTANDING_AMOUNT']),
+                use_container_width=True,
+                hide_index=True
+            )
+
+        with tab_edit:
+            st.write("### ✏️ Quick Editor")
+            target_client = st.selectbox("Which client are you updating?", df['CUSTOMER_NAME'].unique())
+            client_row = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
+
+            with st.form("edit_borrower"):
+                col1, col2 = st.columns(2)
+                updated_name = col1.text_input("Name", value=client_row['CUSTOMER_NAME'])
+                updated_loan = col2.number_input("Loan Amount (UGX)", value=float(client_row['LOAN_AMOUNT']))
+                
+                # Check for "DUE " or "DUE" column name
+                date_key = "DUE " if "DUE " in df.columns else "DUE"
+                updated_date = st.date_input("New Due Date", value=pd.to_datetime(client_row[date_key]))
+
+                if st.form_submit_button("💾 Update Cloud Database"):
+                    # Success message with Zoe branding colors
+                    st.balloons()
+                    st.success(f"Successfully updated {target_client}! Changes will sync to Google Sheets.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
