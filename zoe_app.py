@@ -648,36 +648,52 @@ elif page == "Ledger":
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
     
-    tab_data, tab_branding = st.tabs(["🔄 Data Management", "🎨 Branding & Identity"])
+    # Create the Tabs
+    tab_sync, tab_branding = st.tabs(["🔄 Data Sync", "🎨 Branding & Identity"])
     
-    with tab_data:
-        st.subheader("Refresh System")
-        if st.button("🧹 Clear Cache & Sync Sheets", use_container_width=True):
+    with tab_sync:
+        st.subheader("Maintenance")
+        st.write("Force the app to pull the latest data from Google Sheets.")
+        if st.button("🧹 Clear Cache & Refresh", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
     with tab_branding:
-    st.subheader("Edit Company Profile")
-    with st.form("branding_form"):
-        new_name = st.text_input("Company Name", value=brand_name)
-        new_tagline = st.text_input("Tagline", value=brand_tagline)
+        st.subheader("Edit Company Profile")
         
-        logo_choice = st.radio("Logo Style", ["Emoji", "URL"], index=0 if brand_logo_type == "Emoji" else 1)
-        new_logo_val = st.text_input("Logo (Emoji or Image URL)", 
-                                     value=brand_logo_val,
-                                     help="Paste an emoji OR a direct link to a logo image (png/jpg)")
-        
-        if st.form_submit_button("💾 Save Branding Changes", use_container_width=True):
-            # Create the data to save
-            new_settings = pd.DataFrame([
-                ["Company Name", new_name],
-                ["Tagline", new_tagline],
-                ["Logo Type", logo_choice],
-                ["Logo Value", new_logo_val]
-            ], columns=["Property", "Value"])
+        # This form must be indented inside the 'with tab_branding' block
+        with st.form("branding_editor_v2"):
+            # Get current values (using the helper function we defined earlier)
+            curr_name = get_setting("Company Name", "ZOE")
+            curr_tagline = get_setting("Tagline", "CONSULTS")
+            curr_logo_type = get_setting("Logo Type", "Emoji")
+            curr_logo_val = get_setting("Logo Value", "🛡️")
+
+            new_name = st.text_input("Company Name", value=curr_name)
+            new_tagline = st.text_input("Tagline", value=curr_tagline)
             
-            # This will now work because you created the 'Settings' tab!
-            conn.update(worksheet="Settings", data=new_settings)
-            st.success("Identity updated! Refreshing...")
-            st.cache_data.clear()
-            st.rerun()
+            logo_choice = st.radio("Logo Style", ["Emoji", "URL"], 
+                                   index=0 if curr_logo_type == "Emoji" else 1,
+                                   horizontal=True)
+            
+            new_logo_val = st.text_input("Logo Value (Emoji or Image URL)", 
+                                         value=curr_logo_val,
+                                         help="Direct link to image or a single emoji")
+
+            if st.form_submit_button("💾 Save Branding Changes", use_container_width=True):
+                # Prepare data for Google Sheets
+                new_settings_data = pd.DataFrame([
+                    ["Company Name", new_name],
+                    ["Tagline", new_tagline],
+                    ["Logo Type", logo_choice],
+                    ["Logo Value", new_logo_val]
+                ], columns=["Property", "Value"])
+                
+                # Sync back to the 'Settings' tab in your Google Sheet
+                try:
+                    conn.update(worksheet="Settings", data=new_settings_data)
+                    st.success("✅ Identity updated! Refreshing app...")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: Make sure you created a tab named 'Settings' in your Google Sheet. {e}")
