@@ -198,42 +198,49 @@ elif page == "Calendar":
     st.markdown('<div class="main-title">🗓️ Collection & Due Date Calendar</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # --- STEP 1: DEBUGGER (This helps us find the right column) ---
-        st.info("🔍 Checking your Google Sheet columns...")
-        st.write("Columns found:", list(df.columns))
-        
-        # --- STEP 2: COLUMN SEARCH ---
-        # Add the EXACT name you see in the list above to this 'possible_names' list
-        possible_names = ['DUE_DATE', 'Due Date', 'DATE_DUE', 'DUE', 'Deadline', 'PAYMENT_DATE']
-        date_col = next((col for col in possible_names if col in df.columns), None)
+        # --- 1. SET THE CORRECT COLUMN NAME ---
+        # We use the exact name found: "DUE " (with the space!)
+        date_col = "DUE " if "DUE " in df.columns else "DUE"
 
-        if date_col:
+        if date_col in df.columns:
+            # 2. SETUP DATES
             today = datetime.now().date()
             this_week_end = today + timedelta(days=7)
             
-            # Convert to date safely
-            df[date_col] = pd.to_datetime(df[date_col]).dt.date
+            # Convert to date format safely, handling any empty rows
+            df[date_col] = pd.to_datetime(df[date_col], errors='coerce').dt.date
             
-            # THE TABS
-            t1, t2 = st.tabs(["🚨 Overdue", "📅 Due This Week"])
-            
-            with t1:
-                # Use a flexible balance check
-                bal_col = 'OUTSTANDING_AMOUNT' if 'OUTSTANDING_AMOUNT' in df.columns else 'LOAN_AMOUNT'
-                overdue = df[(df[date_col] < today) & (df[bal_col] > 0)]
+            # Remove any rows where the date is missing
+            active_loans = df.dropna(subset=[date_col])
+
+            # 3. THE URGENT TABS
+            tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ All Collections"])
+
+            with tab1:
+                overdue = active_loans[(active_loans[date_col] < today) & (active_loans['OUTSTANDING_AMOUNT'] > 0)]
                 if not overdue.empty:
                     st.error(f"⚠️ {len(overdue)} Loans are past due!")
-                    st.dataframe(overdue[['CUSTOMER_NAME', date_col, bal_col]], use_container_width=True, hide_index=True)
+                    st.dataframe(overdue[['CUSTOMER_NAME', date_col, 'OUTSTANDING_AMOUNT']], 
+                                 column_config={"OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d")},
+                                 use_container_width=True, hide_index=True)
                 else:
-                    st.success("No overdue loans!")
-            
-            with t2:
-                this_week = df[(df[date_col] >= today) & (df[date_col] <= this_week_end)]
-                st.dataframe(this_week[['CUSTOMER_NAME', date_col]], use_container_width=True, hide_index=True)
+                    st.success("No overdue loans. Everyone is up to date!")
+
+            with tab2:
+                this_week = active_loans[(active_loans[date_col] >= today) & (active_loans[date_col] <= this_week_end)]
+                if not this_week.empty:
+                    st.info(f"You have {len(this_week)} payments expected this week.")
+                    st.dataframe(this_week[['CUSTOMER_NAME', date_col, 'OUTSTANDING_AMOUNT']], use_container_width=True, hide_index=True)
+                else:
+                    st.write("No collections due in the next 7 days.")
+
+            with tab3:
+                st.write("Full repayment schedule:")
+                st.dataframe(active_loans[['CUSTOMER_NAME', date_col, 'OUTSTANDING_AMOUNT']].sort_values(by=date_col), use_container_width=True, hide_index=True)
         else:
-            st.warning("Still looking for the date column. Look at the 'Columns found' list above and let me know the name!")
+            st.warning("Could not find the 'DUE ' column. Please check your Google Sheet header for extra spaces.")
     else:
-        st.info("No borrower data available.")
+        st.info("No borrower data found.")
     
 elif page == "Collateral":
         st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
