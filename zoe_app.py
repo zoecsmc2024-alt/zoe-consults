@@ -218,28 +218,24 @@ elif page == "Collateral":
 
     # --- 3. THE FORM (Now Unlocked) ---
     with st.expander("📥 Register & Save New Asset", expanded=True):
-    # Everything inside this 'with' must be indented
-    with st.form("permanent_collateral"):
-        c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
-        c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
-        c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
-        c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
-        
-        # THIS BUTTON MUST BE INDENTED TO BE INSIDE THE FORM
-        submitted = st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True)
-        
-        if submitted:
-            new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
-                                   columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
-            updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
-            conn.update(worksheet="Collateral", data=updated_collateral)
-            st.success("Asset Locked!")
-            st.rerun()
-
-# The 'Sync' button should stay OUTSIDE the form (this is correct in your screenshot)
-if st.button("🔄 Sync with Google Sheets Now"):
-    st.cache_data.clear()
-    st.rerun()
+        with st.form("permanent_collateral"):
+            # These 4 lines are indented to be INSIDE the form
+            c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
+            c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
+            c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
+            c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
+            
+            # This button is also indented to be the "Seal" of the form
+            submitted = st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True)
+            
+            if submitted:
+                # This logic is indented even further to be inside the 'if'
+                new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
+                                       columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+                updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
+                conn.update(worksheet="Collateral", data=updated_collateral)
+                st.success("Asset Locked!")
+                st.rerun()
 
 # --- THE VAULT VIEW ---
 st.write("---")
