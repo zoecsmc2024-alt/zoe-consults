@@ -52,28 +52,23 @@ def get_all_data():
 df, pay_df, collateral_df = get_all_data()
 with st.sidebar:
     # --- 1. THE UNIFIED BRAND & PROFILE HEADER ---
-    st.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.5rem; letter-spacing: 2px;">ZOE</h2>
-            <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; margin-top: -5px; letter-spacing: 3px;">CONSULTS</p>
-            <hr style="border: 0.5px solid #f1f5f9; margin: 15px 0;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <span style="font-size: 1.5rem;"></span>
-                <div style="text-align: left;">
-                    <p style="color: #94a3b8; font-size: 0.6rem; margin: 0; font-weight: bold;">ADMINISTRATOR</p>
-                    <p style="color: #1e293b; font-size: 0.9rem; margin: 0; font-weight: bold;">{st.session_state.get('user_name', 'Evans Ahuura')}</p>
-                </div>
+    # We use a container to keep the logo and name together
+    with st.container():
+        # Replace 'logo.png' with your actual file name (e.g., 'zoe_logo.png')
+        try:
+            st.image("logo.png", use_container_width=True)
+        except:
+            # Fallback if image is missing
+            st.markdown("<h2 style='text-align:center; color:#1E3A8A;'>ZOE CONSULTS</h2>", unsafe_allow_html=True)
+            
+        st.markdown(f"""
+            <div style="background-color: #ffffff; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; text-align: center; margin-top: -10px;">
+                <p style="color: #94a3b8; font-size: 0.6rem; margin: 0; font-weight: bold; letter-spacing: 1px;">ADMINISTRATOR</p>
+                <p style="color: #1e293b; font-size: 1rem; margin: 0; font-weight: bold;">{st.session_state.get('user_name', 'Evans Ahuura')}</p>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # --- 2. THE NAVIGATION MENU ---
-    st.write("#### 🧭 NAVIGATION")
-    page = st.radio("Menu", 
-                    ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-                    label_visibility="collapsed")
-    
-    st.write("---")
+    st.write("") # Spacer
     
     # Logout at the bottom
     if st.button("🚪 Secure Logout", use_container_width=True):
