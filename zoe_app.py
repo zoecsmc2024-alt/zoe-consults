@@ -204,7 +204,7 @@ elif page == "Calendar":
         # 1. FIND THE DATE COLUMN AUTOMATICALLY
         # This checks for common names so the app doesn't crash
 possible_names = ['DUE_DATE', 'Due Date', 'DATE_DUE', 'Due_Date']
-        date_col = next((col for col in possible_names if col in df.columns), None)
+date_col = next((col for col in possible_names if col in df.columns), None)
 
         if date_col:
             # 2. SETUP DATES
