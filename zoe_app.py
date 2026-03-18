@@ -237,68 +237,88 @@ elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # --- 1. THE RECOVERY CALCULATION (Fixes the NameError) ---
+        # 1. MATH & CALCULATIONS
         display_df = df.copy()
         display_df['INTEREST_AMT'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
         display_df['TOTAL_EXPECTED'] = display_df['LOAN_AMOUNT'] + display_df['INTEREST_AMT']
         display_df['REAL_OUTSTANDING'] = display_df['TOTAL_EXPECTED'] - display_df['AMOUNT_PAID']
-        
-        # Clean up Dates
         display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
         display_df['DUE_DT'] = (pd.to_datetime(display_df['DATE_ISSUED']) + pd.Timedelta(days=30)).dt.date
         
-        # Status Badge Logic
         def get_status(row):
             if row['REAL_OUTSTANDING'] <= 0: return "✅ SETTLED"
             if datetime.now().date() > row['DUE_DT']: return "🚩 OVERDUE"
             return "🔵 ACTIVE"
         display_df['Status'] = display_df.apply(get_status, axis=1)
 
-        # --- 2. COLORED DATA ENTRIES ---
-        st.subheader("📋 Portfolio Health")
-        
+        # 2. COLORED REGISTRY TABLE
         st.dataframe(
             display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'REAL_OUTSTANDING', 'Status']],
             column_config={
-                "CUSTOMER_NAME": st.column_config.TextColumn("Client Name"),
-                "ISSUED_DT": st.column_config.DateColumn("Date Issued", format="DD/MM/YYYY"),
+                "CUSTOMER_NAME": "Client Name",
+                "ISSUED_DT": st.column_config.DateColumn("Issued", format="DD/MM/YYYY"),
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                
-                # COLOR UPGRADE: Progress bar for payments
                 "AMOUNT_PAID": st.column_config.ProgressColumn(
                     "Recovery Progress 💰",
-                    help="Visual progress of loan repayment",
                     format="UGX %,d",
                     min_value=0,
                     max_value=int(display_df['TOTAL_EXPECTED'].max()),
                 ),
-                
                 "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-                
-                # COLOR UPGRADE: Badge-style status
-                "Status": st.column_config.SelectboxColumn(
-                    "Account Status",
-                    options=["✅ SETTLED", "🚩 OVERDUE", "🔵 ACTIVE"],
-                    required=True,
-                )
+                "Status": "Status"
             },
-            use_container_width=True,
-            hide_index=True
+            use_container_width=True, hide_index=True
         )
-        
-        # --- 3. MANAGE & EDIT SECTION ---
-        # (This keeps your Edit/Delete logic safe in a separate expander)
-        with st.expander("🛠️ Administrative Controls (Edit/Delete)"):
-            target = st.selectbox("Select Client:", options=df['CUSTOMER_NAME'].unique())
-            # ... [Insert your Edit/Delete logic here] ...
-
     else:
-        st.info("No active loans found.")
+        st.info("No records found.")
 
-    # --- 4. NEW REGISTRATION ---
+    # 3. NEW LOAN FORM (This was likely where the error was!)
     st.write("")
     with st.popover("➕ Register New Loan", use_container_width=True):
-        # ... [Your Registration Form] ...
+        with st.form("new_loan_final", clear_on_submit=True):
+            f_name = st.text_input("Borrower Name")
+            f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
+            f_rate = st.number_input("Interest Rate (%)", value=10)
+            f_date = st.date_input("Date Issued", datetime.now())
+            
+            if st.form_submit_button("✅ Disburse & Sync"):
+                if f_name and f_amt > 0:
+                    new_id = int(df['SN'].max() + 1) if not df.empty else 1
+                    starting_bal = f_amt + (f_amt * f_rate / 100)
+                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date)]], 
+                                         columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED'])
+                    conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
+                    st.success("Loan Created!")
+                    st.rerun()
+
+elif page == "Repayments":
+    st.markdown('<div class="main-title">💰 Payment Processing</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        with st.form("repayment_form_final"):
+            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+            p_amt = st.number_input("Amount Paid", min_value=0)
+            p_ref = st.text_input("Receipt Reference")
+            
+            if st.form_submit_button("🚀 Post Payment"):
+                # Update Logic
+                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+                
+                # Deduct from Borrowers
+                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+                df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
+                conn.update(worksheet="Borrowers", data=df)
+                st.success("Payment Received!")
+                st.rerun()
+
+        st.write("---")
+        st.subheader("📋 Recent History")
+        st.dataframe(
+            pay_df.iloc[::-1],
+            column_config={"AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d")},
+            use_container_width=True, hide_index=True
+        )
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
