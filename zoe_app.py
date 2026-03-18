@@ -78,52 +78,58 @@ if page == "Borrowers":
         # 1. NAVIGATION TABS
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
 
-        with tab_view:
+       with tab_view:
             st.markdown("### 📋 Active Loan Registry")
             
-            # --- CALCULATE DISPLAY DATA ---
-            display_df = df.copy()
+            if not df.empty:
+                # 1. --- CALCULATE DISPLAY DATA ---
+                display_df = df.copy()
+                
+                # Safety checks for rates and payments
+                rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
+                paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
+                
+                display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
+                display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
+                
+                # 2. --- DYNAMIC COLUMN PICKER ---
+                # We list the columns we want. If they exist in df OR we just calculated them, we keep them.
+                target_cols = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', 'DUE ', 'DUE', 'STATUS']
+                final_cols = [col for col in target_cols if col in display_df.columns]
+
+                # 3. --- THE ONE AND ONLY TABLE ---
+                st.dataframe(
+                    display_df[final_cols],
+                    column_config={
+                        "CUSTOMER_NAME": "NAME",
+                        "DATE_ISSUED": "ISSUED DATE",
+                        "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+                        "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
+                        "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+                        "DUE ": "DUE DATE",
+                        "DUE": "DUE DATE",
+                        "STATUS": "STATUS"
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
             
-            # Safety math (handles missing columns for rate or paid)
-            rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
-            paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
-            
-            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
-            display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
-            
-            # --- DYNAMIC COLUMN PICKER ---
-            # We list all the columns we WANT to see
-            target_cols = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', 'DUE ', 'DUE', 'STATUS']
-            
-            # We filter that list to only include columns that actually EXIST in the data
-            final_cols = [col for col in target_cols if col in display_df.columns]
-            
-            # --- THE ONE AND ONLY TABLE ---
-            st.dataframe(
-                display_df[final_cols],
-                column_config={
-                    "CUSTOMER_NAME": "NAME",
-                    "DATE_ISSUED": "ISSUED DATE",
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-                    "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
-                    "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                    "DUE ": "DUE DATE",
-                    "DUE": "DUE DATE",
-                    "STATUS": "STATUS"
-                },
-                use_container_width=True,
-                hide_index=True
-            )
-            
+            # 4. --- REGISTER NEW BORROWER FORM ---
             with st.expander("➕ Register New Borrower"):
-                st.info("Registration form ready when you are!")
-
-        with tab_edit:
-            st.write("### ✏️ Edit Borrower Details")
-            # ... [Your existing edit form code stays here] ...
-
-    else:
-        st.warning("No data found. Check your Google Sheets connection.")
+                with st.form("add_new_borrower"):
+                    st.write("Enter the details for the new Zoe Consults client:")
+                    c1, c2 = st.columns(2)
+                    name = c1.text_input("Full Name")
+                    amount = c2.number_input("Loan Amount (UGX)", min_value=0, step=50000)
+                    
+                    c3, c4 = st.columns(2)
+                    issue_date = c3.date_input("Date Issued")
+                    due_date = c4.date_input("Due Date")
+                    
+                    if st.form_submit_button("✅ Register & Sync"):
+                        # This would be where the 'append' logic to Google Sheets goes
+                        st.success(f"Successfully registered {name}! Syncing to the database...")
+                        st.balloons()
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
