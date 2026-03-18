@@ -72,6 +72,18 @@ brand_name = get_setting("Company Name", "ZOE")
 brand_tagline = get_setting("Tagline", "CONSULTS")
 brand_logo_type = get_setting("Logo Type", "Emoji")
 brand_logo_val = get_setting("Logo Value", "🛡️")
+
+# --- ADD THIS FUNCTION HERE ---
+def get_setting(prop, default):
+    try:
+        # Check if settings_df exists and has the property
+        if not settings_df.empty:
+            val = settings_df.loc[settings_df['Property'] == prop, 'Value'].values[0]
+            # Ensure we don't return 'nan' if the cell is empty
+            return val if pd.notna(val) else default
+        return default
+    except:
+        return default
 with st.sidebar:
     st.markdown("<div style='text-align: center; padding-bottom: 10px;'>", unsafe_allow_html=True)
     
