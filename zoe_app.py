@@ -206,16 +206,16 @@ elif page == "Calendar":
 possible_names = ['DUE_DATE', 'Due Date', 'DATE_DUE', 'Due_Date']
 date_col = next((col for col in possible_names if col in df.columns), None)
 
-        if date_col:
-            # 2. SETUP DATES
-            today = datetime.now().date()
-            this_week_end = today + timedelta(days=7)
+    if date_col:
+        # 2. SETUP DATES
+        today = datetime.now().date()
+        this_week_end = today + timedelta(days=7)
             
-            # Convert to date format safely
-            df[date_col] = pd.to_datetime(df[date_col]).dt.date
+        # Convert to date format safely
+        df[date_col] = pd.to_datetime(df[date_col]).dt.date
 
-            # 3. THE URGENT TABS (Updated to use our date_col)
-            tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ Future"])
+        # 3. THE URGENT TABS (Updated to use our date_col)
+        tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ Future"])
 
             with tab1:
                 # Use OUTSTANDING_AMOUNT if it exists, otherwise use LOAN_AMOUNT
