@@ -216,23 +216,23 @@ if date_col:
 
         # 3. THE URGENT TABS (Updated to use our date_col)
         tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ Future"])
-
-            with tab1:
-                # Use OUTSTANDING_AMOUNT if it exists, otherwise use LOAN_AMOUNT
-                bal_col = 'OUTSTANDING_AMOUNT' if 'OUTSTANDING_AMOUNT' in df.columns else 'LOAN_AMOUNT'
-                overdue = df[(df[date_col] < today) & (df[bal_col] > 0)]
-                
-                if not overdue.empty:
-                    st.error(f"⚠️ {len(overdue)} Loans are past due!")
-                    st.dataframe(overdue[['CUSTOMER_NAME', date_col, bal_col]], use_container_width=True, hide_index=True)
-                else:
-                    st.success("All collections are up to date!")
-            
-            # ... (Rest of your tabs follow the same pattern)
-        else:
-            st.error("⚠️ I couldn't find a 'Due Date' column in your Google Sheet. Please check the spelling in your Borrowers tab.")
+    
+with tab1:
+    # Use OUTSTANDING_AMOUNT if it exists, otherwise use LOAN_AMOUNT
+    bal_col = 'OUTSTANDING_AMOUNT' if 'OUTSTANDING_AMOUNT' in df.columns else 'LOAN_AMOUNT'
+    overdue = df[(df[date_col] < today) & (df[bal_col] > 0)]
+    
+    if not overdue.empty:
+        st.error(f"⚠️ {len(overdue)} Loans are past due!")
+        st.dataframe(overdue[['CUSTOMER_NAME', date_col, bal_col]], use_container_width=True, hide_index=True)
     else:
-        st.info("No borrowers found.")
+        st.success("All collections are up to date!")
+        # ... (Rest of your tabs follow the same pattern)
+    else:
+    st.error("⚠️ I couldn't find a 'Due Date' column in your Google Sheet. Please check the spelling in your Borrowers tab.")
+    else:
+    st.info("No borrowers found.")
+    
 elif page == "Collateral":
         st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
         
