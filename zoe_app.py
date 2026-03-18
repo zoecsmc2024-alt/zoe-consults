@@ -88,7 +88,7 @@ with st.sidebar:
     # --- 3. THE ADMIN NAME ---
     st.markdown(f"""
         <p style="text-align: center; color: #1e293b; font-size: 0.9rem; font-weight: bold; margin-bottom: 20px;">
-            👤 {st.session_state.get('user_name', 'Evans Ahuura')}
+             {st.session_state.get('user_name', 'NAVIGATION')}
         </p>
     """, unsafe_allow_html=True)
 
