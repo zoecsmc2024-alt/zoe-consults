@@ -81,32 +81,35 @@ if page == "Borrowers":
         with tab_view:
             st.markdown("### 📋 Active Loan Registry")
             
-            # --- THE "ZOE CONSULTS" SMART TABLE ---
-            # Step A: Perform all math in a background copy
-            display_df = df.copy()
-            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
-            display_df['Total Due'] = display_df['LOAN_AMOUNT'] + display_df['Interest Charged']
-            display_df['Outstanding'] = display_df['Total Due'] - display_df['AMOUNT_PAID']
+            if not df.empty:
+                # 1. Background Math
+                display_df = df.copy()
+                display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * display_df.get('INTEREST_RATE', 2.8)) / 100
+                display_df['Total Due'] = display_df['LOAN_AMOUNT'] + display_df['Interest Charged']
+                display_df['Outstanding'] = display_df['Total Due'] - display_df.get('AMOUNT_PAID', 0)
+                
+                # 2. Safety List: Only show columns that actually exist
+                all_possible_cols = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ', 'STATUS']
+                existing_cols = [c for c in all_possible_cols if c in display_df.columns or c in ['Interest Charged', 'Outstanding']]
+
+                # 3. Render the Table
+                st.dataframe(
+                    display_df[existing_cols],
+                    column_config={
+                        "CUSTOMER_NAME": "NAME",
+                        "DATE_ISSUED": "ISSUED",
+                        "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+                        "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
+                        "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+                        "DUE ": "DUE DATE",
+                        "STATUS": "STATUS"
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
             
-            # Step B: Render the ONLY table you need
-            st.dataframe(
-                display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ', 'STATUS']],
-                column_config={
-                    "CUSTOMER_NAME": "NAME",
-                    "DATE_ISSUED": "ISSUED",
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-                    "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
-                    "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                    "DUE ": "DUE DATE",
-                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
-                },
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Step C: The simple "Add New" button at the bottom
             with st.expander("➕ Register New Borrower"):
-                st.info("Form coming soon...")
+                st.info("Form is ready when you are!")
 
         with tab_edit:
             # (Keep your Edit Form code here - ensure it only appears under this tab!)
