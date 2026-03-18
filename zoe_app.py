@@ -50,8 +50,10 @@ def get_all_data():
     return b_df, p_df, c_df
 
 df, pay_df, collateral_df = get_all_data()
+from streamlit_option_menu import option_menu # Add this to your imports at the top!
+
 with st.sidebar:
-    # 1. CENTERED LOGO (Using Columns for best alignment)
+    # 1. CENTERED LOGO
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         try:
@@ -68,34 +70,20 @@ with st.sidebar:
         <hr style="margin: 15px 0; border: 0.5px solid #e2e8f0;">
     """, unsafe_allow_html=True)
 
-    # 3. NAVIGATION (Simplified Centered Radio)
-    st.markdown("<p style='text-align: center; font-weight: bold; color: #1E3A8A; font-size: 0.8rem; letter-spacing: 1px;'>NAVIGATION</p>", unsafe_allow_html=True)
-    
-    # CSS to force the radio options to look centered without the huge gaps
-    st.markdown("""
-        <style>
-        div[role="radiogroup"] {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+    # 3. CENTERED OPTION MENU (The Fix!)
+    # This component is much better for centered mobile-style menus
+    page = option_menu(
+        menu_title=None,  # No title needed
+        options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        icons=["house", "people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
+        menu_icon="cast", 
+        default_index=0,
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "icon": {"color": "#1E3A8A", "font-size": "18px"}, 
+            "nav-link": {"font-size": "16px", "text-align": "center", "margin":"0px", "--hover-color": "#f1f5f9"},
+            "nav-link-selected": {"background-color": "#1E3A8A"},
         }
-        div[role="radiogroup"] label {
-            width: 100%;
-            justify-content: center;
-            text-align: center;
-            padding: 5px 0px;
-        }
-        /* Removes the radio dot entirely for a cleaner menu look */
-        div[role="radiogroup"] [data-testid="stWidgetLabel"] {
-            margin-left: 0px !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    page = st.radio(
-        "Menu",
-        ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-        label_visibility="collapsed"
     )
     
     st.markdown("---")
