@@ -260,33 +260,46 @@ elif page == "Collateral":
                     st.rerun()
 
 elif page == "Ledger":
-        st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
-        if not df.empty:
-            target = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
-            client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
-            client_pay = pay_df[pay_df['CUSTOMER_NAME'] == target]
-            
-            # Math
-            int_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
-            total_due = client_info['LOAN_AMOUNT'] + int_amt
-            bal = total_due - client_info['AMOUNT_PAID']
+    st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        # 1. Select Client
+        target = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
+        client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
+        client_pay = pay_df[pay_df['CUSTOMER_NAME'] == target].sort_values(by='DATE', ascending=False)
+        
+        # 2. Math Calculations
+        int_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
+        total_due = client_info['LOAN_AMOUNT'] + int_amt
+        bal = total_due - client_info['AMOUNT_PAID']
 
-            # --- THE UPDATED LEDGER SUMMARY ---
+        # 3. Financial Metrics (The 3 Columns)
         st.subheader(f"Financial Status: {target}")
-        
-        # We create 3 columns now
         c1, c2, c3 = st.columns(3)
-        
-        # 1. Original Principal (What they took)
         c1.metric("Original Principal", f"UGX {client_info['LOAN_AMOUNT']:,.0f}")
-        
-        # 2. Total Paid (What they've brought back)
         c2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
-        
-        # 3. Current Outstanding (The remaining balance + 2.8% interest)
         c3.metric("Outstanding Balance", f"UGX {bal:,.0f}", delta="Reduces as they pay", delta_color="inverse")
         
         st.write("---")
+
+        # 4. THE RETURNED TABLE (Detailed Transactions)
+        st.write("🔍 **Transaction History**")
+        if not client_pay.empty:
+            st.dataframe(
+                client_pay[['DATE', 'AMOUNT_PAID', 'REF']], # We hide CUSTOMER_NAME here to save space
+                column_config={
+                    "DATE": "Payment Date",
+                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount Received", format="UGX %,d"),
+                    "REF": "Receipt/Ref #"
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info(f"No payments recorded for {target} yet.")
+            
+    else:
+        st.info("No borrowers found. Please add data in the Borrowers tab.")
     
 elif page == "Settings":
     st.title("⚙️ Settings")
