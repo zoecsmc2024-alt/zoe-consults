@@ -226,76 +226,64 @@ elif page == "Calendar":
     st.markdown('<div class="main-title">🗓️ Collection Calendar</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # Use the calculated 'DUE DATE' from your Borrowers logic
-        # For simplicity, let's re-calculate it here:
+        # 1. Clean up dates
         df['DUE_DATE_DT'] = pd.to_datetime(df['DATE_ISSUED']) + pd.Timedelta(days=30)
-        
         today = pd.Timestamp(datetime.now().date())
         this_week_end = today + pd.Timedelta(days=7)
 
-        tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ All"])
+        # 2. Setup Tabs
+        tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ All Collections"])
 
         with tab1:
+            # Overdue = Due date in past AND still has a balance
             overdue = df[(df['DUE_DATE_DT'].dt.date < today.date()) & (df['OUTSTANDING_AMOUNT'] > 0)]
-            st.dataframe(overdue[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT']], use_container_width=True)
-            
+            if not overdue.empty:
+                st.error(f"⚠️ {len(overdue)} Loans are past due!")
+                st.dataframe(overdue[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT']], use_container_width=True, hide_index=True)
+            else:
+                st.success("No overdue loans!")
+
         with tab2:
             this_week = df[(df['DUE_DATE_DT'].dt.date >= today.date()) & (df['DUE_DATE_DT'].dt.date <= this_week_end.date())]
-            st.dataframe(this_week[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT']], use_container_width=True)
-            
+            st.info(f"Collections due within 7 days: {len(this_week)}")
+            st.dataframe(this_week[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT']], use_container_width=True, hide_index=True)
+
         with tab3:
-            st.dataframe(df[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DATE_ISSUED']], use_container_width=True)
+            st.dataframe(df[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DATE_ISSUED']].sort_values('DATE_ISSUED'), use_container_width=True, hide_index=True)
     else:
-        st.info("No active loans found.")
+        st.info("No borrower data found.")
 
 elif page == "Collateral":
     st.markdown('<div class="main-title">🔐 Collateral Vault</div>', unsafe_allow_html=True)
     
-    # --- REGISTRATION FORM ---
-    with st.expander("📥 Register New Asset"):
-        with st.form("collateral_form"):
-            b_names = df['CUSTOMER_NAME'].unique() if not df.empty else ["No Borrowers"]
-            c_owner = st.selectbox("Borrower", options=b_names)
-            c_type = st.selectbox("Type", ["Logbook", "Land Title", "Electronics", "Other"])
-            c_val = st.number_input("Value (UGX)", min_value=0)
-            c_desc = st.text_input("Details (Serial No / Plate)")
+    # Ensure collateral_df exists even if sheet read fails
+    if 'collateral_df' not in locals():
+        collateral_df = pd.DataFrame(columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+
+    # 1. Registration Form
+    with st.expander("📥 Register & Save New Asset", expanded=False):
+        with st.form("permanent_collateral"):
+            borrower_list = df['CUSTOMER_NAME'].unique().tolist() if not df.empty else ["No Borrowers Found"]
+            c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
+            c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
+            c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
+            c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
             
-            if st.form_submit_button("Lock Asset"):
+            if st.form_submit_button("🔒 Secure Asset to Cloud"):
                 new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
                                        columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
                 updated_c = pd.concat([collateral_df, new_asset], ignore_index=True)
                 conn.update(worksheet="Collateral", data=updated_c)
-                st.success("Asset Secured!")
+                st.success("Asset Locked!")
                 st.rerun()
 
-    # --- VAULT VIEW ---
-    st.dataframe(collateral_df, use_container_width=True, hide_index=True)
-        st.write("---")
-        st.subheader("📋 Assets Currently Held")
-        if not collateral_df.empty:
-            st.dataframe(
-                collateral_df,
-                column_config={
-                    "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
-                    "STATUS": "Vault Status"
-                },
-                use_container_width=True, hide_index=True
-            )
-        else:
-            st.info("The vault is currently empty.")
-
-        # --- 5. ASSET RELEASE CONTROL (Now correctly inside the Collateral room) ---
-        st.subheader("🔓 Asset Release Control")
-        held_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
-        if not held_assets.empty:
-            with st.popover("Select Asset to Dismiss"):
-                target_asset = st.selectbox("Item to return:", options=held_assets['DESCRIPTION'].unique(), key="dismiss_selector")
-                if st.button("✅ Confirm Return to Client", use_container_width=True):
-                    collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({datetime.now().date()})"
-                    conn.update(worksheet="Collateral", data=collateral_df)
-                    st.balloons()
-                    st.rerun()
-
+    # 2. Vault View
+    st.write("---")
+    st.subheader("📋 Assets Currently Held")
+    if not collateral_df.empty:
+        st.dataframe(collateral_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("The vault is currently empty.")
 elif page == "Ledger":
     st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
     
