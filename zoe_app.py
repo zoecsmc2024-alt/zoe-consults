@@ -199,125 +199,86 @@ elif page == "Calendar":
     st.write("Calendar logic goes here.")
 
 elif page == "Collateral":
-    st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
-    
-    # --- 1. SAFE DATA LOAD ---
-    try:
-        collateral_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
-    except Exception as e:
-        st.error("Waiting for Google Sheets connection to reset... please wait 30 seconds.")
-        collateral_df = pd.DataFrame(columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
-
-    # --- 2. GET BORROWER NAMES SAFELY ---
-    if not df.empty:
-        # Determine which column name you are using (NAME or CUSTOMER_NAME)
-        name_col = 'NAME' if 'NAME' in df.columns else 'CUSTOMER_NAME'
-        borrower_list = df[name_col].unique().tolist()
-    else:
-        borrower_list = ["No Borrowers Found"]
-
-    # --- 3. THE FORM (Now Unlocked) ---
-    with st.expander("📥 Register & Save New Asset", expanded=True):
-        with st.form("permanent_collateral"):
-            # These 4 lines are indented to be INSIDE the form
-            c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
-            c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
-            c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
-            c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
-            
-            # This button is also indented to be the "Seal" of the form
-            submitted = st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True)
-            
-            if submitted:
-                # This logic is indented even further to be inside the 'if'
-                new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
-                                       columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
-                updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
-                conn.update(worksheet="Collateral", data=updated_collateral)
-                st.success("Asset Locked!")
-                st.rerun()
-
-# --- THE VAULT VIEW ---
-st.write("---")
-st.subheader("📋 Assets Currently Held")
-
-# Make sure we check if the data exists before trying to show it
-if not collateral_df.empty:
-    # Filter for only held assets if you want
-    st.dataframe(
-        collateral_df,
-        column_config={
-            "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
-            "STATUS": "Vault Status"
-        },
-        use_container_width=True,
-        hide_index=True
-    )
-else:
-    st.info("The vault data is still loading or empty. Click 'Sync' above if you have assets in your Google Sheet.")
-    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
-                                columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
-    updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
-    conn.update(worksheet="Collateral", data=updated_collateral)
-    st.success("Asset Locked!")
-    st.rerun()
-    
-    # --- 3. THE "RELEASE ASSET" ACTION ---
-st.subheader("🔓 Asset Release Control")
-held_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
-
-if not held_assets.empty:
-    with st.popover("Select Asset to Dismiss"):
-        st.write("Confirm which item you are returning to the client:")
+        st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
         
-        # We use a unique key to prevent any "Duplicate Widget" errors
-        target_asset = st.selectbox(
-            "Which item are you returning?", 
-            options=held_assets['DESCRIPTION'].unique(),
-            key="dismiss_selector"
-        )
-        
-        # CHANGE: We use st.button instead of st.form_submit_button
-        if st.button("✅ Confirm Return to Client", use_container_width=True):
-            # 1. Update the status in our local copy
-            collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({datetime.now().date()})"
-            
-            # 2. Push the update to Google Sheets
-            conn.update(worksheet="Collateral", data=collateral_df)
-            
-            # 3. Success feedback
-            st.balloons()
-            st.success(f"Asset '{target_asset}' has been dismissed!")
-            st.rerun()
-    st.info("No assets are currently being held in the vault.")
-    
-elif page == "Ledger":
-    st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
-    
-    # This reaches out to your Google Sheet to get the LATEST data
-    if not df.empty:
-        target = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
-        client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
-        
-        # Pull payments for this person from the 'Payments' sheet
-        client_pay = pay_df[pay_df['CUSTOMER_NAME'] == target]
-        
-        # Calculate the 2.8% interest for the report
-        int_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
-        total_due = client_info['LOAN_AMOUNT'] + int_amt
-        bal = total_due - client_info['AMOUNT_PAID']
+        # --- 1. SAFE DATA LOAD ---
+        try:
+            collateral_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
+        except Exception as e:
+            st.error("Waiting for Google Sheets connection to reset... please wait 30 seconds.")
+            collateral_df = pd.DataFrame(columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
 
-        # THE DISPLAY (This won't look like the Collateral page anymore!)
-        st.subheader(f"Financial Status: {target}")
-        col1, col2 = st.columns(2)
-        col1.metric("Total Outstanding", f"UGX {bal:,.0f}")
-        col2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
-        
+        # --- 2. GET BORROWER NAMES SAFELY ---
+        if not df.empty:
+            name_col = 'NAME' if 'NAME' in df.columns else 'CUSTOMER_NAME'
+            borrower_list = df[name_col].unique().tolist()
+        else:
+            borrower_list = ["No Borrowers Found"]
+
+        # --- 3. THE REGISTRATION FORM ---
+        with st.expander("📥 Register & Save New Asset", expanded=True):
+            with st.form("permanent_collateral"):
+                c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
+                c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
+                c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
+                c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
+                submitted = st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True)
+                
+                if submitted:
+                    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
+                                           columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+                    updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
+                    conn.update(worksheet="Collateral", data=updated_collateral)
+                    st.success("Asset Locked!")
+                    st.rerun()
+
+        # --- 4. THE VAULT VIEW (Now correctly inside the Collateral room) ---
         st.write("---")
-        st.write("🔍 **Recent Transactions**")
-        st.dataframe(client_pay, use_container_width=True, hide_index=True)
-    else:
-        st.info("Add a borrower to see their ledger.")
+        st.subheader("📋 Assets Currently Held")
+        if not collateral_df.empty:
+            st.dataframe(
+                collateral_df,
+                column_config={
+                    "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
+                    "STATUS": "Vault Status"
+                },
+                use_container_width=True, hide_index=True
+            )
+        else:
+            st.info("The vault is currently empty.")
+
+        # --- 5. ASSET RELEASE CONTROL (Now correctly inside the Collateral room) ---
+        st.subheader("🔓 Asset Release Control")
+        held_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
+        if not held_assets.empty:
+            with st.popover("Select Asset to Dismiss"):
+                target_asset = st.selectbox("Item to return:", options=held_assets['DESCRIPTION'].unique(), key="dismiss_selector")
+                if st.button("✅ Confirm Return to Client", use_container_width=True):
+                    collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({datetime.now().date()})"
+                    conn.update(worksheet="Collateral", data=collateral_df)
+                    st.balloons()
+                    st.rerun()
+
+    elif page == "Ledger":
+        st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
+        if not df.empty:
+            target = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
+            client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
+            client_pay = pay_df[pay_df['CUSTOMER_NAME'] == target]
+            
+            # Math
+            int_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
+            total_due = client_info['LOAN_AMOUNT'] + int_amt
+            bal = total_due - client_info['AMOUNT_PAID']
+
+            st.subheader(f"Financial Status: {target}")
+            c1, c2 = st.columns(2)
+            c1.metric("Total Outstanding", f"UGX {bal:,.0f}")
+            c2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
+            st.write("---")
+            st.dataframe(client_pay, use_container_width=True, hide_index=True)
+        else:
+            st.info("Add a borrower to see their ledger.")
     
 elif page == "Settings":
     st.title("⚙️ Settings")
