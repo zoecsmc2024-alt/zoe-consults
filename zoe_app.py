@@ -198,30 +198,34 @@ elif page == "Borrowers":
 
 elif page == "Repayments":
     st.title("💰 Record a Payment")
+    
     if not df.empty:
         with st.form("cloud_pay_form"):
             p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
             p_amt = st.number_input("Amount Paid", min_value=0)
             p_ref = st.text_input("Receipt / Ref No.")
+            
             if st.form_submit_button("Submit Payment"):
                 # 1. Update Payments Sheet
-                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+                                   columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                 updated_pay = pd.concat([pay_df, new_p], ignore_index=True)
                 conn.update(worksheet="Payments", data=updated_pay)
                 
-                # 2. Update Borrowers Balance
-               # Inside Repayments form submit:
-current_val = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
-new_bal = current_val - p_amt
+                # 2. Update Borrowers Balance Logic (Correctly Nested)
+                current_val = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
+                new_bal = current_val - p_amt
+                
+                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+                df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] = new_bal
+                
+                conn.update(worksheet="Borrowers", data=df)
+                st.success(f"Payment of UGX {p_amt:,.0f} Synced for {p_name}!")
+                st.rerun()
 
-df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
-df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] = new_bal
-conn.update(worksheet="Borrowers", data=df)
-st.success("Payment Synced!")
-st.rerun()
-    st.write("---")
-    st.subheader("Recent Payment History")
-    st.dataframe(pay_df.iloc[::-1], use_container_width=True)
+        st.write("---")
+        st.subheader("Recent Payment History")
+        st.dataframe(pay_df.iloc[::-1], use_container_width=True, hide_index=True)
 elif page == "Calendar":
     st.markdown('<div class="main-title">🗓️ Collection Calendar</div>', unsafe_allow_html=True)
     
