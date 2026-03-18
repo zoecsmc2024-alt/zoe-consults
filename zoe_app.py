@@ -43,13 +43,14 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_data():
-    b_df = conn.read(worksheet="Borrowers", ttl="600").dropna(how="all")
-    p_df = conn.read(worksheet="Payments", ttl="600").dropna(how="all")
-    # Add this line here so it's loaded globally!
-    c_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
-    return b_df, p_df, c_df
-
-df, pay_df, collateral_df = get_all_data()
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # We add ttl=0 to force a fresh connection without using old "saved" data
+    df = conn.read(worksheet="Borrowers", ttl=0)
+    p_df = conn.read(worksheet="Payments", ttl=0)
+    c_df = conn.read(worksheet="Collateral", ttl=0)
+    
+    return df, p_df, c_df
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
 with st.sidebar:
