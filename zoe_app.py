@@ -50,34 +50,34 @@ def get_all_data():
     return b_df, p_df, c_df
 
 df, pay_df, collateral_df = get_all_data()
-# --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    # 1. ADD YOUR LOGO (Or a professional icon if you don't have the file yet)
-    st.markdown("""
-        <div style="text-align: center; padding: 10px;">
-            <h1 style="color: #1E3A8A; margin-bottom: 0;">ZOE</h1>
-            <p style="color: #64748B; font-weight: bold; letter-spacing: 2px;">CONSULTS</p>
-            <div style="height: 2px; background: linear-gradient(to right, #1E3A8A, #3B82F6); margin: 10px 0;"></div>
+    # --- 1. THE UNIFIED BRAND & PROFILE HEADER ---
+    st.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.5rem; letter-spacing: 2px;">ZOE</h2>
+            <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; margin-top: -5px; letter-spacing: 3px;">CONSULTS</p>
+            <hr style="border: 0.5px solid #f1f5f9; margin: 15px 0;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <span style="font-size: 1.5rem;">💰</span>
+                <div style="text-align: left;">
+                    <p style="color: #94a3b8; font-size: 0.6rem; margin: 0; font-weight: bold;">ADMINISTRATOR</p>
+                    <p style="color: #1e293b; font-size: 0.9rem; margin: 0; font-weight: bold;">{st.session_state.get('user_name', 'Evans Ahuura')}</p>
+                </div>
+            </div>
         </div>
     """, unsafe_allow_html=True)
-    
-    # ... your existing menu code follows ...
-    
-    # Logo Logic
-    if 'custom_logo_b64' in st.session_state and st.session_state['custom_logo_b64']:
-        st.markdown(f'<img src="data:image/png;base64,{st.session_state["custom_logo_b64"]}">', unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="width:80px;height:80px;border-radius:50%;background-color:#1e293b;border:2px solid #00a8b5;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:30px;">💰</div>', unsafe_allow_html=True)
-    
-    st.markdown(f'<p class="admin-text"><b>Admin:</b> Evans Ahuura</p>', unsafe_allow_html=True)
-    
-    # WE USE SIMPLE NAMES HERE TO AVOID SYNTAX ERRORS
-    menu_options = ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"]
-    page = st.radio("Menu", menu_options)
+
+    # --- 2. THE NAVIGATION MENU ---
+    st.write("#### 🧭 NAVIGATION")
+    page = st.radio("Menu", 
+                    ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+                    label_visibility="collapsed")
     
     st.write("---")
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state["password_correct"] = False
+    
+    # Logout at the bottom
+    if st.button("🚪 Secure Logout", use_container_width=True):
+        st.session_state.clear()
         st.rerun()
 
 # --- 4. PAGE LOGIC (RESTORATION) ---
