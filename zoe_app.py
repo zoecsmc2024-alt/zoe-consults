@@ -95,7 +95,7 @@ with tab_view:
                 )
             
             # 3. THE EXPANDER (Stays at the very bottom)
-            with st.expander("➕ Register New Borrower"):
+with st.expander("➕ Register New Borrower"):
                 st.info("Registration form is ready for data sync!")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
