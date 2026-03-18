@@ -39,120 +39,84 @@ else:
 # --- SIDEBAR STYLING (At the top of your script) ---
 st.markdown("""
 <style>
-    /* 1. REMOVE TOP PADDING (This pushes everything UP) */
-    [data-testid="stSidebarContent"] {
-        padding-top: 0rem !important;
-    }
-
-    /* 2. THE PENCIL (Transparent & Borderless) */
-    div.stButton > button[key="change_logo_btn"] {
-        background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        color: white !important;
-        font-size: 20px !important;
-        padding: 0px !important;
-        margin: 0px auto !important;
-        display: block;
-    }
-    
-    /* Remove the white box on hover too */
-    div.stButton > button[key="change_logo_btn"]:hover {
-        background-color: transparent !important;
-        color: #00a8b5 !important;
-        border: none !important;
-    }
-
-    /* 3. THE CIRCULAR LOGO */
+    /* 1. Force the logo into a small, sharp circle */
     [data-testid="stSidebar"] img {
         display: block;
-        margin: 5px auto !important; /* Small margin to keep it tight */
-        width: 80px !important;
-        height: 80px !important;
-        object-fit: cover;
-        border-radius: 50% !important;
-        border: 2px solid #00a8b5;
+        margin-left: auto;
+        margin-right: auto;
+        width: 80px !important;  /* Small & consistent size */
+        height: 80px !important; /* Must match width for a perfect circle */
+        object-fit: cover;       /* Prevents stretching */
+        border-radius: 50% !important; /* The magic circle line */
+        border: 2px solid #00a8b5;     /* Teal border to match your brand */
+        margin-top: 10px;
+        margin-bottom: 10px;
     }
 
-    /* 4. ADMIN TEXT */
-    .admin-text {
+    /* 2. Center the text under the circle */
+    .sidebar-brand-text {
         text-align: center;
-        font-size: 14px;
-        color: #f1f5f9;
-        margin-top: -5px;
+        color: white;
+        font-weight: bold;
+        font-size: 18px;
+        margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 # --- THE SIDEBAR CONTENT ---
 with st.sidebar:
-    # Smallest possible gap at the top
-    st.markdown('<div style="margin-top: -30px;"></div>', unsafe_allow_html=True)
-
-    # 1. The Pencil (Centered)
-    col1, col2, col3 = st.columns([1,1,1])
+    # Use columns to center the pencil icon button
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        if st.button("✏️", key="change_logo_btn"):
-            st.session_state['show_uploader'] = not st.session_state.get('show_uploader', False)
+        # A borderless button with a pencil icon to change the logo
+        if st.button("✏️", key="change_logo_btn", help="Tap to change logo"):
+            st.session_state['show_uploader'] = True
 
-    # 2. The Logo
+    # Check if a logo is currently set
     if 'custom_logo' in st.session_state:
-        st.image(st.session_state['custom_logo'])
+        st.image(st.session_state['custom_logo'], use_column_width=True)
     else:
-        # Default placeholder if no logo
-        st.markdown('<div style="width:80px;height:80px;border-radius:50%;background-color:#1e293b;border:2px solid #00a8b5;margin:0 auto;display:flex;align-items:center;justify-content:center;">💰</div>', unsafe_allow_html=True)
+        # Title placeholder if no logo
+        st.markdown('<p class="sidebar-title">Zoe Consults</p>', unsafe_allow_html=True)
 
-    # 3. The Admin Name
-    st.markdown(f'<p class="admin-text"><b>Admin:</b> Evans Ahuura</p>', unsafe_allow_html=True)
-
-    # 4. The Uploader (only shows when pencil is clicked)
+    # The Uploader (shows only after tapping the pencil)
     if st.session_state.get('show_uploader', False):
-        uploaded_file = st.file_uploader("Upload Logo", type=["png", "jpg", "jpeg"])
+        st.write("---")
+        uploaded_file = st.file_uploader("Choose new logo...", type=["png", "jpg", "jpeg"], key="sidebar_uploader")
         if uploaded_file:
             st.session_state['custom_logo'] = uploaded_file
             st.session_state['show_uploader'] = False
-            st.rerun()
+            st.rerun()  # Refresh to update the logo display
 
+    st.write(f"**Admin:** Evans Ahuura")
     st.write("---")
-    
-    # 5. Navigation
-    page = st.radio("Navigation", ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"])
 
-# --- 1. THE NAVIGATION RULES ---
-# This part stays at the top of your "Rooms" section
+    page = st.radio(
+        "Navigation",
+        ["📈 Performance", "👥 Borrowers", "📄 Client Ledger", "⚙️ Settings"],
+        key="nav_menu"
+    )
 
+# --- MAIN PAGE CONTENT ---
 if page == "📈 Performance":
-    st.title("📈 Business Growth & Trends")
-    # --- PASTE YOUR CHART CODE HERE ---
-    # Example: st.plotly_chart(fig) or st.write(metrics)
+    st.title("Business Growth & Trends")
+    # ... your charts ...
 
 elif page == "👥 Borrowers":
-    st.title("👥 Active Loan Registry")
-    # --- PASTE YOUR MAIN TABLE CODE HERE ---
-    # Example: st.dataframe(df)
+    st.subheader("Active Loan Registry")
+    # ... your borrowers table ...
 
 elif page == "📄 Client Ledger":
-    st.title("📄 Transaction History")
-    # --- PASTE YOUR LEDGER/DROPDOWN CODE HERE ---
-
-elif page == "📅 Repayments & Collateral":
-    st.title("📅 Collections & Security")
-    
-    # We use Tabs to keep it clean
-    tab1, tab2 = st.tabs(["Repayment Calendar", "Collateral & Reminders"])
-    
-    with tab1:
-        st.subheader("Monthly Schedule")
-        # --- PASTE YOUR CALENDAR CODE HERE ---
-        # Look for: st.date_input or your repayment calendar table
-        
-    with tab2:
-        st.subheader("Security Assets")
-        # --- PASTE YOUR COLLATERAL LIST CODE HERE ---
-        # Look for: st.table(collateral_df) or your reminder list
+    st.subheader("Client Transaction Ledger")
+    # ... your ledger code ...
 
 elif page == "⚙️ Settings":
-    st.title("⚙️ System Configuration")
-    # --- PASTE YOUR BACKUP & LOGO UPLOADER HERE ---
+    st.subheader("System Configuration")
+    # ... your settings ...
+
+
+    # --- PASTE YOUR LOGO UPLOADER & BACKUP BUTTON HERE ---
+    # (This keeps the settings page clean and focused)
 
 def calculate_reducing_balance(principal, annual_rate, periods=12):
     # Monthly rate and payment calculation
