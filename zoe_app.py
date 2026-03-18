@@ -72,38 +72,37 @@ with st.sidebar:
 # --- 4. PAGE LOGIC ---
 
 if page == "📊 Overview":
-    # 1. THE WHITE WRAPPER START
-    st.markdown('<div style="background-color: white; padding: 30px; border-radius: 15px; min-height: 100vh;">', unsafe_allow_html=True)
-    
-    st.markdown('<h1 style="color: #0f172a; margin-top: 0;">🛡️ Zoe Consults Executive Summary</h1>', unsafe_allow_html=True)
+    # This is the "Anchor" that pulls everything to the top
+    st.markdown('<div class="main-title"> Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
     
     if not df.empty:
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
         balance = total_p - total_c
         
-        # --- TILES IN THE WRAPPER ---
+        # --- THE KPI CARDS ---
         c1, c2, c3 = st.columns(3)
         
         with c1:
-            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9;">
-                <p style="color: #475569; font-size: 0.8rem; margin:0;">TOTAL CAPITAL ISSUED</p>
+            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 0.8rem; margin:0; font-weight: 600;">TOTAL CAPITAL ISSUED</p>
                 <h2 style="color: #0f172a; margin:0;">UGX {total_p:,.0f}</h2>
             </div>''', unsafe_allow_html=True)
             
         with c2:
-            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9;">
-                <p style="color: #475569; font-size: 0.8rem; margin:0;">TOTAL RECOVERED</p>
+            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 0.8rem; margin:0; font-weight: 600;">TOTAL RECOVERED</p>
                 <h2 style="color: #10b981; margin:0;">UGX {total_c:,.0f}</h2>
             </div>''', unsafe_allow_html=True)
             
         with c3:
-            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9;">
-                <p style="color: #475569; font-size: 0.8rem; margin:0;">OUTSTANDING RISK</p>
+            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 0.8rem; margin:0; font-weight: 600;">OUTSTANDING RISK</p>
                 <h2 style="color: #ef4444; margin:0;">UGX {balance:,.0f}</h2>
             </div>''', unsafe_allow_html=True)
 
-        st.markdown('<hr style="border-top: 1px solid #e2e8f0;">', unsafe_allow_html=True)
+        st.write("---")
+        # (Rest of your charts...)
         
         # --- THE CHART ---
         st.markdown('<h3 style="color: #0f172a;">📈 Recovery Progress</h3>', unsafe_allow_html=True)
