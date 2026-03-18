@@ -59,81 +59,64 @@ def get_all_data():
 
 df, pay_df, collateral_df = get_all_data()
 
-# --- STEP 3: THE SIDEBAR (Updating the 'page' variable) ---
+# --- SIMPLIFIED NAVIGATION ---
+# In your sidebar, remove 'Overview' from the options list
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h2>", unsafe_allow_html=True)
-    
-    # Standard Radio - No extra libraries needed
-    page = st.radio(
-        "Navigation",
-        ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-        index=1 # Start on Borrowers
+    page = option_menu(
+        menu_title=None,
+        options=["Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        icons=["people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
+        default_index=0
     )
 
-# --- STEP 4: THE BORROWERS PAGE (Viewing & Editing) ---
-# --- BORROWERS PAGE ---
+# --- THE MAIN DASHBOARD (Replaces Overview & Borrowers) ---
 if page == "Borrowers":
-    st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
+    st.markdown('<h1 style="color: #1E3A8A;">📈 Zoe Consults Dashboard</h1>', unsafe_allow_html=True)
     
-    if not df.empty:
-        # 1. DEFINE TABS (Everything must stay inside these!)
-        tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
+    # 1. KEY METRICS (Adding a touch of the 'Overview' feel back in)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Borrowers", len(df))
+    col2.metric("Total Principal", f"UGX {df['LOAN_AMOUNT'].sum():,.0f}")
+    col3.metric("Interest Expected", f"UGX {(df['LOAN_AMOUNT'].sum() * 0.028):,.0f}")
+    
+    st.write("---")
 
-        # --- TAB 1: VIEWING ---
-        with tab_view:
-            st.markdown("### 📋 Active Loan Registry")
-            
-            # --- MATH & LOGIC ---
-            display_df = df.copy()
-            rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
-            paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
-            
-            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
-            display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
-            d_col = "DUE " if "DUE " in display_df.columns else "DUE"
-            
-            # Select only what we want to show
-            cols_to_show = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount']
-            if d_col in display_df.columns: cols_to_show.append(d_col)
-            if 'STATUS' in display_df.columns: cols_to_show.append('STATUS')
+    # 2. THE REGISTRY TABLE (The Star of the Show)
+    st.markdown("### 📋 Active Loan Registry")
+    display_df = df.copy()
+    # (Insert your Math and Column Picking logic here as we did before)
+    # ... display_df['Interest Charged'] = ...
+    # ... display_df['Outstanding Amount'] = ...
+    
+    st.dataframe(
+        display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', 'DUE ', 'STATUS']],
+        column_config={
+            "CUSTOMER_NAME": "NAME",
+            "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
+            "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+            "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
+        },
+        use_container_width=True,
+        hide_index=True
+    )
 
-            # --- THE ONLY DATAFRAME COMMAND ---
-            st.dataframe(
-                display_df[cols_to_show],
-                column_config={
-                    "CUSTOMER_NAME": "NAME",
-                    "DATE_ISSUED": "ISSUED DATE",
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-                    "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
-                    "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                    d_col: "DUE DATE",
-                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
-                },
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Registration form expander (at the bottom)
-            with st.expander("➕ Register New Borrower"):
-                st.info("Form is ready for input.")
+    # 3. THE ACTION HUB (Everything else in organized Expanders)
+    st.write("---")
+    c_left, c_right = st.columns(2)
+    
+    with c_left:
+        with st.expander("➕ Register New Borrower", expanded=False):
+            with st.form("new_borrower"):
+                st.text_input("Name")
+                st.number_input("Amount", step=10000)
+                st.form_submit_button("Register Client")
 
-        # --- TAB 2: EDITING ---
-        with tab_edit:
-            st.write("### ✏️ Edit Borrower Details")
+    with c_right:
+        with st.expander("✏️ Edit Client Details", expanded=False):
             target = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
-            row = df[df['CUSTOMER_NAME'] == target].iloc[0]
-
+            # (Insert your Edit Form logic here)
             with st.form("edit_form"):
-                new_loan = st.number_input("Update Loan Amount", value=float(row['LOAN_AMOUNT']))
-                # Date safety
-                current_due = row[d_col] if not pd.isna(row[d_col]) else datetime.now()
-                new_due = st.date_input("Update Due Date", value=pd.to_datetime(current_due))
-                
-                if st.form_submit_button("💾 Save Changes"):
-                    st.success("Changes saved! Syncing to database.")
-
-    else:
-        st.warning("⚠️ Database is empty.")
+                st.button("Save Changes")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
