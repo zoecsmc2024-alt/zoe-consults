@@ -442,26 +442,60 @@ elif page == "Collateral":
             use_container_width=True, hide_index=True
         )
         
-        # --- 4. ASSET RELEASE CONTROL (Functional) ---
-        st.write("")
-        st.subheader("🔓 Asset Release Control")
-        active_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
+        # --- 4. VAULT MAINTENANCE (Edit & Release) ---
+        st.write("---")
+        st.subheader("🛠️ Vault Maintenance")
         
-        if not active_assets.empty:
-            with st.popover("Release Asset to Client"):
-                target_asset = st.selectbox("Select Asset to Release:", options=active_assets['DESCRIPTION'].unique())
-                confirm_date = datetime.now().strftime('%Y-%m-%d')
+        # We create two tabs: one for Editing, one for Releasing
+        edit_tab, release_tab = st.tabs(["✏️ Edit Asset Details", "🔓 Release Asset"])
+
+        with edit_tab:
+            if not collateral_df.empty:
+                # Select the asset to edit based on Description/Details
+                asset_to_edit = st.selectbox(
+                    "Select Asset to Modify:", 
+                    options=collateral_df['DESCRIPTION'].unique(),
+                    key="edit_selector"
+                )
                 
-                if st.button("Confirm Release", use_container_width=True, type="primary"):
+                # Get current values for the selected asset
+                current_row = collateral_df[collateral_df['DESCRIPTION'] == asset_to_edit].iloc[0]
+                
+                with st.form("edit_asset_form"):
+                    st.info(f"Modifying record for: {current_row['NAME']}")
+                    
+                    new_desc = st.text_input("Update Description", value=current_row['DESCRIPTION'])
+                    new_val = st.number_input("Update Market Value (UGX)", value=int(current_row['VALUE']), step=100000)
+                    new_type = st.selectbox("Update Category", 
+                                          ["Logbook", "Land Title", "Electronics", "Household", "Other"],
+                                          index=["Logbook", "Land Title", "Electronics", "Household", "Other"].index(current_row['ASSET_TYPE']))
+                    
+                    if st.form_submit_button("💾 Save Changes", use_container_width=True):
+                        # Update the dataframe
+                        idx = collateral_df[collateral_df['DESCRIPTION'] == asset_to_edit].index
+                        collateral_df.loc[idx, 'DESCRIPTION'] = new_desc
+                        collateral_df.loc[idx, 'VALUE'] = new_val
+                        collateral_df.loc[idx, 'ASSET_TYPE'] = new_type
+                        
+                        # Sync to Google Sheets
+                        conn.update(worksheet="Collateral", data=collateral_df)
+                        st.success("Changes encrypted and saved!")
+                        st.rerun()
+            else:
+                st.info("No assets available to edit.")
+
+        with release_tab:
+            active_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
+            if not active_assets.empty:
+                target_asset = st.selectbox("Select Asset to Release:", options=active_assets['DESCRIPTION'].unique(), key="rel_selector")
+                if st.button("Confirm Release to Client", use_container_width=True, type="primary"):
+                    confirm_date = datetime.now().strftime('%Y-%m-%d')
                     collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({confirm_date})"
                     conn.update(worksheet="Collateral", data=collateral_df)
-                    st.toast(f"Asset {target_asset} released!")
+                    st.toast(f"Asset released!")
                     st.rerun()
-        else:
-            st.info("No assets are currently available for release.")
-            
-    else:
-        st.info("The vault is currently empty. Assets will appear here once registered.")
+            else:
+                st.info("No 'HELD' assets found for release.")
 elif page == "Ledger":
     st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
     
