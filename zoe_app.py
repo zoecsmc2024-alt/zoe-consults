@@ -292,9 +292,71 @@ if not held_assets.empty:
     st.info("No assets are currently being held in the vault.")
     
 elif page == "Ledger":
-    st.title("📄 Client Ledger")
-    st.write("Ledger logic goes here.")
+    st.markdown('<div class="main-title">📄 Client Financial Ledger</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        # 1. CLIENT SELECTION
+        target = st.selectbox("Select Client to View", options=df['NAME'].unique() if 'NAME' in df.columns else df['CUSTOMER_NAME'].unique())
+        
+        # Filter data for this specific client
+        client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
+        client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target]
+        
+        # Load collateral safely
+        try:
+            collateral_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
+            client_assets = collateral_df[collateral_df['NAME'] == target]
+        except:
+            client_assets = pd.DataFrame()
 
+        # 2. TOP LEVEL SUMMARY TILES
+        st.write(f"### 📊 Financial Summary: {target}")
+        c1, c2, c3 = st.columns(3)
+        
+        # Calculating Real Outstanding (including the 2.8% interest logic)
+        interest_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
+        total_due = client_info['LOAN_AMOUNT'] + interest_amt
+        balance = total_due - client_info['AMOUNT_PAID']
+
+        c1.metric("Total Debt", f"UGX {total_due:,.0f}")
+        c2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}", delta=f"{ (client_info['AMOUNT_PAID']/total_due)*100:.1f}% Recovery")
+        c3.metric("Current Balance", f"UGX {balance:,.0f}", delta="🔴 DEBT" if balance > 0 else "🟢 CLEARED")
+
+        st.write("---")
+
+        # 3. PAYMENT HISTORY & COLLATERAL TABS
+        tab1, tab2 = st.tabs(["💰 Payment Timeline", "📑 Associated Collateral"])
+        
+        with tab1:
+            if not client_payments.empty:
+                st.dataframe(
+                    client_payments[['DATE', 'AMOUNT_PAID', 'REF']].sort_values(by='DATE', ascending=False),
+                    column_config={
+                        "AMOUNT_PAID": st.column_config.NumberColumn("Amount (UGX)", format="UGX %,d"),
+                        "DATE": "Date Received",
+                        "REF": "Reference/Receipt"
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("No payment transactions recorded for this client.")
+
+        with tab2:
+            if not client_assets.empty:
+                st.dataframe(
+                    client_assets[['ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS']],
+                    column_config={
+                        "VALUE": st.column_config.NumberColumn("Est. Value", format="UGX %,d")
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("No security assets registered for this client.")
+
+    else:
+        st.warning("⚠️ No borrower data found. Please add a borrower first.")
 elif page == "Settings":
     st.title("⚙️ Settings")
     st.write("Settings logic goes here.")
