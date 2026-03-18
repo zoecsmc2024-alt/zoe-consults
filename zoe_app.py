@@ -412,5 +412,22 @@ elif page == "Ledger":
         st.info("No borrowers found. Please add data in the Borrowers tab.")
     
 elif page == "Settings":
-    st.title("⚙️ Settings")
-    st.write("Settings logic goes here.")
+    st.markdown('<div class="main-title">⚙️ System Settings</div>', unsafe_allow_html=True)
+    
+    # --- LOGO CUSTOMIZATION ---
+    st.subheader("🖼️ App Branding")
+    uploaded_logo = st.file_uploader("Upload a new logo for Zoe Consults", type=["png", "jpg", "jpeg"])
+    
+    if uploaded_logo is not None:
+        # Save the uploaded file to the session so the sidebar updates immediately
+        st.session_state["custom_logo"] = uploaded_logo
+        st.success("Logo updated! Look at your sidebar.")
+        st.rerun() # Refresh to show the new logo
+        
+    if st.button("🔄 Reset to Default Logo"):
+        if "custom_logo" in st.session_state:
+            del st.session_state["custom_logo"]
+        st.rerun()
+
+    st.write("---")
+    # (Your existing Backup/Export buttons follow below...)
