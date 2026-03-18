@@ -117,48 +117,53 @@ elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. CALCULATE DYNAMIC COLUMNS
         display_df = df.copy()
         
-        # Ensure dates are in the correct format
+        # 1. THE MATH: Calculate the Interest Amount
+        # Interest = (Principle * Rate) / 100
+        display_df['INTEREST_AMT'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
+        
+        # 2. THE TOTAL DEBT: Principle + Interest - Amount Paid
+        display_df['REAL_OUTSTANDING'] = (display_df['LOAN_AMOUNT'] + display_df['INTEREST_AMT']) - display_df['AMOUNT_PAID']
+        
+        # 3. DATE LOGIC
         display_df['ISSUED DATE'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
         display_df['DUE DATE'] = (pd.to_datetime(display_df['DATE_ISSUED']) + pd.Timedelta(days=30)).dt.date
         
-        # Mapping your sheet headers to your requested display names
+        # 4. RENAME FOR DISPLAY
         display_df = display_df.rename(columns={
             'CUSTOMER_NAME': 'NAME',
             'LOAN_AMOUNT': 'PRINCIPLE',
-            'INTEREST_RATE': 'INTEREST %'
+            'INTEREST_RATE': 'RATE %'
         })
 
-        # 2. STATUS LOGIC
+        # 5. STATUS LOGIC (Using the new 'REAL_OUTSTANDING' balance)
         def get_status(row):
-            if row['OUTSTANDING_AMOUNT'] <= 0:
+            if row['REAL_OUTSTANDING'] <= 0:
                 return "✅ PAID"
             elif datetime.now().date() > row['DUE DATE']:
                 return "🚩 OVERDUE"
-            else:
-                return "🔵 ACTIVE"
+            return "🔵 ACTIVE"
         
-        display_df['STATUS'] = display_df.apply(get_status, axis=1)
+        display_df['Status'] = display_df.apply(get_status, axis=1)
 
-        # 3. PROFESSIONAL TABLE DISPLAY
-        cols_to_show = ['NAME', 'ISSUED DATE', 'PRINCIPLE', 'INTEREST %', 'OUTSTANDING_AMOUNT', 'DUE DATE', 'STATUS']
+        # 6. UPDATED TABLE COLUMNS
+        cols_to_show = ['NAME', 'ISSUED DATE', 'PRINCIPLE', 'INTEREST_AMT', 'REAL_OUTSTANDING', 'DUE DATE', 'Status']
         
         st.dataframe(
             display_df[cols_to_show],
             column_config={
                 "PRINCIPLE": st.column_config.NumberColumn(format="UGX %,d"),
-                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn(format="UGX %,d"),
+                "INTEREST_AMT": st.column_config.NumberColumn("Interest Charged", format="UGX %,d"),
+                "REAL_OUTSTANDING": st.column_config.NumberColumn("Outstanding Amount", format="UGX %,d"),
                 "ISSUED DATE": st.column_config.DateColumn(),
                 "DUE DATE": st.column_config.DateColumn(),
-                "STATUS": st.column_config.TextColumn("Status"),
             },
             use_container_width=True,
             hide_index=True
         )
     else:
-        st.info("No records found in the Google Sheet.")
+        st.info("No records found.")
 
     # 4. NEW LOAN FORM (Updated to match these columns)
     with st.popover("➕ Register New Borrower"):
