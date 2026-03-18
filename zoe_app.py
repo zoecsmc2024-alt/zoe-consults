@@ -51,17 +51,32 @@ def get_all_data():
 
 df, pay_df, collateral_df = get_all_data()
 with st.sidebar:
-    # (Your Branding/Logo Code is here)
-    st.markdown("---")
-    
-    # 🚨 THIS IS THE MISSING LINE:
-    page = st.radio("Navigation", 
+    # --- 1. THE LOGO ---
+    # Try to load the image. If file is missing, it shows clean text.
+    try:
+        st.image("logo.png", use_container_width=True)
+    except:
+        st.markdown("<h2 style='text-align:center; color:#1E3A8A; margin-bottom:0;'>ZOE</h2><p style='text-align:center; color:#64748B; font-size:0.7rem; font-weight:bold; letter-spacing:3px; margin-top:-5px;'>CONSULTS</p>", unsafe_allow_html=True)
+
+    # --- 2. THE ADMIN CARD ---
+    st.markdown(f"""
+        <div style="background-color: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; margin: 10px 0 20px 0;">
+            <p style="color: #94a3b8; font-size: 0.6rem; margin: 0; font-weight: bold; letter-spacing: 1px;">ADMINISTRATOR</p>
+            <p style="color: #1e293b; font-size: 1rem; margin: 0; font-weight: bold;">{st.session_state.get('user_name', 'Evans Ahuura')}</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.write("---")
+
+    # --- 3. THE NAVIGATION (Fixed & Organized) ---
+    # This is the 'Brain' of the app - must be here!
+    page = st.radio("Menu Selection", 
                     ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
                     label_visibility="collapsed")
     
     st.write("---")
     
-    # Logout button below
+    # 4. LOGOUT AT THE BOTTOM
     if st.button("🚪 Secure Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
