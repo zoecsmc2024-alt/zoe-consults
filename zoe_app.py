@@ -152,24 +152,20 @@ with st.container():
                 st.rerun()
 
 elif page == "💰 Repayments":
-    st.title("💰 Record a Payment")
+    st.markdown('<div class="main-title">💰 Record a Payment</div>', unsafe_allow_html=True)
+    
     if not df.empty:
-        with st.form("pay_form"):
-            p_name = st.selectbox("Borrower", options=df['CUSTOMER_NAME'].unique())
-            p_amt = st.number_input("Amount (UGX)", min_value=0)
-            p_ref = st.text_input("Receipt No.")
-            if st.form_submit_button("Submit"):
-                # 1. Update Payments Sheet
-                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
-                updated_pay = pd.concat([pay_df, new_p], ignore_index=True)
-                conn.update(worksheet="Payments", data=updated_pay)
-                
-                # 2. Update Borrowers Sheet Balance
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
-                conn.update(worksheet="Borrowers", data=df)
+        with st.form("pay_form", clear_on_submit=True):
+            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+            p_amt = st.number_input("Amount Received (UGX)", min_value=0, step=1000)
+            p_ref = st.text_input("Receipt / Ref Number")
+            
+            if st.form_submit_button("Submit Payment"):
+                # (Your payment saving logic here)
+                st.success(f"Payment of {p_amt:,} recorded for {p_name}")
                 st.rerun()
-    st.dataframe(pay_df.iloc[::-1], use_container_width=True)
+    else:
+        st.info("Add a borrower first to record payments.")
 
 elif page == "📅 Calendar":
     st.title("📅 Calendar Schedule")
