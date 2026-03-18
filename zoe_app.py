@@ -151,21 +151,37 @@ with st.container():
                 st.success("Saved to Google Sheets!")
                 st.rerun()
 
-elif page == "💰Repayments":
+elif page == "💰 Repayments":
     st.markdown('<div class="main-title">💰 Record a Payment</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        with st.form("pay_form", clear_on_submit=True):
-            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
-            p_amt = st.number_input("Amount Received (UGX)", min_value=0, step=1000)
-            p_ref = st.text_input("Receipt / Ref Number")
-            
-            if st.form_submit_button("Submit Payment"):
-                # (Your payment saving logic here)
-                st.success(f"Payment of {p_amt:,} recorded for {p_name}")
-                st.rerun()
+        # We wrap the form in a nice white container
+        with st.container():
+            with st.form("repayment_form", clear_on_submit=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+                    p_amt = st.number_input("Amount Received (UGX)", min_value=0, step=1000)
+                with col2:
+                    p_ref = st.text_input("Receipt / Reference Number")
+                    p_date = st.date_input("Date of Payment", datetime.now())
+                
+                if st.form_submit_button("✅ Log Payment", use_container_width=True):
+                    # 1. Update Payments Worksheet
+                    new_p = pd.DataFrame([[str(p_date), p_name, p_amt, p_ref]], 
+                                       columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                    updated_pay = pd.concat([pay_df, new_p], ignore_index=True)
+                    conn.update(worksheet="Payments", data=updated_pay)
+                    
+                    # 2. Update Borrowers Worksheet (Reducing the balance)
+                    df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+                    df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
+                    conn.update(worksheet="Borrowers", data=df)
+                    
+                    st.success(f"Success! UGX {p_amt:,} recorded for {p_name}.")
+                    st.rerun()
     else:
-        st.info("Add a borrower first to record payments.")
+        st.warning("⚠️ No active borrowers found. Please add a loan first.")
 
 elif page == "📅 Calendar":
     st.title("📅 Calendar Schedule")
