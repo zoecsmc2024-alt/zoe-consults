@@ -10,15 +10,32 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
 st.markdown("""
 <style>
-    [data-testid="stSidebar"] { background-color: #0b1425 !important; border-right: 3px solid #00a8b5; }
-    [data-testid="stSidebar"] * { color: white !important; }
-    [data-testid="stSidebarContent"] { padding-top: 0rem !important; }
-    [data-testid="stSidebar"] img { 
-        display: block; margin: 5px auto !important; width: 80px !important; 
-        height: 80px !important; object-fit: cover; border-radius: 50% !important; 
-        border: 2px solid #00a8b5; 
+    /* 1. Main Background */
+    .stApp { background-color: #0f172a; } /* Deep Navy theme */
+
+    /* 2. Glass KPI Cards */
+    .metric-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        transition: 0.3s;
     }
-    .admin-text { text-align: center; font-size: 14px; margin-top: -5px; }
+    .metric-card:hover {
+        background: rgba(0, 170, 181, 0.1);
+        border-color: #00a8b5;
+        transform: translateY(-5px);
+    }
+    
+    /* 3. Clean Sidebar Highlights */
+    [data-testid="stSidebarNav"] { padding-top: 2rem; }
+    
+    /* 4. Professional Tables */
+    .stDataFrame {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
