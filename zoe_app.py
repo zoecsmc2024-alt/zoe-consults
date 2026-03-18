@@ -51,32 +51,54 @@ def get_all_data():
 
 df, pay_df, collateral_df = get_all_data()
 with st.sidebar:
-    # --- 1. THE LOGO ---
-    # Try to load the image. If file is missing, it shows clean text.
-    try:
-        st.image("logo.png", use_container_width=True)
-    except:
-        st.markdown("<h2 style='text-align:center; color:#1E3A8A; margin-bottom:0;'>ZOE</h2><p style='text-align:center; color:#64748B; font-size:0.7rem; font-weight:bold; letter-spacing:3px; margin-top:-5px;'>CONSULTS</p>", unsafe_allow_html=True)
-
-    # --- 2. THE ADMIN CARD ---
-    st.markdown(f"""
-        <div style="background-color: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; margin: 10px 0 20px 0;">
-            <p style="color: #94a3b8; font-size: 0.6rem; margin: 0; font-weight: bold; letter-spacing: 1px;">ADMINISTRATOR</p>
-            <p style="color: #1e293b; font-size: 1rem; margin: 0; font-weight: bold;">{st.session_state.get('user_name', 'Evans Ahuura')}</p>
+    # --- 1. THE CIRCULAR LOGO ---
+    # We use CSS to force the image into a perfect circle
+    st.markdown("""
+        <div style="display: flex; justify-content: center; padding-top: 20px;">
+            <div style="
+                width: 120px;
+                height: 120px;
+                border-radius: 50%;
+                overflow: hidden;
+                border: 3px solid #1E3A8A;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background-color: white;
+            ">
+                <img src="https://via.placeholder.com/120" style="width: 100%; height: auto;" id="logo_img">
+            </div>
         </div>
     """, unsafe_allow_html=True)
+    
+    # Note: Replace the URL above with your actual logo path: st.image("logo.png")
+    # If using a local file, use this instead of the <img> tag above:
+    # st.image("logo.png", width=120) 
 
-    st.write("---")
+    # --- 2. THE BRAND NAME ---
+    st.markdown("""
+        <div style="text-align: center; margin-top: 10px;">
+            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.4rem;">ZOE</h2>
+            <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; letter-spacing: 3px; margin-top: -5px;">CONSULTS</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
 
-    # --- 3. THE NAVIGATION (Fixed & Organized) ---
-    # This is the 'Brain' of the app - must be here!
+    # --- 3. THE ADMIN NAME ---
+    st.markdown(f"""
+        <p style="text-align: center; color: #1e293b; font-size: 0.9rem; font-weight: bold; margin-bottom: 20px;">
+            👤 {st.session_state.get('user_name', 'Evans Ahuura')}
+        </p>
+    """, unsafe_allow_html=True)
+
+    # --- 4. NAVIGATION ---
     page = st.radio("Menu Selection", 
                     ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
                     label_visibility="collapsed")
     
-    st.write("---")
+    st.markdown("---")
     
-    # 4. LOGOUT AT THE BOTTOM
     if st.button("🚪 Secure Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
