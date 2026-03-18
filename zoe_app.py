@@ -637,44 +637,30 @@ elif page == "Ledger":
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
     
-    # --- SECTION 1: DATA MAINTENANCE ---
-    st.subheader("🔄 Data Sync & Cache")
-    st.write("Streamlit saves a 'copy' of your Google Sheet for 10 minutes to stay fast. Use this button to force a fresh pull of your data.")
+    tab_data, tab_branding = st.tabs(["🔄 Data Management", "🎨 Branding & Identity"])
     
-    if st.button("🧹 Clear Cache & Refresh Data", use_container_width=True):
-        st.cache_data.clear()
-        st.success("Cache Cleared! Fetching latest data from Google Sheets...")
-        st.rerun()
-
-    st.write("---")
-
-    # --- SECTION 2: SYSTEM INFORMATION ---
-    st.subheader("ℹ️ System Info")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(f"**App Name:** ZoeLend IQ Pro")
-        st.info(f"**Current User:** Admin")
-    with col2:
-        st.info(f"**Connected Sheet:** Borrowers / Payments")
-        st.info(f"**Last Sync:** {datetime.now().strftime('%H:%M:%S')}")
-
-    st.write("---")
-
-    # --- SECTION 3: DANGER ZONE ---
-    with st.expander("🚨 Danger Zone (Advanced)"):
-        st.warning("These actions are permanent and cannot be undone.")
-        
-        # Example: A 'Soft Reset' or logging out all sessions
-        if st.button("🗑️ Reset Local Session State", use_container_width=True):
-            st.session_state.clear()
+    with tab_data:
+        st.subheader("Refresh System")
+        if st.button("🧹 Clear Cache & Sync Sheets", use_container_width=True):
+            st.cache_data.clear()
             st.rerun()
-            
-        st.write("Note: To delete data permanently, please edit the Google Sheet directly to avoid accidental mass-deletion via the app.")
 
-    # --- FOOTER ---
-    st.markdown("""
-        <div style="text-align: center; color: #94a3b8; font-size: 0.8rem; margin-top: 50px;">
-            Zoe Consults Management System v2.1.0<br>
-            Securely encrypted via Streamlit Cloud
-        </div>
-    """, unsafe_allow_html=True)
+    with tab_branding:
+        st.subheader("Edit Company Profile")
+        with st.form("branding_form"):
+            new_name = st.text_input("Company Name", value=brand_name)
+            new_tagline = st.text_input("Tagline", value=brand_tagline)
+            new_emoji = st.text_input("Logo Emoji", value=brand_logo, help="Windows: Win + . | Mac: Ctrl + Cmd + Space")
+            
+            if st.form_submit_button("💾 Save Branding Changes", use_container_width=True):
+                # Update the Settings DataFrame
+                new_settings = pd.DataFrame([
+                    ["Company Name", new_name],
+                    ["Tagline", new_tagline],
+                    ["Logo Emoji", new_emoji]
+                ], columns=["Property", "Value"])
+                
+                conn.update(worksheet="Settings", data=new_settings)
+                st.success("Branding updated! Refreshing...")
+                st.cache_data.clear()
+                st.rerun()
