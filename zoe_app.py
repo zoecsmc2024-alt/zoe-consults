@@ -94,12 +94,21 @@ if page == "Borrowers":
 
             with st.form("edit_form"):
                 new_loan = st.number_input("Update Loan Amount", value=float(row['LOAN_AMOUNT']))
-                # Check for space in "DUE "
+                
+                # --- THE FIX: HANDLE 'NONE' DATES ---
                 date_key = "DUE " if "DUE " in df.columns else "DUE"
-                new_due = st.date_input("Update Due Date", value=pd.to_datetime(row[date_key]))
+                
+                # If the value is 'None' or NaT, use today. Otherwise, use the saved date.
+                current_due_val = row[date_key]
+                if pd.isna(current_due_val) or current_due_val == "None":
+                    start_date = datetime.now().date()
+                else:
+                    start_date = pd.to_datetime(current_due_val).date()
+
+                new_due = st.date_input("Update Due Date", value=start_date)
                 
                 if st.form_submit_button("💾 Save Changes"):
-                    st.success("Updated! Data is syncing to the cloud.")
+                    st.success(f"Updated {target}! Syncing to Google Sheets...")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
