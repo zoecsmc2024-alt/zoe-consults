@@ -237,11 +237,17 @@ elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. MATH & CALCULATIONS
+        # --- 1. DATA PROCESSING ---
         display_df = df.copy()
+        # Ensure numeric types for calculation
+        display_df['LOAN_AMOUNT'] = pd.to_numeric(display_df['LOAN_AMOUNT'], errors='coerce')
+        display_df['INTEREST_RATE'] = pd.to_numeric(display_df['INTEREST_RATE'], errors='coerce')
+        display_df['AMOUNT_PAID'] = pd.to_numeric(display_df['AMOUNT_PAID'], errors='coerce')
+        
         display_df['INTEREST_AMT'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
         display_df['TOTAL_EXPECTED'] = display_df['LOAN_AMOUNT'] + display_df['INTEREST_AMT']
         display_df['REAL_OUTSTANDING'] = display_df['TOTAL_EXPECTED'] - display_df['AMOUNT_PAID']
+        
         display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
         display_df['DUE_DT'] = (pd.to_datetime(display_df['DATE_ISSUED']) + pd.Timedelta(days=30)).dt.date
         
@@ -251,15 +257,17 @@ elif page == "Borrowers":
             return "🔵 ACTIVE"
         display_df['Status'] = display_df.apply(get_status, axis=1)
 
-        # 2. COLORED REGISTRY TABLE
+        # --- 2. THE TABLE (WITH INTEREST RATE RESTORED) ---
         st.dataframe(
-            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'REAL_OUTSTANDING', 'Status']],
+            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INTEREST_AMT', 'AMOUNT_PAID', 'REAL_OUTSTANDING', 'Status']],
             column_config={
                 "CUSTOMER_NAME": "Client Name",
-                "ISSUED_DT": st.column_config.DateColumn("Issued", format="DD/MM/YYYY"),
+                "ISSUED_DT": "Issued",
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
+                "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
                 "AMOUNT_PAID": st.column_config.ProgressColumn(
-                    "Recovery Progress 💰",
+                    "Recovery Progress",
                     format="UGX %,d",
                     min_value=0,
                     max_value=int(display_df['TOTAL_EXPECTED'].max()),
@@ -269,10 +277,46 @@ elif page == "Borrowers":
             },
             use_container_width=True, hide_index=True
         )
+
+        # --- 3. RESTORED EDIT/DELETE CONTROLS ---
+        st.write("---")
+        with st.expander("🛠️ Manage Records (Edit/Delete)"):
+            target_client = st.selectbox("Select Client to Manage:", options=df['CUSTOMER_NAME'].unique())
+            client_row = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
+
+            col_edit, col_del = st.columns([2, 1])
+
+            with col_edit:
+                with st.form(f"edit_form_{target_client}"):
+                    st.markdown(f"**Editing Profile:** {target_client}")
+                    new_name = st.text_input("Correct Name", value=client_row['CUSTOMER_NAME'])
+                    new_loan = st.number_input("Principal (UGX)", value=int(client_row['LOAN_AMOUNT']), step=50000)
+                    new_rate = st.number_input("Interest Rate (%)", value=int(client_row['INTEREST_RATE']))
+                    
+                    if st.form_submit_button("💾 Save Changes", use_container_width=True):
+                        df.loc[df['CUSTOMER_NAME'] == target_client, 'CUSTOMER_NAME'] = new_name
+                        df.loc[df['CUSTOMER_NAME'] == new_name, 'LOAN_AMOUNT'] = new_loan
+                        df.loc[df['CUSTOMER_NAME'] == new_name, 'INTEREST_RATE'] = new_rate
+                        # Recalculate sheet balance
+                        new_int = (new_loan * new_rate) / 100
+                        df.loc[df['CUSTOMER_NAME'] == new_name, 'OUTSTANDING_AMOUNT'] = (new_loan + new_int) - client_row['AMOUNT_PAID']
+                        
+                        conn.update(worksheet="Borrowers", data=df)
+                        st.success("Record updated!")
+                        st.rerun()
+
+            with col_del:
+                st.markdown("**Danger Zone**")
+                if st.button(f"🗑️ Delete {target_client}", use_container_width=True, type="primary"):
+                    # Filtering out the deleted row
+                    updated_df = df[df['CUSTOMER_NAME'] != target_client]
+                    conn.update(worksheet="Borrowers", data=updated_df)
+                    st.warning("Record deleted.")
+                    st.rerun()
     else:
         st.info("No records found.")
 
-    # 3. NEW LOAN FORM (This was likely where the error was!)
+    # --- 4. NEW REGISTRATION ---
     st.write("")
     with st.popover("➕ Register New Loan", use_container_width=True):
         with st.form("new_loan_final", clear_on_submit=True):
@@ -284,12 +328,47 @@ elif page == "Borrowers":
             if st.form_submit_button("✅ Disburse & Sync"):
                 if f_name and f_amt > 0:
                     new_id = int(df['SN'].max() + 1) if not df.empty else 1
+                    # Ensure interest is included in the stored balance
                     starting_bal = f_amt + (f_amt * f_rate / 100)
                     new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date)]], 
                                          columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED'])
                     conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
                     st.success("Loan Created!")
                     st.rerun()
+
+elif page == "Repayments":
+    st.markdown('<div class="main-title">💰 Payment Processing</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        with st.form("repayment_form_final"):
+            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+            p_amt = st.number_input("Amount Paid", min_value=0)
+            p_ref = st.text_input("Receipt Reference")
+            
+            if st.form_submit_button("🚀 Post Payment"):
+                if p_amt > 0:
+                    # Update Payments Sheet
+                    new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+                                       columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                    conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+                    
+                    # Deduct from Borrowers Worksheet balance
+                    df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+                    df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
+                    conn.update(worksheet="Borrowers", data=df)
+                    st.success("Payment Received!")
+                    st.rerun()
+
+        st.write("---")
+        st.subheader("📋 Recent History")
+        st.dataframe(
+            pay_df.iloc[::-1],
+            column_config={
+                "AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d"),
+                "DATE": "Date"
+            },
+            use_container_width=True, hide_index=True
+        )
 
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing</div>', unsafe_allow_html=True)
