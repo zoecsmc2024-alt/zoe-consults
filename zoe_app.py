@@ -271,14 +271,22 @@ elif page == "Ledger":
             total_due = client_info['LOAN_AMOUNT'] + int_amt
             bal = total_due - client_info['AMOUNT_PAID']
 
-            st.subheader(f"Financial Status: {target}")
-            c1, c2 = st.columns(2)
-            c1.metric("Total Outstanding", f"UGX {bal:,.0f}")
-            c2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
-            st.write("---")
-            st.dataframe(client_pay, use_container_width=True, hide_index=True)
-        else:
-            st.info("Add a borrower to see their ledger.")
+            # --- THE UPDATED LEDGER SUMMARY ---
+        st.subheader(f"Financial Status: {target}")
+        
+        # We create 3 columns now
+        c1, c2, c3 = st.columns(3)
+        
+        # 1. Original Principal (What they took)
+        c1.metric("Original Principal", f"UGX {client_info['LOAN_AMOUNT']:,.0f}")
+        
+        # 2. Total Paid (What they've brought back)
+        c2.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
+        
+        # 3. Current Outstanding (The remaining balance + 2.8% interest)
+        c3.metric("Outstanding Balance", f"UGX {bal:,.0f}", delta="Reduces as they pay", delta_color="inverse")
+        
+        st.write("---")
     
 elif page == "Settings":
     st.title("⚙️ Settings")
