@@ -79,43 +79,45 @@ with st.sidebar:
 # --- 4. PAGE LOGIC ---
 
 if page == "📊 Overview":
-    st.title("🛡️ Zoe Consults Executive Summary")
+    # 1. THE WHITE WRAPPER START
+    st.markdown('<div style="background-color: white; padding: 30px; border-radius: 15px; min-height: 100vh;">', unsafe_allow_html=True)
+    
+    st.markdown('<h1 style="color: #0f172a; margin-top: 0;">🛡️ Zoe Consults Executive Summary</h1>', unsafe_allow_html=True)
     
     if not df.empty:
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
         balance = total_p - total_c
         
-        # --- PRE-STYLED KPI CARDS ---
+        # --- TILES IN THE WRAPPER ---
         c1, c2, c3 = st.columns(3)
         
         with c1:
-            st.markdown(f'''<div class="metric-card">
-                <p style="color: #94a3b8; font-size: 0.8rem; margin:0;">TOTAL CAPITAL ISSUED</p>
-                <h2 style="color: #f8fafc; margin:0;">UGX {total_p:,.0f}</h2>
+            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9;">
+                <p style="color: #475569; font-size: 0.8rem; margin:0;">TOTAL CAPITAL ISSUED</p>
+                <h2 style="color: #0f172a; margin:0;">UGX {total_p:,.0f}</h2>
             </div>''', unsafe_allow_html=True)
             
         with c2:
-            st.markdown(f'''<div class="metric-card">
-                <p style="color: #94a3b8; font-size: 0.8rem; margin:0;">TOTAL RECOVERED</p>
+            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9;">
+                <p style="color: #475569; font-size: 0.8rem; margin:0;">TOTAL RECOVERED</p>
                 <h2 style="color: #10b981; margin:0;">UGX {total_c:,.0f}</h2>
             </div>''', unsafe_allow_html=True)
             
         with c3:
-            st.markdown(f'''<div class="metric-card">
-                <p style="color: #94a3b8; font-size: 0.8rem; margin:0;">OUTSTANDING RISK</p>
+            st.markdown(f'''<div class="metric-card" style="background-color: #f1f5f9;">
+                <p style="color: #475569; font-size: 0.8rem; margin:0;">OUTSTANDING RISK</p>
                 <h2 style="color: #ef4444; margin:0;">UGX {balance:,.0f}</h2>
             </div>''', unsafe_allow_html=True)
 
-        st.write("---")
+        st.markdown('<hr style="border-top: 1px solid #e2e8f0;">', unsafe_allow_html=True)
         
-        # --- BEAUTIFUL CHART ---
-        st.subheader("📈 Recovery Progress by Client")
+        # --- THE CHART ---
+        st.markdown('<h3 style="color: #0f172a;">📈 Recovery Progress</h3>', unsafe_allow_html=True)
         st.bar_chart(df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']], color=["#0ea5e9", "#10b981"])
-
-elif page == "👥 Borrowers":
-    st.title("👥 Borrowers")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    # 2. THE WHITE WRAPPER END
+    st.markdown('</div>', unsafe_allow_html=True)
     
     with st.popover("➕ New Loan"):
         with st.form("new_loan"):
