@@ -214,53 +214,48 @@ elif page == "Calendar":
 elif page == "Collateral":
     st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
     
-    # --- 1. CONNECT TO THE NEW COLLATERAL TAB ---
-    try:
-        collateral_df = conn.read(worksheet="Collateral", ttl="0").dropna(how="all")
-    except:
-        st.error("⚠️ Please create a tab named 'Collateral' in your Google Sheet first!")
-        st.stop()
+    # 1. LOAD THE VAULT DATA
+    collateral_df = conn.read(worksheet="Collateral", ttl="0").dropna(how="all")
 
-    if not df.empty:
-        # --- 2. REGISTRATION FORM ---
-        with st.expander("📥 Register & Save New Asset"):
-            with st.form("permanent_collateral"):
-                c_owner = st.selectbox("Assign to Borrower", options=df['NAME'].unique() if 'NAME' in df.columns else df['CUSTOMER_NAME'].unique())
-                c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Household Item", "Business Stock", "Other"])
-                c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos, Condition)")
-                c_val = st.number_input("Estimated Market Value (UGX)", min_value=0, step=100000)
-                
-                if st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True):
-                    # Create the new data row
-                    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
-                                           columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
-                    
-                    # Upload to Google Sheets
-                    updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
-                    conn.update(worksheet="Collateral", data=updated_collateral)
-                    
-                    st.success(f"Asset for {c_owner} is now locked in the Google Sheet Vault!")
-                    st.rerun()
+    # 2. THE REGISTRATION FORM (Keep your existing form here)
+    with st.expander("📥 Register & Save New Asset"):
+        # ... (Same form code as before)
+        pass
 
-        # --- 3. THE LIVE VAULT VIEW ---
-        st.write("---")
-        st.subheader("📋 Assets Currently Held")
-        
-        if not collateral_df.empty:
-            st.dataframe(
-                collateral_df,
-                column_config={
-                    "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
-                    "STATUS": "Vault Status"
-                },
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.info("The vault is currently empty. Register an asset above to begin.")
+    st.write("---")
+    
+    # 3. THE "RELEASE ASSET" ACTION
+    st.subheader("🔓 Asset Release Control")
+    held_assets = collateral_df[collateral_df['STATUS'] == "🔐 HELD"]
+    
+    if not held_assets.empty:
+        with st.popover("Select Asset to Dismiss"):
+            target_asset = st.selectbox("Which item are you returning?", 
+                                      options=held_assets['DESCRIPTION'].unique())
             
+            if st.form_submit_button("✅ Confirm Return to Client"):
+                # Logic: Find the row and change status to RETURNED
+                collateral_df.loc[collateral_df['DESCRIPTION'] == target_asset, 'STATUS'] = f"🔓 RETURNED ({datetime.now().date()})"
+                
+                # Sync back to Google Sheets
+                conn.update(worksheet="Collateral", data=collateral_df)
+                st.balloons() # Celebration!
+                st.success(f"Asset '{target_asset}' has been officially dismissed.")
+                st.rerun()
     else:
-        st.warning("⚠️ No borrowers found. You must have a client before you can hold their collateral.")
+        st.info("No assets are currently being held.")
+
+    # 4. THE COMPLETE HISTORY (HELD & RETURNED)
+    st.subheader("📋 Full Vault History")
+    st.dataframe(
+        collateral_df,
+        column_config={
+            "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
+            "STATUS": st.column_config.TextColumn("Current Status"),
+        },
+        use_container_width=True,
+        hide_index=True
+    )
 
 elif page == "Ledger":
     st.title("📄 Client Ledger")
