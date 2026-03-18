@@ -39,28 +39,15 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-# --- 2. PERMANENT DATA CONNECTION (FORCE-LOAD) ---
+# --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
-    try:
-        # We use ttl="0" to ensure it doesn't show old "cached" data
-        borrowers = conn.read(worksheet="Borrowers", ttl="0")
-        payments = conn.read(worksheet="Payments", ttl="0")
-        
-        # Clean up empty rows
-        borrowers = borrowers.dropna(how="all")
-        payments = payments.dropna(how="all")
-        
-        # Ensure numbers are actually numbers (Crucial for Charts!)
-        for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
-            if col in borrowers.columns:
-                borrowers[col] = pd.to_numeric(borrowers[col], errors='coerce').fillna(0)
-                
-        return borrowers, payments
-    except Exception as e:
-        st.error(f"⚠️ Connection Error: {e}")
-        return pd.DataFrame(), pd.DataFrame()
+    # We change ttl from "0" to 600 (10 minutes)
+    # This stores the data in the app's memory so it doesn't keep pestering Google
+    df = conn.read(worksheet="Borrowers", ttl=600).dropna(how="all")
+    pay_df = conn.read(worksheet="Payments", ttl=600).dropna(how="all")
+    return df, pay_df
 
 df, pay_df = get_data()
 # --- 3. SIDEBAR NAVIGATION ---
