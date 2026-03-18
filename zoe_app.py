@@ -81,43 +81,44 @@ if page == "Borrowers":
         with tab_view:
             st.markdown("### 📋 Active Loan Registry")
             
-            if not df.empty:
-                # 1. Background Math
-                display_df = df.copy()
-                display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * display_df.get('INTEREST_RATE', 2.8)) / 100
-                display_df['Total Due'] = display_df['LOAN_AMOUNT'] + display_df['Interest Charged']
-                display_df['Outstanding'] = display_df['Total Due'] - display_df.get('AMOUNT_PAID', 0)
-                
-                # 2. Safety List: Only show columns that actually exist
-                all_possible_cols = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ', 'STATUS']
-                existing_cols = [c for c in all_possible_cols if c in display_df.columns or c in ['Interest Charged', 'Outstanding']]
-
-                # 3. Render the Table
-                st.dataframe(
-                    display_df[existing_cols],
-                    column_config={
-                        "CUSTOMER_NAME": "NAME",
-                        "DATE_ISSUED": "ISSUED",
-                        "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
-                        "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
-                        "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                        "DUE ": "DUE DATE",
-                        "STATUS": "STATUS"
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
+            # --- CALCULATE DISPLAY DATA ---
+            display_df = df.copy()
+            # Safety checks for interest and payments
+            rate = display_df.get('INTEREST_RATE', 2.8)
+            paid = display_df.get('AMOUNT_PAID', 0)
             
+            display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
+            display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
+            
+            # Use the correct due date column (DUE  with space or DUE)
+            d_col = "DUE " if "DUE " in df.columns else "DUE"
+            
+            # --- THE ONE AND ONLY TABLE ---
+            st.dataframe(
+                display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', d_col, 'STATUS']],
+                column_config={
+                    "CUSTOMER_NAME": "NAME",
+                    "DATE_ISSUED": "ISSUED DATE",
+                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPLE", format="UGX %,d"),
+                    "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
+                    "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
+                    d_col: "DUE DATE",
+                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # EXPANDER FOR NEW BORROWERS
             with st.expander("➕ Register New Borrower"):
-                st.info("Form is ready when you are!")
+                st.write("New registration form will go here.")
 
         with tab_edit:
-            # (Keep your Edit Form code here - ensure it only appears under this tab!)
             st.write("### ✏️ Edit Borrower Details")
-            # ... [Your existing edit form code] ...
+            # ... [Your existing edit form code stays here] ...
 
     else:
-        st.warning("No data found in the cloud.")
+        st.warning("No data found. Check your Google Sheets connection.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
