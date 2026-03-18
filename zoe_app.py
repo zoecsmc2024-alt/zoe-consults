@@ -83,35 +83,40 @@ if page == "Borrowers":
             
             # --- CALCULATE DISPLAY DATA ---
             display_df = df.copy()
-            # Safety checks for interest and payments
-            rate = display_df.get('INTEREST_RATE', 2.8)
-            paid = display_df.get('AMOUNT_PAID', 0)
+            
+            # Safety math (handles missing columns for rate or paid)
+            rate = display_df['INTEREST_RATE'] if 'INTEREST_RATE' in display_df.columns else 2.8
+            paid = display_df['AMOUNT_PAID'] if 'AMOUNT_PAID' in display_df.columns else 0
             
             display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * rate) / 100
             display_df['Outstanding Amount'] = (display_df['LOAN_AMOUNT'] + display_df['Interest Charged']) - paid
             
-            # Use the correct due date column (DUE  with space or DUE)
-            d_col = "DUE " if "DUE " in df.columns else "DUE"
+            # --- DYNAMIC COLUMN PICKER ---
+            # We list all the columns we WANT to see
+            target_cols = ['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', 'DUE ', 'DUE', 'STATUS']
+            
+            # We filter that list to only include columns that actually EXIST in the data
+            final_cols = [col for col in target_cols if col in display_df.columns]
             
             # --- THE ONE AND ONLY TABLE ---
             st.dataframe(
-                display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding Amount', d_col, 'STATUS']],
+                display_df[final_cols],
                 column_config={
                     "CUSTOMER_NAME": "NAME",
                     "DATE_ISSUED": "ISSUED DATE",
-                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPLE", format="UGX %,d"),
+                    "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
                     "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
                     "Outstanding Amount": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                    d_col: "DUE DATE",
-                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
+                    "DUE ": "DUE DATE",
+                    "DUE": "DUE DATE",
+                    "STATUS": "STATUS"
                 },
                 use_container_width=True,
                 hide_index=True
             )
             
-            # EXPANDER FOR NEW BORROWERS
             with st.expander("➕ Register New Borrower"):
-                st.write("New registration form will go here.")
+                st.info("Registration form ready when you are!")
 
         with tab_edit:
             st.write("### ✏️ Edit Borrower Details")
