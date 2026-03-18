@@ -56,45 +56,65 @@ df, pay_df, collateral_df = get_all_data()
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
 with st.sidebar:
-    # 1. CENTERED LOGO
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        try:
-            st.image("logo.png", use_container_width=True)
-        except:
-            st.markdown("<h1 style='text-align: center; margin: 0;'>🌐</h1>", unsafe_allow_html=True)
-
-    # 2. BRAND NAME
+    # 1. PREMIUM LOGO & BRANDING
     st.markdown("""
-        <div style="text-align: center; margin-top: 10px;">
-            <h2 style="color: #1E3A8A; margin-bottom: 0; font-size: 1.4rem; letter-spacing: 2px;">ZOE</h2>
-            <p style="color: #64748B; font-size: 0.7rem; font-weight: bold; letter-spacing: 3px; margin-top: -5px;">CONSULTS</p>
+        <div style="text-align: center; padding-bottom: 20px;">
+            <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
+                        width: 60px; height: 60px; border-radius: 15px; 
+                        display: flex; align-items: center; justify-content: center; 
+                        margin: 0 auto 15px auto; box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);">
+                <span style="font-size: 30px; color: white;">🛡️</span>
+            </div>
+            <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0; letter-spacing: -0.5px;">ZOE</h1>
+            <p style="color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0; text-transform: uppercase;">Consults IQ</p>
         </div>
-        <hr style="margin: 15px 0; border: 0.5px solid #e2e8f0;">
+        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 10px 0 20px 0;">
     """, unsafe_allow_html=True)
 
-    # 3. CENTERED OPTION MENU (The Fix!)
-    # This component is much better for centered mobile-style menus
+    # 2. THE OPTION MENU (Modern Styling)
+    # Using 'option_menu' for a more mobile-responsive, centered feel
     page = option_menu(
-        menu_title=None,  # No title needed
+        menu_title=None,
         options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-        icons=["house", "people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
-        menu_icon="cast", 
+        icons=["grid-1x2", "people", "wallet2", "calendar-check", "safe2", "file-earmark-medical", "sliders"],
+        menu_icon="cast",
         default_index=0,
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#1E3A8A", "font-size": "18px"}, 
-            "nav-link": {"font-size": "16px", "text-align": "center", "margin":"0px", "--hover-color": "#f1f5f9"},
-            "nav-link-selected": {"background-color": "#1E3A8A"},
+            "icon": {"color": "#64748b", "font-size": "18px"}, 
+            "nav-link": {
+                "font-size": "14px", 
+                "text-align": "left", 
+                "margin": "5px 0px", 
+                "color": "#475569",
+                "font-family": "'Inter', sans-serif",
+                "border-radius": "8px"
+            },
+            "nav-link-selected": {
+                "background-color": "#1e3a8a", 
+                "color": "white",
+                "font-weight": "600"
+            },
         }
     )
+
+    # 3. SIDEBAR FOOTER & LOGOUT
+    st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True) # Pushes logout to bottom
+    st.write("---")
     
-    st.markdown("---")
-    
-    # 4. LOGOUT
-    if st.button("🚪 Secure Logout", use_container_width=True):
+    # Modern Logout Button
+    if st.button("🚪 Terminate Session", use_container_width=True):
         st.session_state.clear()
+        st.success("Securely Logged Out")
         st.rerun()
+
+    # App Version Info
+    st.markdown("""
+        <div style="text-align: center; color: #94a3b8; font-size: 0.7rem; padding-top: 10px;">
+            v2.4.0 • Enterprise Edition<br>
+            Secure Cloud Sync Active
+        </div>
+    """, unsafe_allow_html=True)
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
