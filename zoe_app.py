@@ -55,17 +55,21 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide", initial_sidebar_s
 
 st.markdown("""
     <style>
-    .stApp { background: linear-gradient(to bottom, #f0f2f5, #ffffff); }
-    .box-card {
-        background: white; 
-        border: none;
-        padding: 24px; 
-        border-radius: 15px; 
-        text-align: center;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
+    /* Main Background */
+    .stApp {
+        background-color: #f1f5f9;
     }
-    .box-card:hover { transform: translateY(-5px); }
+    
+    /* Style for the sidebar and containers */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+    }
+
+    /* Target the buttons we created */
+    div.stButton > button {
+        border-radius: 8px;
+        font-weight: 600;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -138,48 +142,56 @@ header_html = f"""
 """
 st.markdown(header_html, unsafe_allow_html=True)
 
-# --- 3. THE ACTION & EDIT TOOLBAR ---
+# --- REFRESHED ACTION BAR (All Buttons Fixed) ---
 with st.container():
-    # Added a new 'Settings' column (c_set)
-    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([3.5, 0.4, 0.4, 0.4, 0.4, 0.4])
+    # Adjusted column ratios for better spacing
+    c_search, c_new, c_del, c_dl, c_set, c_logout = st.columns([2.5, 1, 1, 1, 1, 1])
 
     with c_search:
-        search_query = st.text_input("", placeholder="🔍 Search borrowers...", label_visibility="collapsed")
+        search_query = st.text_input("", placeholder="🔍 Search...", label_visibility="collapsed")
 
     with c_new:
-        with st.popover("➕", help="New Loan"):
-            st.markdown("### 📝 New Loan Entry")
-            # ... (your existing form logic)
-            
+        with st.popover("➕ New Loan", use_container_width=True):
+            with st.form("new_loan_v4", clear_on_submit=True):
+                st.markdown("#### 📝 Add Borrower")
+                # ... (your existing form fields)
+                if st.form_submit_button("✅ Disburse", use_container_width=True):
+                    # ... (your save logic)
+                    st.rerun()
+
     with c_del:
-        with st.popover("🗑️", help="Delete"):
-            # ... (your existing delete logic)
+        with st.popover("🗑️ Delete", use_container_width=True):
+            # ... (your delete logic)
             pass
 
     with c_dl:
-        # ... (your existing download logic)
-        pass
+        if not df.empty:
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Export", csv, "Zoe_Data.csv", "text/csv", use_container_width=True)
 
     with c_set:
-        with st.popover("⚙️", help="Brand Settings"):
-            st.markdown("#### 🖼️ Update Logo")
-            new_file = st.file_uploader("Upload PNG/JPG", type=["png", "jpg", "jpeg"])
-            
-            if new_file:
-                encoded = base64.b64encode(new_file.getvalue()).decode()
+        # LOGO & BRAND SETTINGS (Fixed Popover)
+        with st.popover("⚙️ Settings", use_container_width=True):
+            st.markdown("#### 🖼️ Brand Settings")
+            new_logo = st.file_uploader("Upload New Logo", type=["png", "jpg", "jpeg"])
+            if new_logo:
+                encoded = base64.b64encode(new_logo.getvalue()).decode()
                 st.session_state['custom_logo_b64'] = encoded
                 st.success("Logo uploaded!")
-                # Just a normal button, no callback needed
-                if st.button("Refresh Dashboard"):
+                if st.button("Apply Changes"):
                     st.rerun()
             
-            if st.button("Reset to Default"):
+            if st.button("Reset to Default", use_container_width=True):
                 st.session_state['custom_logo_b64'] = None
                 st.rerun()
 
     with c_logout:
-        if st.button("🚪", help="Logout"):
+        # LOGOUT (Fixed Button)
+        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
             st.session_state["password_correct"] = False
+            # Clear everything to ensure a clean logout
+            for key in st.session_state.keys():
+                del st.session_state[key]
             st.rerun()
 st.write("---") # Visual separator before the tabs
 # --- 5. DASHBOARD TABS ---
@@ -224,6 +236,42 @@ with menu_tabs[0]:
                 "Amount": [total_principal, total_collected, actual_profit]
             })
             st.bar_chart(data=perf_df, x="Metric", y="Amount", color="Metric")
+
+       # --- 5. TIME-SERIES PERFORMANCE TRENDS (Error-Proof Version) ---
+        st.write("---")
+        st.subheader("📉 Growth & Liquidity Trends")
+
+        if not df.empty and os.path.exists(PAYMENT_FILE):
+            try:
+                # 1. Process Loans
+                loan_trend_df = df.copy()
+                loan_trend_df['MONTH'] = pd.to_datetime(loan_trend_df['DATE_ISSUED']).dt.strftime('%Y-%m')
+                monthly_loans = loan_trend_df.groupby('MONTH')['LOAN_AMOUNT'].sum().reset_index()
+                
+                # 2. Process Payments (Safe Column Detection)
+                pay_df = pd.read_csv(PAYMENT_FILE)
+                pay_df['MONTH'] = pd.to_datetime(pay_df['DATE']).dt.strftime('%Y-%m')
+                
+                # Check for column name variations
+                pay_col = 'AMOUNT' if 'AMOUNT' in pay_df.columns else 'AMOUNT_PAID'
+                monthly_pays = pay_df.groupby('MONTH')[pay_col].sum().reset_index()
+                monthly_pays.columns = ['MONTH', 'Total Collected'] # Rename for merge
+
+                # 3. Merge and Chart
+                trend_df = pd.merge(monthly_loans, monthly_pays, on='MONTH', how='outer').fillna(0)
+                trend_df.columns = ['Month', 'Principal Issued', 'Total Collected']
+                trend_df = trend_df.sort_values('Month')
+
+                st.line_chart(
+                    trend_df.set_index('Month'), 
+                    color=["#0ea5e9", "#10b981"]
+                )
+                st.caption("🔵 Principal Issued (Investment) vs 🟢 Total Collected (Recovery)")
+            
+            except Exception as e:
+                st.warning(f"Could not generate trends: Ensure your dates are in YYYY-MM-DD format.")
+        else:
+            st.info("Growth trends will appear once you have a history of payments recorded.")
 
         with chart_col2:
             st.subheader("🎯 Risk Distribution")
@@ -412,72 +460,97 @@ with menu_tabs[4]:
     else:
         st.info("No active loans to track.")
 
-# --- TAB 5: DYNAMIC CLIENT LEDGER (Fixed Indentation) ---
+# --- TAB 5: DYNAMIC CLIENT LEDGER ---
 with menu_tabs[5]:
-    st.subheader("📄 Transaction Ledger")
+    st.subheader("📄 Client Transaction Ledger")
     
     if not df.empty:
-        # 1. Selection
-        client_name = st.selectbox("Select Client for Ledger", options=df['CUSTOMER_NAME'].unique(), key="ledger_select")
+        # 1. Selection UI
+        client_name = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_client_sel")
         c_details = df[df['CUSTOMER_NAME'] == client_name].iloc[0]
         
-        # --- CLIENT HEADER ---
-        st.markdown(f"""
-            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
-                <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em;">
-                    <span><b>NIN:</b> {c_details.get('NIN', 'N/A')}</span>
-                    <span><b>Contact:</b> {c_details.get('CONTACT', 'N/A')}</span>
-                    <span><b>Address:</b> {c_details.get('ADDRESS', 'Kampala, Uganda')}</span>
-                    <span><b>Principal:</b> UGX {c_details['LOAN_AMOUNT']:,.0f}</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        # 2. Prepare Formatted Header Values
+        p_val = int(c_details['LOAN_AMOUNT'])
+        formatted_principal = f"{p_val:,.0f}"
+        client_nin = c_details.get('NIN', 'N/A')
+        client_contact = c_details.get('CONTACT', 'N/A')
+        client_addr = c_details.get('ADDRESS', 'Kampala, Uganda')
 
-        # 2. LEDGER PROCESSING
+        # 3. Branded Client Header
+        st.markdown(f"""
+<div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border-left: 5px solid #0ea5e9; margin-bottom: 20px;">
+    <h3 style="margin:0; color: #0f172a;">{client_name.upper()}</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.9em; color: #475569;">
+        <span><b>NIN:</b> {client_nin}</span>
+        <span><b>Contact:</b> {client_contact}</span>
+        <span><b>Address:</b> {client_addr}</span>
+        <span><b>Principal:</b> UGX {formatted_principal}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+        # 4. Ledger Calculation Logic
         if os.path.exists(PAYMENT_FILE):
-            all_payments = pd.read_csv(PAYMENT_FILE)
-            client_pays = all_payments[all_payments['CUSTOMER_NAME'] == client_name].copy()
+            pay_df = pd.read_csv(PAYMENT_FILE)
+            client_pays = pay_df[pay_df['CUSTOMER_NAME'] == client_name].copy()
+            client_pays['DATE'] = pd.to_datetime(client_pays['DATE'])
+            client_pays = client_pays.sort_values('DATE')
             
             ledger_entries = []
-            curr_bal = c_details['LOAN_AMOUNT']
-            rate = c_details['INTEREST_RATE']
+            curr_bal = p_val
+            annual_rate = c_details['INTEREST_RATE']
             
-            # Use 'AMOUNT' or 'AMOUNT_PAID' depending on your CSV
+            # Auto-detect column name for amount
             amt_col = 'AMOUNT' if 'AMOUNT' in client_pays.columns else 'AMOUNT_PAID'
 
-            for _, pay in client_pays.iterrows():
-                int_chg = (curr_bal * (rate / 100) / 12)
-                p_amt = pay[amt_col]
-                curr_bal = (curr_bal + int_chg) - p_amt
+            for _, row in client_pays.iterrows():
+                # Reducing Balance: Interest is (Current Balance * Rate) / 12
+                interest_accrued = (curr_bal * (annual_rate / 100) / 12)
+                payment_received = row[amt_col]
+                
+                # New Balance = Old Balance + Interest - Payment
+                curr_bal = (curr_bal + interest_accrued) - payment_received
                 
                 ledger_entries.append({
-                    "Date": pd.to_datetime(pay['DATE']).strftime('%Y-%m-%d'),
-                    "Description": f"Repayment (Ref: {pay.get('REF', 'N/A')})",
-                    "Interest": int_chg,
-                    "Paid": p_amt,
-                    "Balance": max(0, curr_bal)
+                    "Date": row['DATE'].strftime('%d %b, %Y'),
+                    "Description": f"Repayment (Ref: {row.get('REF', 'N/A')})",
+                    "Interest Charged": interest_accrued,
+                    "Payment Rec'd": payment_received,
+                    "Running Balance": max(0, curr_bal)
                 })
 
-            ledger_df = pd.DataFrame(ledger_entries)
+            ledger_final = pd.DataFrame(ledger_entries)
 
-            if not ledger_df.empty:
-                m1, m2 = st.columns(2)
-                m1.metric("Current Outstanding", f"UGX {curr_bal:,.0f}")
-                m2.metric("Total Interest Accrued", f"UGX {ledger_df['Interest'].sum():,.0f}")
+            if not ledger_final.empty:
+                # Summary Metrics
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Current Balance", f"UGX {curr_bal:,.0f}")
+                m2.metric("Total Interest Paid", f"UGX {ledger_final['Interest Charged'].sum():,.0f}")
+                m3.metric("Total Payments", f"UGX {ledger_final['Payment Rec\'d'].sum():,.0f}")
 
+                # The Detailed Ledger Table
                 st.dataframe(
-                    ledger_df,
+                    ledger_final,
                     column_config={
-                        "Interest": st.column_config.NumberColumn(format="UGX %,d"),
-                        "Paid": st.column_config.NumberColumn(format="UGX %,d"),
-                        "Balance": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Interest Charged": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Payment Rec'd": st.column_config.NumberColumn(format="UGX %,d"),
+                        "Running Balance": st.column_config.NumberColumn(format="UGX %,d"),
                     },
                     use_container_width=True, hide_index=True
                 )
+                
+                # Download Button for the Ledger
+                csv_data = ledger_final.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label=f"📥 Download {client_name}'s Ledger",
+                    data=csv_data,
+                    file_name=f"{client_name}_Ledger.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
             else:
-                st.info("No payments recorded yet. The balance is still at the full principal.")
+                st.info("No payments recorded for this borrower yet.")
         else:
-            st.error("Payment database file not found.")
+            st.warning("Payment database not found. Please record a payment first.")
     else:
-        st.info("Please add a borrower to view the ledger.")
+        st.info("No borrowers in the system. Add one via the 'New Loan' button above.")
