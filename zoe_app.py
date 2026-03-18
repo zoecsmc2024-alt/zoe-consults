@@ -71,20 +71,19 @@ brand_logo_type = get_setting("Logo Type", "Emoji") # 'Emoji' or 'URL'
 brand_logo_val = get_setting("Logo Value", "🛡️")
 
 with st.sidebar:
-    st.markdown("<div style='text-align: center; padding-bottom: 20px;'>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; padding-bottom: 10px;'>", unsafe_allow_html=True)
     
-    if brand_logo_type == "URL":
-        try:
-            st.image(brand_logo_val, width=80)
-        except:
-            st.markdown(f"<h1>{brand_logo_val}</h1>", unsafe_allow_html=True)
+    if brand_logo_type == "URL" and brand_logo_val != "nan":
+        # This will render your uploaded image professionally
+        st.image(brand_logo_val, use_container_width=True)
     else:
+        # Fallback to the Emoji style if URL is empty or 'nan'
         st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
                         width: 60px; height: 60px; border-radius: 15px; 
                         display: flex; align-items: center; justify-content: center; 
                         margin: 0 auto 15px auto;">
-                <span style="font-size: 30px; color: white;">{brand_logo_val}</span>
+                <span style="font-size: 30px; color: white;">🛡️</span>
             </div>
         """, unsafe_allow_html=True)
     
