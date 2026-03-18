@@ -70,6 +70,26 @@ st.markdown("""
         border-radius: 8px;
         font-weight: 600;
     }
+    /* Styling the Download Ledger Button */
+div[data-testid="stDownloadButton"] > button:has(div:contains("Download")) {
+    background-color: #334155 !important; /* Slate Blue */
+    color: white !important;
+    border: none !important;
+}
+
+/* Styling the WhatsApp Button */
+div.stLinkButton > a:has(div:contains("WhatsApp")) {
+    background-color: #25D366 !important; /* WhatsApp Green */
+    color: white !important;
+    border: none !important;
+    text-decoration: none !important;
+}
+
+/* Hover effects to make them feel interactive */
+div.stLinkButton > a:has(div:contains("WhatsApp")):hover {
+    background-color: #128C7E !important;
+    opacity: 0.9;
+}
     </style>
 """, unsafe_allow_html=True)
 
@@ -160,9 +180,34 @@ with st.container():
                     st.rerun()
 
     with c_del:
+        # Red "Delete" Button
         with st.popover("🗑️ Delete", use_container_width=True):
-            # ... (your delete logic)
-            pass
+            st.markdown("#### ⚠️ Remove Loan Record")
+            if not df.empty:
+                # Create a list of labels like "1 - Evans Ahuura"
+                delete_options = {row['SN']: f"{row['SN']} - {row['CUSTOMER_NAME']}" for _, row in df.iterrows()}
+                
+                selected_sn = st.selectbox(
+                    "Select Record to Remove", 
+                    options=list(delete_options.keys()),
+                    format_func=lambda x: delete_options[x]
+                )
+                
+                st.warning(f"Are you sure you want to delete ID {selected_sn}?")
+                
+                # We use a unique key to ensure Streamlit tracks this specific button
+                if st.button("Confirm Delete", type="primary", use_container_width=True, key="btn_confirm_del"):
+                    # 1. Remove the row from the dataframe
+                    updated_df = df[df['SN'] != selected_sn]
+                    
+                    # 2. Save the new version to your CSV
+                    updated_df.to_csv(DB_FILE, index=False)
+                    
+                    st.success(f"Record {selected_sn} deleted!")
+                    # 3. Force the app to refresh and show the new list
+                    st.rerun()
+            else:
+                st.info("No records to delete.")
 
     with c_dl:
         if not df.empty:
@@ -554,3 +599,46 @@ with menu_tabs[5]:
             st.warning("Payment database not found. Please record a payment first.")
     else:
         st.info("No borrowers in the system. Add one via the 'New Loan' button above.")
+
+# --- WHATSAPP MESSAGE GENERATION ---
+# --- COLORED BUTTONS WITH UNIQUE KEYS ---
+if not ledger_final.empty:
+    st.markdown("---")
+    
+    # 1. MESSAGE GENERATION (Calculated once)
+    current_bal_amt = ledger_final['Running Balance'].iloc[-1]
+    total_interest = ledger_final['Interest Charged'].sum()
+    
+    import urllib.parse
+    raw_message = (
+        f"Hello {client_name},\n\n"
+        f"This is Zoe Consults Admin. Your statement:\n"
+        f"🔹 Principal: UGX {int(c_details['LOAN_AMOUNT']):,}\n"
+        f"🔹 Interest: UGX {total_interest:,.0f}\n"
+        f"🔹 Balance: UGX {current_bal_amt:,.0f}"
+    )
+    encoded_message = urllib.parse.quote(raw_message)
+    clean_phone = str(client_contact).replace(" ", "").replace("+", "").replace("-", "")
+    wa_url = f"https://wa.me/{clean_phone}?text={encoded_message}"
+
+    # --- 2. DISPLAY BUTTONS IN COLUMNS ---
+col_dl, col_wa = st.columns(2)
+
+with col_dl:
+    csv_data = ledger_final.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label=f"📥 Download {client_name}'s Ledger",
+        data=csv_data,
+        file_name=f"{client_name}_Ledger.csv",
+        mime="text/csv",
+        use_container_width=True,
+        key=f"dl_btn_{client_name.replace(' ', '_')}" # This stays!
+    )
+
+with col_wa:
+    # We remove the 'key' parameter here to fix the TypeError
+    st.link_button(
+        label=f"📲 Send to WhatsApp ({client_name.split()[0]})", 
+        url=wa_url, 
+        use_container_width=True
+    )
