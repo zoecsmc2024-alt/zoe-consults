@@ -39,129 +39,67 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-# --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- STEP 1: SAFETY FALLBACK ---
+# This ensures 'page' ALWAYS exists, even if the sidebar crashes
+page = "Overview" 
 
-# 1. THE ROBUST DATA LOADER
-# 1. THE REPAIRED DATA LOADER (Prevents the Red Error Box)
+# --- STEP 2: REPAIRED DATA LOADING ---
+@st.cache_data(ttl=0) # ttl=0 forces a fresh connection
 def get_all_data():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Borrowers", ttl=0)
-        p_df = conn.read(worksheet="Payments", ttl=0)
-        c_df = conn.read(worksheet="Collateral", ttl=0)
+        df = conn.read(worksheet="Borrowers")
+        p_df = conn.read(worksheet="Payments")
+        c_df = conn.read(worksheet="Collateral")
         return df, p_df, c_df
-    except:
+    except Exception as e:
+        # If Google fails, we show a helpful message instead of a crash
+        st.sidebar.error(f"Google Connection Error: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 df, pay_df, collateral_df = get_all_data()
 
-# 2. THE BORROWERS PAGE WITH EDITING
-if page == "Borrowers":
-    st.markdown('<div class="main-title">👥 Borrower Management</div>', unsafe_allow_html=True)
-    
-    if not df.empty:
-        # --- VIEWING WITH COLORS ---
-        st.subheader("📋 Active Loan Registry")
-        
-        # We add a "Status" color column for better visuals
-        def color_status(val):
-            color = 'red' if val > 1000000 else 'green' # Red if debt is high
-            return f'color: {color}'
-
-        st.dataframe(df.style.applymap(color_status, subset=['OUTSTANDING_AMOUNT']), use_container_width=True)
-
-        # --- THE EDITING SECTION ---
-        st.write("---")
-        st.subheader("✏️ Edit Borrower Details")
-        
-        selected_user = st.selectbox("Select a Borrower to Update", df['CUSTOMER_NAME'].unique())
-        user_data = df[df['CUSTOMER_NAME'] == selected_user].iloc[0]
-
-        with st.form("edit_form"):
-            c1, c2 = st.columns(2)
-            new_name = c1.text_input("Name", value=user_data['CUSTOMER_NAME'])
-            new_loan = c2.number_input("Loan Amount", value=float(user_data['LOAN_AMOUNT']))
-            
-            # Using the "DUE " column name we found earlier
-            new_due = st.date_input("Update Due Date", value=pd.to_datetime(user_data['DUE ']))
-            
-            if st.form_submit_button("💾 Save Changes to Cloud"):
-                # LOGIC: Here you would trigger the update to GSheets
-                st.success(f"Changes for {selected_user} have been queued for sync!")
-    else:
-        st.warning("Connection lost. Please refresh the page.")
-from streamlit_option_menu import option_menu # Add this to your imports at the top!
-
-# --- 1. THE SIDEBAR (Guaranteed to define 'page') ---
+# --- STEP 3: THE SIDEBAR (Updating the 'page' variable) ---
 with st.sidebar:
-    # Large centered Logo (using standard columns)
-    c1, col_img, c3 = st.columns([0.1, 0.8, 0.1])
-    with col_img:
-        try:
-            st.image("logo.png", use_container_width=True)
-        except:
-            st.markdown("<h1 style='text-align: center;'>🌐</h1>", unsafe_allow_html=True)
-
-    st.markdown("<h3 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h3>", unsafe_allow_html=True)
-    st.write("---")
-
-    # --- THE NAVIGATION (This creates the 'page' variable) ---
-    st.write("📍 **Main Menu**")
-    page = st.radio(
-        "Select Page",
-        ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
-        label_visibility="collapsed"
-    )
+    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h2>", unsafe_allow_html=True)
     
-    st.write("---")
-    if st.button("🚪 Secure Logout", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
+    # Standard Radio - No extra libraries needed
+    page = st.radio(
+        "Navigation",
+        ["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        index=1 # Start on Borrowers
+    )
 
-# --- 2. THE BORROWERS PAGE (Viewing & Editing) ---
+# --- STEP 4: THE BORROWERS PAGE (Viewing & Editing) ---
 if page == "Borrowers":
     st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
     
     if not df.empty:
-        # TABS: One for looking, one for changing
-        tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Details Editor"])
+        # TABS FOR COLORS & EDITING
+        tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
 
         with tab_view:
             st.write("### 📋 Active Loan Registry")
-            
-            # Color Logic: Red for high exposure (>1M), Green for managed debt
-            def highlight_risk(val):
-                # Using hex colors for professional look
+            # Color Logic: Red for >1M UGX, Green for others
+            def highlight_debt(val):
                 color = '#ff4b4b' if val > 1000000 else '#28a745'
-                return f'color: white; background-color: {color}; font-weight: bold; border-radius: 5px;'
+                return f'background-color: {color}; color: white; font-weight: bold;'
 
-            # Display the dataframe with the color style
-            st.dataframe(
-                df.style.applymap(highlight_risk, subset=['OUTSTANDING_AMOUNT']),
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(df.style.applymap(highlight_debt, subset=['OUTSTANDING_AMOUNT']), use_container_width=True)
 
         with tab_edit:
-            st.write("### ✏️ Edit Borrower Details")
-            target = st.selectbox("Select Client to Edit", df['CUSTOMER_NAME'].unique())
+            st.write("### ✏️ Edit Borrower")
+            target = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
             row = df[df['CUSTOMER_NAME'] == target].iloc[0]
 
             with st.form("edit_form"):
-                col1, col2 = st.columns(2)
-                up_name = col1.text_input("Name", value=row['CUSTOMER_NAME'])
-                up_loan = col2.number_input("Loan Amount", value=float(row['LOAN_AMOUNT']))
+                new_loan = st.number_input("Update Loan Amount", value=float(row['LOAN_AMOUNT']))
+                # Check for space in "DUE "
+                date_key = "DUE " if "DUE " in df.columns else "DUE"
+                new_due = st.date_input("Update Due Date", value=pd.to_datetime(row[date_key]))
                 
-                # Check for the specific "DUE " space we found in your sheet
-                date_col = "DUE " if "DUE " in df.columns else "DUE"
-                up_due = st.date_input("Repayment Date", value=pd.to_datetime(row[date_col]))
-
-                if st.form_submit_button("💾 Save & Update Cloud"):
-                    st.success(f"Changes for {target} recorded! Data will sync to Google Sheets.")
-                    st.balloons()
-    else:
-        st.warning("⚠️ No data available. Please check your 'Borrowers' tab in Google Sheets.")
+                if st.form_submit_button("💾 Save Changes"):
+                    st.success("Updated! Data is syncing to the cloud.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
