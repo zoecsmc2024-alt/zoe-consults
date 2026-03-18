@@ -72,17 +72,39 @@ with st.sidebar:
 # --- 4. PAGE LOGIC ---
 
 if page == "📊 Overview":
-    st.title("📈 Business Growth & Trends")
+    st.title("🛡️ Zoe Consults Executive Summary")
+    
     if not df.empty:
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
+        balance = total_p - total_c
+        
+        # --- PRE-STYLED KPI CARDS ---
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total Principal", f"UGX {total_p:,.0f}")
-        c2.metric("Total Collected", f"UGX {total_c:,.0f}")
-        c3.metric("Outstanding", f"UGX {total_p - total_c:,.0f}")
-        st.bar_chart(df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']])
-    else:
-        st.info("Your Google Sheet is empty. Add a borrower to begin!")
+        
+        with c1:
+            st.markdown(f'''<div class="metric-card">
+                <p style="color: #94a3b8; font-size: 0.8rem; margin:0;">TOTAL CAPITAL ISSUED</p>
+                <h2 style="color: #f8fafc; margin:0;">UGX {total_p:,.0f}</h2>
+            </div>''', unsafe_allow_html=True)
+            
+        with c2:
+            st.markdown(f'''<div class="metric-card">
+                <p style="color: #94a3b8; font-size: 0.8rem; margin:0;">TOTAL RECOVERED</p>
+                <h2 style="color: #10b981; margin:0;">UGX {total_c:,.0f}</h2>
+            </div>''', unsafe_allow_html=True)
+            
+        with c3:
+            st.markdown(f'''<div class="metric-card">
+                <p style="color: #94a3b8; font-size: 0.8rem; margin:0;">OUTSTANDING RISK</p>
+                <h2 style="color: #ef4444; margin:0;">UGX {balance:,.0f}</h2>
+            </div>''', unsafe_allow_html=True)
+
+        st.write("---")
+        
+        # --- BEAUTIFUL CHART ---
+        st.subheader("📈 Recovery Progress by Client")
+        st.bar_chart(df.set_index('CUSTOMER_NAME')[['LOAN_AMOUNT', 'AMOUNT_PAID']], color=["#0ea5e9", "#10b981"])
 
 elif page == "👥 Borrowers":
     st.title("👥 Borrowers")
