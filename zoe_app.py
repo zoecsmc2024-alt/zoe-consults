@@ -237,23 +237,47 @@ elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # ... (Your existing display_df calculations here) ...
+        # --- 1. THE RECOVERY CALCULATION (Fixes the NameError) ---
+        display_df = df.copy()
+        display_df['INTEREST_AMT'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
+        display_df['TOTAL_EXPECTED'] = display_df['LOAN_AMOUNT'] + display_df['INTEREST_AMT']
+        display_df['REAL_OUTSTANDING'] = display_df['TOTAL_EXPECTED'] - display_df['AMOUNT_PAID']
+        
+        # Clean up Dates
+        display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
+        display_df['DUE_DT'] = (pd.to_datetime(display_df['DATE_ISSUED']) + pd.Timedelta(days=30)).dt.date
+        
+        # Status Badge Logic
+        def get_status(row):
+            if row['REAL_OUTSTANDING'] <= 0: return "✅ SETTLED"
+            if datetime.now().date() > row['DUE_DT']: return "🚩 OVERDUE"
+            return "🔵 ACTIVE"
+        display_df['Status'] = display_df.apply(get_status, axis=1)
 
+        # --- 2. COLORED DATA ENTRIES ---
+        st.subheader("📋 Portfolio Health")
+        
         st.dataframe(
             display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'REAL_OUTSTANDING', 'Status']],
             column_config={
-                "CUSTOMER_NAME": st.column_config.TextColumn("Client Name", help="Full name of the borrower"),
+                "CUSTOMER_NAME": st.column_config.TextColumn("Client Name"),
+                "ISSUED_DT": st.column_config.DateColumn("Date Issued", format="DD/MM/YYYY"),
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                
+                # COLOR UPGRADE: Progress bar for payments
                 "AMOUNT_PAID": st.column_config.ProgressColumn(
-                    "Recovery Progress",
-                    help="Amount paid vs Total Loan",
+                    "Recovery Progress 💰",
+                    help="Visual progress of loan repayment",
                     format="UGX %,d",
                     min_value=0,
                     max_value=int(display_df['TOTAL_EXPECTED'].max()),
                 ),
+                
                 "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                
+                # COLOR UPGRADE: Badge-style status
                 "Status": st.column_config.SelectboxColumn(
-                    "Status",
+                    "Account Status",
                     options=["✅ SETTLED", "🚩 OVERDUE", "🔵 ACTIVE"],
                     required=True,
                 )
@@ -261,6 +285,20 @@ elif page == "Borrowers":
             use_container_width=True,
             hide_index=True
         )
+        
+        # --- 3. MANAGE & EDIT SECTION ---
+        # (This keeps your Edit/Delete logic safe in a separate expander)
+        with st.expander("🛠️ Administrative Controls (Edit/Delete)"):
+            target = st.selectbox("Select Client:", options=df['CUSTOMER_NAME'].unique())
+            # ... [Insert your Edit/Delete logic here] ...
+
+    else:
+        st.info("No active loans found.")
+
+    # --- 4. NEW REGISTRATION ---
+    st.write("")
+    with st.popover("➕ Register New Loan", use_container_width=True):
+        # ... [Your Registration Form] ...
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
