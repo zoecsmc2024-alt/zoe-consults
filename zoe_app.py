@@ -110,17 +110,19 @@ elif page == "👥 Borrowers":
     st.dataframe(display_df, use_container_width=True, hide_index=True)
     
     # New Loan Popover
-    with st.popover("➕ New Loan Disbursal"):
-        with st.form("new_loan"):
-            name = st.text_input("Client Name")
-            amt = st.number_input("Principal Amount", min_value=0)
-            rate = st.number_input("Interest Rate (%)", value=10.0)
-            if st.form_submit_button("✅ Disburse"):
-                new_id = len(df) + 1
-                new_row = pd.DataFrame([[new_id, name, amt, 0, amt, rate, datetime.now().date()]], columns=df.columns)
-                new_row.to_csv(DB_FILE, mode='a', header=False, index=False)
-                st.success("Loan Disbursed!")
-                st.rerun()
+    # --- INSIDE YOUR DISBURSE FORM ---
+if st.form_submit_button("✅ Disburse"):
+    new_row = pd.DataFrame([[new_id, name, amt, 0, amt, rate, str(datetime.now().date())]], 
+                           columns=df.columns)
+    
+    # Add the new row to our current list
+    updated_df = pd.concat([df, new_row], ignore_index=True)
+    
+    # PUSH TO GOOGLE SHEETS
+    conn.update(worksheet="Borrowers", data=updated_df)
+    
+    st.success("Successfully saved to Google Sheets!")
+    st.rerun()
 
 elif page == "💰 Repayments":
     st.title("💰 Record a Payment")
