@@ -43,11 +43,14 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_data():
-    b_df = conn.read(worksheet="Borrowers", ttl="600").dropna(how="all")
-    p_df = conn.read(worksheet="Payments", ttl="600").dropna(how="all")
-    # Add this line here so it's loaded globally!
-    c_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
-    return b_df, p_df, c_df
+    try:
+        b_df = conn.read(worksheet="Borrowers", ttl="600").dropna(how="all")
+        p_df = conn.read(worksheet="Payments", ttl="600").dropna(how="all")
+        c_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
+        return b_df, p_df, c_df
+    except:
+        # Fallback to empty dataframes if sheets aren't created yet
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 df, pay_df, collateral_df = get_all_data()
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
@@ -207,8 +210,12 @@ elif page == "Repayments":
                 conn.update(worksheet="Payments", data=updated_pay)
                 
                 # 2. Update Borrowers Balance
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
-                df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
+               # Inside Repayments form submit:
+current_val = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
+new_bal = current_val - p_amt
+
+df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] = new_bal
                 conn.update(worksheet="Borrowers", data=df)
                 st.success("Payment Synced!")
                 st.rerun()
@@ -216,92 +223,53 @@ elif page == "Repayments":
     st.subheader("Recent Payment History")
     st.dataframe(pay_df.iloc[::-1], use_container_width=True)
 elif page == "Calendar":
-    st.markdown('<div class="main-title">🗓️ Collection & Due Date Calendar</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">🗓️ Collection Calendar</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. Use the exact column name we found
-        date_col = "DUE " if "DUE " in df.columns else "DUE"
-
-        if date_col in df.columns:
-            # 2. SETUP DATES (Crucial Fix here)
-            # We convert everything to a Timestamp for a fair comparison
-            today = pd.Timestamp(datetime.now().date())
-            this_week_end = today + pd.Timedelta(days=7)
-            
-            # Convert the Google Sheet column to Timestamps, ignoring errors
-            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-            
-            # Filter out empty dates
-            active_loans = df.dropna(subset=[date_col])
-
-            # 3. THE URGENT TABS
-            tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ All Collections"])
-
-            with tab1:
-                # We use ( ) around each condition for safety
-                overdue = active_loans[(active_loans[date_col] < today) & (active_loans['OUTSTANDING_AMOUNT'] > 0)]
-                if not overdue.empty:
-                    st.error(f"⚠️ {len(overdue)} Loans are past due!")
-                    # Convert back to simple date just for display in the table
-                    display_overdue = overdue.copy()
-                    display_overdue[date_col] = display_overdue[date_col].dt.date
-                    st.dataframe(display_overdue[['CUSTOMER_NAME', date_col, 'OUTSTANDING_AMOUNT']], 
-                                 column_config={"OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d")},
-                                 use_container_width=True, hide_index=True)
-                else:
-                    st.success("No overdue loans!")
-
-            with tab2:
-                this_week = active_loans[(active_loans[date_col] >= today) & (active_loans[date_col] <= this_week_end)]
-                if not this_week.empty:
-                    display_week = this_week.copy()
-                    display_week[date_col] = display_week[date_col].dt.date
-                    st.info(f"You have {len(this_week)} collections due this week.")
-                    st.dataframe(display_week[['CUSTOMER_NAME', date_col, 'OUTSTANDING_AMOUNT']], use_container_width=True, hide_index=True)
-                else:
-                    st.write("No collections due this week.")
-            
-            with tab3:
-                all_display = active_loans.copy()
-                all_display[date_col] = all_display[date_col].dt.date
-                st.dataframe(all_display[['CUSTOMER_NAME', date_col, 'OUTSTANDING_AMOUNT']].sort_values(by=date_col), use_container_width=True, hide_index=True)
-        else:
-            st.warning("Could not find the 'DUE ' column.")
-    else:
-        st.info("No borrower data found.")
+        # Use the calculated 'DUE DATE' from your Borrowers logic
+        # For simplicity, let's re-calculate it here:
+        df['DUE_DATE_DT'] = pd.to_datetime(df['DATE_ISSUED']) + pd.Timedelta(days=30)
         
-        # --- 1. SAFE DATA LOAD ---
-        try:
-            collateral_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
-        except Exception as e:
-            st.error("Waiting for Google Sheets connection to reset... please wait 30 seconds.")
-            collateral_df = pd.DataFrame(columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+        today = pd.Timestamp(datetime.now().date())
+        this_week_end = today + pd.Timedelta(days=7)
 
-        # --- 2. GET BORROWER NAMES SAFELY ---
-        if not df.empty:
-            name_col = 'NAME' if 'NAME' in df.columns else 'CUSTOMER_NAME'
-            borrower_list = df[name_col].unique().tolist()
-        else:
-            borrower_list = ["No Borrowers Found"]
+        tab1, tab2, tab3 = st.tabs(["🚨 Overdue", "📅 Due This Week", "✅ All"])
 
-        # --- 3. THE REGISTRATION FORM ---
-        with st.expander("📥 Register & Save New Asset", expanded=True):
-            with st.form("permanent_collateral"):
-                c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
-                c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
-                c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
-                c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
-                submitted = st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True)
-                
-                if submitted:
-                    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
-                                           columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
-                    updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
-                    conn.update(worksheet="Collateral", data=updated_collateral)
-                    st.success("Asset Locked!")
-                    st.rerun()
+        with tab1:
+            overdue = df[(df['DUE_DATE_DT'].dt.date < today.date()) & (df['OUTSTANDING_AMOUNT'] > 0)]
+            st.dataframe(overdue[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT']], use_container_width=True)
+            
+        with tab2:
+            this_week = df[(df['DUE_DATE_DT'].dt.date >= today.date()) & (df['DUE_DATE_DT'].dt.date <= this_week_end.date())]
+            st.dataframe(this_week[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT']], use_container_width=True)
+            
+        with tab3:
+            st.dataframe(df[['CUSTOMER_NAME', 'OUTSTANDING_AMOUNT', 'DATE_ISSUED']], use_container_width=True)
+    else:
+        st.info("No active loans found.")
 
-        # --- 4. THE VAULT VIEW (Now correctly inside the Collateral room) ---
+elif page == "Collateral":
+    st.markdown('<div class="main-title">🔐 Collateral Vault</div>', unsafe_allow_html=True)
+    
+    # --- REGISTRATION FORM ---
+    with st.expander("📥 Register New Asset"):
+        with st.form("collateral_form"):
+            b_names = df['CUSTOMER_NAME'].unique() if not df.empty else ["No Borrowers"]
+            c_owner = st.selectbox("Borrower", options=b_names)
+            c_type = st.selectbox("Type", ["Logbook", "Land Title", "Electronics", "Other"])
+            c_val = st.number_input("Value (UGX)", min_value=0)
+            c_desc = st.text_input("Details (Serial No / Plate)")
+            
+            if st.form_submit_button("Lock Asset"):
+                new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
+                                       columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+                updated_c = pd.concat([collateral_df, new_asset], ignore_index=True)
+                conn.update(worksheet="Collateral", data=updated_c)
+                st.success("Asset Secured!")
+                st.rerun()
+
+    # --- VAULT VIEW ---
+    st.dataframe(collateral_df, use_container_width=True, hide_index=True)
         st.write("---")
         st.subheader("📋 Assets Currently Held")
         if not collateral_df.empty:
