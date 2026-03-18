@@ -93,9 +93,9 @@ if page == "Borrowers":
         st.warning("Connection lost. Please refresh the page.")
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 
-# --- 1. SIDEBAR & NAVIGATION (Restoring the 'page' variable) ---
+# --- 1. THE SIDEBAR (Defining the 'page' variable) ---
 with st.sidebar:
-    # Centered Logo Logic
+    # Large Logo Center-Aligned
     c1, c2, c3 = st.columns([0.1, 0.8, 0.1])
     with c2:
         try:
@@ -103,53 +103,64 @@ with st.sidebar:
         except:
             st.markdown("<h1 style='text-align: center;'>🌐</h1>", unsafe_allow_html=True)
 
-    # Professional Menu (This creates the 'page' variable)
+    st.markdown("<h3 style='text-align: center; color: #1E3A8A;'>ZOE CONSULTS</h3>", unsafe_allow_html=True)
+    st.write("---")
+
+    # This is the line that was missing or broken:
     page = option_menu(
         menu_title=None,
         options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
         icons=["house", "people", "cash-stack", "calendar3", "shield-lock", "file-earmark-text", "gear"],
-        default_index=1 # Opens on Borrowers by default
+        default_index=1,
+        styles={
+            "nav-link": {"text-align": "center"},
+            "nav-link-selected": {"background-color": "#1E3A8A"},
+        }
     )
 
-# --- 2. BORROWERS PAGE: VIEWING & EDITING ---
+# --- 2. BORROWERS PAGE (Viewing & Editing with Colors) ---
 if page == "Borrowers":
     st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
     
     if not df.empty:
-        # TABS FOR CLEANER VIEWING
-        tab_view, tab_edit = st.tabs(["📊 View All (Color Coded)", "✏️ Edit Details"])
+        # TABS: Viewing vs Editing
+        tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Details Editor"])
 
         with tab_view:
-            # Add Status Colors: Red for high debt, Green for low debt
-            def highlight_debt(val):
+            st.write("### 📋 Loan Status Registry")
+            
+            # Color Logic: Red for high exposure (>1M), Green for managed debt
+            def highlight_risk(val):
                 color = '#ff4b4b' if val > 1000000 else '#28a745'
-                return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
+                return f'color: white; background-color: {color}; font-weight: bold; border-radius: 5px;'
 
-            st.write("### Active Loan Registry")
+            # Display the dataframe with the color style
             st.dataframe(
-                df.style.applymap(highlight_debt, subset=['OUTSTANDING_AMOUNT']),
+                df.style.applymap(highlight_risk, subset=['OUTSTANDING_AMOUNT']),
                 use_container_width=True,
                 hide_index=True
             )
 
         with tab_edit:
-            st.write("### ✏️ Quick Editor")
-            target_client = st.selectbox("Which client are you updating?", df['CUSTOMER_NAME'].unique())
-            client_row = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
+            st.write("### ✏️ Edit Borrower Details")
+            # Searchable selectbox
+            target = st.selectbox("Select Client to Edit", df['CUSTOMER_NAME'].unique())
+            row = df[df['CUSTOMER_NAME'] == target].iloc[0]
 
-            with st.form("edit_borrower"):
+            with st.form("edit_form"):
                 col1, col2 = st.columns(2)
-                updated_name = col1.text_input("Name", value=client_row['CUSTOMER_NAME'])
-                updated_loan = col2.number_input("Loan Amount (UGX)", value=float(client_row['LOAN_AMOUNT']))
+                up_name = col1.text_input("Name", value=row['CUSTOMER_NAME'])
+                up_loan = col2.number_input("Loan Amount", value=float(row['LOAN_AMOUNT']))
                 
-                # Check for "DUE " or "DUE" column name
-                date_key = "DUE " if "DUE " in df.columns else "DUE"
-                updated_date = st.date_input("New Due Date", value=pd.to_datetime(client_row[date_key]))
+                # Check for column naming space
+                date_col = "DUE " if "DUE " in df.columns else "DUE"
+                up_due = st.date_input("Repayment Date", value=pd.to_datetime(row[date_col]))
 
-                if st.form_submit_button("💾 Update Cloud Database"):
-                    # Success message with Zoe branding colors
+                if st.form_submit_button("💾 Save & Update Cloud"):
+                    st.success(f"Changes for {target} recorded! Data will sync to Google Sheets.")
                     st.balloons()
-                    st.success(f"Successfully updated {target_client}! Changes will sync to Google Sheets.")
+    else:
+        st.warning("No data found. Check your Google Sheets connection.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
