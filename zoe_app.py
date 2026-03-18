@@ -201,15 +201,41 @@ elif page == "Calendar":
 elif page == "Collateral":
     st.markdown('<div class="main-title">📑 Permanent Security Vault</div>', unsafe_allow_html=True)
     
-    # 1. LOAD THE VAULT DATA
-    collateral_df = conn.read(worksheet="Collateral", ttl="0").dropna(how="all")
+    # --- 1. SAFE DATA LOAD ---
+    try:
+        collateral_df = conn.read(worksheet="Collateral", ttl="600").dropna(how="all")
+    except Exception as e:
+        st.error("Waiting for Google Sheets connection to reset... please wait 30 seconds.")
+        collateral_df = pd.DataFrame(columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
 
-    # 2. THE REGISTRATION FORM (Keep your existing form here)
-    with st.expander("📥 Register & Save New Asset"):
-        # ... (Same form code as before)
-        pass
+    # --- 2. GET BORROWER NAMES SAFELY ---
+    if not df.empty:
+        # Determine which column name you are using (NAME or CUSTOMER_NAME)
+        name_col = 'NAME' if 'NAME' in df.columns else 'CUSTOMER_NAME'
+        borrower_list = df[name_col].unique().tolist()
+    else:
+        borrower_list = ["No Borrowers Found"]
 
-    st.write("---")
+    # --- 3. THE FORM (Now Unlocked) ---
+    with st.expander("📥 Register & Save New Asset", expanded=True):
+        with st.form("permanent_collateral"):
+            # This dropdown will now at least show "No Borrowers Found" instead of being locked
+            c_owner = st.selectbox("Assign to Borrower", options=borrower_list)
+            
+            c_type = st.selectbox("Asset Category", ["Logbook", "Land Title", "Electronics", "Other"])
+            c_desc = st.text_area("Detailed Description (Serial Nos, Plate Nos)")
+            c_val = st.number_input("Estimated Market Value (UGX)", min_value=0)
+            
+            if st.form_submit_button("🔒 Secure Asset to Cloud", use_container_width=True):
+                if c_owner == "No Borrowers Found":
+                    st.error("You must add a borrower first!")
+                else:
+                    new_asset = pd.DataFrame([[c_owner, c_type, c_desc, c_val, "🔐 HELD"]], 
+                                           columns=['NAME', 'ASSET_TYPE', 'DESCRIPTION', 'VALUE', 'STATUS'])
+                    updated_collateral = pd.concat([collateral_df, new_asset], ignore_index=True)
+                    conn.update(worksheet="Collateral", data=updated_collateral)
+                    st.success("Asset Locked!")
+                    st.rerun()
     
     # --- 3. THE "RELEASE ASSET" ACTION ---
 st.subheader("🔓 Asset Release Control")
