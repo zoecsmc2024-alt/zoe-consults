@@ -329,6 +329,26 @@ elif page == "Ledger":
         c3.metric("Outstanding Balance", f"UGX {bal:,.0f}", delta="Reduces as they pay", delta_color="inverse")
         
         st.write("---")
+        # --- WHATSAPP QUICK-SEND ---
+        st.write("---")
+        st.subheader("📲 Send Instant Update")
+        
+        # 1. Prepare the Message
+        # We use %20 for spaces and %0A for new lines so WhatsApp understands it
+        message = (
+            f"Hello%20{target},%20this%20is%20Zoe%20Consults.%0A%0A"
+            f"Your%20Loan%20Statement%20Update:%0A"
+            f"•%20Principal:%20UGX%20{client_info['LOAN_AMOUNT']:,.0f}%0A"
+            f"•%20Total%20Paid:%20UGX%20{client_info['AMOUNT_PAID']:,.0f}%0A"
+            f"•%20Current%20Balance:%20UGX%20{bal:,.0f}%0A%0A"
+            f"Please%20reach%20out%20if%20you%20have%20any%20questions.%20Thank%20you!"
+        )
+        
+        # 2. The Button (You can add the client's phone number if you have a 'PHONE' column)
+        # For now, it opens a general chat where you just pick the contact
+        wa_url = f"https://wa.me/?text={message}"
+        
+        st.link_button("💬 Send Statement via WhatsApp", wa_url, use_container_width=True)
 
         # 4. THE RETURNED TABLE (Detailed Transactions)
         st.write("🔍 **Transaction History**")
