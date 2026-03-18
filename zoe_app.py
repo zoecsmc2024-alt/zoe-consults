@@ -253,17 +253,6 @@ if not held_assets.empty:
             st.rerun()
 else:
     st.info("No assets are currently being held in the vault.")
-    # 4. THE COMPLETE HISTORY (HELD & RETURNED)
-    st.subheader("📋 Full Vault History")
-    st.dataframe(
-        collateral_df,
-        column_config={
-            "VALUE": st.column_config.NumberColumn("Market Value", format="UGX %,d"),
-            "STATUS": st.column_config.TextColumn("Current Status"),
-        },
-        use_container_width=True,hide_index=True
-    )
-
 elif page == "Ledger":
     st.title("📄 Client Ledger")
     st.write("Ledger logic goes here.")
