@@ -75,47 +75,46 @@ if page == "Borrowers":
     st.markdown('<h2 style="color: #1E3A8A;">👥 Borrower Management</h2>', unsafe_allow_html=True)
     
     if not df.empty:
-        # TABS FOR COLORS & EDITING
+        # 1. NAVIGATION TABS
         tab_view, tab_edit = st.tabs(["📊 Registry View", "✏️ Edit Details"])
-
-        with tab_view:
-            st.write("### 📋 Active Loan Registry")
-            # Color Logic: Red for >1M UGX, Green for others
-            def highlight_debt(val):
-                color = '#ff4b4b' if val > 1000000 else '#28a745'
-                return f'background-color: {color}; color: white; font-weight: bold;'
-
-            st.dataframe(df.style.applymap(highlight_debt, subset=['OUTSTANDING_AMOUNT']), use_container_width=True)
 
         with tab_view:
             st.markdown("### 📋 Active Loan Registry")
             
-            # 1. Create a display version of the data for the table
+            # --- THE "ZOE CONSULTS" SMART TABLE ---
+            # Step A: Perform all math in a background copy
             display_df = df.copy()
-            
-            # 2. Add Interest Calculation Logic (Match your Ledger math)
             display_df['Interest Charged'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
             display_df['Total Due'] = display_df['LOAN_AMOUNT'] + display_df['Interest Charged']
             display_df['Outstanding'] = display_df['Total Due'] - display_df['AMOUNT_PAID']
             
-            # 3. THE PROFESSIONAL TABLE (Only keep this one)
+            # Step B: Render the ONLY table you need
             st.dataframe(
-                display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ']],
+                display_df[['CUSTOMER_NAME', 'DATE_ISSUED', 'LOAN_AMOUNT', 'Interest Charged', 'Outstanding', 'DUE ', 'STATUS']],
                 column_config={
                     "CUSTOMER_NAME": "NAME",
-                    "DATE_ISSUED": "ISSUED DATE",
+                    "DATE_ISSUED": "ISSUED",
                     "LOAN_AMOUNT": st.column_config.NumberColumn("PRINCIPAL", format="UGX %,d"),
                     "Interest Charged": st.column_config.NumberColumn("INTEREST", format="UGX %,d"),
                     "Outstanding": st.column_config.NumberColumn("OUTSTANDING", format="UGX %,d"),
-                    "DUE ": "DUE DATE"
+                    "DUE ": "DUE DATE",
+                    "STATUS": st.column_config.SelectboxColumn("STATUS", options=["ACTIVE", "PAID", "OVERDUE"])
                 },
                 use_container_width=True,
                 hide_index=True
             )
             
-            # 4. EXPANDER FOR NEW ENTRIES
+            # Step C: The simple "Add New" button at the bottom
             with st.expander("➕ Register New Borrower"):
-                st.write("Registration form would go here.")
+                st.info("Form coming soon...")
+
+        with tab_edit:
+            # (Keep your Edit Form code here - ensure it only appears under this tab!)
+            st.write("### ✏️ Edit Borrower Details")
+            # ... [Your existing edit form code] ...
+
+    else:
+        st.warning("No data found in the cloud.")
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
