@@ -151,7 +151,7 @@ with st.container():
                 st.success("Saved to Google Sheets!")
                 st.rerun()
 
-elif page == "💰 Repayments":
+elif page == "💰Repayments":
     st.markdown('<div class="main-title">💰 Record a Payment</div>', unsafe_allow_html=True)
     
     if not df.empty:
