@@ -150,7 +150,7 @@ with st.container():
                 conn.update(worksheet="Borrowers", data=updated_df)
                 st.success("Saved to Google Sheets!")
                 st.rerun()
-
+            
 elif page == "💰 Repayments":
     st.markdown('<div class="main-title">💰 Loan Repayments</div>', unsafe_allow_html=True)
     
