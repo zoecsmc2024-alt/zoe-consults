@@ -42,7 +42,7 @@ st.markdown("""
 # --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600) # Keep data for 10 mins to save API quota
 def get_all_data():
     try:
         b_df = conn.read(worksheet="Borrowers").dropna(how="all")
@@ -51,15 +51,12 @@ def get_all_data():
         s_df = conn.read(worksheet="Settings").dropna(how="all")
         return b_df, p_df, c_df, s_df
     except Exception as e:
-        st.error("⚠️ Google Sheets is busy. Retrying with last known data...")
-        # This returns empty dataframes so the app doesn't crash while Google cools down
+        # If API is busy, show a warning and return empty data to prevent crash
+        st.warning("⚠️ Google Sheets is currently busy. Please wait a few seconds and refresh.")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-# Helper to get setting value
-def get_setting(prop, default):
-    try:
-        return settings_df.loc[settings_df['Property'] == prop, 'Value'].values[0]
-    except:
-        return default
+
+# Global Load
+df, pay_df, collateral_df, settings_df = get_all_data()
 from streamlit_option_menu import option_menu # Add this to your imports at the top!
 # Get dynamic values
 brand_name = get_setting("Company Name", "ADMIN")
