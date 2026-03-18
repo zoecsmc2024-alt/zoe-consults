@@ -216,9 +216,9 @@ new_bal = current_val - p_amt
 
 df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
 df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] = new_bal
-                conn.update(worksheet="Borrowers", data=df)
-                st.success("Payment Synced!")
-                st.rerun()
+conn.update(worksheet="Borrowers", data=df)
+st.success("Payment Synced!")
+st.rerun()
     st.write("---")
     st.subheader("Recent Payment History")
     st.dataframe(pay_df.iloc[::-1], use_container_width=True)
