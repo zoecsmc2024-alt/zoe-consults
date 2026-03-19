@@ -782,53 +782,65 @@ elif page == "Ledger":
 
         st.divider()
 
-        # 4. THE COMPACT PDF ACTION ROW
-        p1, p2 = st.columns([1, 1])
+        # --- 4. THE ACTION ROW (Prepare, Download, WhatsApp) ---
+        st.write("---")
+        # We divide into 3 equal columns to keep the buttons small
+        p1, p2, p3 = st.columns(3)
+
         with p1:
-            if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="btn_prep_v6"):
+            if st.button("🔄 Prepare PDF", use_container_width=True, key="btn_prep_v7"):
                 from fpdf import FPDF
                 import base64
                 
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, "ZOE CONSULTS LTD - STATEMENT", ln=True, align='C')
+                pdf.cell(0, 10, f"{brand_name.upper()} - STATEMENT", ln=True, align='C')
                 pdf.set_font("Arial", size=10)
                 pdf.cell(0, 10, f"Client: {target_client}", ln=True)
-                pdf.cell(0, 10, f"Date: {datetime.now().date()}", ln=True)
+                pdf.cell(0, 10, f"Outstanding: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
                 
-                # Encode and Save
-                pdf_bytes = pdf.output()
-                st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
+                st.session_state.b64_str = base64.b64encode(pdf.output()).decode()
                 st.session_state.ready = True
                 st.rerun()
 
         with p2:
             if st.session_state.ready:
-                link_html = f'''
+                # Active Download Link
+                st.markdown(f'''
                     <a href="data:application/pdf;base64,{st.session_state.b64_str}" 
                        download="Statement_{target_client}.pdf" style="text-decoration:none;">
-                        <div style="background-color:#1e3a8a; color:white; padding:9px; 
-                                    border-radius:5px; text-align:center; font-weight:bold;">
-                            📥 Click to Download
+                        <div style="background-color:#f1f5f9; color:#1e293b; padding:8px; 
+                                    border-radius:5px; text-align:center; font-size:14px; 
+                                    font-weight:bold; border:1px solid #cbd5e1; cursor:pointer;">
+                            📥 Download
                         </div>
                     </a>
-                '''
-                st.markdown(link_html, unsafe_allow_html=True)
+                ''', unsafe_allow_html=True)
             else:
                 st.button("📥 Download", disabled=True, use_container_width=True)
 
-        # 5. TRANSACTION HISTORY TABLE
-        st.write("---")
-        st.markdown("##### 💳 Payment History")
-        if not client_payments.empty:
-            st.dataframe(client_payments[['DATE', 'REF', 'AMOUNT_PAID']], 
-                         use_container_width=True, hide_index=True)
-        else:
-            st.info("No payments recorded for this client yet.")
-
-    else:
-        st.warning("No borrower data found in the system.")
+        with p3:
+            # WhatsApp Button - Small and Colored
+            c_phone = str(loan_info.get('CONTACT', ''))
+            if c_phone:
+                # Clean phone number (remove +, spaces, etc)
+                clean_phone = "".join(filter(str.isdigit, c_phone))
+                msg = f"Hello {target_client}, this is Zoe Consults. Your current loan balance is UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}."
+                wa_url = f"https://wa.me/{clean_phone}?text={msg.replace(' ', '%20')}"
+                
+                # Using a styled HTML link to keep it "Small and Colored"
+                st.markdown(f'''
+                    <a href="{wa_url}" target="_blank" style="text-decoration:none;">
+                        <div style="background-color:#25D366; color:white; padding:8px; 
+                                    border-radius:5px; text-align:center; font-size:14px; 
+                                    font-weight:bold;">
+                            💬 WhatsApp
+                        </div>
+                    </a>
+                ''', unsafe_allow_html=True)
+            else:
+                st.button("💬 No Contact", disabled=True, use_container_width=True)
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
