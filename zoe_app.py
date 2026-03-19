@@ -429,82 +429,62 @@ elif page == "Borrowers":
     else:
         st.info("Registry is currently empty.")
 
-elif page == "Payments":
+# --- 1. CONSOLIDATED HELPERS ---
+def get_setting(prop, default):
+    try:
+        if not settings_df.empty and 'Property' in settings_df.columns:
+            val = settings_df.loc[settings_df['Property'] == prop, 'Value'].values[0]
+            return val if pd.notna(val) else default
+    except Exception:
+        return default
+    return default
+
+# --- 2. THE REPAYMENTS PAGE (CLEANED) ---
+elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
-    # 1. TOP STATS (High-level glance)
-    total_collected = pay_df['AMOUNT_PAID'].sum() if not pay_df.empty else 0
-    st.markdown(f"""
-        <div style="background-color: #f0fdf4; border-radius: 10px; padding: 15px; margin-bottom: 20px; border: 1px solid #bbf7d0;">
-            <p style="margin:0; color:#166534; font-size: 0.9rem;">Total Collections (All Time)</p>
-            <h2 style="margin:0; color:#15803d;">UGX {total_collected:,.0f}</h2>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 2. TABBED INTERFACE
-    post_tab, history_tab = st.tabs(["➕ Post New Payment", "✏️ Manage History"])
-
-    with post_tab:
-        with st.form("payment_form_styled", clear_on_submit=True):
-            st.markdown("##### 📝 Entry Details")
-            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
-            
-            # Fetch current balance for the selected borrower
-            current_bal = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
-            
-            col_a, col_b = st.columns(2)
-            with col_a:
-                p_amt = st.number_input(f"Amount (Current Bal: {current_bal:,.0f})", min_value=0, step=10000)
-            with col_b:
-                p_ref = st.text_input("Receipt / Reference No.", placeholder="e.g. MM-12345")
-
-            st.write("")
-            if st.form_submit_button("🚀 Finalize & Post Payment", use_container_width=True):
-                # Validation Logic
-                if p_amt <= 0:
-                    st.error("❌ Please enter a valid payment amount.")
-                elif p_amt > current_bal + 5: # Small buffer for rounding
-                    st.warning(f"⚠️ Warning: Payment of {p_amt:,.0f} exceeds balance of {current_bal:,.0f}")
-                elif not p_ref:
-                    st.error("❌ A Reference number is required for auditing.")
-                else:
-                    # Proceed with update
-                    new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
-                                       columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
-                    conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
-                    
-                    # Update Borrowers Sheet
-                    df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
-                    df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
-                    conn.update(worksheet="Borrowers", data=df)
-                    
-                    st.success(f"✅ Payment for {p_name} has been synced!")
-                    st.balloons()
-                    st.rerun()
-
-    with history_tab:
-        st.info("To edit or delete a record, please modify the 'Payments' tab in your Google Sheet directly to maintain a secure audit trail.")
-
-    # 3. RECENT HISTORY TABLE
-    st.write("---")
-    st.markdown("#### 📋 Recent Receipt History")
-    
-    if not pay_df.empty:
-        # Sort by date descending to show latest first
-        recent_pays = pay_df.tail(10).iloc[::-1] 
+    if not df.empty:
+        col1, col2 = st.columns([2, 1])
         
-        st.dataframe(
-            recent_pays[['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF']],
-            column_config={
-                "DATE": "Date",
-                "CUSTOMER_NAME": "Borrower",
-                "AMOUNT_PAID": st.column_config.NumberColumn("Amount (UGX)", format="%,d"),
-                "REF": "Reference #"
-            },
-            use_container_width=True, hide_index=True
-        )
+        with col1:
+            with st.form("cloud_pay_form", clear_on_submit=True):
+                st.markdown("##### ➕ Record New Receipt")
+                p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+                
+                c_a, c_b = st.columns(2)
+                with c_a:
+                    p_amt = st.number_input("Amount Paid (UGX)", min_value=0, step=10000)
+                with c_b:
+                    p_ref = st.text_input("Receipt / Ref No.", placeholder="e.g. MPESA-123")
+                
+                if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
+                    if p_amt > 0 and p_ref:
+                        # Update Payments Sheet
+                        new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+                                           columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                        conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+                        
+                        # Update Borrowers Sheet
+                        idx = df[df['CUSTOMER_NAME'] == p_name].index
+                        df.loc[idx, 'AMOUNT_PAID'] += p_amt
+                        df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
+                        
+                        conn.update(worksheet="Borrowers", data=df)
+                        st.success(f"Posted UGX {p_amt:,.0f} for {p_name}")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error("Please provide an amount and reference number.")
+
+        with col2:
+            st.info("**System Tip:** Recording a payment here automatically updates the Ledger and reduces the Outstanding Risk on the Executive Summary.")
+
+        st.write("---")
+        st.subheader("📋 Recent Transaction History")
+        if not pay_df.empty:
+            st.dataframe(pay_df.iloc[::-1], use_container_width=True, hide_index=True)
     else:
-        st.caption("No payments recorded yet.")
+        st.info("Please register a borrower before recording payments.")
 elif page == "Repayments":
     # ... (Your existing form code here) ...
 
