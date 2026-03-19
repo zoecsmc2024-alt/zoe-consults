@@ -503,6 +503,7 @@ elif page == "Insights":
                 conn.update(worksheet="Expenses", data=pd.concat([exp_df, new_e], ignore_index=True))
                 st.toast("Expense Recorded!")
                 st.rerun()
+            else:
                 
         st.info("No expense data found. Use the form above to add your first record.")
 
