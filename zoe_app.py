@@ -286,21 +286,35 @@ elif page == "Borrowers":
         # This will now work because REAL_OUTSTANDING was created above
         display_df['Status'] = display_df.apply(get_status, axis=1)
 
-        # --- 3. SHOW THE TABLE (RESTORED INTEREST) ---
-        st.dataframe(
-            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INTEREST_AMT', 'DURATION', 'REAL_OUTSTANDING', 'Status']],
-            column_config={
-                "CUSTOMER_NAME": "Client Name",
-                "ISSUED_DT": "Issued",
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
-                "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
-                "DURATION": "Days",
-                "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-                "Status": "Status"
-            },
-            use_container_width=True, hide_index=True
-        )
+        # --- 1. DEFINE THE HIGHLIGHT FUNCTION ---
+def highlight_first_row(row):
+    # We apply the style only if the index is 0 (first row)
+    if row.name == 0:
+        return ['background-color: #e0f2fe; border-left: 5px solid #0284c7'] * len(row)
+    return [''] * len(row)
+
+# --- 2. APPLY STYLING TO THE DATAFRAME ---
+# Create the subset of columns you want to show
+display_subset = display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INTEREST_AMT', 'DURATION', 'REAL_OUTSTANDING', 'Status']]
+
+# Reset index to ensure the 'first' row is always index 0
+styled_df = display_subset.reset_index(drop=True).style.apply(highlight_first_row, axis=1)
+
+# --- 3. SHOW THE STYLED TABLE ---
+st.dataframe(
+    styled_df,
+    column_config={
+        "CUSTOMER_NAME": "Client Name",
+        "ISSUED_DT": "Issued",
+        "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+        "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
+        "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
+        "DURATION": "Days",
+        "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+        "Status": "Status"
+    },
+    use_container_width=True, hide_index=True
+)
 
         # --- 3. RESTORED EDIT/DELETE CONTROLS ---
         st.write("---")
