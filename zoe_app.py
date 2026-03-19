@@ -166,7 +166,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
-elif page == "Overview":
+if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Zoe Consults Executive Overview</div>', unsafe_allow_html=True)
     
     # --- 1. THE BIG NUMBERS (KPIs) ---
