@@ -511,9 +511,6 @@ elif page == "Insights":
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
-    if not df.empty:
-        # ... Your Repayments form and table code ...
-        pass
     else:
         st.info("Please register a borrower before recording payments.")
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
