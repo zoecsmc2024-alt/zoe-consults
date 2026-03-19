@@ -364,29 +364,37 @@ elif page == "Repayments":
         post_tab, history_tab = st.tabs(["➕ Post New Payment", "✏️ Manage History"])
 
         with post_tab:
-            with st.form("repayment_form_new", clear_on_submit=True):
+            with st.form("repayment_validated", clear_on_submit=True):
                 p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+                
+                # Get current balance for validation
+                current_bal = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
+                
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    p_amt = st.number_input("Amount Paid (UGX)", min_value=0, step=10000)
+                    p_amt = st.number_input(f"Amount (Max: {current_bal:,.0f})", min_value=0)
                 with col_b:
-                    p_ref = st.text_input("Receipt Reference")
-                
+                    p_ref = st.text_input("Receipt / Ref No.")
+
                 if st.form_submit_button("🚀 Post Payment", use_container_width=True):
-                    if p_amt > 0:
-                        # 1. Update Payments Sheet
+                    # --- THE BOUNCER ---
+                    if p_amt <= 0:
+                        st.error("❌ Please enter an amount greater than 0.")
+                    elif p_amt > current_bal:
+                        st.warning(f"⚠️ Overpayment: Borrower only owes UGX {current_bal:,.0f}. Please adjust.")
+                    elif not p_ref:
+                        st.error("❌ Reference required: Please enter a Receipt No. or Mobile Money ID.")
+                    else:
+                        # Proceed to save
                         new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                            columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                         conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                         
-                        # 2. Update Borrower Balance in Sheet
                         df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
                         df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
                         conn.update(worksheet="Borrowers", data=df)
-                        
-                        st.success("Payment Recorded Successfully!")
+                        st.success("✅ Payment successfully posted!")
                         st.rerun()
-
         with history_tab:
             if not pay_df.empty:
                 st.subheader("Edit or Delete a Transaction")
