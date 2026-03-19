@@ -69,6 +69,15 @@ st.markdown("""
         border-radius: 8px;
         border: none;
     }
+
+    <style>
+    /* Small, sleek login button */
+    div.stButton > button {
+        height: 32px !important;
+        padding: 0 20px !important;
+        font-size: 13px !important;
+        background-color: #1E3A8A !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 # --- 2. DATA CONNECTION (WITH CACHING TO PREVENT QUOTA ERRORS) ---
