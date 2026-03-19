@@ -757,48 +757,46 @@ elif page == "Collateral":
 elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
     
-    # 1. BRAIN CHECK (Session State for PDF)
+    # 1. SESSION STATE (The Brain)
     if 'ready' not in st.session_state:
         st.session_state.ready = False
         st.session_state.b64_str = ""
 
-    # 2. CLIENT SELECTION (The part that disappeared)
     if not df.empty:
-        target_client = st.selectbox("🔍 Search & Select Borrower", options=df['CUSTOMER_NAME'].unique())
+        # SELECTOR
+        target_client = st.selectbox("🔍 Search & Select Borrower", options=df['CUSTOMER_NAME'].unique(), key="ledger_select_final")
         
-        # Get specific borrower data
+        # DATA FETCHING
         loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
         client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target_client]
 
-        # 3. ACCOUNT SUMMARY CARDS
+        # 2. METRICS
         st.write("")
         c1, c2, c3 = st.columns(3)
         with c1:
             st.metric("Principal (UGX)", f"{loan_info['LOAN_AMOUNT']:,.0f}")
         with c2:
-            st.metric("Paid to Date", f"{loan_info['AMOUNT_PAID']:,.0f}", delta_color="normal")
+            st.metric("Paid to Date", f"{loan_info['AMOUNT_PAID']:,.0f}")
         with c3:
             st.metric("Balance Due", f"{loan_info['OUTSTANDING_AMOUNT']:,.0f}", delta="-Pending", delta_color="inverse")
 
         st.divider()
 
-        # --- 4. THE ACTION ROW (Prepare, Download, WhatsApp) ---
-        st.write("---")
-        # We divide into 3 equal columns to keep the buttons small
+        # 3. ACTION BUTTONS (The Triple Row)
         p1, p2, p3 = st.columns(3)
 
         with p1:
-            if st.button("🔄 Prepare PDF", use_container_width=True, key="btn_prep_v7"):
+            if st.button("🔄 Prepare PDF", use_container_width=True, key="btn_prep_final_v10"):
                 from fpdf import FPDF
                 import base64
                 
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, f"{brand_name.upper()} - STATEMENT", ln=True, align='C')
+                pdf.cell(0, 10, "ZOE CONSULTS LTD - STATEMENT", ln=True, align='C')
                 pdf.set_font("Arial", size=10)
                 pdf.cell(0, 10, f"Client: {target_client}", ln=True)
-                pdf.cell(0, 10, f"Outstanding: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
+                pdf.cell(0, 10, f"Balance: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
                 
                 st.session_state.b64_str = base64.b64encode(pdf.output()).decode()
                 st.session_state.ready = True
@@ -806,13 +804,12 @@ elif page == "Ledger":
 
         with p2:
             if st.session_state.ready:
-                # Active Download Link
                 st.markdown(f'''
                     <a href="data:application/pdf;base64,{st.session_state.b64_str}" 
                        download="Statement_{target_client}.pdf" style="text-decoration:none;">
                         <div style="background-color:#f1f5f9; color:#1e293b; padding:8px; 
                                     border-radius:5px; text-align:center; font-size:14px; 
-                                    font-weight:bold; border:1px solid #cbd5e1; cursor:pointer;">
+                                    font-weight:bold; border:1px solid #cbd5e1;">
                             📥 Download
                         </div>
                     </a>
@@ -821,26 +818,41 @@ elif page == "Ledger":
                 st.button("📥 Download", disabled=True, use_container_width=True)
 
         with p3:
-            # WhatsApp Button - Small and Colored
             c_phone = str(loan_info.get('CONTACT', ''))
-            if c_phone:
-                # Clean phone number (remove +, spaces, etc)
+            if c_phone and c_phone != 'N/A':
                 clean_phone = "".join(filter(str.isdigit, c_phone))
-                msg = f"Hello {target_client}, this is Zoe Consults. Your current loan balance is UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}."
+                msg = f"Hello {target_client}, your balance is UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}."
                 wa_url = f"https://wa.me/{clean_phone}?text={msg.replace(' ', '%20')}"
-                
-                # Using a styled HTML link to keep it "Small and Colored"
                 st.markdown(f'''
                     <a href="{wa_url}" target="_blank" style="text-decoration:none;">
                         <div style="background-color:#25D366; color:white; padding:8px; 
-                                    border-radius:5px; text-align:center; font-size:14px; 
-                                    font-weight:bold;">
+                                    border-radius:5px; text-align:center; font-size:14px; font-weight:bold;">
                             💬 WhatsApp
                         </div>
                     </a>
                 ''', unsafe_allow_html=True)
             else:
                 st.button("💬 No Contact", disabled=True, use_container_width=True)
+
+        # 4. RESTORING THE TABLE (The part that was missing!)
+        st.write("---")
+        st.markdown("##### 💳 Payment History")
+        if not client_payments.empty:
+            st.dataframe(
+                client_payments[['DATE', 'REF', 'AMOUNT_PAID']], 
+                column_config={
+                    "DATE": "Date",
+                    "REF": "Reference",
+                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount Paid", format="%,d")
+                },
+                use_container_width=True, 
+                hide_index=True
+            )
+        else:
+            st.info("No payments recorded for this client yet.")
+
+    else:
+        st.warning("No records found in the database.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
