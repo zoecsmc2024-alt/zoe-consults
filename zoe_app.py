@@ -294,24 +294,29 @@ display_subset = display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTER
 styled_df = display_subset.reset_index(drop=True).style.apply(highlight_first_row, axis=1)
 
 # --- 3. SHOW THE STYLED TABLE ---
-st.dataframe(
-    styled_df,
-    column_config={
-        "CUSTOMER_NAME": "Client Name",
-        "ISSUED_DT": "Issued",
-        "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-        "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
-        "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
-        "DURATION": "Days",
-        "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-        "Status": "Status"
-    },
-    use_container_width=True, hide_index=True
-)
+        st.dataframe(
+            styled_df,
+            column_config={
+                "CUSTOMER_NAME": "Client Name",
+                "ISSUED_DT": "Issued",
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
+                "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
+                "Penalty": st.column_config.NumberColumn("Late Fee (5%)", format="%,d"), # Added this back!
+                "DURATION": "Days",
+                "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                "Status": "Status"
+            },
+            use_container_width=True, 
+            hide_index=True
+        )
 
-        # --- 4. FIXED INDENTATION FOR MANAGEMENT ---
-        st.write("")
-        with st.expander("🛠️ Manage Records (Edit/Delete)"):
+# --- ENSURE THESE ARE ALIGNED WITH THE 'st.dataframe' ABOVE ---
+st.write("") 
+
+with st.expander("🛠️ Manage Records (Edit/Delete)"):
+    # ... your management code ...
+    st.write("Management tools active.")
             target = st.selectbox("Select Client to Modify:", options=df['CUSTOMER_NAME'].unique())
             # Logic for editing/deleting goes here (indented properly)
             st.info(f"Management mode active for {target}")
