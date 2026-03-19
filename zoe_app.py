@@ -544,33 +544,45 @@ elif page == "Payments":
             st.info("**System Tip:** Recording a payment here automatically updates the Ledger and reduces the Outstanding Risk on the Executive Summary.")
 
         st.write("---")
-        st.subheader("📋 Recent Transaction History")
-        if not pay_df.empty:
-            st.dataframe(pay_df.iloc[::-1], use_container_width=True, hide_index=True)
-    else:
-        st.info("Please register a borrower before recording payments.")
-elif page == "Repayments":
-    # ... (Your existing form code here) ...
+st.subheader("📋 Recent Transaction History")
 
-    st.write("---")
-    st.subheader("📋 Recent Transaction History")
+if not pay_df.empty:
+    # 1. CLEAN THE DATA FOR DISPLAY
+    display_pay = pay_df.copy()
+    display_pay = display_pay.iloc[::-1]  # Newest on top
     
-    if not pay_df.empty:
-        st.dataframe(
-            pay_df.iloc[::-1], 
-            column_config={
-                "DATE": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
-                "CUSTOMER_NAME": "Borrower",
-                "AMOUNT_PAID": st.column_config.NumberColumn(
-                    "Amount Received 💰", 
-                    format="UGX %,d",
-                    help="Total money collected in this transaction"
-                ),
-                "REF": "Receipt #"
-            },
-            use_container_width=True,
-            hide_index=True
+    # 2. THE STYLED DATAFRAME
+    st.dataframe(
+        display_pay,
+        column_config={
+            "DATE": st.column_config.DateColumn("Payment Date", format="DD/MM/YYYY"),
+            "CUSTOMER_NAME": st.column_config.TextColumn("Borrower 👤"),
+            "AMOUNT_PAID": st.column_config.NumberColumn(
+                "Amount Received 💰", 
+                format="UGX %,d",
+                help="Total money collected in this transaction"
+            ),
+            "REF": st.column_config.TextColumn(
+                "Receipt / Ref #", 
+                help="Audit reference number"
+            )
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+    
+    # 3. QUICK EXPORT OPTION (Keep it small)
+    c1, c2 = st.columns([4, 1])
+    with c2:
+        st.download_button(
+            label="📥 Export CSV",
+            data=display_pay.to_csv(index=False),
+            file_name=f"Transactions_{datetime.now().strftime('%d_%m_%y')}.csv",
+            mime="text/csv",
+            use_container_width=True
         )
+else:
+    st.info("No transaction records found in the cloud vault.")
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
