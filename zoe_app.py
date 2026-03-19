@@ -252,6 +252,49 @@ if page == "Overview":
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
+    # --- 1. NEW TOP-LEVEL ACTION BAR ---
+    header_col1, header_col2 = st.columns([1, 2])
+    
+    with header_col1:
+        # We use a popover here to keep the form hidden until needed
+        with st.popover("➕ New Loan", use_container_width=True):
+            with st.form("top_register_form", clear_on_submit=True):
+                st.markdown("### 📝 Register New Borrower")
+                f_name = st.text_input("Borrower Full Name")
+                f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    f_rate = st.number_input("Interest %", value=10)
+                    f_dur = st.selectbox("Days", [15, 30, 45, 60, 90], index=1)
+                with c2:
+                    f_date = st.date_input("Date Issued", datetime.now())
+                
+                if st.form_submit_button("✅ Save & Disburse", use_container_width=True):
+                    if f_name and f_amt > 0:
+                        new_id = int(df['SN'].max() + 1) if not df.empty else 1
+                        starting_bal = f_amt + (f_amt * f_rate / 100)
+                        # Add new row to your sheet
+                        new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_dur]], 
+                                             columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
+                        conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
+                        st.success("Loan Recorded!")
+                        st.rerun()
+
+    with header_col2:
+        # Quick Search Bar added next to the button for better utility
+        search_query = st.text_input("", placeholder="🔍 Search borrower name...", label_visibility="collapsed")
+
+    st.write("---") # Visual separator
+
+    if not df.empty:
+        # Filter data based on search
+        display_df = df.copy()
+        if search_query:
+            display_df = display_df[display_df['CUSTOMER_NAME'].str.contains(search_query, case=False)]
+            
+        # ... [RETAIN ALL YOUR EXISTING CALCULATION & TABLE CODE HERE] ...
+    
     if not df.empty:
         # --- 1. CORE CALCULATIONS ---
         display_df = df.copy()
@@ -344,29 +387,6 @@ elif page == "Borrowers":
 
     else:
         st.info("Registry is currently empty.")
-
-    # --- 5. REGISTRATION ---
-    st.write("")
-    with st.popover("➕ Register New Loan", use_container_width=True):
-        with st.form("new_loan_v5", clear_on_submit=True):
-            f_name = st.text_input("Borrower Name")
-            c1, c2 = st.columns(2)
-            with c1:
-                f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
-                f_dur = st.selectbox("Duration", [15, 30, 45, 60, 90], index=1)
-            with c2:
-                f_rate = st.number_input("Interest Rate (%)", value=10)
-                f_date = st.date_input("Date Issued", datetime.now())
-            
-            if st.form_submit_button("✅ Sync to Cloud", use_container_width=True):
-                if f_name and f_amt > 0:
-                    new_id = int(df['SN'].max() + 1) if not df.empty else 1
-                    starting_bal = f_amt + (f_amt * f_rate / 100)
-                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_dur]], 
-                                         columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
-                    conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                    st.success("Loan Recorded!")
-                    st.rerun()
 
 elif page == "Payments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
