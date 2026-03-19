@@ -437,34 +437,36 @@ elif page == "Payments":
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            with st.form("cloud_pay_form", clear_on_submit=True):
-                st.markdown("##### ➕ Record New Receipt")
-                p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
-                
-                c_a, c_b = st.columns(2)
-                with c_a:
-                    p_amt = st.number_input("Amount Paid (UGX)", min_value=0, step=10000)
-                with c_b:
-                    p_ref = st.text_input("Receipt / Ref No.", placeholder="e.g. MPESA-123")
-                
-                if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
-                    if p_amt > 0 and p_ref:
-                        # Update Payments Sheet
+            if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
+            if p_amt > 0 and p_ref:
+                # 1. Start the 'Thinking' animation
+                with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
+                    try:
+                        # Create the payment row
                         new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                            columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                        
+                        # Sync Payments
                         conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                         
-                        # Update Borrowers Sheet
+                        # Update Local Balance & Sync Borrowers
                         idx = df[df['CUSTOMER_NAME'] == p_name].index
                         df.loc[idx, 'AMOUNT_PAID'] += p_amt
                         df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
-                        
                         conn.update(worksheet="Borrowers", data=df)
-                        st.success(f"Posted UGX {p_amt:,.0f} for {p_name}")
-                        st.balloons()
+                        
+                        # 2. Show the Success Toast
+                        st.toast(f"✅ Receipt {p_ref} secured for {p_name}", icon="💰")
+                        
+                        # 3. Brief pause so they see the success before the refresh
+                        import time
+                        time.sleep(1) 
                         st.rerun()
-                    else:
-                        st.error("Please provide an amount and reference number.")
+                        
+                    except Exception as e:
+                        st.error(f"Sync Error: {e}")
+            else:
+                st.error("⚠️ Please provide both an Amount and a Reference Number.")
 
         with col2:
             st.info("**System Tip:** Recording a payment here automatically updates the Ledger and reduces the Outstanding Risk on the Executive Summary.")
