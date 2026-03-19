@@ -870,18 +870,25 @@ elif page == "Ledger":
                 pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
 
             # --- 1. GENERATE PDF ---
-            pdf_output = pdf.output() # Use this for fpdf2
+            # (Keep your header and table code as it is)
             
-            # --- 2. SHOW SUCCESS AND DOWNLOAD ---
-            st.success("Statement Generated Successfully!")
+            # --- 2. THE FAILSAFE BUFFER ---
+            import io
+            pdf_buffer = io.BytesIO()
+            pdf_data = pdf.output() # Get the bytes
+            pdf_buffer.write(pdf_data)
+            pdf_buffer.seek(0) # Go to the start of the file
             
-            # REMOVED THE EMOJI FROM THE LABEL BELOW
+            # --- 3. SHOW SUCCESS AND DOWNLOAD ---
+            st.success("Statement Prepared!")
+            
             st.download_button(
-                label=f"Click Here to Download {target_client} Statement",
-                data=pdf_output,
+                label=f"Download {target_client} Statement PDF",
+                data=pdf_buffer,
                 file_name=f"Zoe_Statement_{target_client}.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                key=f"dl_btn_{target_client}" # Unique key to prevent API conflicts
             )
             
             # --- 2. SHOW SUCCESS AND DOWNLOAD ---
