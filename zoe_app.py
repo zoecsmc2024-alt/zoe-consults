@@ -841,18 +841,30 @@ elif page == "Ledger":
 
             # (Add your table code here if you have it, or keep it simple for now)
 
-            # 4. THE BUFFER FIX (Prevents NameError)
-            final_pdf_data = pdf.output() 
+            # --- 1. SETUP STATE ---
+        if 'pdf_ready' not in st.session_state:
+            st.session_state.pdf_ready = False
+            st.session_state.pdf_data = None
+
+        # --- 2. THE ACTION BUTTON ---
+        if st.button("📄 Generate Official PDF Statement", use_container_width=True, type="primary"):
+            from fpdf import FPDF
             
-            st.success("✅ Statement Prepared Successfully!")
+            # (Insert your PDF generation logic here: Header, Profile, etc.)
+            # ... pdf = PDF() ... content ...
             
+            st.session_state.pdf_data = pdf.output()
+            st.session_state.pdf_ready = True
+            st.success("✅ Statement Prepared! Download link below.")
+
+        # --- 3. THE PERMANENT DOWNLOAD BUTTON (Lives outside the if-block) ---
+        if st.session_state.pdf_ready:
             st.download_button(
                 label=f"Download {target_client} Statement PDF",
-                data=final_pdf_data, # Using the exact variable name created above
+                data=st.session_state.pdf_data,
                 file_name=f"Zoe_Statement_{target_client}.pdf",
                 mime="application/pdf",
-                use_container_width=True,
-                key=f"final_dl_{target_client}"
+                use_container_width=True
             )
             
             # --- 2. SHOW SUCCESS AND DOWNLOAD ---
