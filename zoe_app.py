@@ -410,13 +410,13 @@ def process_row(row):
         # --- 2. NEW: PROFIT METRICS ---
     total_interest = display_df['INTEREST_AMT'].sum()
     total_penalties = display_df['Penalty'].sum()
-        
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Total Interest Earned", f"UGX {total_interest:,.0f}")
-        m2.metric("Late Fees Accrued", f"UGX {total_penalties:,.0f}", delta=f"{len(display_df[display_df['Status']=='🚩 OVERDUE'])} Cases")
-        m3.metric("Total Expected Profit", f"UGX {(total_interest + total_penalties):,.0f}", delta_color="normal")
-        
-        st.write("---")
+    
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Interest Earned", f"UGX {total_interest:,.0f}")
+    m2.metric("Late Fees Accrued", f"UGX {total_penalties:,.0f}", delta=f"{len(display_df[display_df['Status']=='🚩 OVERDUE'])} Cases")
+    m3.metric("Total Expected Profit", f"UGX {(total_interest + total_penalties):,.0f}", delta_color="normal")
+    
+    st.write("---")
 
         # 1. CALCULATE STATUS LOGIC
     def get_status(row):
