@@ -716,115 +716,79 @@ elif page == "Collateral":
             else:
                 st.info("No 'HELD' assets found for release.")
 elif page == "Ledger":
-    st.markdown('<div class="main-title">📄 Client Statement of Account</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">📑 Client Statement of Account</div>', unsafe_allow_html=True)
     
     if not df.empty:
         # 1. Select Client
-        target = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
-        client_info = df[df['CUSTOMER_NAME'] == target].iloc[0]
-        client_pay = pay_df[pay_df['CUSTOMER_NAME'] == target].sort_values(by='DATE', ascending=False)
+        target_client = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
         
-        # 2. Financial Math
-        int_amt = (client_info['LOAN_AMOUNT'] * client_info['INTEREST_RATE']) / 100
-        total_due = client_info['LOAN_AMOUNT'] + int_amt
-        bal = total_due - client_info['AMOUNT_PAID']
+        # 2. Get Data for this client
+        client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target_client].copy()
+        loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
+        
+        # Financial Details for Metrics
+        p_val = loan_info['LOAN_AMOUNT']
+        r_val = loan_info['INTEREST_RATE']
+        pd_val = loan_info['AMOUNT_PAID']
+        bal_val = loan_info['OUTSTANDING_AMOUNT']
 
-        # 3. PROFESSIONAL HEADER (Company Details)
-        st.markdown(f"""
-            <div style="background-color: #f8fafc; padding: 25px; border-radius: 15px; border: 1px solid #e2e8f0; margin-bottom: 25px;">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div>
-                        <h2 style="color: #1e3a8a; margin: 0;">ZOE CONSULTS LTD</h2>
-                        <p style="color: #64748b; font-size: 0.9rem; margin: 2px 0;">
-                            📍 Plot 45, Kampala Road, Uganda<br>
-                            📞 +256 700 000 000 | 📧 info@zoeconsults.com
-                        </p>
-                    </div>
-                    <div style="text-align: right;">
-                        <h4 style="margin: 0; color: #1e3a8a;">OFFICIAL STATEMENT</h4>
-                        <p style="color: #64748b; font-size: 0.8rem;">Date: {datetime.now().strftime('%d %b %Y')}</p>
-                    </div>
-                </div>
-                <hr style="border: 0.5px solid #e2e8f0; margin: 15px 0;">
-                <div style="display: flex; justify-content: space-between;">
-                    <div>
-                        <p style="font-size: 0.8rem; color: #94a3b8; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Client Name</p>
-                        <p style="font-weight: bold; font-size: 1.1rem; color: #1e293b;">{target}</p>
-                    </div>
-                    <div>
-                        <p style="font-size: 0.8rem; color: #94a3b8; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Account Status</p>
-                        <p style="font-weight: bold; color: {'#10b981' if bal <= 0 else '#ef4444'};">
-                            {'✅ FULLY PAID' if bal <= 0 else '🚩 OUTSTANDING'}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        # 3. Metrics Display
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Principal", f"UGX {p_val:,.0f}")
+        m2.metric(f"Interest ({r_val}%)", f"UGX {(p_val*r_val/100):,.0f}")
+        m3.metric("Total Paid", f"UGX {pd_val:,.0f}")
+        m4.metric("Balance", f"UGX {bal_val:,.0f}", delta="Remaining", delta_color="inverse")
 
-        # 4. COMPACT FINANCIAL SUMMARY
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Principal", f"UGX {client_info['LOAN_AMOUNT']:,.0f}")
-        c2.metric("Interest ({0}%)".format(client_info['INTEREST_RATE']), f"UGX {int_amt:,.0f}")
-        c3.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
-        c4.metric("Balance", f"UGX {bal:,.0f}", delta_color="inverse")
+        st.write("---")
 
-        from fpdf import FPDF
-import io
-
-# ... inside your Ledger page logic ...
-
-if not client_payments.empty:
-    # --- EXECUTIVE PDF GENERATOR ---
+        # 4. PDF GENERATOR WITH "OVERDUE" STAMP
         if st.button("📄 Generate Official PDF Statement", use_container_width=True):
             from fpdf import FPDF
             
+            # Determine Status for the Stamp
+            is_overdue = bal_val > 0 # You can refine this with your Due Date logic
+            
             class PDF(FPDF):
                 def header(self):
-                    # 1. Blue Header Bar
-                    self.set_fill_color(30, 58, 138)  # Deep Navy Blue
+                    # Navy Blue Header
+                    self.set_fill_color(30, 58, 138)
                     self.rect(0, 0, 210, 40, 'F')
-                    
-                    # 2. Company Name in Gold/White
                     self.set_text_color(255, 255, 255)
-                    self.set_font("Arial", 'B', 24)
-                    self.cell(0, 10, f"{brand_name}", ln=True, align='L')
+                    self.set_font("Arial", 'B', 20)
+                    self.cell(0, 15, f"{brand_name}", ln=True, align='L')
                     
+                    # RED OVERDUE STAMP (Only shows if balance > 0)
+                    if is_overdue:
+                        self.set_font("Arial", 'B', 40)
+                        self.set_text_color(255, 0, 0) # Bright Red
+                        self.set_fill_color(255, 255, 255)
+                        self.set_draw_color(255, 0, 0)
+                        self.set_xy(140, 45)
+                        self.cell(60, 20, "OVERDUE", 3, 0, 'C')
+                    
+                    self.set_xy(10, 15)
                     self.set_font("Arial", size=10)
-                    self.cell(0, 5, "Plot 45, Kampala Road, Uganda", ln=True, align='L')
-                    self.cell(0, 5, "Contact: +256 700 000 000 | info@zoeconsults.com", ln=True, align='L')
-                    
-                    self.set_y(15)
-                    self.set_font("Arial", 'B', 14)
-                    self.cell(0, 10, "OFFICIAL STATEMENT", ln=True, align='R')
-                    self.set_font("Arial", size=9)
-                    self.cell(0, 5, f"Date: {datetime.now().strftime('%d %b %Y')}", ln=True, align='R')
-                    self.ln(20)
+                    self.set_text_color(255, 255, 255)
+                    self.cell(0, 25, "Plot 45, Kampala Road | +256 700 000 000", ln=True, align='L')
+                    self.ln(10)
 
             pdf = PDF()
             pdf.add_page()
-            
-            # --- CLIENT INFO ---
             pdf.set_text_color(0, 0, 0)
+            
+            # Statement Body
             pdf.set_font("Arial", 'B', 12)
-            pdf.cell(0, 10, f"CLIENT NAME: {target_client.upper()}", ln=True)
+            pdf.cell(0, 10, f"STATEMENT FOR: {target_client.upper()}", ln=True)
             pdf.ln(5)
 
-            # --- FINANCIAL SUMMARY ---
-            pdf.set_fill_color(240, 244, 248)
-            pdf.cell(47, 15, f"Principal: {loan_info['LOAN_AMOUNT']:,.0f}", 1, 0, 'C', True)
-            pdf.cell(47, 15, f"Interest: {loan_info['INTEREST_RATE']}%", 1, 0, 'C', True)
-            pdf.cell(47, 15, f"Paid: {loan_info['AMOUNT_PAID']:,.0f}", 1, 0, 'C', True)
-            pdf.cell(47, 15, f"Balance: {loan_info['OUTSTANDING_AMOUNT']:,.0f}", 1, 1, 'C', True)
-            pdf.ln(10)
-
-            # --- TRANSACTION TABLE ---
-            pdf.set_font("Arial", 'B', 10)
+            # Transaction Table Headers
             pdf.set_fill_color(30, 58, 138)
             pdf.set_text_color(255, 255, 255)
             pdf.cell(50, 10, "Date", 1, 0, 'C', True)
-            pdf.cell(80, 10, "Reference / Receipt No.", 1, 0, 'C', True)
-            pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
+            pdf.cell(80, 10, "Reference", 1, 0, 'C', True)
+            pdf.cell(60, 10, "Paid (UGX)", 1, 1, 'C', True)
             
+            # Table Content
             pdf.set_text_color(0, 0, 0)
             pdf.set_font("Arial", size=10)
             for _, row in client_payments.iterrows():
@@ -832,58 +796,21 @@ if not client_payments.empty:
                 pdf.cell(80, 10, str(row['REF']), 1, 0, 'L')
                 pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
 
-            # --- FOOTER / STAMP AREA ---
-            pdf.ln(20)
-            pdf.set_font("Arial", 'I', 8)
-            pdf.cell(0, 10, "This is a computer-generated statement. No signature required.", align='C')
+            # Final Balance
+            pdf.ln(10)
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(0, 10, f"TOTAL OUTSTANDING: UGX {bal_val:,.0f}", ln=True, align='R')
             
-            # Generate the file
-            obj = pdf.output(dest='S')
-            
+            output = pdf.output(dest='S')
             st.download_button(
-                label=f"⬇️ Download {target_client}'s Statement",
-                data=obj,
+                label=f"⬇️ Download {target_client}'s PDF Statement",
+                data=output,
                 file_name=f"Zoe_Statement_{target_client}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
-
-        # 5. WHATSAPP BUTTON
-        message = (
-            f"Hello%20{target},%20this%20is%20Zoe%20Consults.%0A%0A"
-            f"Your%20Statement:%0A"
-            f"Principal:%20UGX%20{client_info['LOAN_AMOUNT']:,.0f}%0A"
-            f"Interest:%20UGX%20{int_amt:,.0f}%0A"
-            f"Total%20Paid:%20UGX%20{client_info['AMOUNT_PAID']:,.0f}%0A"
-            f"Balance:%20UGX%20{bal:,.0f}"
-        )
-        wa_url = f"https://wa.me/?text={message}"
-        
-        st.markdown(f"""
-            <a href="{wa_url}" target="_blank" style="text-decoration: none;">
-                <div style="background-color: #25D366; color: white; padding: 8px 16px; border-radius: 8px; width: fit-content; font-weight: bold; display: flex; align-items: center; gap: 8px;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="18px"> Send Statement
-                </div>
-            </a>
-        """, unsafe_allow_html=True)
-
-        # 6. TRANSACTION HISTORY
-        st.write("---")
-        st.subheader("🔍 Transaction History")
-        if not client_pay.empty:
-            st.dataframe(
-            client_pay[['DATE', 'AMOUNT_PAID', 'REF']], 
-            column_config={
-                "DATE": "Payment Date",
-                "AMOUNT_PAID": st.column_config.NumberColumn("Amount Received", format="UGX %,d"),
-                "REF": "Receipt/Ref #"
-                },
-                use_container_width=True, hide_index=True
-            )
-            else:
-            st.info("No payments recorded yet.")
-            else:
-            st.info("No borrowers found.")
+    else:
+        st.info("The database is currently empty.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
