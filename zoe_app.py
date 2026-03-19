@@ -146,11 +146,11 @@ page = option_menu(
 st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True) # Pushes logout to bottom
 st.write("---")
     
-    # Modern Logout Button
-    if st.button("🚪 Terminate Session", use_container_width=True):
-        st.session_state.clear()
-        st.success("Securely Logged Out")
-        st.rerun()
+# Modern Logout Button
+if st.button("🚪 Terminate Session", use_container_width=True):
+    st.session_state.clear()
+    st.success("Securely Logged Out")
+    st.rerun()
 
     # App Version Info
     st.markdown("""
