@@ -445,8 +445,8 @@ elif page == "Payments":
                 # --- ALL THIS MUST BE INDENTED 4 SPACES FROM THE 'TRY' ---
                            new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                    columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
-                
-        conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+                           except:
+                               conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                 
         idx = df[df['CUSTOMER_NAME'] == p_name].index
         df.loc[idx, 'AMOUNT_PAID'] += p_amt
