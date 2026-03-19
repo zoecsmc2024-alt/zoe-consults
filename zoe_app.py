@@ -484,7 +484,7 @@ def process_row(row):
         st.warning("⚠️ No records found in the Borrowers sheet.")
     
 elif page == "Insights":
-    st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
+   st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
     
     # CALCULATE REVENUE (Interest Collected)
     # Note: We only count Interest/Penalties as 'Income', not the Principal
