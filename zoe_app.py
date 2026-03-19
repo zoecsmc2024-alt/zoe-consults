@@ -515,7 +515,7 @@ elif page == "Repayments":
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
+        if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
                 if p_amt > 0 and p_ref:
                     # 1. Start the 'Thinking' animation
                     with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
