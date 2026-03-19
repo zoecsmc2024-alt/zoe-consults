@@ -12,37 +12,27 @@ st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
 
 st.markdown("""
 <style>
-    /* 1. THE ULTIMATE TOP RESET */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: 0rem !important;
+    /* 1. SIDEBAR & TITLE THEME */
+    [data-testid="stSidebar"] {
+        background-color: #f8fafc !important;
+        border-right: 1px solid #e2e8f0;
     }
 
-    /* 2. REMOVE THE HEADER GAP BUT KEEP THE ARROW */
-    header[data-testid="stHeader"] {
-        background-color: rgba(0,0,0,0) !important;
-        border-bottom: none !important;
-    }
-
-    /* Keep the toggle button visible even if header is "hidden" */
-    button[data-testid="collapsedControl"] {
-        visibility: visible !important;
-    }
-
-    /* 3. THE MAIN VIEWPORT */
-    [data-testid="stAppViewContainer"] {
-        background-color: #ffffff !important;
-    }
-
-    /* 4. FIX TITLE POSITION */
     .main-title {
-        color: #0f172a !important;
-        font-size: 2.5rem !important;
+        background: linear-gradient(90deg, #00A3E0, #1E3A8A);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2.2rem !important;
         font-weight: 800 !important;
-        margin-top: -20px !important;
-        margin-bottom: 20px !important;
         letter-spacing: -1px;
+    }
+
+    /* 2. BUTTON & ACCENT COLORS */
+    div.stButton > button:first-child {
+        background-color: #1E3A8A !important;
+        color: white !important;
+        border-radius: 8px;
+        border: none;
     }
 </style>
 """, unsafe_allow_html=True)
