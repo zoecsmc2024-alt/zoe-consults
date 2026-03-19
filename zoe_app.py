@@ -124,7 +124,8 @@ with st.sidebar:
     # Using 'option_menu' for a more mobile-responsive, centered feel
     page = option_menu(
         menu_title=None,
-        options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        # Check this line carefully!
+        page = st.sidebar.radio("Navigation", ["Overview", "Ledger", "Overdue Tracker", "Add Payment", "Add Client"])
         icons=["grid-1x2", "people", "wallet2", "calendar-check", "safe2", "file-earmark-medical", "sliders"],
         menu_icon="cast",
         default_index=0,
