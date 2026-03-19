@@ -288,10 +288,19 @@ elif page == "Insights":
     
     # CALCULATE REVENUE (Interest Collected)
     # Note: We only count Interest/Penalties as 'Income', not the Principal
+    # 1. First, create the INTEREST_AMT column so it exists in the app's memory
+    df['INTEREST_AMT'] = (df['LOAN_AMOUNT'] * df['INTEREST_RATE']) / 100
+    
+    # 2. Now you can safely sum it up
     total_interest_earned = df['INTEREST_AMT'].sum()
-    total_expenses = exp_df['AMOUNT'].sum() if not exp_df.empty else 0
+    
+    # 3. Handle Expenses safety check
+    if not exp_df.empty and 'AMOUNT' in exp_df.columns:
+        total_expenses = exp_df['AMOUNT'].sum()
+    else:
+        total_expenses = 0
+        
     net_profit = total_interest_earned - total_expenses
-
     # KPI TILES
     i1, i2, i3 = st.columns(3)
     i1.metric("Gross Revenue (Interest)", f"UGX {total_interest_earned:,.0f}")
