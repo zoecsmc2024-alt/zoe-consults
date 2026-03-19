@@ -719,76 +719,90 @@ elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement of Account</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. Select Client
+        # 1. Select Client & Prepare Data
         target_client = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
-        
-        # 2. Get Data for this client
         client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target_client].copy()
         loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
         
-        # Financial Details for Metrics
-        p_val = loan_info['LOAN_AMOUNT']
-        r_val = loan_info['INTEREST_RATE']
-        pd_val = loan_info['AMOUNT_PAID']
-        bal_val = loan_info['OUTSTANDING_AMOUNT']
+        # Financial Values
+        p_amt = loan_info['LOAN_AMOUNT']
+        int_rate = loan_info['INTEREST_RATE']
+        total_paid = loan_info['AMOUNT_PAID']
+        current_bal = loan_info['OUTSTANDING_AMOUNT']
 
-        # 3. Metrics Display
+        # 2. Metrics (On-Screen Summary)
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Principal", f"UGX {p_val:,.0f}")
-        m2.metric(f"Interest ({r_val}%)", f"UGX {(p_val*r_val/100):,.0f}")
-        m3.metric("Total Paid", f"UGX {pd_val:,.0f}")
-        m4.metric("Balance", f"UGX {bal_val:,.0f}", delta="Remaining", delta_color="inverse")
+        m1.metric("Principal", f"UGX {p_amt:,.0f}")
+        m2.metric(f"Interest ({int_rate}%)", f"UGX {(p_amt*int_rate/100):,.0f}")
+        m3.metric("Total Paid", f"UGX {total_paid:,.0f}")
+        m4.metric("Balance", f"UGX {current_bal:,.0f}", delta="Remaining", delta_color="inverse")
 
         st.write("---")
 
-        # 4. PDF GENERATOR WITH "OVERDUE" STAMP
+        # 3. PDF GENERATOR (Restored Info + Red Stamp)
         if st.button("📄 Generate Official PDF Statement", use_container_width=True):
             from fpdf import FPDF
             
-            # Determine Status for the Stamp
-            is_overdue = bal_val > 0 # You can refine this with your Due Date logic
+            # Status Check
+            is_overdue = current_bal > 0 
             
             class PDF(FPDF):
                 def header(self):
-                    # Navy Blue Header
-                    self.set_fill_color(30, 58, 138)
+                    # --- BLUE HEADER BAR ---
+                    self.set_fill_color(30, 58, 138) # Navy Blue
                     self.rect(0, 0, 210, 40, 'F')
-                    self.set_text_color(255, 255, 255)
-                    self.set_font("Arial", 'B', 20)
-                    self.cell(0, 15, f"{brand_name}", ln=True, align='L')
                     
-                    # RED OVERDUE STAMP (Only shows if balance > 0)
+                    # --- COMPANY BRANDING ---
+                    self.set_text_color(255, 255, 255)
+                    self.set_font("Arial", 'B', 22)
+                    self.set_xy(10, 8)
+                    self.cell(0, 10, f"{brand_name} LTD", ln=True, align='L')
+                    
+                    self.set_font("Arial", size=9)
+                    self.cell(0, 5, "📍 Plot 45, Kampala Road, Uganda", ln=True, align='L')
+                    self.cell(0, 5, "📞 +256 700 000 000 | 📧 info@zoeconsults.com", ln=True, align='L')
+                    
+                    # --- OFFICIAL LABEL ---
+                    self.set_xy(140, 10)
+                    self.set_font("Arial", 'B', 14)
+                    self.cell(60, 10, "OFFICIAL STATEMENT", ln=True, align='R')
+                    self.set_font("Arial", size=8)
+                    self.cell(60, 5, f"Issued: {datetime.now().strftime('%d %b %Y')}", ln=True, align='R')
+                    
+                    # --- RED OVERDUE STAMP ---
                     if is_overdue:
-                        self.set_font("Arial", 'B', 40)
-                        self.set_text_color(255, 0, 0) # Bright Red
-                        self.set_fill_color(255, 255, 255)
-                        self.set_draw_color(255, 0, 0)
-                        self.set_xy(140, 45)
-                        self.cell(60, 20, "OVERDUE", 3, 0, 'C')
+                        self.set_draw_color(220, 38, 38) # Red Border
+                        self.set_text_color(220, 38, 38) # Red Text
+                        self.set_font("Arial", 'B', 28)
+                        self.set_xy(150, 45)
+                        self.cell(50, 15, "OUTSTANDING", 2, 0, 'C')
                     
-                    self.set_xy(10, 15)
-                    self.set_font("Arial", size=10)
-                    self.set_text_color(255, 255, 255)
-                    self.cell(0, 25, "Plot 45, Kampala Road | +256 700 000 000", ln=True, align='L')
-                    self.ln(10)
+                    self.ln(35) # Space after header
 
             pdf = PDF()
             pdf.add_page()
             pdf.set_text_color(0, 0, 0)
             
-            # Statement Body
+            # --- CLIENT & SUMMARY BOX ---
             pdf.set_font("Arial", 'B', 12)
-            pdf.cell(0, 10, f"STATEMENT FOR: {target_client.upper()}", ln=True)
-            pdf.ln(5)
+            pdf.cell(0, 10, f"CLIENT: {target_client.upper()}", ln=True)
+            
+            # Grey Summary Box
+            pdf.set_fill_color(241, 245, 249)
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(47, 12, f"Principal: {p_amt:,.0f}", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"Rate: {int_rate}%", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"Total Paid: {total_paid:,.0f}", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"BALANCE: {current_bal:,.0f}", 1, 1, 'C', True)
+            pdf.ln(8)
 
-            # Transaction Table Headers
+            # --- TRANSACTION TABLE ---
             pdf.set_fill_color(30, 58, 138)
             pdf.set_text_color(255, 255, 255)
             pdf.cell(50, 10, "Date", 1, 0, 'C', True)
-            pdf.cell(80, 10, "Reference", 1, 0, 'C', True)
-            pdf.cell(60, 10, "Paid (UGX)", 1, 1, 'C', True)
+            pdf.cell(80, 10, "Reference / Receipt No.", 1, 0, 'C', True)
+            pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
             
-            # Table Content
             pdf.set_text_color(0, 0, 0)
             pdf.set_font("Arial", size=10)
             for _, row in client_payments.iterrows():
@@ -796,21 +810,27 @@ elif page == "Ledger":
                 pdf.cell(80, 10, str(row['REF']), 1, 0, 'L')
                 pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
 
-            # Final Balance
-            pdf.ln(10)
-            pdf.set_font("Arial", 'B', 14)
-            pdf.cell(0, 10, f"TOTAL OUTSTANDING: UGX {bal_val:,.0f}", ln=True, align='R')
+            # --- FOOTER ---
+            pdf.ln(15)
+            pdf.set_font("Arial", 'I', 8)
+            pdf.cell(0, 10, "Thank you for choosing Zoe Consults. This is a computer-generated statement.", align='C')
             
-            output = pdf.output(dest='S')
+            # Output
+            output_data = pdf.output(dest='S')
             st.download_button(
-                label=f"⬇️ Download {target_client}'s PDF Statement",
-                data=output,
+                label=f"⬇️ Download {target_client}'s Official Statement",
+                data=output_data,
                 file_name=f"Zoe_Statement_{target_client}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
+            
+        # 4. Transaction History Table (On-Screen)
+        st.subheader("📋 Payment History")
+        st.dataframe(client_payments[['DATE', 'REF', 'AMOUNT_PAID']], use_container_width=True, hide_index=True)
+
     else:
-        st.info("The database is currently empty.")
+        st.info("No records found in the database.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
