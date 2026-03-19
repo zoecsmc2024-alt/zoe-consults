@@ -793,25 +793,48 @@ elif page == "Ledger":
 
         with col_act2:
             # ONLY SHOWS IF READY - This prevents the AttributeError
-            if st.session_state.pdf_ready:
-                st.markdown(f'''
-                    <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
-                       download="Zoe_{target_client}.pdf" style="text-decoration:none;">
-                        <div style="background-color:#f1f5f9; color:#1e293b; padding:8px; 
-                                    border-radius:5px; text-align:center; font-size:14px; 
-                                    font-weight:bold; border:1px solid #cbd5e1;">
-                            📥 Download
-                        </div>
-                    </a>
-                ''', unsafe_allow_html=True)
-            else:
-                st.button("📥 Download", disabled=True, use_container_width=True)
+            # --- 1. INITIALIZE THE BRAIN (Session State) ---
+        if 'pdf_ready' not in st.session_state:
+            st.session_state.pdf_ready = False
+            st.session_state.pdf_base64 = ""
 
-        with col_act3:
-            if st.session_state.pdf_ready:
-                if st.button("🗑️ Reset", use_container_width=True, key="reset_pdf"):
-                    st.session_state.pdf_ready = False
-                    st.rerun()
+        # --- 2. THE ACTION BUTTON ---
+        if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="prep_btn_v3"):
+            from fpdf import FPDF
+            import base64
+            
+            # Simple PDF setup
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(0, 10, f"{brand_name} LTD - STATEMENT", ln=True)
+            pdf.set_font("Arial", size=10)
+            pdf.cell(0, 10, f"Client: {target_client}", ln=True)
+            
+            # Convert to text string (Base64)
+            pdf_data = pdf.output()
+            st.session_state.pdf_base64 = base64.b64encode(pdf_data).decode()
+            st.session_state.pdf_ready = True
+            st.rerun()
+
+        # --- 3. THE PROTECTIVE SHIELD (Prevents the AttributeError) ---
+        if st.session_state.pdf_ready:
+            st.success("✅ Statement Prepared!")
+            
+            # This HTML only runs if pdf_ready is True
+            download_html = f'''
+                <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
+                   download="Zoe_Statement_{target_client}.pdf" style="text-decoration:none;">
+                    <div style="background-color:#1e3a8a; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;">
+                        📥 Click to Download PDF
+                    </div>
+                </a>
+            '''
+            st.markdown(download_html, unsafe_allow_html=True)
+            
+            if st.button("🗑️ Reset", use_container_width=True):
+                st.session_state.pdf_ready = False
+                st.rerun()
 
         # --- 3. WHATSAPP SECTION ---
         st.write("")
