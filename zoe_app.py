@@ -438,14 +438,14 @@ elif page == "Payments":
         
         with col1:
             if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
-            if p_amt > 0 and p_ref:
-                # 1. Start the 'Thinking' animation
-                with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
-                    try:
-                        # Create the payment row
-                        new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
-                                           columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
-                        
+                if p_amt > 0 and p_ref:
+                    # 1. Start the 'Thinking' animation
+                    with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
+                        try:
+                            # Create the payment row
+                            new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+                                                 columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                            
                         # Sync Payments
                         conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                         
