@@ -479,23 +479,26 @@ elif page == "Borrowers":
     
     # 1. Prepare the data safely
     # 1. We must use 'DATE_ISSUED' because that is what your sheet uses
+    # 1. We must use the exact names from your table: 'DATE_ISSUED' and 'INTEREST_'
     try:
         chart_df = display_df.copy()
+        
+        # Convert the date column safely
         chart_df['DATE_ISSUED'] = pd.to_datetime(chart_df['DATE_ISSUED'])
         chart_df['Month'] = chart_df['DATE_ISSUED'].dt.strftime('%b %Y')
         
-        # 2. Check for Interest Data
-        if 'INTEREST' in chart_df.columns:  # Your column name is 'INTEREST' in the image
-            monthly_rev = chart_df.groupby('Month')['INTEREST'].sum().reset_index()
+        # 2. Check if 'INTEREST_' column exists (matches your screenshot)
+        if 'INTEREST_' in chart_df.columns:
+            monthly_rev = chart_df.groupby('Month')['INTEREST_'].sum().reset_index()
             
-            # Sort chronologically
+            # Sort chronologically (Jan, Feb, Mar...)
             monthly_rev['Date_Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
             monthly_rev = monthly_rev.sort_values('Date_Sort')
             
-            # 3. Display the chart
-            st.bar_chart(data=monthly_rev, x='Month', y='INTEREST', color="#00A3E0")
+            # 3. Display the chart using the Zoe Blue color
+            st.bar_chart(data=monthly_rev, x='Month', y='INTEREST_', color="#00A3E0")
         else:
-            st.warning("Interest column not found.")
+            st.warning("Could not find the 'INTEREST_' column for the chart.")
             
     except Exception as e:
         st.error(f"Chart Error: {e}")
