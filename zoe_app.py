@@ -91,31 +91,32 @@ def get_setting(prop, default):
         return default
     except:
         return default
+# --- SIDEBAR LOGO UPDATE ---
 with st.sidebar:
     st.markdown("<div style='text-align: center; padding-bottom: 10px;'>", unsafe_allow_html=True)
     
-    # --- SAFE LOGO LOGIC ---
-    show_emoji_fallback = True
-    
-    # Check if we have a valid URL string that isn't empty or 'nan'
-    if brand_logo_type == "URL" and isinstance(brand_logo_val, str) and len(brand_logo_val) > 5:
-        try:
-            # We use a container to catch errors if the URL is not a real image
-            st.image(brand_logo_val, use_container_width=True)
-            show_emoji_fallback = False # If it worked, don't show the emoji
-        except Exception:
-            show_emoji_fallback = True # If the link is broken, use emoji
-            
-    if show_emoji_fallback:
-        # Professional fallback icon
-        st.markdown(f"""
+    # 1. DISPLAY YOUR CUSTOM LOGO
+    try:
+        # Replace 'Capture.PNG' with the exact filename if you rename it
+        st.image("Capture.PNG", use_container_width=True)
+    except Exception:
+        # Fallback if the file is missing
+        st.markdown("""
             <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
                         width: 70px; height: 70px; border-radius: 18px; 
                         display: flex; align-items: center; justify-content: center; 
-                        margin: 0 auto 15px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                <span style="font-size: 35px; color: white;">{brand_logo_val if brand_logo_type == "Emoji" else "🛡️"}</span>
+                        margin: 0 auto 15px auto;">
+                <span style="font-size: 35px; color: white;">🛡️</span>
             </div>
         """, unsafe_allow_html=True)
+
+    # 2. BRAND TITLES
+    st.markdown(f"""
+            <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0;">{brand_name}</h1>
+            <p style="color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0;">{brand_tagline}</p>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 10px 0 20px 0;">
+    """, unsafe_allow_html=True)
     
     st.markdown(f"""
             <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0;">{brand_name}</h1>
