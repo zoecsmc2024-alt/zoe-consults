@@ -581,8 +581,7 @@ if not pay_df.empty:
             mime="text/csv",
             use_container_width=True
         )
-else:
-    st.info("No transaction records found in the cloud vault.")
+
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
