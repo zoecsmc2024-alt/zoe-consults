@@ -368,105 +368,82 @@ elif page == "Borrowers":
                     st.success("Loan Recorded!")
                     st.rerun()
 
-elif page == "Repayments":
+elif page == "Payments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
-    if not df.empty:
-        post_tab, history_tab = st.tabs(["➕ Post New Payment", "✏️ Manage History"])
+    # 1. TOP STATS (High-level glance)
+    total_collected = pay_df['AMOUNT_PAID'].sum() if not pay_df.empty else 0
+    st.markdown(f"""
+        <div style="background-color: #f0fdf4; border-radius: 10px; padding: 15px; margin-bottom: 20px; border: 1px solid #bbf7d0;">
+            <p style="margin:0; color:#166534; font-size: 0.9rem;">Total Collections (All Time)</p>
+            <h2 style="margin:0; color:#15803d;">UGX {total_collected:,.0f}</h2>
+        </div>
+    """, unsafe_allow_html=True)
 
-        with post_tab:
-            with st.form("repayment_validated", clear_on_submit=True):
-                p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
-                
-                # Get current balance for validation
-                current_bal = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
-                
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    p_amt = st.number_input(f"Amount (Max: {current_bal:,.0f})", min_value=0)
-                with col_b:
-                    p_ref = st.text_input("Receipt / Ref No.")
+    # 2. TABBED INTERFACE
+    post_tab, history_tab = st.tabs(["➕ Post New Payment", "✏️ Manage History"])
 
-                if st.form_submit_button("🚀 Post Payment", use_container_width=True):
-                    # --- THE BOUNCER ---
-                    if p_amt <= 0:
-                        st.error("❌ Please enter an amount greater than 0.")
-                    elif p_amt > current_bal:
-                        st.warning(f"⚠️ Overpayment: Borrower only owes UGX {current_bal:,.0f}. Please adjust.")
-                    elif not p_ref:
-                        st.error("❌ Reference required: Please enter a Receipt No. or Mobile Money ID.")
-                    else:
-                        # Proceed to save
-                        new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
-                                           columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
-                        conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
-                        
-                        df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
-                        df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
-                        conn.update(worksheet="Borrowers", data=df)
-                        st.success("✅ Payment successfully posted!")
-                        st.rerun()
-        with history_tab:
-            if not pay_df.empty:
-                st.subheader("Edit or Delete a Transaction")
-                # Helper for selection
-                pay_df['Selector'] = pay_df['CUSTOMER_NAME'] + " | " + pay_df['DATE'] + " | Ref: " + pay_df['REF'].astype(str)
-                target_pay = st.selectbox("Select Transaction:", options=pay_df['Selector'].unique())
-                
-                pay_row = pay_df[pay_df['Selector'] == target_pay].iloc[0]
-                orig_idx = pay_df[pay_df['Selector'] == target_pay].index[0]
+    with post_tab:
+        with st.form("payment_form_styled", clear_on_submit=True):
+            st.markdown("##### 📝 Entry Details")
+            p_name = st.selectbox("Select Borrower", options=df['CUSTOMER_NAME'].unique())
+            
+            # Fetch current balance for the selected borrower
+            current_bal = df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'].values[0]
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                p_amt = st.number_input(f"Amount (Current Bal: {current_bal:,.0f})", min_value=0, step=10000)
+            with col_b:
+                p_ref = st.text_input("Receipt / Reference No.", placeholder="e.g. MM-12345")
 
-                c_edit, c_del = st.columns([2, 1])
+            st.write("")
+            if st.form_submit_button("🚀 Finalize & Post Payment", use_container_width=True):
+                # Validation Logic
+                if p_amt <= 0:
+                    st.error("❌ Please enter a valid payment amount.")
+                elif p_amt > current_bal + 5: # Small buffer for rounding
+                    st.warning(f"⚠️ Warning: Payment of {p_amt:,.0f} exceeds balance of {current_bal:,.0f}")
+                elif not p_ref:
+                    st.error("❌ A Reference number is required for auditing.")
+                else:
+                    # Proceed with update
+                    new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+                                       columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
+                    conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+                    
+                    # Update Borrowers Sheet
+                    df.loc[df['CUSTOMER_NAME'] == p_name, 'AMOUNT_PAID'] += p_amt
+                    df.loc[df['CUSTOMER_NAME'] == p_name, 'OUTSTANDING_AMOUNT'] -= p_amt
+                    conn.update(worksheet="Borrowers", data=df)
+                    
+                    st.success(f"✅ Payment for {p_name} has been synced!")
+                    st.balloons()
+                    st.rerun()
 
-                with c_edit:
-                    with st.form("edit_pay_form"):
-                        new_pay_amt = st.number_input("Correct Amount", value=int(pay_row['AMOUNT_PAID']))
-                        new_pay_ref = st.text_input("Correct Reference", value=pay_row['REF'])
-                        
-                        if st.form_submit_button("💾 Save Changes"):
-                            # Calculate difference to update Borrower balance
-                            diff = new_pay_amt - pay_row['AMOUNT_PAID']
-                            df.loc[df['CUSTOMER_NAME'] == pay_row['CUSTOMER_NAME'], 'AMOUNT_PAID'] += diff
-                            df.loc[df['CUSTOMER_NAME'] == pay_row['CUSTOMER_NAME'], 'OUTSTANDING_AMOUNT'] -= diff
-                            
-                            # Update Payments DF
-                            pay_df.loc[orig_idx, 'AMOUNT_PAID'] = new_pay_amt
-                            pay_df.loc[orig_idx, 'REF'] = new_pay_ref
-                            
-                            # Sync both
-                            conn.update(worksheet="Payments", data=pay_df.drop(columns=['Selector']))
-                            conn.update(worksheet="Borrowers", data=df)
-                            st.success("Transaction Updated!")
-                            st.rerun()
+    with history_tab:
+        st.info("To edit or delete a record, please modify the 'Payments' tab in your Google Sheet directly to maintain a secure audit trail.")
 
-                with c_del:
-                    st.markdown("⚠️ **Danger Zone**")
-                    if st.button("🗑️ Delete Payment", use_container_width=True, type="primary"):
-                        # Reverse balance on Borrower account
-                        df.loc[df['CUSTOMER_NAME'] == pay_row['CUSTOMER_NAME'], 'AMOUNT_PAID'] -= pay_row['AMOUNT_PAID']
-                        df.loc[df['CUSTOMER_NAME'] == pay_row['CUSTOMER_NAME'], 'OUTSTANDING_AMOUNT'] += pay_row['AMOUNT_PAID']
-                        
-                        # Remove record
-                        updated_pays = pay_df[pay_df.index != orig_idx].drop(columns=['Selector'])
-                        
-                        conn.update(worksheet="Payments", data=updated_pays)
-                        conn.update(worksheet="Borrowers", data=df)
-                        st.warning("Transaction Deleted.")
-                        st.rerun()
-            else:
-                st.info("No payment history to manage.")
-
-        # --- RECENT VIEW ---
-        st.write("---")
-        st.subheader("📋 Recent Receipt History")
+    # 3. RECENT HISTORY TABLE
+    st.write("---")
+    st.markdown("#### 📋 Recent Receipt History")
+    
+    if not pay_df.empty:
+        # Sort by date descending to show latest first
+        recent_pays = pay_df.tail(10).iloc[::-1] 
+        
         st.dataframe(
-            pay_df.iloc[::-1],
+            recent_pays[['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF']],
             column_config={
+                "DATE": "Date",
+                "CUSTOMER_NAME": "Borrower",
                 "AMOUNT_PAID": st.column_config.NumberColumn("Amount (UGX)", format="%,d"),
-                "DATE": "Date"
+                "REF": "Reference #"
             },
             use_container_width=True, hide_index=True
         )
+    else:
+        st.caption("No payments recorded yet.")
 elif page == "Repayments":
     # ... (Your existing form code here) ...
 
