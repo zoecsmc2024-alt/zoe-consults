@@ -121,11 +121,10 @@ with st.sidebar:
                 "text-align": "left", 
                 "margin": "5px 0px", 
                 "color": "#475569",
-                "font-family": "'Inter', sans-serif",
                 "border-radius": "8px"
             },
             "nav-link-selected": {
-                "background-color": "#1e3a8a", 
+                "background": "linear-gradient(90deg, #00A3E0, #1E3A8A)", # <--- Logo Gradient!
                 "color": "white",
                 "font-weight": "600"
             },
