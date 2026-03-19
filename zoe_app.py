@@ -800,11 +800,76 @@ elif page == "Ledger":
             wa_url = f"https://wa.me/{clean_phone}?text={wa_msg.replace(' ', '%20')}"
             st.link_button("💬 Send via WhatsApp", wa_url, use_container_width=True)
         
-        with btn_col2:
-            # PDF Trigger (Keep the logic we wrote before here)
-            # [Add your existing PDF generation code under this button]
-            st.button("📄 Generate PDF Document", use_container_width=True, type="primary")
+        # 5. PDF GENERATOR (Full Profile Version)
+        if st.button("📄 Generate Official PDF Statement", use_container_width=True):
+            from fpdf import FPDF
+            is_overdue = loan_info['OUTSTANDING_AMOUNT'] > 0
+            
+            # Helper to safely get data
+            def get_val(key): return str(loan_info.get(key, 'N/A'))
 
+            class PDF(FPDF):
+                def header(self):
+                    # --- NAVY BLUE HEADER ---
+                    self.set_fill_color(30, 58, 138)
+                    self.rect(0, 0, 210, 45, 'F')
+                    self.set_text_color(255, 255, 255)
+                    self.set_font("Arial", 'B', 22)
+                    self.set_xy(10, 10)
+                    self.cell(0, 10, f"{brand_name} LTD", ln=True, align='L')
+                    
+                    self.set_font("Arial", size=9)
+                    self.cell(0, 5, "📍 Plot 45, Kampala Road, Uganda", ln=True, align='L')
+                    self.cell(0, 5, "📞 +256 700 000 000 | 📧 info@zoeconsults.com", ln=True, align='L')
+                    
+                    # --- RED STAMP ---
+                    if is_overdue:
+                        self.set_draw_color(220, 38, 38); self.set_text_color(220, 38, 38)
+                        self.set_font("Arial", 'B', 25)
+                        self.set_xy(145, 48); self.cell(55, 12, "OUTSTANDING", 2, 0, 'C')
+                    self.ln(40)
+
+            pdf = PDF()
+            pdf.add_page()
+            pdf.set_text_color(0, 0, 0)
+
+            # --- NEW: BORROWER OFFICIAL PROFILE SECTION ---
+            pdf.set_font("Arial", 'B', 11)
+            pdf.set_fill_color(245, 245, 245)
+            pdf.cell(0, 8, "BORROWER INFORMATION", 0, 1, 'L', True)
+            pdf.set_font("Arial", size=10)
+            
+            # Row 1: Name & NIN
+            pdf.cell(95, 8, f"Name: {target_client.upper()}", 0, 0)
+            pdf.cell(95, 8, f"NIN: {get_val('NIN')}", 0, 1)
+            
+            # Row 2: Business & Contact
+            pdf.cell(95, 8, f"Business: {get_val('BUSINESS_NAME')}", 0, 0)
+            pdf.cell(95, 8, f"Phone: {get_val('CONTACT')}", 0, 1)
+            
+            # Row 3: Loan Type & Email
+            pdf.cell(95, 8, f"Loan Type: {get_val('LOAN_TYPE')}", 0, 0)
+            pdf.cell(95, 8, f"Email: {get_val('EMAIL')}", 0, 1)
+            pdf.ln(5)
+
+            # --- FINANCIAL SUMMARY BOX ---
+            pdf.set_fill_color(30, 58, 138); pdf.set_text_color(255, 255, 255)
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(47, 10, "Principal", 1, 0, 'C', True)
+            pdf.cell(47, 10, "Interest Rate", 1, 0, 'C', True)
+            pdf.cell(47, 10, "Total Paid", 1, 0, 'C', True)
+            pdf.cell(47, 10, "BALANCE DUE", 1, 1, 'C', True)
+            
+            pdf.set_text_color(0, 0, 0); pdf.set_fill_color(241, 245, 249)
+            pdf.cell(47, 12, f"UGX {loan_info['LOAN_AMOUNT']:,.0f}", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"{loan_info['INTEREST_RATE']}%", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"UGX {loan_info['AMOUNT_PAID']:,.0f}", 1, 0, 'C', True)
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(47, 12, f"UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", 1, 1, 'C', True)
+            pdf.ln(8)
+
+            # --- TABLE ---
+            # ... (Keep your existing transaction table code here) ...
         # 6. TABLE STYLE
         st.write("---")
         st.subheader("📋 Transaction Ledger")
