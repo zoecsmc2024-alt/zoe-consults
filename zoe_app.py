@@ -407,20 +407,42 @@ elif page == "Borrowers":
         
         st.write("---")
 
-        # --- 3. STYLED TABLE ---
-        def highlight_latest(row):
-            return ['background-color: #f0f9ff; border-left: 5px solid #0ea5e9'] * len(row) if row.name == 0 else [''] * len(row)
+        # 1. CALCULATE STATUS LOGIC
+    def get_status(row):
+        if row['OUTSTANDING_AMOUNT'] <= 0:
+            return "✅ Settled"
+        elif row['AMOUNT_PAID'] == 0:
+            return "🟡 Pending"
+        else:
+            return "🔴 Overdue"
 
-        show_cols = ['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'Penalty', 'DURATION', 'REAL_OUTSTANDING', 'Status']
-        styled_df = display_df[show_cols].reset_index(drop=True).style.apply(highlight_latest, axis=1)
+    # 2. APPLY STATUS TO DATA
+    if not df.empty:
+        # Create the virtual Status column
+        df['STATUS'] = df.apply(get_status, axis=1)
+        
+        # Search Filter
+        if search_query:
+            display_df = df[df['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]
+        else:
+            display_df = df
 
-        st.dataframe(styled_df, column_config={
-            "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-            "Penalty": st.column_config.NumberColumn("Late Fee", format="%,d"),
-            "REAL_OUTSTANDING": st.column_config.NumberColumn("Total Balance", format="UGX %,d"),
-            "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%d%%"),
-        }, use_container_width=True, hide_index=True)
-
+        # 3. DISPLAY THE PRO TABLE
+        st.dataframe(
+            display_df,
+            column_config={
+                "STATUS": st.column_config.TextColumn(
+                    "Status 🛡️", 
+                    help="Settled (Green), Pending (Yellow), or Overdue (Red)"
+                ),
+                "CUSTOMER_NAME": "Borrower Name",
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                "CONTACT": "Contact #"
+            },
+            use_container_width=True,
+            hide_index=True
+        )
         # --- 4. PERFORMANCE ANALYTICS ---
         st.write("---")
         col_chart1, col_chart2 = st.columns(2)
