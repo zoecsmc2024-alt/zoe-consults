@@ -504,8 +504,7 @@ elif page == "Insights":
                 st.toast("Expense Recorded!")
                 st.rerun()
             else:
-                
-        st.info("No expense data found. Use the form above to add your first record.")
+                st.info("No expense data found. Use the form above to add your first record.")
 
 
 # --- 2. THE REPAYMENTS PAGE (CLEANED) ---
