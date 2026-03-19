@@ -340,11 +340,6 @@ elif page == "Borrowers":
             target = st.selectbox("Select Client:", options=df['CUSTOMER_NAME'].unique(), key="mgt_select")
             st.info(f"System ready to modify {target}'s records.")
 
-        # --- 4. MANAGEMENT (The fix for your Syntax Error) ---
-        st.write("")
-        with st.expander("🛠️ Manage Records (Edit/Delete)"):
-            target = st.selectbox("Select Client to Modify:", options=df['CUSTOMER_NAME'].unique(), key="mgr_select")
-            st.info(f"Administrative controls active for {target}")
 
     else:
         st.info("Registry is currently empty.")
