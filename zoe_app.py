@@ -310,9 +310,9 @@ elif page == "Borrowers":
     # --- 5. REGISTRATION ---
     with st.popover("➕ Register New Loan", use_container_width=True):
         st.write("Enter new loan details above.")
-            f_name = st.text_input("Borrower Full Name")
-            f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
-            f_rate = st.number_input("Interest Rate (%)", value=10)
+        f_name = st.text_input("Borrower Full Name")
+        f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
+        f_rate = st.number_input("Interest Rate (%)", value=10)
             
             # --- NEW DURATION SELECTOR ---
             f_duration = st.selectbox("Loan Duration", 
