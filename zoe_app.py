@@ -279,23 +279,35 @@ elif page == "Borrowers":
 
         display_df[['Penalty', 'REAL_OUTSTANDING', 'Status']] = display_df.apply(process_row, axis=1)
 
-        # --- 3. TABLE STYLING (Highlight First Row) ---
-        def highlight_latest(row):
-            return ['background-color: #f0f9ff; border-left: 5px solid #0ea5e9'] * len(row) if row.name == 0 else [''] * len(row)
+        # --- 1. DEFINE THE HIGHLIGHT FUNCTION ---
+def highlight_first_row(row):
+    # We apply the style only if the index is 0 (first row)
+    if row.name == 0:
+        return ['background-color: #e0f2fe; border-left: 5px solid #0284c7'] * len(row)
+    return [''] * len(row)
 
-        show_cols = ['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'Penalty', 'DURATION', 'REAL_OUTSTANDING', 'Status']
-        styled_df = display_df[show_cols].reset_index(drop=True).style.apply(highlight_latest, axis=1)
+# --- 2. APPLY STYLING TO THE DATAFRAME ---
+# Create the subset of columns you want to show
+display_subset = display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INTEREST_AMT', 'DURATION', 'REAL_OUTSTANDING', 'Status']]
 
-        st.dataframe(
-            styled_df,
-            column_config={
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                "Penalty": st.column_config.NumberColumn("Late Fee (5%)", format="%,d"),
-                "REAL_OUTSTANDING": st.column_config.NumberColumn("Total Balance", format="UGX %,d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%d%%"),
-            },
-            use_container_width=True, hide_index=True
-        )
+# Reset index to ensure the 'first' row is always index 0
+styled_df = display_subset.reset_index(drop=True).style.apply(highlight_first_row, axis=1)
+
+# --- 3. SHOW THE STYLED TABLE ---
+st.dataframe(
+    styled_df,
+    column_config={
+        "CUSTOMER_NAME": "Client Name",
+        "ISSUED_DT": "Issued",
+        "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+        "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
+        "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
+        "DURATION": "Days",
+        "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+        "Status": "Status"
+    },
+    use_container_width=True, hide_index=True
+)
 
         # --- 4. FIXED INDENTATION FOR MANAGEMENT ---
         st.write("")
