@@ -3,6 +3,7 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 import base64
+import os  # <--- THIS IS THE MISSING PIECE!
 import urllib.parse
 from streamlit_option_menu import option_menu  # <--- MAKE SURE THIS IS HERE
 from datetime import datetime, timedelta  # Ensure ', timedelta' is added here!
