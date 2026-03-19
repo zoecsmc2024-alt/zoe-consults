@@ -286,13 +286,18 @@ elif page == "Borrowers":
         # This will now work because REAL_OUTSTANDING was created above
         display_df['Status'] = display_df.apply(get_status, axis=1)
 
-        # --- 3. SHOW THE TABLE ---
+        # --- 3. SHOW THE TABLE (RESTORED INTEREST) ---
         st.dataframe(
-            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'DURATION', 'REAL_OUTSTANDING', 'Status']],
+            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INTEREST_AMT', 'DURATION', 'REAL_OUTSTANDING', 'Status']],
             column_config={
+                "CUSTOMER_NAME": "Client Name",
+                "ISSUED_DT": "Issued",
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+                "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
+                "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
                 "DURATION": "Days",
                 "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
+                "Status": "Status"
             },
             use_container_width=True, hide_index=True
         )
