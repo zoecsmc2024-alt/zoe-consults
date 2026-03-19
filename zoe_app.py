@@ -276,8 +276,9 @@ elif page == "Overdue Tracker":
                 
                 # Column 3: Red WhatsApp Action
                 clean_p = "".join(filter(str.isdigit, str(row.get('CONTACT', ''))))
+                # --- FIXED: Added a unique 'key' to the button ---
                 if clean_p:
-                    msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan balance of UGX {row['OUTSTANDING_AMOUNT']:,.0f} is overdue. Please reach out to avoid penalties."
+                    msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan balance of UGX {row['OUTSTANDING_AMOUNT']:,.0f} is overdue."
                     wa_url = f"https://wa.me/{clean_p}?text={msg.replace(' ', '%20')}"
                     c3.markdown(f'''
                         <a href="{wa_url}" target="_blank" style="text-decoration:none;">
@@ -288,7 +289,8 @@ elif page == "Overdue Tracker":
                         </a>
                     ''', unsafe_allow_html=True)
                 else:
-                    c3.button("No Phone", disabled=True, use_container_width=True)
+                    # We add key=f"btn_{row['CUSTOMER_NAME']}" so every button is unique!
+                    c3.button("No Phone", disabled=True, use_container_width=True, key=f"no_phone_{row['CUSTOMER_NAME']}")
                 
                 st.divider()
     else:
