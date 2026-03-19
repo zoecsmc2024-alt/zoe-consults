@@ -9,7 +9,7 @@ from streamlit_option_menu import option_menu  # <--- MAKE SURE THIS IS HERE
 from datetime import datetime, timedelta  # Ensure ', timedelta' is added here!
 from fpdf import FPDF  # This stays the same even with fpdf2 installed
 # --- 1. CONFIG & THEME ---
-st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
+st.set_page_config(page_title="ZoeLend Dashboard", layout="wide")
 # --- 0. SECURITY SYSTEM (Line 1) ---
 def check_login():
     if "logged_in" not in st.session_state:
@@ -78,6 +78,21 @@ st.markdown("""
         padding: 0 20px !important;
         font-size: 13px !important;
         background-color: #1E3A8A !important;
+    }
+
+    <style>
+    /* Global Compact Button Style */
+    div.stButton > button {
+        padding: 2px 15px !important;
+        font-size: 0.8rem !important;
+        min-height: 30px !important;
+        width: auto !important;
+    }
+    
+    /* Small Sidebar Logout */
+    [data-testid="stSidebar"] button {
+        font-size: 0.7rem !important;
+        padding: 0px 10px !important;
     }
 </style>
 """, unsafe_allow_html=True)
