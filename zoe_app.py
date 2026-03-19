@@ -396,16 +396,16 @@ display_df['REAL_OUTSTANDING'] = display_df['REMAINING_PRINCIPAL'] + display_df[
  
         
         # Penalty & Status Logic
-        def process_row(row):
-            base_total = row['LOAN_AMOUNT'] + row['INTEREST_AMT']
-            outstanding = base_total - row['AMOUNT_PAID']
-            is_overdue = datetime.now().date() > row['DUE_DT'] and outstanding > 0
-            penalty = (outstanding * 0.05) if is_overdue else 0
-            final_bal = outstanding + penalty
-            status = "✅ SETTLED" if final_bal <= 0 else ("🚩 OVERDUE" if is_overdue else "🔵 ACTIVE")
-            return pd.Series([penalty, final_bal, status], index=['Penalty', 'Balance', 'Status'])
-
-        display_df[['Penalty', 'REAL_OUTSTANDING', 'Status']] = display_df.apply(process_row, axis=1)
+def process_row(row):
+    base_total = row['LOAN_AMOUNT'] + row['INTEREST_AMT']
+    outstanding = base_total - row['AMOUNT_PAID']
+    is_overdue = datetime.now().date() > row['DUE_DT'] and outstanding > 0
+    penalty = (outstanding * 0.05) if is_overdue else 0
+    final_bal = outstanding + penalty
+    status = "✅ SETTLED" if final_bal <= 0 else ("🚩 OVERDUE" if is_overdue else "🔵 ACTIVE")
+    return pd.Series([penalty, final_bal, status], index=['Penalty', 'Balance', 'Status'])
+    
+    display_df[['Penalty', 'REAL_OUTSTANDING', 'Status']] = display_df.apply(process_row, axis=1)
 
         # --- 2. NEW: PROFIT METRICS ---
         total_interest = display_df['INTEREST_AMT'].sum()
