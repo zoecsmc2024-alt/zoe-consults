@@ -456,8 +456,9 @@ display_df['DATE_ISSUED'] = pd.to_datetime(display_df['DATE_ISSUED'])
 display_df['Month'] = display_df['DATE_ISSUED'].dt.strftime('%b %Y')
     # 2. Make sure the columns we want to sum actually exist
 cols_to_sum = {}
-    if 'INTEREST_AMT' in display_df.columns:
-        cols_to_sum['INTEREST_AMT'] = 'sum'
+
+if 'INTEREST_AMT' in display_df.columns:
+    cols_to_sum['INTEREST_AMT'] = 'sum'
     if 'Penalty' in display_df.columns:
         cols_to_sum['Penalty'] = 'sum'
     
