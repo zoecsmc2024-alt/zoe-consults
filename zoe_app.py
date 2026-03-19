@@ -172,87 +172,81 @@ with st.sidebar:
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
 if page == "Overview":
-    st.markdown('<div class="main-title">🛡️ Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
+    # 1. Custom Title with a modern "Glass" effect
+    st.markdown("""
+        <div style="background: #f8fafc; padding: 20px; border-radius: 15px; border-left: 10px solid #1e3a8a; margin-bottom: 30px;">
+            <h1 style="margin:0; color:#0f172a; font-size: 2rem;">🛡️ Zoe Consults IQ</h1>
+            <p style="margin:0; color:#64748b; font-size: 0.9rem; font-weight: 600;">PORTFOLIO REAL-TIME ANALYTICS</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     if df.empty:
         st.warning("🕵️ Your 'Borrowers' sheet appears to be empty.")
     else:
-        # 1. CALCULATIONS
+        # --- CALCULATIONS ---
         total_p = df['LOAN_AMOUNT'].sum()
         total_c = df['AMOUNT_PAID'].sum()
-        # Including Interest in the risk calculation
         df['INTEREST_AMT'] = (df['LOAN_AMOUNT'] * df['INTEREST_RATE']) / 100
         total_expected = total_p + df['INTEREST_AMT'].sum()
         risk = total_expected - total_c
         recovery_rate = (total_c / total_expected) * 100 if total_expected > 0 else 0
 
-        # 2. PREMIUM KPI TILES (Custom HTML)
-        st.markdown(f"""
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
-                <div style="background: linear-gradient(135.47deg, #1E3A8A 0%, #3B82F6 100%); padding: 20px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <p style="margin: 0; font-size: 0.8rem; opacity: 0.8; text-transform: uppercase; font-weight: 600;">Principal Issued</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem;">UGX {total_p:,.0f}</h2>
-                </div>
-                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Total Collected</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #10B981;">UGX {total_c:,.0f}</h2>
-                </div>
-                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Outstanding Risk</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #EF4444;">UGX {risk:,.0f}</h2>
-                </div>
-                <div style="background: #F8FAFC; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px dashed #CBD5E1;">
-                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Recovery Rate</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #1E3A8A;">{recovery_rate:.1f}%</h2>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        # --- KPI ROW (4 Columns) ---
+        k1, k2, k3, k4 = st.columns(4)
+        
+        with k1:
+            st.markdown(f"""<div style="background: #1e3a8a; color: white; padding: 15px; border-radius: 12px;">
+                <p style="font-size: 0.7rem; opacity: 0.8; margin:0;">PRINCIPAL ISSUED</p>
+                <h3 style="margin:0; font-size: 1.4rem;">UGX {total_p:,.0f}</h3>
+            </div>""", unsafe_allow_html=True)
+        
+        with k2:
+            st.markdown(f"""<div style="background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
+                <p style="font-size: 0.7rem; color: #64748b; margin:0;">TOTAL COLLECTED</p>
+                <h3 style="margin:0; font-size: 1.4rem; color: #10b981;">UGX {total_c:,.0f}</h3>
+            </div>""", unsafe_allow_html=True)
+            
+        with k3:
+            st.markdown(f"""<div style="background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
+                <p style="font-size: 0.7rem; color: #64748b; margin:0;">OUTSTANDING RISK</p>
+                <h3 style="margin:0; font-size: 1.4rem; color: #ef4444;">UGX {risk:,.0f}</h3>
+            </div>""", unsafe_allow_html=True)
+            
+        with k4:
+            # Color-coded recovery rate
+            color = "#10b981" if recovery_rate > 70 else "#f59e0b"
+            st.markdown(f"""<div style="background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
+                <p style="font-size: 0.7rem; color: #64748b; margin:0;">RECOVERY RATE</p>
+                <h3 style="margin:0; font-size: 1.4rem; color: {color};">{recovery_rate:.1f}%</h3>
+            </div>""", unsafe_allow_html=True)
 
         st.write("---")
         
-        # 3. ENHANCED RECOVERY CHART
-        st.subheader("📊 Portfolio Performance by Client")
+        # --- CHARTS SECTION (Two-Pane Layout) ---
+        c_left, c_right = st.columns([2, 1])
         
-        # Prepare Data: Show Amount Paid vs Total Debt (Principal + Interest)
-        df_chart = df.copy()
-        df_chart['TOTAL_DEBT'] = df_chart['LOAN_AMOUNT'] + (df_chart['LOAN_AMOUNT'] * df_chart['INTEREST_RATE'] / 100)
-        
-        chart_data = df_chart[['CUSTOMER_NAME', 'TOTAL_DEBT', 'AMOUNT_PAID']].set_index('CUSTOMER_NAME')
-        
-        # Streamlit Bar Chart with specific colors
-        st.bar_chart(
-            chart_data, 
-            color=["#CBD5E1", "#1E3A8A"], # Light gray for total, Deep Blue for paid
-            height=400,
-            use_container_width=True
-        )
-        
-        st.markdown("""
-            <div style="display: flex; gap: 20px; font-size: 0.8rem; color: #64748B; justify-content: center;">
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <div style="width: 12px; height: 12px; background: #CBD5E1; border-radius: 2px;"></div> Total Debt (Incl. Interest)
-                </div>
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <div style="width: 12px; height: 12px; background: #1E3A8A; border-radius: 2px;"></div> Amount Recovered
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        with c_left:
+            st.subheader("📊 Performance by Client")
+            df_chart = df.copy()
+            df_chart['TOTAL_DEBT'] = df_chart['LOAN_AMOUNT'] + (df_chart['LOAN_AMOUNT'] * df_chart['INTEREST_RATE'] / 100)
+            chart_data = df_chart[['CUSTOMER_NAME', 'TOTAL_DEBT', 'AMOUNT_PAID']].set_index('CUSTOMER_NAME')
+            st.bar_chart(chart_data, color=["#cbd5e1", "#1e3a8a"], height=300)
 
-        # 4. RECENT ACTIVITY (Mini Ledger)
-        st.write("")
-        st.write("")
-        st.subheader("🕒 Recent Payments")
-        if not pay_df.empty:
-            st.dataframe(
-                pay_df.sort_values(by='DATE', ascending=False).head(5),
-                column_config={
-                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d"),
-                    "DATE": "Date"
-                },
-                use_container_width=True, hide_index=True
-            )
-        else:
-            st.info("No payments recorded yet.")
+        with c_right:
+            st.subheader("🕒 Recent Payments")
+            if not pay_df.empty:
+                # Mini table for quick glance
+                recent = pay_df.sort_values(by='DATE', ascending=False).head(6)
+                st.dataframe(recent[['CUSTOMER_NAME', 'AMOUNT_PAID']], 
+                             column_config={"AMOUNT_PAID": st.column_config.NumberColumn(format="%,d")},
+                             use_container_width=True, hide_index=True)
+            else:
+                st.info("No payments yet.")
+
+        # --- OVERDUE ALERT AREA ---
+        overdue_count = len(df[df['OUTSTANDING_AMOUNT'] > 0]) # Simplify logic for now
+        if overdue_count > 0:
+            st.info(f"💡 System Note: You have **{overdue_count}** active loan files currently being tracked.")
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
