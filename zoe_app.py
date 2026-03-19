@@ -166,88 +166,66 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 # --- 4. PAGE LOGIC (RESTORATION) ---
 
-if page == "Overview":
-    st.markdown('<div class="main-title">🛡️ Zoe Consults Executive Summary</div>', unsafe_allow_html=True)
+elif page == "Home":
+    st.markdown('<div class="main-title">🏛️ Zoe Consults Executive Overview</div>', unsafe_allow_html=True)
     
-    if df.empty:
-        st.warning("🕵️ Your 'Borrowers' sheet appears to be empty.")
-    else:
-        # 1. CALCULATIONS
-        total_p = df['LOAN_AMOUNT'].sum()
-        total_c = df['AMOUNT_PAID'].sum()
-        # Including Interest in the risk calculation
-        df['INTEREST_AMT'] = (df['LOAN_AMOUNT'] * df['INTEREST_RATE']) / 100
-        total_expected = total_p + df['INTEREST_AMT'].sum()
-        risk = total_expected - total_c
-        recovery_rate = (total_c / total_expected) * 100 if total_expected > 0 else 0
+    # --- 1. THE BIG NUMBERS (KPIs) ---
+    total_capital = df['LOAN_AMOUNT'].sum()
+    total_paid = df['AMOUNT_PAID'].sum()
+    total_outstanding = df['OUTSTANDING_AMOUNT'].sum()
+    
+    # Calculate Repayment Percentage
+    repayment_rate = (total_paid / total_capital * 100) if total_capital > 0 else 0
+    
+    # Display top metrics in professional cards
+    kpi1, kpi2, kpi3 = st.columns(3)
+    with kpi1:
+        st.metric("💰 Total Capital Out", f"UGX {total_capital:,.0f}")
+    with kpi2:
+        st.metric("📈 Total Collected", f"UGX {total_paid:,.0f}", delta=f"{repayment_rate:.1f}% Rate")
+    with kpi3:
+        st.metric("🚨 Total At Risk", f"UGX {total_outstanding:,.0f}", delta="-Outstanding", delta_color="inverse")
 
-        # 2. PREMIUM KPI TILES (Custom HTML)
-        st.markdown(f"""
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
-                <div style="background: linear-gradient(135.47deg, #1E3A8A 0%, #3B82F6 100%); padding: 20px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <p style="margin: 0; font-size: 0.8rem; opacity: 0.8; text-transform: uppercase; font-weight: 600;">Principal Issued</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem;">UGX {total_p:,.0f}</h2>
-                </div>
-                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Total Collected</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #10B981;">UGX {total_c:,.0f}</h2>
-                </div>
-                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Outstanding Risk</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #EF4444;">UGX {risk:,.0f}</h2>
-                </div>
-                <div style="background: #F8FAFC; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px dashed #CBD5E1;">
-                    <p style="margin: 0; font-size: 0.8rem; color: #64748B; text-transform: uppercase; font-weight: 600;">Recovery Rate</p>
-                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #1E3A8A;">{recovery_rate:.1f}%</h2>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+    st.write("---")
 
-        st.write("---")
-        
-        # 3. ENHANCED RECOVERY CHART
-        st.subheader("📊 Portfolio Performance by Client")
-        
-        # Prepare Data: Show Amount Paid vs Total Debt (Principal + Interest)
-        df_chart = df.copy()
-        df_chart['TOTAL_DEBT'] = df_chart['LOAN_AMOUNT'] + (df_chart['LOAN_AMOUNT'] * df_chart['INTEREST_RATE'] / 100)
-        
-        chart_data = df_chart[['CUSTOMER_NAME', 'TOTAL_DEBT', 'AMOUNT_PAID']].set_index('CUSTOMER_NAME')
-        
-        # Streamlit Bar Chart with specific colors
-        st.bar_chart(
-            chart_data, 
-            color=["#CBD5E1", "#1E3A8A"], # Light gray for total, Deep Blue for paid
-            height=400,
-            use_container_width=True
+    # --- 2. THE VISUAL CHARTS (Using Navy Blue Palette) ---
+    import plotly.express as px
+    
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        st.markdown("#### 🏦 Portfolio Composition")
+        # Pie Chart: Paid vs Outstanding
+        fig_pie = px.pie(
+            values=[total_paid, total_outstanding], 
+            names=['Collected', 'Outstanding'],
+            color_discrete_sequence=['#1e3a8a', '#3b82f6'], # Navy and Blue
+            hole=0.5
         )
-        
-        st.markdown("""
-            <div style="display: flex; gap: 20px; font-size: 0.8rem; color: #64748B; justify-content: center;">
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <div style="width: 12px; height: 12px; background: #CBD5E1; border-radius: 2px;"></div> Total Debt (Incl. Interest)
-                </div>
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <div style="width: 12px; height: 12px; background: #1E3A8A; border-radius: 2px;"></div> Amount Recovered
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        fig_pie.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-        # 4. RECENT ACTIVITY (Mini Ledger)
-        st.write("")
-        st.write("")
-        st.subheader("🕒 Recent Payments")
+    with chart_col2:
+        st.markdown("#### 📅 Monthly Collection Trend")
+        # Bar Chart: Payments over time
         if not pay_df.empty:
-            st.dataframe(
-                pay_df.sort_values(by='DATE', ascending=False).head(5),
-                column_config={
-                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d"),
-                    "DATE": "Date"
-                },
-                use_container_width=True, hide_index=True
+            monthly_trend = pay_df.groupby(pay_df['DATE'].astype(str).str[:7])['AMOUNT_PAID'].sum().reset_index()
+            fig_trend = px.bar(
+                monthly_trend, 
+                x='DATE', 
+                y='AMOUNT_PAID',
+                color_discrete_sequence=['#1e3a8a']
             )
+            fig_trend.update_layout(xaxis_title="Month", yaxis_title="Amount (UGX)", margin=dict(t=20))
+            st.plotly_chart(fig_trend, use_container_width=True)
         else:
-            st.info("No payments recorded yet.")
+            st.info("Start logging payments to see trends.")
+
+    # --- 3. TOP BORROWERS LIST ---
+    st.write("---")
+    st.markdown("#### 🏆 Top 5 Active Portfolios")
+    top_borrowers = df.nlargest(5, 'LOAN_AMOUNT')[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT']]
+    st.table(top_borrowers)
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
