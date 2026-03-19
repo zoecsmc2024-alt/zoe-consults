@@ -481,10 +481,11 @@ def process_row(row):
             hide_index=True
         )
     else:
-        st.warning("⚠️ No records found in the Borrowers sheet.")
-    
+        st.info("No borrowers found. Use 'New Loan' above to begin.")
+
+# --- 5. INSIGHTS PAGE (NOW LINED UP CORRECTLY) ---
 elif page == "Insights":
-   st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">📊 Financial Performance</div>', unsafe_allow_html=True)
     
     # CALCULATE REVENUE (Interest Collected)
     # Note: We only count Interest/Penalties as 'Income', not the Principal
