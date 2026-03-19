@@ -252,54 +252,47 @@ elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # --- 1. DATA PROCESSING ---
+        # --- 1. DATA PREPARATION (MUST BE IN THIS ORDER) ---
         display_df = df.copy()
-        # Ensure numeric types for calculation
-        display_df['LOAN_AMOUNT'] = pd.to_numeric(display_df['LOAN_AMOUNT'], errors='coerce')
-        display_df['INTEREST_RATE'] = pd.to_numeric(display_df['INTEREST_RATE'], errors='coerce')
-        display_df['AMOUNT_PAID'] = pd.to_numeric(display_df['AMOUNT_PAID'], errors='coerce')
         
+        # Ensure numbers are treated as numbers
+        display_df['LOAN_AMOUNT'] = pd.to_numeric(display_df['LOAN_AMOUNT'], errors='coerce').fillna(0)
+        display_df['INTEREST_RATE'] = pd.to_numeric(display_df['INTEREST_RATE'], errors='coerce').fillna(0)
+        display_df['AMOUNT_PAID'] = pd.to_numeric(display_df['AMOUNT_PAID'], errors='coerce').fillna(0)
+        
+        # Check for DURATION column (fallback to 30 for old rows)
+        if 'DURATION' not in display_df.columns:
+            display_df['DURATION'] = 30
+        else:
+            display_df['DURATION'] = pd.to_numeric(display_df['DURATION'], errors='coerce').fillna(30)
+
+        # Create the REAL_OUTSTANDING column (This fixes the KeyError!)
         display_df['INTEREST_AMT'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
         display_df['TOTAL_EXPECTED'] = display_df['LOAN_AMOUNT'] + display_df['INTEREST_AMT']
         display_df['REAL_OUTSTANDING'] = display_df['TOTAL_EXPECTED'] - display_df['AMOUNT_PAID']
         
-        # --- SMART DUE DATE LOGIC ---
-        display_df = df.copy()
-        
-        # Fallback to 30 if 'DURATION' column is missing in old records
-        if 'DURATION' not in display_df.columns:
-            display_df['DURATION'] = 30
-            
+        # Date Logic
         display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
-        
-        # Calculate Due Date based on the specific duration for each row
         display_df['DUE_DT'] = display_df.apply(
             lambda x: x['ISSUED_DT'] + pd.Timedelta(days=int(x['DURATION'])), axis=1
         )
         
+        # --- 2. STATUS BADGE LOGIC ---
         def get_status(row):
             if row['REAL_OUTSTANDING'] <= 0: return "✅ SETTLED"
             if datetime.now().date() > row['DUE_DT']: return "🚩 OVERDUE"
             return "🔵 ACTIVE"
+        
+        # This will now work because REAL_OUTSTANDING was created above
         display_df['Status'] = display_df.apply(get_status, axis=1)
 
-        # --- 2. THE TABLE (WITH INTEREST RATE RESTORED) ---
+        # --- 3. SHOW THE TABLE ---
         st.dataframe(
-            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INTEREST_AMT', 'AMOUNT_PAID', 'REAL_OUTSTANDING', 'Status']],
+            display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'DURATION', 'REAL_OUTSTANDING', 'Status']],
             column_config={
-                "CUSTOMER_NAME": "Client Name",
-                "ISSUED_DT": "Issued",
                 "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
-                "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
-                "AMOUNT_PAID": st.column_config.ProgressColumn(
-                    "Recovery Progress",
-                    format="UGX %,d",
-                    min_value=0,
-                    max_value=int(display_df['TOTAL_EXPECTED'].max()),
-                ),
+                "DURATION": "Days",
                 "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-                "Status": "Status"
             },
             use_container_width=True, hide_index=True
         )
