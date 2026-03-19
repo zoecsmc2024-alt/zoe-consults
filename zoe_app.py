@@ -258,29 +258,71 @@ elif page == "Borrowers":
     with header_col1:
         # We use a popover here to keep the form hidden until needed
         with st.popover("➕ New Loan", use_container_width=True):
-            with st.form("top_register_form", clear_on_submit=True):
+            with st.form("expanded_register_form", clear_on_submit=True):
                 st.markdown("### 📝 Register New Borrower")
-                f_name = st.text_input("Borrower Full Name")
-                f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
                 
-                c1, c2 = st.columns(2)
-                with c1:
+                # --- SECTION 1: PERSONAL DETAILS ---
+                st.markdown("##### 👤 Personal Details")
+                col_name1, col_name2 = st.columns(2)
+                with col_name1:
+                    f_first = st.text_input("First Name")
+                    f_nin = st.text_input("NIN (National ID)")
+                    f_country = st.text_input("Country", value="Uganda")
+                with col_name2:
+                    f_last = st.text_input("Last Name")
+                    f_gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+                    f_contact = st.text_input("Contact Number (WhatsApp)")
+
+                # --- SECTION 2: BUSINESS & WORK ---
+                st.markdown("##### 💼 Business & Work")
+                col_biz1, col_biz2 = st.columns(2)
+                with col_biz1:
+                    f_biz_name = st.text_input("Business Name")
+                    f_work_status = st.selectbox("Working Status", ["Employed", "Self-Employed", "Unemployed", "Student"])
+                with col_biz2:
+                    f_email = st.text_input("Email Address")
+                    f_nok = st.text_input("Next of Kin Name & Contact")
+
+                # --- SECTION 3: LOAN DETAILS ---
+                st.markdown("##### 💰 Loan Details")
+                f_type = st.selectbox("Loan Type", ["Business Loan", "Logbook Loan", "Personal Loan", "Salary Loan", "Emergency Loan"])
+                
+                col_loan1, col_loan2, col_loan3 = st.columns(3)
+                with col_loan1:
+                    f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
+                with col_loan2:
                     f_rate = st.number_input("Interest %", value=10)
+                with col_loan3:
                     f_dur = st.selectbox("Days", [15, 30, 45, 60, 90], index=1)
-                with c2:
-                    f_date = st.date_input("Date Issued", datetime.now())
                 
+                f_date = st.date_input("Date Issued", datetime.now())
+                
+                # Combine Names for the Main Database
+                full_name = f"{f_first} {f_last}".strip()
+
                 if st.form_submit_button("✅ Save & Disburse", use_container_width=True):
-                    if f_name and f_amt > 0:
+                    if f_first and f_last and f_amt > 0:
                         new_id = int(df['SN'].max() + 1) if not df.empty else 1
                         starting_bal = f_amt + (f_amt * f_rate / 100)
-                        # Add new row to your sheet
-                        new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_dur]], 
-                                             columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
+                        
+                        # NEW DATA ROW (Ensure these columns exist in your Google Sheet)
+                        new_data = [
+                            new_id, full_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_dur,
+                            f_nin, f_nok, f_country, f_type, f_biz_name, f_email, f_contact, f_gender, f_work_status
+                        ]
+                        
+                        # Column names must match your Sheet headers exactly
+                        new_cols = [
+                            'SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION',
+                            'NIN', 'NEXT_OF_KIN', 'COUNTRY', 'LOAN_TYPE', 'BUSINESS_NAME', 'EMAIL', 'CONTACT', 'GENDER', 'WORKING_STATUS'
+                        ]
+                        
+                        new_row = pd.DataFrame([new_data], columns=new_cols)
                         conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                        st.success("Loan Recorded!")
+                        st.success(f"Loan for {full_name} has been synced!")
                         st.rerun()
-
+                    else:
+                        st.error("Please fill in First Name, Last Name, and Amount.")
     with header_col2:
         # Quick Search Bar added next to the button for better utility
         search_query = st.text_input("", placeholder="🔍 Search borrower name...", label_visibility="collapsed")
