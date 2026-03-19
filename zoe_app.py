@@ -81,20 +81,28 @@ def get_setting(prop, default):
         return default
     except:
         return default
-# --- 1. THE RESIZED LOGO ---
+import os
+
+# --- 1. RESOLVE THE LOGO PATH ---
+# This line finds the folder where zoe_app.py is sitting
+current_dir = os.path.dirname(__file__)
+logo_path = os.path.join(current_dir, "Capture.PNG")
+
 with st.sidebar:
     st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
     
-    # We set width=150 to keep it professional and leave room for the menu
-    st.image("Capture.PNG", width=150) 
-    
-    # Reduce the margin-top of your title to pull everything up
-    st.markdown(f"""
-            <h1 style="color: #0f172a; font-size: 1.2rem; font-weight: 800; margin-top: -10px;">{brand_name}</h1>
-            <p style="color: #64748b; font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; margin: 0;">{brand_tagline}</p>
-        </div>
-        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 5px 0 15px 0;">
-    """, unsafe_allow_html=True)
+    # 2. ATTEMPT TO LOAD THE LOGO
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=150)
+    else:
+        # If the file still isn't found, show a clean emoji instead of crashing
+        st.markdown("""
+            <div style="background: linear-gradient(135deg, #00A3E0, #1E3A8A); 
+                        width: 80px; height: 80px; border-radius: 20px; 
+                        display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+                <span style="font-size: 40px; color: white;">🛡️</span>
+            </div>
+        """, unsafe_allow_html=True)
     # ... rest of your option_menu ...
 
     # 2. THE OPTION MENU (Modern Styling)
