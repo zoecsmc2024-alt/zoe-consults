@@ -8,12 +8,7 @@ from streamlit_option_menu import option_menu  # <--- MAKE SURE THIS IS HERE
 from datetime import datetime, timedelta  # Ensure ', timedelta' is added here!
 from fpdf import FPDF  # This stays the same even with fpdf2 installed
 # --- 1. CONFIG & THEME ---
-st.set_page_config(
-    page_title="Zoe Consults Admin",
-    page_icon="🏛️",
-    layout="wide",
-    initial_sidebar_state="expanded"  # <--- THIS IS THE MAGIC LINE
-)
+st.set_page_config(page_title="Zoe Consults Admin", layout="wide")
 
 st.markdown("""
 <style>
