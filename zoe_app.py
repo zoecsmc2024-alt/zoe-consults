@@ -10,8 +10,9 @@ from fpdf import FPDF  # This stays the same even with fpdf2 installed
 # --- 1. CONFIG & THEME ---
 st.set_page_config(
     page_title="Zoe Consults Admin",
+    page_icon="🏛️",
     layout="wide",
-    initial_sidebar_state="expanded" # This keeps it open by default!
+    initial_sidebar_state="expanded"  # <--- THIS IS THE MAGIC LINE
 )
 
 st.markdown("""
