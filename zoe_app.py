@@ -441,7 +441,7 @@ elif page == "Payments":
                 if p_amt > 0 and p_ref:
                     # 1. Start the 'Thinking' animation
                     with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
-            try:
+        try:
                 # 1. Create the payment row
                 new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                    columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
