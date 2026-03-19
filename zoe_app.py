@@ -408,8 +408,8 @@ def process_row(row):
     display_df[['Penalty', 'REAL_OUTSTANDING', 'Status']] = display_df.apply(process_row, axis=1)
 
         # --- 2. NEW: PROFIT METRICS ---
-        total_interest = display_df['INTEREST_AMT'].sum()
-        total_penalties = display_df['Penalty'].sum()
+    total_interest = display_df['INTEREST_AMT'].sum()
+    total_penalties = display_df['Penalty'].sum()
         
         m1, m2, m3 = st.columns(3)
         m1.metric("Total Interest Earned", f"UGX {total_interest:,.0f}")
