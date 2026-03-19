@@ -143,8 +143,8 @@ page = option_menu(
 )
 
     # 3. SIDEBAR FOOTER & LOGOUT
-    st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True) # Pushes logout to bottom
-    st.write("---")
+st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True) # Pushes logout to bottom
+st.write("---")
     
     # Modern Logout Button
     if st.button("🚪 Terminate Session", use_container_width=True):
