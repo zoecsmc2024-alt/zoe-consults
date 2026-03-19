@@ -846,45 +846,61 @@ elif page == "Ledger":
             st.session_state.pdf_ready = False
             st.session_state.pdf_data = None
 
-        # --- 1. SESSION STATE ---
+        # --- 1. STATE INITIALIZATION ---
         if 'pdf_ready' not in st.session_state:
             st.session_state.pdf_ready = False
-            st.session_state.pdf_base64 = None
+            st.session_state.pdf_base64 = ""
 
-        # --- 2. THE GENERATION BUTTON ---
-        if st.button("📑 Prepare PDF Statement", use_container_width=True, type="primary", key="btn_gen_final"):
-            from fpdf import FPDF
-            import base64
-            
-            # ... (Insert your PDF Class & Content Logic here) ...
-            # Ensure pdf.output() is called
-            
-            raw_pdf_bytes = pdf.output()
-            # Convert to Base64 (The Failsafe Part)
-            b64_pdf = base64.b64encode(raw_pdf_bytes).decode()
-            
-            st.session_state.pdf_base64 = b64_pdf
-            st.session_state.pdf_ready = True
-            st.rerun()
+        # --- 2. THE BUTTONS (Now Smaller & Professional) ---
+        col_btns1, col_btns2 = st.columns([1, 1])
+        
+        with col_btns1:
+            if st.button("📄 Prepare Statement", use_container_width=True, key="prep_btn"):
+                from fpdf import FPDF
+                import base64
+                
+                # --- PDF Generation Logic ---
+                is_overdue = loan_info['OUTSTANDING_AMOUNT'] > 0
+                class PDF(FPDF):
+                    def header(self):
+                        self.set_fill_color(30, 58, 138)
+                        self.rect(0, 0, 210, 40, 'F')
+                        self.set_text_color(255, 255, 255)
+                        self.set_font("Arial", 'B', 16)
+                        self.set_xy(10, 10)
+                        self.cell(0, 10, f"{brand_name} LTD", ln=True)
+                
+                pdf = PDF()
+                pdf.add_page()
+                pdf.set_font("Arial", size=12)
+                pdf.cell(0, 10, f"Statement for: {target_client}", ln=True)
+                # ... (You can add back your full profile/table code here) ...
+                
+                # Encode to Base64 to bypass the " Diva" API errors
+                b64 = base64.b64encode(pdf.output()).decode()
+                st.session_state.pdf_base64 = b64
+                st.session_state.pdf_ready = True
+                st.rerun()
 
-        # --- 3. THE DOWNLOAD LINK (New approach) ---
+        with col_btns2:
+            if st.session_state.pdf_ready:
+                # This is the actual download link, styled to look like a small grey button
+                st.markdown(f'''
+                    <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
+                       download="Zoe_{target_client}.pdf" style="text-decoration:none;">
+                        <div style="background-color:#e2e8f0; color:#1e293b; padding:8px; 
+                                    border-radius:5px; text-align:center; font-size:14px; 
+                                    font-weight:bold; border:1px solid #cbd5e1;">
+                            📥 Download Now
+                        </div>
+                    </a>
+                ''', unsafe_allow_html=True)
+            else:
+                st.button("📥 Download", disabled=True, use_container_width=True)
+
+        # --- 3. REFRESH BUTTON (To clear and start over) ---
         if st.session_state.pdf_ready:
-            st.success("✅ Statement Prepared!")
-            
-            # We create a custom HTML link that acts like a button
-            button_html = f'''
-                <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
-                   download="Zoe_Statement_{target_client}.pdf" 
-                   style="text-decoration:none;">
-                    <div style="background-color:#1e3a8a; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;">
-                        📥 Click to Download PDF
-                    </div>
-                </a>
-            '''
-            st.markdown(button_html, unsafe_allow_html=True)
-            
-            # Reset button to clear for the next client
-            if st.button("🔄 Clear & Done", key="clear_pdf"):
+            if st.button("🔄 Clear", type="secondary", icon="🗑️"):
                 st.session_state.pdf_ready = False
                 st.rerun()
 
