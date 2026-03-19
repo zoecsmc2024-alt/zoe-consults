@@ -757,59 +757,50 @@ elif page == "Collateral":
 elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
     
-    # --- 1. SESSION STATE (The Brain) ---
-    if 'pdf_ready' not in st.session_state:
-        st.session_state.pdf_ready = False
-        st.session_state.pdf_base64 = ""
+    # --- 1. STATE ---
+    if 'ready' not in st.session_state:
+        st.session_state.ready = False
+        st.session_state.b64_str = ""
 
-    st.write("---")
-    
-    # --- 2. THE ACTION BUTTON (Full Width & Safe) ---
-    if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="prep_final_safety"):
+    # --- 2. BUTTON ---
+    if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="btn_final_v5"):
         from fpdf import FPDF
         import base64
         
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, f"ZOE CONSULTS - STATEMENT", ln=True)
-        pdf.set_font("Arial", size=10)
+        pdf.cell(0, 10, "ZOE CONSULTS LTD", ln=True, align='C')
+        pdf.set_font("Arial", size=12)
         pdf.cell(0, 10, f"Client: {target_client}", ln=True)
-        pdf.cell(0, 10, f"Balance: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
+        pdf.cell(0, 10, f"Date: {datetime.now().strftime('%Y-%m-%d')}", ln=True)
         
-        # Logic: Convert to base64 string
-        b64 = base64.b64encode(pdf.output()).decode()
-        st.session_state.pdf_base64 = b64
-        st.session_state.pdf_ready = True
+        # Binary to String conversion
+        pdf_bytes = pdf.output()
+        st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
+        st.session_state.ready = True
         st.rerun()
 
-    # --- 3. THE DOWNLOAD LINK (Appears right below) ---
-    if st.session_state.pdf_ready:
-        st.success("✅ Statement Prepared!")
-        download_html = f'''
-            <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
-               download="Zoe_Statement_{target_client}.pdf" style="text-decoration:none;">
+    # --- 3. THE LINK (The part that was crashing) ---
+    if st.session_state.ready:
+        st.success("✅ Statement Ready!")
+        
+        # Using the exact name 'b64_str' from above
+        link_html = f'''
+            <a href="data:application/pdf;base64,{st.session_state.b64_str}" 
+               download="Statement_{target_client}.pdf" style="text-decoration:none;">
                 <div style="background-color:#1e3a8a; color:white; padding:12px; 
-                            border-radius:8px; text-align:center; font-weight:bold;">
-                    📥 Click to Download PDF Now
+                            border-radius:8px; text-align:center; font-weight:bold; cursor:pointer;">
+                    📥 CLICK TO DOWNLOAD PDF
                 </div>
             </a>
         '''
-        st.markdown(download_html, unsafe_allow_html=True)
+        st.markdown(link_html, unsafe_allow_html=True)
         
         if st.button("🗑️ Reset", use_container_width=True):
-            st.session_state.pdf_ready = False
+            st.session_state.ready = False
+            st.session_state.b64_str = ""
             st.rerun()
-        # --- 3. WHATSAPP SECTION ---
-        st.write("")
-        c_phone = str(loan_info.get('CONTACT', ''))
-        if c_phone:
-            wa_msg = f"Hello {target_client}, your statement is ready."
-            wa_url = f"https://wa.me/{c_phone.replace('+', '')}?text={wa_msg.replace(' ', '%20')}"
-            st.link_button("💬 Open WhatsApp Chat", wa_url, use_container_width=True)
-
-    else:
-        st.info("No records found.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
