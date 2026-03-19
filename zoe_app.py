@@ -478,7 +478,7 @@ elif page == "Borrowers":
         with st.expander("🛠️ Manage Records (Edit/Delete)"):
             target = st.selectbox("Select Client:", options=df['CUSTOMER_NAME'].unique(), key="mgt_select")
             st.info(f"System ready to modify {target}'s records.")
-        else:
+    else:
         st.info("Registry is currently empty.")
 
      elif page == "Insights":
