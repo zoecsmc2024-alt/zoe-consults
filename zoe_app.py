@@ -478,30 +478,27 @@ elif page == "Borrowers":
     st.subheader("📈 Revenue Trend")
     
     # 1. Prepare the data safely
+    # 1. We must use 'DATE_ISSUED' because that is what your sheet uses
     try:
         chart_df = display_df.copy()
-        chart_df['DATE'] = pd.to_datetime(chart_df['DATE'])
-        chart_df['Month'] = chart_df['DATE'].dt.strftime('%b %Y')
+        chart_df['DATE_ISSUED'] = pd.to_datetime(chart_df['DATE_ISSUED'])
+        chart_df['Month'] = chart_df['DATE_ISSUED'].dt.strftime('%b %Y')
         
-        # Check if we have columns to chart
-        if 'INTEREST_AMT' in chart_df.columns:
-            monthly_rev = chart_df.groupby('Month')['INTEREST_AMT'].sum().reset_index()
+        # 2. Check for Interest Data
+        if 'INTEREST' in chart_df.columns:  # Your column name is 'INTEREST' in the image
+            monthly_rev = chart_df.groupby('Month')['INTEREST'].sum().reset_index()
             
             # Sort chronologically
             monthly_rev['Date_Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
             monthly_rev = monthly_rev.sort_values('Date_Sort')
             
-            # 2. Display the chart
-            if not monthly_rev.empty:
-                st.bar_chart(data=monthly_rev, x='Month', y='INTEREST_AMT', color="#00A3E0")
-            else:
-                st.info("No monthly revenue data available yet.")
+            # 3. Display the chart
+            st.bar_chart(data=monthly_rev, x='Month', y='INTEREST', color="#00A3E0")
         else:
-            st.warning("Interest data column not found.")
+            st.warning("Interest column not found.")
             
     except Exception as e:
-        st.error(f"Chart Error: Please check your Date column format. Error: {e}")
-
+        st.error(f"Chart Error: {e}")
 # --- End of Insights Page ---
 
 elif page == "Insights":
