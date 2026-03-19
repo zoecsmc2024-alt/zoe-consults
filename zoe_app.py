@@ -320,19 +320,18 @@ elif page == "Borrowers":
                                   index=1, 
                                   format_func=lambda x: f"{x} Days")
         f_date = st.date_input("Date Issued", datetime.now())
-            
-            if st.form_submit_button("✅ Disburse & Sync", use_container_width=True):
-                if f_name and f_amt > 0:
-                    new_id = int(df['SN'].max() + 1) if not df.empty else 1
-                    starting_bal = f_amt + (f_amt * f_rate / 100)
+        
+        if st.form_submit_button("✅ Disburse & Sync", use_container_width=True):
+            if f_name and f_amt > 0:
+                new_id = int(df['SN'].max() + 1) if not df.empty else 1
+                starting_bal = f_amt + (f_amt * f_rate / 100)
                     
-                    # Add 'DURATION' to your columns
-                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_duration]], 
-                                         columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
-                    
-                    conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                    st.success(f"Loan created for {f_duration} days.")
-                    st.rerun()
+    # Add 'DURATION' to your columns
+                new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_duration]], 
+                                       columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
+                conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
+                st.success(f"Loan created for {f_duration} days.")
+                st.rerun()
 
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
