@@ -101,8 +101,8 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     
     st.markdown(f"""
-            <h1 style="color: #0f172a; font-size: 1.5rem; font-weight: 800; margin: 0;">{brand_name}</h1>
-            <p style="color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0;">{brand_tagline}</p>
+            <h1 style="color: #00A3E0; font-size: 1.5rem; font-weight: 800; margin: 0;">{brand_name}</h1>
+            <p style="color: #1E3A8A; font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; margin: 0;">{brand_tagline}</p>
         </div>
         <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 10px 0 20px 0;">
     """, unsafe_allow_html=True)
