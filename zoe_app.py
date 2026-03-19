@@ -767,6 +767,53 @@ elif page == "Ledger":
         c3.metric("Total Paid", f"UGX {client_info['AMOUNT_PAID']:,.0f}")
         c4.metric("Balance", f"UGX {bal:,.0f}", delta_color="inverse")
 
+        from fpdf import FPDF
+import io
+
+# ... inside your Ledger page logic ...
+
+if not client_payments.empty:
+    # 1. GENERATE PDF BUTTON
+    if st.button("📄 Generate PDF Statement", use_container_width=True):
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        
+        # Header
+        pdf.cell(200, 10, txt=f"{brand_name} - Official Statement", ln=True, align='C')
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt=f"Client: {target_client}", ln=True, align='L')
+        pdf.cell(200, 10, txt=f"Date: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='L')
+        pdf.ln(10)
+        
+        # Table Headers
+        pdf.set_fill_color(200, 220, 255)
+        pdf.cell(60, 10, "Date", 1, 0, 'C', True)
+        pdf.cell(80, 10, "Reference", 1, 0, 'C', True)
+        pdf.cell(50, 10, "Amount (UGX)", 1, 1, 'C', True)
+        
+        # Table Rows
+        for index, row in client_payments.iterrows():
+            pdf.cell(60, 10, str(row['DATE']), 1)
+            pdf.cell(80, 10, str(row['REF']), 1)
+            pdf.cell(50, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
+            
+        # Total Summary
+        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(200, 10, txt=f"REMAINING BALANCE: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True, align='R')
+        
+        # Output as bytes for Streamlit
+        html_pdf = pdf.output(dest='S').encode('latin-1')
+        
+        st.download_button(
+            label="⬇️ Download PDF to Send via WhatsApp",
+            data=html_pdf,
+            file_name=f"Statement_{target_client}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+
         # 5. WHATSAPP BUTTON
         message = (
             f"Hello%20{target},%20this%20is%20Zoe%20Consults.%0A%0A"
