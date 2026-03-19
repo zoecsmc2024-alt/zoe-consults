@@ -283,44 +283,6 @@ if page == "Overview":
         if overdue_count > 0:
             st.info(f"💡 System Note: You have **{overdue_count}** active loan files currently being tracked.")
 
-elif page == "Insights":
-    st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
-    
-    # CALCULATE REVENUE (Interest Collected)
-    # Note: We only count Interest/Penalties as 'Income', not the Principal
-    # 1. First, create the INTEREST_AMT column so it exists in the app's memory
-    df['INTEREST_AMT'] = (df['LOAN_AMOUNT'] * df['INTEREST_RATE']) / 100
-    
-    # 2. Now you can safely sum it up
-    total_interest_earned = df['INTEREST_AMT'].sum()
-    
-    # 3. Handle Expenses safety check
-    if not exp_df.empty and 'AMOUNT' in exp_df.columns:
-        total_expenses = exp_df['AMOUNT'].sum()
-    else:
-        total_expenses = 0
-        
-    net_profit = total_interest_earned - total_expenses
-    # KPI TILES
-    i1, i2, i3 = st.columns(3)
-    i1.metric("Gross Revenue (Interest)", f"UGX {total_interest_earned:,.0f}")
-    i2.metric("Total Operating Costs", f"UGX {total_expenses:,.0f}", delta=f"-{total_expenses:,.0f}", delta_color="inverse")
-    i3.metric("Net Profit", f"UGX {net_profit:,.0f}", delta=f"{(net_profit/total_interest_earned*100):.1f}% Margin" if total_interest_earned > 0 else "0%")
-
-    st.write("---")
-    
-    # EXPENSE ENTRY FORM (Keep it small!)
-    with st.expander("💸 Record New Business Expense"):
-        with st.form("expense_form", clear_on_submit=True):
-            e_cat = st.selectbox("Category", ["Data/Internet", "Transport", "Marketing", "Rent", "Taxes", "Other"])
-            e_amt = st.number_input("Amount (UGX)", min_value=0, step=5000)
-            e_desc = st.text_input("Note (e.g. Monthly MTN Bundle)")
-            if st.form_submit_button("Post Expense", use_container_width=True):
-                new_e = pd.DataFrame([[str(datetime.now().date()), e_cat, e_desc, e_amt]], 
-                                    columns=['DATE', 'CATEGORY', 'DESCRIPTION', 'AMOUNT'])
-                conn.update(worksheet="Expenses", data=pd.concat([exp_df, new_e], ignore_index=True))
-                st.toast("Expense Recorded!")
-                st.rerun()
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
@@ -503,8 +465,57 @@ elif page == "Borrowers":
     else:
         st.info("Registry is currently empty.")
 
+elif page == "Insights":
+    st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
+    
+    # CALCULATE REVENUE (Interest Collected)
+    # Note: We only count Interest/Penalties as 'Income', not the Principal
+    # 1. First, create the INTEREST_AMT column so it exists in the app's memory
+    df['INTEREST_AMT'] = (df['LOAN_AMOUNT'] * df['INTEREST_RATE']) / 100
+    
+    # 2. Now you can safely sum it up
+    total_interest_earned = df['INTEREST_AMT'].sum()
+    
+    # 3. Handle Expenses safety check
+    if not exp_df.empty and 'AMOUNT' in exp_df.columns:
+        total_expenses = exp_df['AMOUNT'].sum()
+    else:
+        total_expenses = 0
+        
+    net_profit = total_interest_earned - total_expenses
+    # KPI TILES
+    i1, i2, i3 = st.columns(3)
+    i1.metric("Gross Revenue (Interest)", f"UGX {total_interest_earned:,.0f}")
+    i2.metric("Total Operating Costs", f"UGX {total_expenses:,.0f}", delta=f"-{total_expenses:,.0f}", delta_color="inverse")
+    i3.metric("Net Profit", f"UGX {net_profit:,.0f}", delta=f"{(net_profit/total_interest_earned*100):.1f}% Margin" if total_interest_earned > 0 else "0%")
+
+    st.write("---")
+    
+    # EXPENSE ENTRY FORM (Keep it small!)
+    with st.expander("💸 Record New Business Expense"):
+        with st.form("expense_form", clear_on_submit=True):
+            e_cat = st.selectbox("Category", ["Data/Internet", "Transport", "Marketing", "Rent", "Taxes", "Other"])
+            e_amt = st.number_input("Amount (UGX)", min_value=0, step=5000)
+            e_desc = st.text_input("Note (e.g. Monthly MTN Bundle)")
+            if st.form_submit_button("Post Expense", use_container_width=True):
+                new_e = pd.DataFrame([[str(datetime.now().date()), e_cat, e_desc, e_amt]], 
+                                    columns=['DATE', 'CATEGORY', 'DESCRIPTION', 'AMOUNT'])
+                conn.update(worksheet="Expenses", data=pd.concat([exp_df, new_e], ignore_index=True))
+                st.toast("Expense Recorded!")
+                st.rerun()
+                else:
+        st.info("No expense data found. Use the form above to add your first record.")
+
+
 # --- 2. THE REPAYMENTS PAGE (CLEANED) ---
-elif page == "Payments":
+elif page == "Repayments":
+    st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
+    
+    if not df.empty:
+        # ... Your Repayments form and table code ...
+        pass
+    else:
+        st.info("Please register a borrower before recording payments.")
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
     if not df.empty:
