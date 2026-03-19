@@ -86,14 +86,14 @@ import os
 # --- 1. RESOLVE THE LOGO PATH ---
 # This line finds the folder where zoe_app.py is sitting
 current_dir = os.path.dirname(__file__)
-logo_path = os.path.join(current_dir, "Capture.PNG")
+logo_path = os.path.join(current_dir, "logo.jpg")
 
 with st.sidebar:
     st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
     
     # 2. ATTEMPT TO LOAD THE LOGO
     if os.path.exists(logo_path):
-        st.image(logo_path, width=150)
+        st.image(logo_path, width=180)
     else:
         # If the file still isn't found, show a clean emoji instead of crashing
         st.markdown("""
