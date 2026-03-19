@@ -374,7 +374,7 @@ elif page == "Borrowers":
     
     if not df.empty:
         # --- 1. PREPARE DATA ---
-display_df = df.copy()
+        display_df = df.copy()
 
 # Ensure numeric types to avoid calculation errors
     for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'INTEREST_RATE']:
