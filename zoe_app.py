@@ -450,10 +450,10 @@ elif page == "Payments":
                            conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                 
                 # 3. Update Borrowers Sheet
-                idx = df[df['CUSTOMER_NAME'] == p_name].index
-                df.loc[idx, 'AMOUNT_PAID'] += p_amt
-                df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
-                conn.update(worksheet="Borrowers", data=df)
+                           idx = df[df['CUSTOMER_NAME'] == p_name].index
+                           df.loc[idx, 'AMOUNT_PAID'] += p_amt
+                           df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
+                           conn.update(worksheet="Borrowers", data=df)
                 
                 st.toast(f"✅ Receipt {p_ref} secured!", icon="💰")
                 import time
