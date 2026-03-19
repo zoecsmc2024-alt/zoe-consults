@@ -474,12 +474,35 @@ elif page == "Borrowers":
     else:
         st.warning("📊 No revenue data available to chart yet.")
         # --- 5. MANAGEMENT & REGISTRATION ---
-        st.write("")
-        with st.expander("🛠️ Manage Records (Edit/Delete)"):
-            target = st.selectbox("Select Client:", options=df['CUSTOMER_NAME'].unique(), key="mgt_select")
-            st.info(f"System ready to modify {target}'s records.")
-    else:
-        st.info("Registry is currently empty.")
+        # --- 📈 REVENUE TREND CHART ---
+    st.subheader("📈 Revenue Trend")
+    
+    # 1. Prepare the data safely
+    try:
+        chart_df = display_df.copy()
+        chart_df['DATE'] = pd.to_datetime(chart_df['DATE'])
+        chart_df['Month'] = chart_df['DATE'].dt.strftime('%b %Y')
+        
+        # Check if we have columns to chart
+        if 'INTEREST_AMT' in chart_df.columns:
+            monthly_rev = chart_df.groupby('Month')['INTEREST_AMT'].sum().reset_index()
+            
+            # Sort chronologically
+            monthly_rev['Date_Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
+            monthly_rev = monthly_rev.sort_values('Date_Sort')
+            
+            # 2. Display the chart
+            if not monthly_rev.empty:
+                st.bar_chart(data=monthly_rev, x='Month', y='INTEREST_AMT', color="#00A3E0")
+            else:
+                st.info("No monthly revenue data available yet.")
+        else:
+            st.warning("Interest data column not found.")
+            
+    except Exception as e:
+        st.error(f"Chart Error: Please check your Date column format. Error: {e}")
+
+# --- End of Insights Page ---
 
      elif page == "Insights":
     st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
