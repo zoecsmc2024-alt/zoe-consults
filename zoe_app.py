@@ -757,134 +757,47 @@ elif page == "Collateral":
 elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
     
+    # --- 1. SESSION STATE (The Brain) ---
+    if 'pdf_ready' not in st.session_state:
+        st.session_state.pdf_ready = False
+        st.session_state.pdf_base64 = ""
+
     if not df.empty:
-        # 1. SELECTOR
-        target_client = st.selectbox("Select Client for Detailed Report", options=df['CUSTOMER_NAME'].unique())
-        
-        # 2. DATA PULL
-        client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target_client].copy()
+        # SELECTOR
+        target_client = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_select")
         loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
         
-        c_nin = loan_info.get('NIN', 'N/A')
-        c_phone = str(loan_info.get('CONTACT', ''))
-        c_address = loan_info.get('ADDRESS', 'Not Recorded')
-
-        # 3. PREMIUM PROFILE HEADER
-        st.markdown(f"""
-            <div style="background-color: #f8fafc; border-left: 6px solid #1e3a8a; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
-                <h2 style="margin: 0; color: #1e3a8a;">👤 {target_client.upper()}</h2>
-                <p style="margin: 5px 0; color: #64748b;"><b>NIN:</b> {c_nin} &nbsp; | &nbsp; <b>Address:</b> {c_address}</p>
-                <p style="margin: 0; color: #1e3a8a; font-weight: bold;">📞 {c_phone}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # 4. POLISHED METRICS (With Color & Style)
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
-            st.markdown(f'<p style="color:#64748b; margin-bottom:-10px;">Principal</p><h3>UGX {loan_info["LOAN_AMOUNT"]:,.0f}</h3>', unsafe_allow_html=True)
-        with m2:
-            st.markdown(f'<p style="color:#64748b; margin-bottom:-10px;">Interest Rate</p><h3>{loan_info["INTEREST_RATE"]}%</h3>', unsafe_allow_html=True)
-        with m3:
-            st.markdown(f'<p style="color:#64748b; margin-bottom:-10px;">Total Paid</p><h3 style="color:#10b981;">UGX {loan_info["AMOUNT_PAID"]:,.0f}</h3>', unsafe_allow_html=True)
-        with m4:
-            st.markdown(f'<p style="color:#64748b; margin-bottom:-10px;">Balance Due</p><h3 style="color:#ef4444;">UGX {loan_info["OUTSTANDING_AMOUNT"]:,.0f}</h3>', unsafe_allow_html=True)
-
-        st.write("")
-        
-        # 5. ACTION BUTTONS
-        btn_col1, btn_col2 = st.columns(2)
-        with btn_col1:
-            # WhatsApp Logic
-            clean_phone = c_phone.replace("+", "").replace(" ", "")
-            wa_msg = f"Hello {target_client}, find your statement attached. Your current balance is UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}."
-            wa_url = f"https://wa.me/{clean_phone}?text={wa_msg.replace(' ', '%20')}"
-            st.link_button("💬 Send via WhatsApp", wa_url, use_container_width=True)
-        
-        # --- 5. THE FINAL WORKING PDF GENERATOR ---
-        if st.button("📄 Generate Official PDF Statement", use_container_width=True, type="primary"):
-            from fpdf import FPDF
-            import io
-            
-            # 1. Setup Data
-            is_overdue = loan_info['OUTSTANDING_AMOUNT'] > 0
-            def get_val(key): return str(loan_info.get(key, 'N/A'))
-
-            # 2. Build the PDF Class
-            class PDF(FPDF):
-                def header(self):
-                    self.set_fill_color(30, 58, 138)
-                    self.rect(0, 0, 210, 45, 'F')
-                    self.set_text_color(255, 255, 255)
-                    self.set_font("Arial", 'B', 22)
-                    self.set_xy(10, 10)
-                    self.cell(0, 10, f"{brand_name} LTD", ln=True, align='L')
-                    self.set_font("Arial", size=9)
-                    self.cell(0, 5, "Address: Plot 45, Kampala Road, Uganda", ln=True, align='L')
-                    self.cell(0, 5, "Contact: +256 700 000 000 | Email: info@zoeconsults.com", ln=True, align='L')
-                    if is_overdue:
-                        self.set_draw_color(220, 38, 38); self.set_text_color(220, 38, 38)
-                        self.set_font("Arial", 'B', 25)
-                        self.set_xy(145, 48); self.cell(55, 12, "OUTSTANDING", 2, 0, 'C')
-                    self.ln(40)
-
-            # 3. Generate Content
-            pdf = PDF()
-            pdf.add_page()
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font("Arial", 'B', 11)
-            pdf.set_fill_color(245, 245, 245)
-            pdf.cell(0, 8, "BORROWER INFORMATION", 0, 1, 'L', True)
-            pdf.set_font("Arial", size=10)
-            pdf.cell(95, 8, f"Name: {target_client.upper()}", 0, 0)
-            pdf.cell(95, 8, f"NIN: {get_val('NIN')}", 0, 1)
-            pdf.ln(10)
-
-            # (Add your table code here if you have it, or keep it simple for now)
-
-            # --- 1. SETUP STATE ---
-        if 'pdf_ready' not in st.session_state:
-            st.session_state.pdf_ready = False
-            st.session_state.pdf_data = None
-
-        # --- 1. SESSION STATE (Keep this at the top of the Ledger logic) ---
-        if 'pdf_ready' not in st.session_state:
-            st.session_state.pdf_ready = False
-            st.session_state.pdf_base64 = ""
-
+        # --- 2. ACTION BUTTONS (Clean & Small) ---
         st.write("---")
-        st.subheader("📄 Export Account Statement")
+        col_act1, col_act2, col_act3 = st.columns([1, 1, 1])
 
-        # --- 2. THE COMPACT BUTTON ROW ---
-        # We use a small column layout to keep buttons tiny and professional
-        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
-
-        with btn_col1:
-            if st.button("🔄 Prepare PDF", use_container_width=True, key="prep_final"):
+        with col_act1:
+            if st.button("🔄 Prepare PDF", use_container_width=True, key="prep_final_v2"):
                 from fpdf import FPDF
                 import base64
                 
-                # Setup PDF
+                # Simple PDF Generation
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, f"{brand_name} LTD - Statement", ln=True)
+                pdf.cell(0, 10, f"ZOE CONSULTS - STATEMENT", ln=True)
                 pdf.set_font("Arial", size=10)
                 pdf.cell(0, 10, f"Client: {target_client}", ln=True)
                 pdf.cell(0, 10, f"Balance: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
                 
-                # Logic: Convert to base64 string
+                # Safety Encode
                 b64 = base64.b64encode(pdf.output()).decode()
                 st.session_state.pdf_base64 = b64
                 st.session_state.pdf_ready = True
                 st.rerun()
 
-        with btn_col2:
+        with col_act2:
+            # ONLY SHOWS IF READY - This prevents the AttributeError
             if st.session_state.pdf_ready:
-                # The "Download" link styled as a small, quiet grey button
                 st.markdown(f'''
                     <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
                        download="Zoe_{target_client}.pdf" style="text-decoration:none;">
-                        <div style="background-color:#f1f5f9; color:#475569; padding:8px; 
+                        <div style="background-color:#f1f5f9; color:#1e293b; padding:8px; 
                                     border-radius:5px; text-align:center; font-size:14px; 
                                     font-weight:bold; border:1px solid #cbd5e1;">
                             📥 Download
@@ -894,30 +807,22 @@ elif page == "Ledger":
             else:
                 st.button("📥 Download", disabled=True, use_container_width=True)
 
-        with btn_col3:
+        with col_act3:
             if st.session_state.pdf_ready:
-                if st.button("🗑️ Reset", use_container_width=True):
+                if st.button("🗑️ Reset", use_container_width=True, key="reset_pdf"):
                     st.session_state.pdf_ready = False
                     st.rerun()
-            # --- TABLE ---
-            # ... (Keep your existing transaction table code here) ...
-        # 6. TABLE STYLE
-        st.write("---")
-        st.subheader("📋 Transaction Ledger")
-        
-        # Styling the Ledger Table
-        st.dataframe(
-            client_payments[['DATE', 'REF', 'AMOUNT_PAID']],
-            column_config={
-                "DATE": "Payment Date",
-                "REF": "Receipt Reference",
-                "AMOUNT_PAID": st.column_config.NumberColumn("Amount Paid (UGX)", format="%,d")
-            },
-            use_container_width=True, hide_index=True
-        )
+
+        # --- 3. WHATSAPP SECTION ---
+        st.write("")
+        c_phone = str(loan_info.get('CONTACT', ''))
+        if c_phone:
+            wa_msg = f"Hello {target_client}, your statement is ready."
+            wa_url = f"https://wa.me/{c_phone.replace('+', '')}?text={wa_msg.replace(' ', '%20')}"
+            st.link_button("💬 Open WhatsApp Chat", wa_url, use_container_width=True)
 
     else:
-        st.info("Registry is currently empty.")
+        st.info("No records found.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
