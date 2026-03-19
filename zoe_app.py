@@ -314,13 +314,12 @@ elif page == "Borrowers":
         f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
         f_rate = st.number_input("Interest Rate (%)", value=10)
             
-            # --- NEW DURATION SELECTOR ---
-            f_duration = st.selectbox("Loan Duration", 
-                                    options=[15, 30, 45, 60, 90], 
-                                    index=1, 
-                                    format_func=lambda x: f"{x} Days")
-            
-            f_date = st.date_input("Date Issued", datetime.now())
+    # --- NEW DURATION SELECTOR ---
+        f_duration = st.selectbox("Loan Duration", 
+                                  options=[15, 30, 45, 60, 90], 
+                                  index=1, 
+                                  format_func=lambda x: f"{x} Days")
+        f_date = st.date_input("Date Issued", datetime.now())
             
             if st.form_submit_button("✅ Disburse & Sync", use_container_width=True):
                 if f_name and f_amt > 0:
