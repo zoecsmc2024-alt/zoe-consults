@@ -869,13 +869,18 @@ elif page == "Ledger":
                 pdf.cell(80, 10, str(row['REF']), 1, 0, 'L')
                 pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
 
-            # --- THE KEY STEP: EXPORT AND SHOW DOWNLOAD BUTTON ---
-            pdf_output = pdf.output(dest='S')
+            # --- 1. GENERATE PDF ---
+            # (Make sure this follows your existing table/header logic)
             
+            # Use 'latin-1' encoding to ensure it converts correctly to bytes
+            pdf_bytes = pdf.output(dest='S').encode('latin-1')
+            
+            # --- 2. SHOW SUCCESS AND DOWNLOAD ---
             st.success("✅ Statement Generated Successfully!")
+            
             st.download_button(
                 label=f"💾 Click Here to Download {target_client}'s PDF",
-                data=pdf_output,
+                data=pdf_bytes,  # This now uses the encoded bytes
                 file_name=f"Zoe_Statement_{target_client}.pdf",
                 mime="application/pdf",
                 use_container_width=True
