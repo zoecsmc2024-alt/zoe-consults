@@ -443,7 +443,7 @@ elif page == "Payments":
                     with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
                         try:  # <--- This is now pushed to the right
                 # 1. Create the payment row
-                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+                           new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                    columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                 
                 # 2. Sync to Payments Sheet
