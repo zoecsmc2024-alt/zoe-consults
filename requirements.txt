@@ -4,3 +4,4 @@ plotly
 st-gsheets-connection
 streamlit-option-menu
 xlsxwriter
+fpdf2
