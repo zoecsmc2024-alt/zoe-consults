@@ -870,17 +870,14 @@ elif page == "Ledger":
                 pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
 
             # --- 1. GENERATE PDF ---
-            # (Make sure this follows your existing table/header logic)
-            
-            # --- 1. GENERATE PDF OUTPUT ---
-            # In fpdf2, this returns a bytearray automatically
-            pdf_output = pdf.output() 
+            pdf_output = pdf.output() # Use this for fpdf2
             
             # --- 2. SHOW SUCCESS AND DOWNLOAD ---
-            st.success("✅ Statement Generated Successfully!")
+            st.success("Statement Generated Successfully!")
             
+            # REMOVED THE EMOJI FROM THE LABEL BELOW
             st.download_button(
-                label=f"💾 Click Here to Download {target_client}'s PDF",
+                label=f"Click Here to Download {target_client} Statement",
                 data=pdf_output,
                 file_name=f"Zoe_Statement_{target_client}.pdf",
                 mime="application/pdf",
