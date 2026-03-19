@@ -846,59 +846,47 @@ elif page == "Ledger":
             st.session_state.pdf_ready = False
             st.session_state.pdf_data = None
 
-        # --- 1. SESSION STATE INITIALIZATION (Top of the Ledger section) ---
+        # --- 1. SESSION STATE ---
         if 'pdf_ready' not in st.session_state:
             st.session_state.pdf_ready = False
-            st.session_state.pdf_data = None
+            st.session_state.pdf_base64 = None
 
-        # --- 2. THE GENERATION BUTTON (Unique Key added) ---
-        if st.button("📑 Click to Prepare Official PDF", use_container_width=True, type="primary", key="gen_pdf_unique"):
+        # --- 2. THE GENERATION BUTTON ---
+        if st.button("📑 Prepare PDF Statement", use_container_width=True, type="primary", key="btn_gen_final"):
             from fpdf import FPDF
+            import base64
             
-            # --- START PDF LOGIC ---
-            is_overdue = loan_info['OUTSTANDING_AMOUNT'] > 0
-            def get_val(key): return str(loan_info.get(key, 'N/A'))
-
-            class PDF(FPDF):
-                def header(self):
-                    self.set_fill_color(30, 58, 138)
-                    self.rect(0, 0, 210, 45, 'F')
-                    self.set_text_color(255, 255, 255)
-                    self.set_font("Arial", 'B', 22)
-                    self.set_xy(10, 10)
-                    self.cell(0, 10, f"{brand_name} LTD", ln=True, align='L')
-                    self.set_font("Arial", size=9)
-                    self.cell(0, 5, "Address: Plot 45, Kampala Road, Uganda", ln=True, align='L')
-                    self.cell(0, 5, "Contact: +256 700 000 000 | Email: info@zoeconsults.com", ln=True, align='L')
-                    if is_overdue:
-                        self.set_draw_color(220, 38, 38); self.set_text_color(220, 38, 38)
-                        self.set_font("Arial", 'B', 25)
-                        self.set_xy(145, 48); self.cell(55, 12, "OUTSTANDING", 2, 0, 'C')
-                    self.ln(40)
-
-            pdf = PDF()
-            pdf.add_page()
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font("Arial", 'B', 11)
-            pdf.cell(0, 10, f"CLIENT: {target_client.upper()}", ln=True)
-            # --- END PDF LOGIC ---
-
-            # Save to state
-            st.session_state.pdf_data = pdf.output()
+            # ... (Insert your PDF Class & Content Logic here) ...
+            # Ensure pdf.output() is called
+            
+            raw_pdf_bytes = pdf.output()
+            # Convert to Base64 (The Failsafe Part)
+            b64_pdf = base64.b64encode(raw_pdf_bytes).decode()
+            
+            st.session_state.pdf_base64 = b64_pdf
             st.session_state.pdf_ready = True
-            st.rerun() # Refresh to show the download button
+            st.rerun()
 
-        # --- 3. THE PERMANENT DOWNLOAD BUTTON ---
+        # --- 3. THE DOWNLOAD LINK (New approach) ---
         if st.session_state.pdf_ready:
-            st.success("✅ Statement is ready for download!")
-            st.download_button(
-                label=f"📥 Download {target_client} Statement",
-                data=st.session_state.pdf_data,
-                file_name=f"Zoe_Statement_{target_client}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                key="download_pdf_unique" # Different unique key
-            )
+            st.success("✅ Statement Prepared!")
+            
+            # We create a custom HTML link that acts like a button
+            button_html = f'''
+                <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
+                   download="Zoe_Statement_{target_client}.pdf" 
+                   style="text-decoration:none;">
+                    <div style="background-color:#1e3a8a; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;">
+                        📥 Click to Download PDF
+                    </div>
+                </a>
+            '''
+            st.markdown(button_html, unsafe_allow_html=True)
+            
+            # Reset button to clear for the next client
+            if st.button("🔄 Clear & Done", key="clear_pdf"):
+                st.session_state.pdf_ready = False
+                st.rerun()
 
             # --- TABLE ---
             # ... (Keep your existing transaction table code here) ...
