@@ -440,7 +440,7 @@ def get_setting(prop, default):
     return default
 
 # --- 2. THE REPAYMENTS PAGE (CLEANED) ---
-elif page == "Repayments":
+elif page == "Payments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
     if not df.empty:
