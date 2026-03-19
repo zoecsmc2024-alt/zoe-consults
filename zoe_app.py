@@ -762,79 +762,44 @@ elif page == "Ledger":
         st.session_state.pdf_ready = False
         st.session_state.pdf_base64 = ""
 
-    if not df.empty:
-        # SELECTOR
-        target_client = st.selectbox("Select Client", options=df['CUSTOMER_NAME'].unique(), key="ledger_select")
-        loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
+    st.write("---")
+    
+    # --- 2. THE ACTION BUTTON (Full Width & Safe) ---
+    if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="prep_final_safety"):
+        from fpdf import FPDF
+        import base64
         
-        # --- 2. ACTION BUTTONS (Clean & Small) ---
-        st.write("---")
-        col_act1, col_act2, col_act3 = st.columns([1, 1, 1])
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, f"ZOE CONSULTS - STATEMENT", ln=True)
+        pdf.set_font("Arial", size=10)
+        pdf.cell(0, 10, f"Client: {target_client}", ln=True)
+        pdf.cell(0, 10, f"Balance: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
+        
+        # Logic: Convert to base64 string
+        b64 = base64.b64encode(pdf.output()).decode()
+        st.session_state.pdf_base64 = b64
+        st.session_state.pdf_ready = True
+        st.rerun()
 
-        with col_act1:
-            if st.button("🔄 Prepare PDF", use_container_width=True, key="prep_final_v2"):
-                from fpdf import FPDF
-                import base64
-                
-                # Simple PDF Generation
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, f"ZOE CONSULTS - STATEMENT", ln=True)
-                pdf.set_font("Arial", size=10)
-                pdf.cell(0, 10, f"Client: {target_client}", ln=True)
-                pdf.cell(0, 10, f"Balance: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
-                
-                # Safety Encode
-                b64 = base64.b64encode(pdf.output()).decode()
-                st.session_state.pdf_base64 = b64
-                st.session_state.pdf_ready = True
-                st.rerun()
-
-        with col1: # Line 794
-        # This code MUST be pushed to the right (indented)
-            if 'pdf_ready' not in st.session_state:
-                st.session_state.pdf_ready = False
-                st.session_state.pdf_base64 = ""
-
-        # --- 2. THE ACTION BUTTON ---
-        if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="prep_btn_v3"):
-            from fpdf import FPDF
-            import base64
-            
-            # Simple PDF setup
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(0, 10, f"{brand_name} LTD - STATEMENT", ln=True)
-            pdf.set_font("Arial", size=10)
-            pdf.cell(0, 10, f"Client: {target_client}", ln=True)
-            
-            # Convert to text string (Base64)
-            pdf_data = pdf.output()
-            st.session_state.pdf_base64 = base64.b64encode(pdf_data).decode()
-            st.session_state.pdf_ready = True
+    # --- 3. THE DOWNLOAD LINK (Appears right below) ---
+    if st.session_state.pdf_ready:
+        st.success("✅ Statement Prepared!")
+        download_html = f'''
+            <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
+               download="Zoe_Statement_{target_client}.pdf" style="text-decoration:none;">
+                <div style="background-color:#1e3a8a; color:white; padding:12px; 
+                            border-radius:8px; text-align:center; font-weight:bold;">
+                    📥 Click to Download PDF Now
+                </div>
+            </a>
+        '''
+        st.markdown(download_html, unsafe_allow_html=True)
+        
+        if st.button("🗑️ Reset", use_container_width=True):
+            st.session_state.pdf_ready = False
             st.rerun()
-
-        # --- 3. THE PROTECTIVE SHIELD (Prevents the AttributeError) ---
-        if st.session_state.pdf_ready:
-            st.success("✅ Statement Prepared!")
-            
-            # This HTML only runs if pdf_ready is True
-            download_html = f'''
-                <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
-                   download="Zoe_Statement_{target_client}.pdf" style="text-decoration:none;">
-                    <div style="background-color:#1e3a8a; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;">
-                        📥 Click to Download PDF
-                    </div>
-                </a>
-            '''
-            st.markdown(download_html, unsafe_allow_html=True)
-            
-            if st.button("🗑️ Reset", use_container_width=True):
-                st.session_state.pdf_ready = False
-                st.rerun()
-
         # --- 3. WHATSAPP SECTION ---
         st.write("")
         c_phone = str(loan_info.get('CONTACT', ''))
