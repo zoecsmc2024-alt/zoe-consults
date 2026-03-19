@@ -872,18 +872,18 @@ if not client_payments.empty:
         st.subheader("🔍 Transaction History")
         if not client_pay.empty:
             st.dataframe(
-                client_pay[['DATE', 'AMOUNT_PAID', 'REF']], 
-                column_config={
-                    "DATE": "Payment Date",
-                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount Received", format="UGX %,d"),
-                    "REF": "Receipt/Ref #"
+            client_pay[['DATE', 'AMOUNT_PAID', 'REF']], 
+            column_config={
+                "DATE": "Payment Date",
+                "AMOUNT_PAID": st.column_config.NumberColumn("Amount Received", format="UGX %,d"),
+                "REF": "Receipt/Ref #"
                 },
                 use_container_width=True, hide_index=True
             )
-        else:
+            else:
             st.info("No payments recorded yet.")
-    else:
-        st.info("No borrowers found.")
+            else:
+            st.info("No borrowers found.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
