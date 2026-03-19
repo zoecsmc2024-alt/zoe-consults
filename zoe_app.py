@@ -174,34 +174,27 @@ if page == "Overview":
         risk = total_expected - total_c
         recovery_rate = (total_c / total_expected) * 100 if total_expected > 0 else 0
 
-        # --- KPI ROW (4 Columns) ---
-        k1, k2, k3, k4 = st.columns(4)
-        
-        with k1:
-            st.markdown(f"""<div style="background: #1e3a8a; color: white; padding: 15px; border-radius: 12px;">
-                <p style="font-size: 0.7rem; opacity: 0.8; margin:0;">PRINCIPAL ISSUED</p>
-                <h3 style="margin:0; font-size: 1.4rem;">UGX {total_p:,.0f}</h3>
-            </div>""", unsafe_allow_html=True)
-        
-        with k2:
-            st.markdown(f"""<div style="background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
-                <p style="font-size: 0.7rem; color: #64748b; margin:0;">TOTAL COLLECTED</p>
-                <h3 style="margin:0; font-size: 1.4rem; color: #10b981;">UGX {total_c:,.0f}</h3>
-            </div>""", unsafe_allow_html=True)
-            
-        with k3:
-            st.markdown(f"""<div style="background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
-                <p style="font-size: 0.7rem; color: #64748b; margin:0;">OUTSTANDING RISK</p>
-                <h3 style="margin:0; font-size: 1.4rem; color: #ef4444;">UGX {risk:,.0f}</h3>
-            </div>""", unsafe_allow_html=True)
-            
-        with k4:
-            # Color-coded recovery rate
-            color = "#10b981" if recovery_rate > 70 else "#f59e0b"
-            st.markdown(f"""<div style="background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
-                <p style="font-size: 0.7rem; color: #64748b; margin:0;">RECOVERY RATE</p>
-                <h3 style="margin:0; font-size: 1.4rem; color: {color};">{recovery_rate:.1f}%</h3>
-            </div>""", unsafe_allow_html=True)
+        # --- PREMIUM KPI TILES (Logo-Matched Gradient) ---
+        st.markdown(f"""
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                <div style="background: linear-gradient(135deg, #00A3E0 0%, #1E3A8A 100%); padding: 20px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(0,163,224,0.2);">
+                    <p style="margin: 0; font-size: 0.75rem; opacity: 0.9; text-transform: uppercase; font-weight: 700;">Principal Issued</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem;">UGX {total_p:,.0f}</h2>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; border-top: 5px solid #00A3E0;">
+                    <p style="margin: 0; font-size: 0.75rem; color: #64748B; text-transform: uppercase; font-weight: 700;">Total Collected</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #10B981;">UGX {total_c:,.0f}</h2>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 15px; color: #1E293B; border: 1px solid #E2E8F0; border-top: 5px solid #EF4444;">
+                    <p style="margin: 0; font-size: 0.75rem; color: #64748B; text-transform: uppercase; font-weight: 700;">Outstanding Risk</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #EF4444;">UGX {risk:,.0f}</h2>
+                </div>
+                <div style="background: #F8FAFC; padding: 20px; border-radius: 15px; border: 1px dashed #00A3E0;">
+                    <p style="margin: 0; font-size: 0.75rem; color: #64748B; text-transform: uppercase; font-weight: 700;">Recovery Rate</p>
+                    <h2 style="margin: 5px 0; font-size: 1.8rem; color: #1E3A8A;">{recovery_rate:.1f}%</h2>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
         st.write("---")
         
