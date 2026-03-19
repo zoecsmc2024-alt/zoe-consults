@@ -791,9 +791,8 @@ elif page == "Ledger":
                 st.session_state.pdf_ready = True
                 st.rerun()
 
-        with col_act2:
-            # ONLY SHOWS IF READY - This prevents the AttributeError
-            # --- 1. INITIALIZE THE BRAIN (Session State) ---
+        with col1: # Line 794
+        # This code MUST be pushed to the right (indented)
         if 'pdf_ready' not in st.session_state:
             st.session_state.pdf_ready = False
             st.session_state.pdf_base64 = ""
