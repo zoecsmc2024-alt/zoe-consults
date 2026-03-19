@@ -428,96 +428,60 @@ def process_row(row):
             return "🔴 Overdue"
 
     # 2. APPLY STATUS TO DATA
+    # --- 1. START OF THE PROTECTED BLOCK ---
     if not df.empty:
-        # Create the virtual Status column
-        df['STATUS'] = df.apply(get_status, axis=1)
-        
-        # Search Filter
-        if search_query:
-            display_df = df[df['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]
-        else:
-            display_df = df
+        # Create a working copy so we don't break the original data
+        display_df = df.copy()
 
-        # 3. DISPLAY THE PRO TABLE
+        # Clean numeric columns (Principal, Paid, Rate)
+        numeric_cols = ['LOAN_AMOUNT', 'AMOUNT_PAID', 'INTEREST_RATE']
+        for col in numeric_cols:
+            display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+
+        # --- 2. THE "EFFECTED" MATH ---
+        # 1. Calculate balance AFTER payment
+        display_df['EFFECTED_BAL'] = (display_df['LOAN_AMOUNT'] - display_df['AMOUNT_PAID']).clip(lower=0)
+        
+        # 2. Calculate interest on THAT balance
+        display_df['INTEREST_AMT'] = (display_df['EFFECTED_BAL'] * display_df['INTEREST_RATE']) / 100
+        
+        # 3. Final Total Outstanding
+        display_df['FINAL_DUE'] = display_df['EFFECTED_BAL'] + display_df['INTEREST_AMT']
+
+        # --- 3. THE REVENUE CHART ---
+        st.subheader("📈 Revenue Trend (Interest Accrued)")
+        try:
+            chart_df = display_df.copy()
+            chart_df['DATE_ISSUED'] = pd.to_datetime(chart_df['DATE_ISSUED'])
+            chart_df['Month'] = chart_df['DATE_ISSUED'].dt.strftime('%b %Y')
+            
+            # Grouping by the NEW Interest column
+            monthly_rev = chart_df.groupby('Month')['INTEREST_AMT'].sum().reset_index()
+            st.bar_chart(data=monthly_rev, x='Month', y='INTEREST_AMT', color="#1E3A8A")
+        except:
+            st.info("Chart will update once more data is synced.")
+
+        # --- 4. THE MISSING TABLE (NOW FIXED) ---
+        st.write("---")
+        st.subheader("📋 Active Loan Status")
         st.dataframe(
-            display_df,
+            display_df[[
+                'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 
+                'EFFECTED_BAL', 'INTEREST_AMT', 'FINAL_DUE'
+            ]],
             column_config={
-                "STATUS": st.column_config.TextColumn(
-                    "Status 🛡️", 
-                    help="Settled (Green), Pending (Yellow), or Overdue (Red)"
-                ),
                 "CUSTOMER_NAME": "Borrower Name",
-                "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-                "OUTSTANDING_AMOUNT": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-                "CONTACT": "Contact #"
+                "LOAN_AMOUNT": st.column_config.NumberColumn("Original Principal", format="UGX %,d"),
+                "AMOUNT_PAID": st.column_config.NumberColumn("Total Paid", format="UGX %,d"),
+                "EFFECTED_BAL": st.column_config.NumberColumn("Principal Left", format="UGX %,d"),
+                "INTEREST_AMT": st.column_config.NumberColumn("Interest Due", format="UGX %,d"),
+                "FINAL_DUE": st.column_config.NumberColumn("Total Balance Due", format="UGX %,d"),
             },
             use_container_width=True,
             hide_index=True
         )
-        # --- 4. PERFORMANCE ANALYTICS ---
-        st.write("---")
-        col_chart1, col_chart2 = st.columns(2)
-
-        with col_chart1:
-            st.subheader("📈 Revenue Trend")
-            # Prepare monthly data
-            # 1. Ensure 'DATE' is in datetime format and create the 'Month' column
-    # ✅ FIX: Use the actual column name from your 'Borrowers' sheet
-display_df['DATE_ISSUED'] = pd.to_datetime(display_df['DATE_ISSUED'])
-display_df['Month'] = display_df['DATE_ISSUED'].dt.strftime('%b %Y')
-    # 2. Make sure the columns we want to sum actually exist
-cols_to_sum = {}
-
-if 'INTEREST_AMT' in display_df.columns:
-    cols_to_sum['INTEREST_AMT'] = 'sum'
-    if 'Penalty' in display_df.columns:
-        cols_to_sum['Penalty'] = 'sum'
-    
-    # 3. Perform the grouping safely
-    if cols_to_sum:
-        monthly_rev = display_df.groupby('Month').agg(cols_to_sum).reset_index()
-        
-        # Sort by date so the chart flows correctly (Jan, Feb, Mar...)
-        monthly_rev['Date_Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
-        monthly_rev = monthly_rev.sort_values('Date_Sort')
-        
-        # 4. Display the chart
-        st.bar_chart(data=monthly_rev, x='Month', y=list(cols_to_sum.keys()))
     else:
-        st.warning("📊 No revenue data available to chart yet.")
-        # --- 5. MANAGEMENT & REGISTRATION ---
-        # --- 📈 REVENUE TREND CHART ---
-    st.subheader("📈 Revenue Trend")
-    
-    # 1. Prepare the data safely
-    # 1. We must use 'DATE_ISSUED' because that is what your sheet uses
-    # 1. We must use the exact names from your table: 'DATE_ISSUED' and 'INTEREST_'
-    # --- 📈 REVENUE TREND CHART ---
-    st.subheader("📈 Revenue Trend")
-    
-    try:
-        # 1. We MUST use 'DATE_ISSUED' because that is the name in your table
-        chart_df = display_df.copy()
-        chart_df['DATE_ISSUED'] = pd.to_datetime(chart_df['DATE_ISSUED'])
-        chart_df['Month'] = chart_df['DATE_ISSUED'].dt.strftime('%b %Y')
-        
-        # 2. Looking at your table, the interest column is 'INTEREST_'
-        if 'INTEREST_' in chart_df.columns:
-            monthly_rev = chart_df.groupby('Month')['INTEREST_'].sum().reset_index()
-            
-            # Sort chronologically so the chart makes sense
-            monthly_rev['Date_Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
-            monthly_rev = monthly_rev.sort_values('Date_Sort')
-            
-            # 3. Display the bar chart in Zoe Blue
-            st.bar_chart(data=monthly_rev, x='Month', y='INTEREST_', color="#00A3E0")
-        else:
-            # If the code gets here, it means even 'INTEREST_' wasn't found
-            st.warning("Could not find a column named 'INTEREST_' for the chart.")
-            
-    except Exception as e:
-        st.error(f"Chart Error: {e}")
-# --- End of Insights Page ---
+        st.warning("⚠️ No records found in the Borrowers sheet.")
 
 elif page == "Insights":
     st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
