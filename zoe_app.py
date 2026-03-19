@@ -846,36 +846,58 @@ elif page == "Ledger":
             st.session_state.pdf_ready = False
             st.session_state.pdf_data = None
 
-        # --- 2. THE ACTION BUTTON ---
-        if st.button("📄 Generate Official PDF Statement", use_container_width=True, type="primary"):
+        # --- 1. SESSION STATE INITIALIZATION (Top of the Ledger section) ---
+        if 'pdf_ready' not in st.session_state:
+            st.session_state.pdf_ready = False
+            st.session_state.pdf_data = None
+
+        # --- 2. THE GENERATION BUTTON (Unique Key added) ---
+        if st.button("📑 Click to Prepare Official PDF", use_container_width=True, type="primary", key="gen_pdf_unique"):
             from fpdf import FPDF
             
-            # (Insert your PDF generation logic here: Header, Profile, etc.)
-            # ... pdf = PDF() ... content ...
-            
+            # --- START PDF LOGIC ---
+            is_overdue = loan_info['OUTSTANDING_AMOUNT'] > 0
+            def get_val(key): return str(loan_info.get(key, 'N/A'))
+
+            class PDF(FPDF):
+                def header(self):
+                    self.set_fill_color(30, 58, 138)
+                    self.rect(0, 0, 210, 45, 'F')
+                    self.set_text_color(255, 255, 255)
+                    self.set_font("Arial", 'B', 22)
+                    self.set_xy(10, 10)
+                    self.cell(0, 10, f"{brand_name} LTD", ln=True, align='L')
+                    self.set_font("Arial", size=9)
+                    self.cell(0, 5, "Address: Plot 45, Kampala Road, Uganda", ln=True, align='L')
+                    self.cell(0, 5, "Contact: +256 700 000 000 | Email: info@zoeconsults.com", ln=True, align='L')
+                    if is_overdue:
+                        self.set_draw_color(220, 38, 38); self.set_text_color(220, 38, 38)
+                        self.set_font("Arial", 'B', 25)
+                        self.set_xy(145, 48); self.cell(55, 12, "OUTSTANDING", 2, 0, 'C')
+                    self.ln(40)
+
+            pdf = PDF()
+            pdf.add_page()
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(0, 10, f"CLIENT: {target_client.upper()}", ln=True)
+            # --- END PDF LOGIC ---
+
+            # Save to state
             st.session_state.pdf_data = pdf.output()
             st.session_state.pdf_ready = True
-            st.success("✅ Statement Prepared! Download link below.")
+            st.rerun() # Refresh to show the download button
 
-        # --- 3. THE PERMANENT DOWNLOAD BUTTON (Lives outside the if-block) ---
+        # --- 3. THE PERMANENT DOWNLOAD BUTTON ---
         if st.session_state.pdf_ready:
+            st.success("✅ Statement is ready for download!")
             st.download_button(
-                label=f"Download {target_client} Statement PDF",
+                label=f"📥 Download {target_client} Statement",
                 data=st.session_state.pdf_data,
                 file_name=f"Zoe_Statement_{target_client}.pdf",
                 mime="application/pdf",
-                use_container_width=True
-            )
-            
-            # --- 2. SHOW SUCCESS AND DOWNLOAD ---
-            st.success("✅ Statement Generated Successfully!")
-            
-            st.download_button(
-                label=f"💾 Click Here to Download {target_client}'s PDF",
-                data=pdf_bytes,  # This now uses the encoded bytes
-                file_name=f"Zoe_Statement_{target_client}.pdf",
-                mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                key="download_pdf_unique" # Different unique key
             )
 
             # --- TABLE ---
