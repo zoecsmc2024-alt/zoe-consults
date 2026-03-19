@@ -443,7 +443,7 @@ elif page == "Payments":
                     with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
                        try:
                 # --- ALL THIS MUST BE INDENTED 4 SPACES FROM THE 'TRY' ---
-                  new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+        new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                    columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                 
         conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
