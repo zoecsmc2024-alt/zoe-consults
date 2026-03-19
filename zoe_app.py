@@ -719,118 +719,102 @@ elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement of Account</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # 1. Select Client & Prepare Data
+        # 1. SEARCH & SELECT
         target_client = st.selectbox("Select Client for Report", options=df['CUSTOMER_NAME'].unique())
+        
+        # 2. PULL ALL CLIENT DETAILS (Restoring missing info)
         client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target_client].copy()
         loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
         
-        # Financial Values
-        p_amt = loan_info['LOAN_AMOUNT']
-        int_rate = loan_info['INTEREST_RATE']
-        total_paid = loan_info['AMOUNT_PAID']
-        current_bal = loan_info['OUTSTANDING_AMOUNT']
+        # Mapping variables for the profile (Ensure these columns exist in your Google Sheet)
+        c_nin = loan_info.get('NIN', 'N/A')
+        c_phone = str(loan_info.get('CONTACT', ''))
+        c_address = loan_info.get('ADDRESS', 'Not Recorded')
+        
+        # 3. CLIENT PROFILE CARD (Restored Name, NIN, Address, Contact)
+        with st.container(border=True):
+            col_info, col_wa = st.columns([3, 1])
+            with col_info:
+                st.subheader(f"👤 {target_client}")
+                st.write(f"**NIN:** {c_nin} | **Address:** {c_address}")
+                st.write(f"**Contact:** {c_phone}")
+            
+            with col_wa:
+                # --- RESTORED WHATSAPP BUTTON ---
+                clean_phone = c_phone.replace("+", "").replace(" ", "")
+                wa_msg = f"Hello {target_client}, this is Zoe Consults. Your current loan balance is UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}. Please find your statement below."
+                wa_url = f"https://wa.me/{clean_phone}?text={wa_msg.replace(' ', '%20')}"
+                st.link_button("💬 WhatsApp", wa_url, use_container_width=True, type="primary")
 
-        # 2. Metrics (On-Screen Summary)
+        # 4. FINANCIAL METRICS
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Principal", f"UGX {p_amt:,.0f}")
-        m2.metric(f"Interest ({int_rate}%)", f"UGX {(p_amt*int_rate/100):,.0f}")
-        m3.metric("Total Paid", f"UGX {total_paid:,.0f}")
-        m4.metric("Balance", f"UGX {current_bal:,.0f}", delta="Remaining", delta_color="inverse")
+        m1.metric("Principal", f"UGX {loan_info['LOAN_AMOUNT']:,.0f}")
+        m2.metric("Interest Rate", f"{loan_info['INTEREST_RATE']}%")
+        m3.metric("Total Paid", f"UGX {loan_info['AMOUNT_PAID']:,.0f}")
+        m4.metric("Balance Due", f"UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
 
         st.write("---")
 
-        # 3. PDF GENERATOR (Restored Info + Red Stamp)
+        # 5. PDF GENERATOR (The Executive Version)
         if st.button("📄 Generate Official PDF Statement", use_container_width=True):
             from fpdf import FPDF
-            
-            # Status Check
-            is_overdue = current_bal > 0 
+            is_overdue = loan_info['OUTSTANDING_AMOUNT'] > 0
             
             class PDF(FPDF):
                 def header(self):
-                    # --- BLUE HEADER BAR ---
                     self.set_fill_color(30, 58, 138) # Navy Blue
                     self.rect(0, 0, 210, 40, 'F')
-                    
-                    # --- COMPANY BRANDING ---
                     self.set_text_color(255, 255, 255)
                     self.set_font("Arial", 'B', 22)
                     self.set_xy(10, 8)
                     self.cell(0, 10, f"{brand_name} LTD", ln=True, align='L')
-                    
                     self.set_font("Arial", size=9)
                     self.cell(0, 5, "📍 Plot 45, Kampala Road, Uganda", ln=True, align='L')
-                    self.cell(0, 5, "📞 +256 700 000 000 | 📧 info@zoeconsults.com", ln=True, align='L')
+                    self.cell(0, 5, f"📞 +256 700 000 000 | 📧 info@zoeconsults.com", ln=True, align='L')
                     
-                    # --- OFFICIAL LABEL ---
-                    self.set_xy(140, 10)
-                    self.set_font("Arial", 'B', 14)
-                    self.cell(60, 10, "OFFICIAL STATEMENT", ln=True, align='R')
-                    self.set_font("Arial", size=8)
-                    self.cell(60, 5, f"Issued: {datetime.now().strftime('%d %b %Y')}", ln=True, align='R')
-                    
-                    # --- RED OVERDUE STAMP ---
                     if is_overdue:
-                        self.set_draw_color(220, 38, 38) # Red Border
-                        self.set_text_color(220, 38, 38) # Red Text
+                        self.set_draw_color(220, 38, 38)
+                        self.set_text_color(220, 38, 38)
                         self.set_font("Arial", 'B', 28)
                         self.set_xy(150, 45)
                         self.cell(50, 15, "OUTSTANDING", 2, 0, 'C')
-                    
-                    self.ln(35) # Space after header
+                    self.ln(35)
 
             pdf = PDF()
             pdf.add_page()
             pdf.set_text_color(0, 0, 0)
-            
-            # --- CLIENT & SUMMARY BOX ---
             pdf.set_font("Arial", 'B', 12)
-            pdf.cell(0, 10, f"CLIENT: {target_client.upper()}", ln=True)
+            pdf.cell(0, 10, f"CLIENT: {target_client.upper()} (NIN: {c_nin})", ln=True)
             
-            # Grey Summary Box
+            # Summary Box in PDF
             pdf.set_fill_color(241, 245, 249)
-            pdf.set_font("Arial", 'B', 10)
-            pdf.cell(47, 12, f"Principal: {p_amt:,.0f}", 1, 0, 'C', True)
-            pdf.cell(47, 12, f"Rate: {int_rate}%", 1, 0, 'C', True)
-            pdf.cell(47, 12, f"Total Paid: {total_paid:,.0f}", 1, 0, 'C', True)
-            pdf.cell(47, 12, f"BALANCE: {current_bal:,.0f}", 1, 1, 'C', True)
-            pdf.ln(8)
+            pdf.cell(47, 12, f"Loan: {loan_info['LOAN_AMOUNT']:,.0f}", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"Rate: {loan_info['INTEREST_RATE']}%", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"Paid: {loan_info['AMOUNT_PAID']:,.0f}", 1, 0, 'C', True)
+            pdf.cell(47, 12, f"BAL: {loan_info['OUTSTANDING_AMOUNT']:,.0f}", 1, 1, 'C', True)
+            pdf.ln(5)
 
-            # --- TRANSACTION TABLE ---
-            pdf.set_fill_color(30, 58, 138)
-            pdf.set_text_color(255, 255, 255)
+            # Table
+            pdf.set_fill_color(30, 58, 138); pdf.set_text_color(255, 255, 255)
             pdf.cell(50, 10, "Date", 1, 0, 'C', True)
-            pdf.cell(80, 10, "Reference / Receipt No.", 1, 0, 'C', True)
-            pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
+            pdf.cell(80, 10, "Reference", 1, 0, 'C', True)
+            pdf.cell(60, 10, "Paid (UGX)", 1, 1, 'C', True)
             
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font("Arial", size=10)
+            pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", size=10)
             for _, row in client_payments.iterrows():
                 pdf.cell(50, 10, str(row['DATE']), 1, 0, 'C')
                 pdf.cell(80, 10, str(row['REF']), 1, 0, 'L')
                 pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
 
-            # --- FOOTER ---
-            pdf.ln(15)
-            pdf.set_font("Arial", 'I', 8)
-            pdf.cell(0, 10, "Thank you for choosing Zoe Consults. This is a computer-generated statement.", align='C')
-            
-            # Output
             output_data = pdf.output(dest='S')
-            st.download_button(
-                label=f"⬇️ Download {target_client}'s Official Statement",
-                data=output_data,
-                file_name=f"Zoe_Statement_{target_client}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-            
-        # 4. Transaction History Table (On-Screen)
+            st.download_button(label="⬇️ Download PDF Statement", data=output_data, file_name=f"Zoe_{target_client}.pdf", mime="application/pdf", use_container_width=True)
+
+        # 6. ON-SCREEN HISTORY TABLE
         st.subheader("📋 Payment History")
         st.dataframe(client_payments[['DATE', 'REF', 'AMOUNT_PAID']], use_container_width=True, hide_index=True)
 
     else:
-        st.info("No records found in the database.")
+        st.info("No records found.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
