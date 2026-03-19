@@ -300,6 +300,35 @@ elif page == "Borrowers":
             "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%d%%"),
         }, use_container_width=True, hide_index=True)
 
+        # --- 4. REVENUE ANALYTICS CHART ---
+        st.write("---")
+        st.subheader("📈 Monthly Revenue Performance")
+        
+        # Prepare data for the chart
+        # We group by the month of issuance to see the 'Expected Profit' trend
+        display_df['Month'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.strftime('%b %Y')
+        
+        # Calculate revenue components per month
+        monthly_revenue = display_df.groupby('Month').agg({
+            'INTEREST_AMT': 'sum',
+            'Penalty': 'sum'
+        }).reset_index()
+        
+        # Sort months chronologically (not alphabetically)
+        monthly_revenue['Sort_Date'] = pd.to_datetime(monthly_revenue['Month'], format='%b %Y')
+        monthly_revenue = monthly_revenue.sort_values('Sort_Date')
+
+        # Create the Bar Chart
+        st.bar_chart(
+            monthly_revenue,
+            x="Month",
+            y=["INTEREST_AMT", "Penalty"],
+            color=["#1e3a8a", "#ef4444"], # Professional Blue for Interest, Red for Penalties
+            use_container_width=True
+        )
+        
+        st.caption("🔵 Blue: Standard Interest | 🔴 Red: Late Fee Revenue")
+
         # --- 4. MANAGEMENT (The fix for your Syntax Error) ---
         st.write("")
         with st.expander("🛠️ Manage Records (Edit/Delete)"):
