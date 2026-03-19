@@ -446,12 +446,12 @@ elif page == "Payments":
                   new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                    columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                 
-                  conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+        conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                 
-                  idx = df[df['CUSTOMER_NAME'] == p_name].index
-                  df.loc[idx, 'AMOUNT_PAID'] += p_amt
-                  df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
-                  conn.update(worksheet="Borrowers", data=df)
+        idx = df[df['CUSTOMER_NAME'] == p_name].index
+        df.loc[idx, 'AMOUNT_PAID'] += p_amt
+        df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
+        conn.update(worksheet="Borrowers", data=df)
                 
                   st.toast(f"✅ Receipt {p_ref} secured!", icon="💰")
                   import time
