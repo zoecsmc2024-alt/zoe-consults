@@ -125,18 +125,25 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     # ... rest of your option_menu ...
 
-    # 2. THE OPTION MENU (Modern Styling)
-    # Using 'option_menu' for a more mobile-responsive, centered feel
-    page = option_menu(
+    # --- 1. MOVE MENU TO TOP ---
+page = option_menu(
     menu_title=None,
     options=["Overview", "Ledger", "Overdue Tracker", "Add Payment", "Add Client"],
     icons=["grid-1x2", "people", "wallet2", "calendar-check", "person-plus"],
     default_index=0,
-    orientation="horizontal", # <--- CHANGE THIS FROM "vertical" TO "horizontal"
+    orientation="horizontal",  # <--- THIS MOVES IT FROM SIDE TO TOP
     styles={
-        "container": {"padding": "0!important", "background-color": "#f8fafc"},
-        "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px"},
-        "nav-link-selected": {"background-color": "#1e3a8a"},
+        "container": {"padding": "0!important", "background-color": "#f8fafc", "border-radius": "0px"},
+        "icon": {"color": "#64748b", "font-size": "16px"}, 
+        "nav-link": {
+            "font-size": "14px", 
+            "text-align": "center", 
+            "margin":"0px", 
+            "padding":"10px",
+            "text-transform": "uppercase",
+            "font-weight": "500"
+        },
+        "nav-link-selected": {"background-color": "#1e3a8a", "color": "white"},
     }
 )
 
