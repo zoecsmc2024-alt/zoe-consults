@@ -373,16 +373,27 @@ elif page == "Borrowers":
         # ... [RETAIN ALL YOUR EXISTING CALCULATION & TABLE CODE HERE] ...
     
     if not df.empty:
-        # --- 1. CORE CALCULATIONS ---
-        display_df = df.copy()
-        for col in ['LOAN_AMOUNT', 'INTEREST_RATE', 'AMOUNT_PAID']:
-            display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
-        
-        if 'DURATION' not in display_df.columns: display_df['DURATION'] = 30
-        
-        display_df['INTEREST_AMT'] = (display_df['LOAN_AMOUNT'] * display_df['INTEREST_RATE']) / 100
-        display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
-        display_df['DUE_DT'] = display_df.apply(lambda x: x['ISSUED_DT'] + pd.Timedelta(days=int(x['DURATION'])), axis=1)
+        # --- 1. PREPARE DATA ---
+display_df = df.copy()
+
+# Ensure numeric types to avoid calculation errors
+for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'INTEREST_RATE']:
+    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+
+# --- 2. CALCULATE INTEREST AFTER PAYMENTS ---
+# Interest is now calculated on the REMAINING principal
+display_df['REMAINING_PRINCIPAL'] = display_df['LOAN_AMOUNT'] - display_df['AMOUNT_PAID']
+
+# Ensure interest doesn't go negative if they overpaid
+display_df['REMAINING_PRINCIPAL'] = display_df['REMAINING_PRINCIPAL'].clip(lower=0)
+
+# Calculate Interest Amount based on the New Effected Principal
+display_df['INTEREST_AMT'] = (display_df['REMAINING_PRINCIPAL'] * display_df['INTEREST_RATE']) / 100
+
+# --- 3. FINAL BALANCE ---
+display_df['REAL_OUTSTANDING'] = display_df['REMAINING_PRINCIPAL'] + display_df['INTEREST_AMT']
+
+ 
         
         # Penalty & Status Logic
         def process_row(row):
