@@ -819,14 +819,17 @@ elif page == "Ledger":
                     self.cell(0, 10, f"{brand_name} LTD", ln=True, align='L')
                     
                     self.set_font("Arial", size=9)
-                    self.cell(0, 5, "📍 Plot 45, Kampala Road, Uganda", ln=True, align='L')
-                    self.cell(0, 5, "📞 +256 700 000 000 | 📧 info@zoeconsults.com", ln=True, align='L')
+                    # REMOVED EMOJIS TO PREVENT CRASH
+                    self.cell(0, 5, "Address: Plot 45, Kampala Road, Uganda", ln=True, align='L')
+                    self.cell(0, 5, "Contact: +256 700 000 000 | Email: info@zoeconsults.com", ln=True, align='L')
                     
                     # --- RED STAMP ---
                     if is_overdue:
-                        self.set_draw_color(220, 38, 38); self.set_text_color(220, 38, 38)
+                        self.set_draw_color(220, 38, 38)
+                        self.set_text_color(220, 38, 38)
                         self.set_font("Arial", 'B', 25)
-                        self.set_xy(145, 48); self.cell(55, 12, "OUTSTANDING", 2, 0, 'C')
+                        self.set_xy(145, 48)
+                        self.cell(55, 12, "OUTSTANDING", 2, 0, 'C')
                     self.ln(40)
 
             pdf = PDF()
