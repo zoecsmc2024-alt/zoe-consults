@@ -757,115 +757,74 @@ elif page == "Collateral":
 elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
     
-    # 1. SESSION STATE (The Brain)
+    # 1. THE BRAIN (Session State)
     if 'ready' not in st.session_state:
         st.session_state.ready = False
         st.session_state.b64_str = ""
+    if 'last_client' not in st.session_state:
+        st.session_state.last_client = ""
 
     if not df.empty:
-        # SELECTOR
-        target_client = st.selectbox("🔍 Search & Select Borrower", options=df['CUSTOMER_NAME'].unique(), key="ledger_select_final")
+        # 2. SELECTOR with "Change Detector"
+        target_client = st.selectbox("🔍 Select Borrower", options=df['CUSTOMER_NAME'].unique(), key="ledger_select_v11")
         
-        # DATA FETCHING
+        # --- CRITICAL FIX: If the name changed, wipe the old PDF ---
+        if target_client != st.session_state.last_client:
+            st.session_state.ready = False
+            st.session_state.b64_str = ""
+            st.session_state.last_client = target_client
+            # No rerun needed here, it just clears the variables for the next lines
+
         loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
         client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target_client]
 
-        # 2. METRICS
-        st.write("")
+        # 3. SUMMARY CARDS
         c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric("Principal (UGX)", f"{loan_info['LOAN_AMOUNT']:,.0f}")
-        with c2:
-            st.metric("Paid to Date", f"{loan_info['AMOUNT_PAID']:,.0f}")
-        with c3:
-            st.metric("Balance Due", f"{loan_info['OUTSTANDING_AMOUNT']:,.0f}", delta="-Pending", delta_color="inverse")
+        with c1: st.metric("Principal", f"{loan_info['LOAN_AMOUNT']:,.0f}")
+        with c2: st.metric("Paid", f"{loan_info['AMOUNT_PAID']:,.0f}")
+        with c3: st.metric("Balance", f"{loan_info['OUTSTANDING_AMOUNT']:,.0f}")
 
         st.divider()
 
-        # 3. ACTION BUTTONS (The Triple Row)
+        # 4. ACTION ROW
         p1, p2, p3 = st.columns(3)
 
         with p1:
-            if st.button("🔄 Prepare PDF", use_container_width=True, key="btn_prep_final_v10"):
+            if st.button("🔄 Prepare Official PDF", use_container_width=True):
                 from fpdf import FPDF
                 import base64
-                # 1. SETUP THE PDF CLASS
+                
+                # Setup Professional PDF
                 class PDF(FPDF):
                     def header(self):
-                        # Navy Blue Banner
                         self.set_fill_color(30, 58, 138)
                         self.rect(0, 0, 210, 40, 'F')
                         self.set_text_color(255, 255, 255)
                         self.set_font("Arial", 'B', 18)
                         self.set_xy(10, 12)
-                        self.cell(0, 10, "ZOE CONSULTS LTD", ln=True, align='L')
-                        self.set_font("Arial", size=9)
-                        self.cell(0, 5, "Official Loan Statement | Plot 45, Kampala Road", ln=True, align='L')
-                        self.ln(20)
+                        self.cell(0, 10, "ZOE CONSULTS LTD - STATEMENT", ln=True)
 
                 pdf = PDF()
                 pdf.add_page()
                 pdf.set_text_color(0, 0, 0)
-
-                # 2. BORROWER PROFILE SECTION
-                pdf.set_fill_color(240, 242, 246)
-                pdf.set_font("Arial", 'B', 11)
-                pdf.cell(0, 10, "  BORROWER PROFILE", 0, 1, 'L', True)
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, f"CLIENT: {target_client.upper()}", ln=True)
+                pdf.cell(0, 10, f"BALANCE DUE: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
                 
-                pdf.set_font("Arial", size=10)
-                # Helper to safely pull data
-                def gv(k): return str(loan_info.get(k, 'N/A'))
-                
-                pdf.ln(2)
-                pdf.cell(95, 7, f"Name: {target_client.upper()}", 0, 0)
-                pdf.cell(95, 7, f"NIN: {gv('NIN')}", 0, 1)
-                pdf.cell(95, 7, f"Business: {gv('BUSINESS_NAME')}", 0, 0)
-                pdf.cell(95, 7, f"Contact: {gv('CONTACT')}", 0, 1)
-                pdf.cell(95, 7, f"Loan Type: {gv('LOAN_TYPE')}", 0, 0)
-                pdf.cell(95, 7, f"Email: {gv('EMAIL')}", 0, 1)
-                pdf.ln(10)
-
-                # 3. FINANCIAL SUMMARY BOX
-                pdf.set_font("Arial", 'B', 11)
-                pdf.cell(0, 10, "  ACCOUNT SUMMARY", 0, 1, 'L', True)
-                pdf.ln(2)
-                
-                # Principal | Paid | Balance
+                # --- ADDING THE TABLE DATA ---
+                pdf.ln(5)
                 pdf.set_font("Arial", 'B', 10)
-                pdf.cell(60, 10, "Total Principal", 1, 0, 'C')
-                pdf.cell(60, 10, "Total Paid", 1, 0, 'C')
-                pdf.cell(70, 10, "CURRENT BALANCE", 1, 1, 'C')
-                
+                pdf.cell(50, 10, "Date", 1); pdf.cell(80, 10, "Ref", 1); pdf.cell(60, 10, "Amount", 1, 1)
                 pdf.set_font("Arial", size=10)
-                pdf.cell(60, 12, f"UGX {loan_info['LOAN_AMOUNT']:,.0f}", 1, 0, 'C')
-                pdf.cell(60, 12, f"UGX {loan_info['AMOUNT_PAID']:,.0f}", 1, 0, 'C')
-                pdf.set_font("Arial", 'B', 11)
-                pdf.cell(70, 12, f"UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", 1, 1, 'C')
-                pdf.ln(10)
-
-                # 4. PAYMENT HISTORY TABLE
-                if not client_payments.empty:
-                    pdf.set_font("Arial", 'B', 11)
-                    pdf.cell(0, 10, "  DETAILED PAYMENT HISTORY", 0, 1, 'L', True)
-                    pdf.ln(2)
-                    
-                    # Table Headers
-                    pdf.set_fill_color(30, 58, 138); pdf.set_text_color(255, 255, 255)
-                    pdf.cell(50, 10, "Date", 1, 0, 'C', True)
-                    pdf.cell(80, 10, "Reference / Receipt #", 1, 0, 'C', True)
-                    pdf.cell(60, 10, "Amount (UGX)", 1, 1, 'C', True)
-                    
-                    pdf.set_text_color(0, 0, 0)
-                    pdf.set_font("Arial", size=10)
-                    for _, row in client_payments.iterrows():
-                        pdf.cell(50, 10, str(row['DATE']), 1, 0, 'C')
-                        pdf.cell(80, 10, f" {str(row['REF'])}", 1, 0, 'L')
-                        pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f} ", 1, 1, 'R')
+                for _, row in client_payments.iterrows():
+                    pdf.cell(50, 10, str(row['DATE']), 1)
+                    pdf.cell(80, 10, str(row['REF']), 1)
+                    pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1)
                 
-                # 5. FOOTER
-                pdf.ln(15)
-                pdf.set_font("Arial", 'I', 8)
-                pdf.cell(0, 10, "This is a computer-generated statement and does not require a physical signature.", 0, 0, 'C')
+                # Save to state
+                st.session_state.b64_str = base64.b64encode(pdf.output()).decode()
+                st.session_state.ready = True
+                st.rerun()
 
         with p2:
             if st.session_state.ready:
@@ -873,9 +832,8 @@ elif page == "Ledger":
                     <a href="data:application/pdf;base64,{st.session_state.b64_str}" 
                        download="Statement_{target_client}.pdf" style="text-decoration:none;">
                         <div style="background-color:#f1f5f9; color:#1e293b; padding:8px; 
-                                    border-radius:5px; text-align:center; font-size:14px; 
-                                    font-weight:bold; border:1px solid #cbd5e1;">
-                            📥 Download
+                                    border-radius:5px; text-align:center; font-weight:bold; border:1px solid #cbd5e1;">
+                            📥 Download PDF
                         </div>
                     </a>
                 ''', unsafe_allow_html=True)
@@ -883,41 +841,17 @@ elif page == "Ledger":
                 st.button("📥 Download", disabled=True, use_container_width=True)
 
         with p3:
-            c_phone = str(loan_info.get('CONTACT', ''))
-            if c_phone and c_phone != 'N/A':
-                clean_phone = "".join(filter(str.isdigit, c_phone))
-                msg = f"Hello {target_client}, your balance is UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}."
-                wa_url = f"https://wa.me/{clean_phone}?text={msg.replace(' ', '%20')}"
-                st.markdown(f'''
-                    <a href="{wa_url}" target="_blank" style="text-decoration:none;">
-                        <div style="background-color:#25D366; color:white; padding:8px; 
-                                    border-radius:5px; text-align:center; font-size:14px; font-weight:bold;">
-                            💬 WhatsApp
-                        </div>
-                    </a>
-                ''', unsafe_allow_html=True)
-            else:
-                st.button("💬 No Contact", disabled=True, use_container_width=True)
+            # WhatsApp logic
+            clean_p = "".join(filter(str.isdigit, str(loan_info.get('CONTACT', ''))))
+            wa_url = f"https://wa.me/{clean_p}?text=Hello%20{target_client}"
+            st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><div style="background-color:#25D366; color:white; padding:8px; border-radius:5px; text-align:center; font-weight:bold;">💬 WhatsApp</div></a>', unsafe_allow_html=True)
 
-        # 4. RESTORING THE TABLE (The part that was missing!)
+        # 5. DATA TABLE
         st.write("---")
-        st.markdown("##### 💳 Payment History")
-        if not client_payments.empty:
-            st.dataframe(
-                client_payments[['DATE', 'REF', 'AMOUNT_PAID']], 
-                column_config={
-                    "DATE": "Date",
-                    "REF": "Reference",
-                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount Paid", format="%,d")
-                },
-                use_container_width=True, 
-                hide_index=True
-            )
-        else:
-            st.info("No payments recorded for this client yet.")
+        st.dataframe(client_payments[['DATE', 'REF', 'AMOUNT_PAID']], use_container_width=True, hide_index=True)
 
     else:
-        st.warning("No records found in the database.")
+        st.info("No records found.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
