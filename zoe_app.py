@@ -377,7 +377,7 @@ elif page == "Borrowers":
 display_df = df.copy()
 
 # Ensure numeric types to avoid calculation errors
-for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'INTEREST_RATE']:
+    for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'INTEREST_RATE']:
     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
 
 # --- 2. CALCULATE INTEREST AFTER PAYMENTS ---
