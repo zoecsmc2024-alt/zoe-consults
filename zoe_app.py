@@ -252,11 +252,10 @@ elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        # --- 1. DATA CALCULATIONS ---
+        # --- 1. CORE CALCULATIONS ---
         display_df = df.copy()
-        display_df['LOAN_AMOUNT'] = pd.to_numeric(display_df['LOAN_AMOUNT'], errors='coerce').fillna(0)
-        display_df['INTEREST_RATE'] = pd.to_numeric(display_df['INTEREST_RATE'], errors='coerce').fillna(0)
-        display_df['AMOUNT_PAID'] = pd.to_numeric(display_df['AMOUNT_PAID'], errors='coerce').fillna(0)
+        for col in ['LOAN_AMOUNT', 'INTEREST_RATE', 'AMOUNT_PAID']:
+            display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
         
         if 'DURATION' not in display_df.columns: display_df['DURATION'] = 30
         
@@ -264,92 +263,74 @@ elif page == "Borrowers":
         display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
         display_df['DUE_DT'] = display_df.apply(lambda x: x['ISSUED_DT'] + pd.Timedelta(days=int(x['DURATION'])), axis=1)
         
-        # --- 2. PENALTY & STATUS LOGIC ---
+        # Penalty & Status Logic
         def process_row(row):
             base_total = row['LOAN_AMOUNT'] + row['INTEREST_AMT']
             outstanding = base_total - row['AMOUNT_PAID']
             is_overdue = datetime.now().date() > row['DUE_DT'] and outstanding > 0
-            
-            # Apply 5% Penalty if Overdue
             penalty = (outstanding * 0.05) if is_overdue else 0
             final_bal = outstanding + penalty
-            
             status = "✅ SETTLED" if final_bal <= 0 else ("🚩 OVERDUE" if is_overdue else "🔵 ACTIVE")
             return pd.Series([penalty, final_bal, status], index=['Penalty', 'Balance', 'Status'])
 
         display_df[['Penalty', 'REAL_OUTSTANDING', 'Status']] = display_df.apply(process_row, axis=1)
 
-        # --- 1. DEFINE THE HIGHLIGHT FUNCTION ---
-def highlight_first_row(row):
-    # We apply the style only if the index is 0 (first row)
-    if row.name == 0:
-        return ['background-color: #e0f2fe; border-left: 5px solid #0284c7'] * len(row)
-    return [''] * len(row)
+        # --- 2. NEW: PROFIT METRICS ---
+        total_interest = display_df['INTEREST_AMT'].sum()
+        total_penalties = display_df['Penalty'].sum()
+        
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Interest Earned", f"UGX {total_interest:,.0f}")
+        m2.metric("Late Fees Accrued", f"UGX {total_penalties:,.0f}", delta=f"{len(display_df[display_df['Status']=='🚩 OVERDUE'])} Cases")
+        m3.metric("Total Expected Profit", f"UGX {(total_interest + total_penalties):,.0f}", delta_color="normal")
+        
+        st.write("---")
 
-# --- 2. APPLY STYLING TO THE DATAFRAME ---
-# Create the subset of columns you want to show
-display_subset = display_df[['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'INTEREST_AMT', 'DURATION', 'REAL_OUTSTANDING', 'Status']]
+        # --- 3. STYLED TABLE ---
+        def highlight_latest(row):
+            return ['background-color: #f0f9ff; border-left: 5px solid #0ea5e9'] * len(row) if row.name == 0 else [''] * len(row)
 
-# Reset index to ensure the 'first' row is always index 0
-styled_df = display_subset.reset_index(drop=True).style.apply(highlight_first_row, axis=1)
+        show_cols = ['CUSTOMER_NAME', 'ISSUED_DT', 'LOAN_AMOUNT', 'INTEREST_RATE', 'Penalty', 'DURATION', 'REAL_OUTSTANDING', 'Status']
+        styled_df = display_df[show_cols].reset_index(drop=True).style.apply(highlight_latest, axis=1)
 
-# --- 3. SHOW THE STYLED TABLE ---
-st.dataframe(
-    styled_df,
-    column_config={
-        "CUSTOMER_NAME": "Client Name",
-        "ISSUED_DT": "Issued",
-        "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
-        "INTEREST_RATE": st.column_config.NumberColumn("Rate (%)", format="%d%%"),
-        "INTEREST_AMT": st.column_config.NumberColumn("Interest (UGX)", format="%,d"),
-        "Penalty": st.column_config.NumberColumn("Late Fee (5%)", format="%,d"), # Added this back!
-        "DURATION": "Days",
-        "REAL_OUTSTANDING": st.column_config.NumberColumn("Balance", format="UGX %,d"),
-        "Status": "Status"
-    },
-    use_container_width=True, hide_index=True
-)
+        st.dataframe(styled_df, column_config={
+            "LOAN_AMOUNT": st.column_config.NumberColumn("Principal", format="UGX %,d"),
+            "Penalty": st.column_config.NumberColumn("Late Fee", format="%,d"),
+            "REAL_OUTSTANDING": st.column_config.NumberColumn("Total Balance", format="UGX %,d"),
+            "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%d%%"),
+        }, use_container_width=True, hide_index=True)
 
-# --- ENSURE THESE ARE ALIGNED WITH THE 'st.dataframe' ABOVE ---
-st.write("") 
+        # --- 4. MANAGEMENT (The fix for your Syntax Error) ---
+        st.write("")
+        with st.expander("🛠️ Manage Records (Edit/Delete)"):
+            target = st.selectbox("Select Client to Modify:", options=df['CUSTOMER_NAME'].unique(), key="mgr_select")
+            st.info(f"Administrative controls active for {target}")
 
-with st.expander("🛠️ Manage Records (Edit/Delete)"):
-    # ... your management code ...
-    st.write("Management tools active.")
-    target = st.selectbox("Select Client to Modify:", options=df['CUSTOMER_NAME'].unique())
-    # Logic for editing/deleting goes here (indented properly)
-    st.info(f"Management mode active for {target}")
+    else:
+        st.info("Registry is currently empty.")
 
-else:
-st.info("The registry is currently empty.")
-
-    # --- 5. REGISTRATION (Corrected Nesting) ---
+    # --- 5. REGISTRATION ---
+    st.write("")
     with st.popover("➕ Register New Loan", use_container_width=True):
-        # 1. Start the Form
-        with st.form("new_loan_final_v4", clear_on_submit=True):
-            f_name = st.text_input("Borrower Full Name")
-            col1, col2 = st.columns(2)
-            with col1:
+        with st.form("new_loan_v5", clear_on_submit=True):
+            f_name = st.text_input("Borrower Name")
+            c1, c2 = st.columns(2)
+            with c1:
                 f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
-                f_duration = st.selectbox("Duration", [15, 30, 45, 60, 90], index=1)
-            with col2:
+                f_dur = st.selectbox("Duration", [15, 30, 45, 60, 90], index=1)
+            with c2:
                 f_rate = st.number_input("Interest Rate (%)", value=10)
                 f_date = st.date_input("Date Issued", datetime.now())
             
-            # 2. The Button MUST be indented here (inside the 'with st.form')
-            submitted = st.form_submit_button("✅ Disburse & Sync", use_container_width=True)
-            
-            if submitted:
+            if st.form_submit_button("✅ Sync to Cloud", use_container_width=True):
                 if f_name and f_amt > 0:
                     new_id = int(df['SN'].max() + 1) if not df.empty else 1
                     starting_bal = f_amt + (f_amt * f_rate / 100)
-                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_duration]], 
+                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_dur]], 
                                          columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
                     conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                    st.success("Loan Created!")
+                    st.success("Loan Recorded!")
                     st.rerun()
-                else:
-                    st.error("Please provide a name and amount.")
 
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
