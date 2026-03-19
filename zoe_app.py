@@ -334,21 +334,27 @@ elif page == "Borrowers":
     # --- 4. NEW REGISTRATION ---
     st.write("")
     with st.popover("➕ Register New Loan", use_container_width=True):
-        with st.form("new_loan_final", clear_on_submit=True):
-            f_name = st.text_input("Borrower Name")
-            f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
-            f_rate = st.number_input("Interest Rate (%)", value=10)
+        with st.form("new_loan_validated", clear_on_submit=True):
+            f_name = st.text_input("Borrower Full Name", placeholder="Enter official name")
+            f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000, help="Amount given to borrower")
+            f_rate = st.number_input("Interest Rate (%)", value=10, min_value=1)
             f_date = st.date_input("Date Issued", datetime.now())
             
-            if st.form_submit_button("✅ Disburse & Sync"):
-                if f_name and f_amt > 0:
+            # --- THE BOUNCER (Validation Logic) ---
+            if st.form_submit_button("✅ Disburse & Sync", use_container_width=True):
+                if not f_name or len(f_name) < 3:
+                    st.error("❌ Invalid Name: Please enter a full name (at least 3 characters).")
+                elif f_amt <= 0:
+                    st.error("❌ Invalid Amount: Principal must be greater than 0.")
+                else:
+                    # Everything is good, proceed to save
                     new_id = int(df['SN'].max() + 1) if not df.empty else 1
-                    # Ensure interest is included in the stored balance
                     starting_bal = f_amt + (f_amt * f_rate / 100)
                     new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date)]], 
                                          columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED'])
                     conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                    st.success("Loan Created!")
+                    st.success(f"🎉 Success! Loan for {f_name} synced to cloud.")
+                    st.balloons()
                     st.rerun()
 
 elif page == "Repayments":
