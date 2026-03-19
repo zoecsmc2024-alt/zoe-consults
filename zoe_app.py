@@ -307,31 +307,33 @@ elif page == "Borrowers":
     else:
         st.info("The registry is currently empty.")
 
-    # --- 5. REGISTRATION ---
+    # --- 5. REGISTRATION (Corrected Nesting) ---
     with st.popover("➕ Register New Loan", use_container_width=True):
-        st.write("Enter new loan details above.")
-        f_name = st.text_input("Borrower Full Name")
-        f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
-        f_rate = st.number_input("Interest Rate (%)", value=10)
+        # 1. Start the Form
+        with st.form("new_loan_final_v4", clear_on_submit=True):
+            f_name = st.text_input("Borrower Full Name")
+            col1, col2 = st.columns(2)
+            with col1:
+                f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
+                f_duration = st.selectbox("Duration", [15, 30, 45, 60, 90], index=1)
+            with col2:
+                f_rate = st.number_input("Interest Rate (%)", value=10)
+                f_date = st.date_input("Date Issued", datetime.now())
             
-    # --- NEW DURATION SELECTOR ---
-        f_duration = st.selectbox("Loan Duration", 
-                                  options=[15, 30, 45, 60, 90], 
-                                  index=1, 
-                                  format_func=lambda x: f"{x} Days")
-        f_date = st.date_input("Date Issued", datetime.now())
-        
-        if st.form_submit_button("✅ Disburse & Sync", use_container_width=True):
-            if f_name and f_amt > 0:
-                new_id = int(df['SN'].max() + 1) if not df.empty else 1
-                starting_bal = f_amt + (f_amt * f_rate / 100)
-                    
-    # Add 'DURATION' to your columns
-                new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_duration]], 
-                                       columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
-                conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                st.success(f"Loan created for {f_duration} days.")
-                st.rerun()
+            # 2. The Button MUST be indented here (inside the 'with st.form')
+            submitted = st.form_submit_button("✅ Disburse & Sync", use_container_width=True)
+            
+            if submitted:
+                if f_name and f_amt > 0:
+                    new_id = int(df['SN'].max() + 1) if not df.empty else 1
+                    starting_bal = f_amt + (f_amt * f_rate / 100)
+                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_duration]], 
+                                         columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
+                    conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
+                    st.success("Loan Created!")
+                    st.rerun()
+                else:
+                    st.error("Please provide a name and amount.")
 
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
