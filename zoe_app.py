@@ -88,7 +88,7 @@ with st.sidebar:
     # 1. DISPLAY YOUR CUSTOM LOGO
     try:
         # Replace 'Capture.PNG' with the exact filename if you rename it
-        st.image("Capture.PNG", use_container_width=True)
+        st.image("logo.jpg", use_container_width=True)
     except Exception:
         # Fallback if the file is missing
         st.markdown("""
