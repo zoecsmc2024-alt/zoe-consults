@@ -317,7 +317,7 @@ st.dataframe(
 )
 
         # --- 3. RESTORED EDIT/DELETE CONTROLS ---
-        st.write("---")
+st.write("---")
         with st.expander("🛠️ Manage Records (Edit/Delete)"):
             target_client = st.selectbox("Select Client to Manage:", options=df['CUSTOMER_NAME'].unique())
             client_row = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
