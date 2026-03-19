@@ -8,7 +8,11 @@ from streamlit_option_menu import option_menu  # <--- MAKE SURE THIS IS HERE
 from datetime import datetime, timedelta  # Ensure ', timedelta' is added here!
 from fpdf import FPDF  # This stays the same even with fpdf2 installed
 # --- 1. CONFIG & THEME ---
-st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
+st.set_page_config(
+    page_title="Zoe Consults Admin",
+    layout="wide",
+    initial_sidebar_state="expanded" # This keeps it open by default!
+)
 
 st.markdown("""
 <style>
