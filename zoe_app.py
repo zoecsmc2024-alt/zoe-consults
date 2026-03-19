@@ -794,8 +794,8 @@ elif page == "Ledger":
         with col1: # Line 794
         # This code MUST be pushed to the right (indented)
             if 'pdf_ready' not in st.session_state:
-            st.session_state.pdf_ready = False
-            st.session_state.pdf_base64 = ""
+                st.session_state.pdf_ready = False
+                st.session_state.pdf_base64 = ""
 
         # --- 2. THE ACTION BUTTON ---
         if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="prep_btn_v3"):
