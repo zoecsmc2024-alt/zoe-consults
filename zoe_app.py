@@ -9,6 +9,48 @@ from datetime import datetime, timedelta  # Ensure ', timedelta' is added here!
 from fpdf import FPDF  # This stays the same even with fpdf2 installed
 # --- 1. CONFIG & THEME ---
 st.set_page_config(page_title="ZoeLend IQ Pro", layout="wide")
+# --- 0. SECURITY SYSTEM ---
+def check_password():
+    """Returns True if the user had the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == st.secrets["password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # don't store password
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # First run, show input for password
+        st.markdown("""
+            <div style='text-align: center; padding-top: 50px;'>
+                <img src='https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/Capture.PNG' width='100'>
+                <h2 style='color: #1E3A8A;'>ZoeLend IQ Login</h2>
+                <p style='color: #64748b; font-size: 0.8rem;'>Secure Enterprise Portal</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Center the login box
+        col_a, col_b, col_c = st.columns([1, 2, 1])
+        with col_b:
+            st.text_input("Access Key", type="password", on_change=password_entered, key="password")
+            if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+                st.error("🚫 Invalid Access Key")
+        return False
+    
+    elif not st.session_state["password_correct"]:
+        # Password not correct, show input + error
+        st.text_input("Access Key", type="password", on_change=password_entered, key="password")
+        st.error("🚫 Invalid Access Key")
+        return False
+    else:
+        # Password correct.
+        return True
+
+# --- ACTIVATE SECURITY ---
+if not check_password():
+    st.stop()  # Do not run the rest of the app if login fails
 
 st.markdown("""
 <style>
