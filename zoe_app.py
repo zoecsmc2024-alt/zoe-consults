@@ -320,8 +320,8 @@ with st.expander("🛠️ Manage Records (Edit/Delete)"):
     # Logic for editing/deleting goes here (indented properly)
     st.info(f"Management mode active for {target}")
 
-    else:
-        st.info("The registry is currently empty.")
+else:
+st.info("The registry is currently empty.")
 
     # --- 5. REGISTRATION (Corrected Nesting) ---
     with st.popover("➕ Register New Loan", use_container_width=True):
