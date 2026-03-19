@@ -429,16 +429,6 @@ elif page == "Borrowers":
     else:
         st.info("Registry is currently empty.")
 
-# --- 1. CONSOLIDATED HELPERS ---
-def get_setting(prop, default):
-    try:
-        if not settings_df.empty and 'Property' in settings_df.columns:
-            val = settings_df.loc[settings_df['Property'] == prop, 'Value'].values[0]
-            return val if pd.notna(val) else default
-    except Exception:
-        return default
-    return default
-
 # --- 2. THE REPAYMENTS PAGE (CLEANED) ---
 elif page == "Payments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
