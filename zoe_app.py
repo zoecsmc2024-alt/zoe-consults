@@ -482,7 +482,7 @@ def process_row(row):
         )
     else:
         st.warning("⚠️ No records found in the Borrowers sheet.")
-
+    
 elif page == "Insights":
     st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
     
