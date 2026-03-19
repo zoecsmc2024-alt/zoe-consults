@@ -73,7 +73,7 @@ def get_setting(prop, default):
 brand_name = get_setting("Company Name", "ZOE")
 brand_tagline = get_setting("Tagline", "CONSULTS")
 brand_logo_type = get_setting("Logo Type", "Emoji")
-brand_logo_val = get_setting("Logo Value", "🛡️")
+brand_logo_val = get_setting("Logo Value", "")
 
 # --- ADD THIS FUNCTION HERE ---
 def get_setting(prop, default):
