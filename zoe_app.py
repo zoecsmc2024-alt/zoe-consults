@@ -300,34 +300,45 @@ elif page == "Borrowers":
             "INTEREST_RATE": st.column_config.NumberColumn("Rate", format="%d%%"),
         }, use_container_width=True, hide_index=True)
 
-        # --- 4. REVENUE ANALYTICS CHART ---
+        # --- 4. PERFORMANCE ANALYTICS ---
         st.write("---")
-        st.subheader("📈 Monthly Revenue Performance")
-        
-        # Prepare data for the chart
-        # We group by the month of issuance to see the 'Expected Profit' trend
-        display_df['Month'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.strftime('%b %Y')
-        
-        # Calculate revenue components per month
-        monthly_revenue = display_df.groupby('Month').agg({
-            'INTEREST_AMT': 'sum',
-            'Penalty': 'sum'
-        }).reset_index()
-        
-        # Sort months chronologically (not alphabetically)
-        monthly_revenue['Sort_Date'] = pd.to_datetime(monthly_revenue['Month'], format='%b %Y')
-        monthly_revenue = monthly_revenue.sort_values('Sort_Date')
+        col_chart1, col_chart2 = st.columns(2)
 
-        # Create the Bar Chart
-        st.bar_chart(
-            monthly_revenue,
-            x="Month",
-            y=["INTEREST_AMT", "Penalty"],
-            color=["#1e3a8a", "#ef4444"], # Professional Blue for Interest, Red for Penalties
-            use_container_width=True
-        )
-        
-        st.caption("🔵 Blue: Standard Interest | 🔴 Red: Late Fee Revenue")
+        with col_chart1:
+            st.subheader("📈 Revenue Trend")
+            # Prepare monthly data
+            display_df['Month'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.strftime('%b %Y')
+            monthly_rev = display_df.groupby('Month').agg({'INTEREST_AMT': 'sum', 'Penalty': 'sum'}).reset_index()
+            # Sort chronologically
+            monthly_rev['Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
+            monthly_rev = monthly_rev.sort_values('Sort')
+            
+            st.bar_chart(monthly_rev, x="Month", y=["INTEREST_AMT", "Penalty"], 
+                         color=["#0284c7", "#ef4444"], use_container_width=True)
+            st.caption("🔵 Interest | 🔴 Penalties")
+
+        with col_chart2:
+            st.subheader("🍕 Portfolio Split")
+            # We look at the 'Collateral' type if you have that column, 
+            # or we can split by Loan Duration to see which 'Product' is most popular
+            if 'DURATION' in display_df.columns:
+                duration_split = display_df['DURATION'].value_counts()
+                st.vega_lite_chart(display_df, {
+                    'mark': {'type': 'arc', 'innerRadius': 50},
+                    'encoding': {
+                        'theta': {'field': 'LOAN_AMOUNT', 'type': 'quantitative', 'aggregate': 'sum'},
+                        'color': {'field': 'DURATION', 'type': 'nominal', 'legend': {"title": "Loan Term (Days)"}},
+                    },
+                }, use_container_width=True)
+                st.caption("Distribution of Capital by Loan Duration")
+            else:
+                st.info("Add more categories to see a portfolio split.")
+
+        # --- 5. MANAGEMENT & REGISTRATION ---
+        st.write("")
+        with st.expander("🛠️ Manage Records (Edit/Delete)"):
+            target = st.selectbox("Select Client:", options=df['CUSTOMER_NAME'].unique(), key="mgt_select")
+            st.info(f"System ready to modify {target}'s records.")
 
         # --- 4. MANAGEMENT (The fix for your Syntax Error) ---
         st.write("")
