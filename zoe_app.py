@@ -233,73 +233,66 @@ elif page == "Overdue Tracker":
     
     from datetime import datetime, timedelta
 
-    # 1. IDENTIFY OVERDUE BORROWERS
-    # We look for people with a balance > 0 who haven't paid in 30 days
+    # 1. FIND THE LATE PAYERS
     today = datetime.now().date()
+    # We define "Overdue" as 30 days since the last payment
     thirty_days_ago = today - timedelta(days=30)
     
-    # Get latest payment date for every client
     if not pay_df.empty:
+        # Get the latest payment date for every customer
         latest_pays = pay_df.groupby('CUSTOMER_NAME')['DATE'].max().reset_index()
         latest_pays['DATE'] = pd.to_datetime(latest_pays['DATE']).dt.date
         
-        # Merge with main client list
+        # Merge with your main client list
         overdue_df = df.merge(latest_pays, on='CUSTOMER_NAME', how='left')
         
-        # Logic: (Balance > 0) AND (Last Payment < 30 days ago OR No Payment at all)
+        # Filter for people who still owe money AND are late (or never paid)
         overdue_list = overdue_df[
             (overdue_df['OUTSTANDING_AMOUNT'] > 0) & 
             ((overdue_df['DATE'] < thirty_days_ago) | (overdue_df['DATE'].isna()))
         ].copy()
     else:
+        # If no payments exist at all, everyone with a balance is on the list
         overdue_list = df[df['OUTSTANDING_AMOUNT'] > 0].copy()
         overdue_list['DATE'] = None
 
-    # 2. DISPLAY THE "RED LIST"
+    # 2. DISPLAY THE LIST
     if not overdue_list.empty:
-        st.warning(f"Found {len(overdue_list)} clients who are 30+ days behind schedule.")
+        st.error(f"Attention: {len(overdue_list)} clients have not made a payment in over 30 days.")
         
-        # Header for the table
-        h1, h2, h3, h4 = st.columns([2, 1, 1, 1])
-        h1.write("**Borrower Name**")
-        h2.write("**Balance Due**")
-        h3.write("**Days Since Last Pay**")
-        h4.write("**Action**")
-        st.divider()
-
+        # Create a clean row for each person
         for _, row in overdue_list.iterrows():
-            c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-            
-            # Name & Balance
-            c1.write(f"**{row['CUSTOMER_NAME']}**")
-            c2.write(f"UGX {row['OUTSTANDING_AMOUNT']:,.0f}")
-            
-            # Calculate Days
-            last_date = row['DATE']
-            days_late = (today - last_date).days if last_date else "NO PAYMENTS"
-            color = "red" if (isinstance(days_late, int) and days_late > 45) else "orange"
-            c3.markdown(f":{color}[{days_late} days]")
-            
-            # RED WhatsApp Button
-            clean_p = "".join(filter(str.isdigit, str(row.get('CONTACT', ''))))
-            if clean_p:
-                msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan is now {days_late} days overdue. Please pay UGX {row['OUTSTANDING_AMOUNT']:,.0f} today to avoid penalties."
-                wa_url = f"https://wa.me/{clean_p}?text={msg.replace(' ', '%20')}"
+            with st.container():
+                c1, c2, c3 = st.columns([2, 1, 1])
                 
-                c4.markdown(f'''
-                    <a href="{wa_url}" target="_blank" style="text-decoration:none;">
-                        <div style="background-color:#dc2626; color:white; padding:5px; 
-                                    border-radius:5px; text-align:center; font-size:12px; font-weight:bold;">
-                            🚩 REMIND
-                        </div>
-                    </a>
-                ''', unsafe_allow_html=True)
-            else:
-                c4.write("No Contact")
-            
-            st.write("---")
+                # Column 1: Borrower Info
+                c1.markdown(f"**👤 {row['CUSTOMER_NAME']}**")
+                last_date = row['DATE'] if row['DATE'] else "Never"
+                c1.caption(f"Last Payment: {last_date}")
+                
+                # Column 2: Money Owed
+                c2.markdown(f"**UGX {row['OUTSTANDING_AMOUNT']:,.0f}**")
+                c2.caption("Balance Due")
+                
+                # Column 3: Red WhatsApp Action
+                clean_p = "".join(filter(str.isdigit, str(row.get('CONTACT', ''))))
+                if clean_p:
+                    msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan balance of UGX {row['OUTSTANDING_AMOUNT']:,.0f} is overdue. Please reach out to avoid penalties."
+                    wa_url = f"https://wa.me/{clean_p}?text={msg.replace(' ', '%20')}"
+                    c3.markdown(f'''
+                        <a href="{wa_url}" target="_blank" style="text-decoration:none;">
+                            <div style="background-color:#dc2626; color:white; padding:10px; 
+                                        border-radius:8px; text-align:center; font-weight:bold; font-size:14px;">
+                                🚩 REMIND
+                            </div>
+                        </a>
+                    ''', unsafe_allow_html=True)
+                else:
+                    c3.button("No Phone", disabled=True, use_container_width=True)
+                
+                st.divider()
     else:
-        st.success("🎉 Great job, Bestie! No clients are currently 30+ days overdue.")
+        st.success("✅ All clients are up to date with their payments! No follow-ups needed.")
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
