@@ -19,10 +19,15 @@ st.markdown("""
         margin-top: 0rem !important;
     }
 
-    /* 2. REMOVE THE HEADER GAP */
-    header {
-        visibility: hidden;
-        height: 0% !important;
+    /* 2. REMOVE THE HEADER GAP BUT KEEP THE ARROW */
+    header[data-testid="stHeader"] {
+        background-color: rgba(0,0,0,0) !important;
+        border-bottom: none !important;
+    }
+
+    /* Keep the toggle button visible even if header is "hidden" */
+    button[data-testid="collapsedControl"] {
+        visibility: visible !important;
     }
 
     /* 3. THE MAIN VIEWPORT */
