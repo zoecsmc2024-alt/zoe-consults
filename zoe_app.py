@@ -128,29 +128,16 @@ with st.sidebar:
     # Using 'option_menu' for a more mobile-responsive, centered feel
     page = option_menu(
     menu_title=None,
-    options=["Overview", "Ledger", "Overdue Tracker", "Add Payment", "Add Client"], # The Names
-    icons=["grid-1x2", "people", "wallet2", "calendar-check", "person-plus"],      # The Icons
-    menu_icon="cast",
+    options=["Overview", "Ledger", "Overdue Tracker", "Add Payment", "Add Client"],
+    icons=["grid-1x2", "people", "wallet2", "calendar-check", "person-plus"],
     default_index=0,
-    orientation="horizontal", # Optional: "vertical" if you want it in the sidebar
+    orientation="horizontal", # <--- CHANGE THIS FROM "vertical" TO "horizontal"
     styles={
-            "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#64748b", "font-size": "18px"}, 
-            "nav-link": {
-                "font-size": "14px", 
-                "text-align": "left", 
-                "margin": "5px 0px", 
-                "color": "#475569",
-                "font-family": "'Inter', sans-serif",
-                "border-radius": "8px"
-            },
-            "nav-link-selected": {
-                "background-color": "#1e3a8a", 
-                "color": "white",
-                "font-weight": "600"
-            },
-        }
-    )
+        "container": {"padding": "0!important", "background-color": "#f8fafc"},
+        "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px"},
+        "nav-link-selected": {"background-color": "#1e3a8a"},
+    }
+)
 
     # 3. SIDEBAR FOOTER & LOGOUT
     st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True) # Pushes logout to bottom
