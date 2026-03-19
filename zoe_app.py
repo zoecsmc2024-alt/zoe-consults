@@ -115,7 +115,7 @@ def get_all_data():
 df, pay_df, collateral_df, settings_df, exp_df = get_all_data()
 
 # 1. Load the data
-df, pay_df, collateral_df, settings_df = get_all_data()
+df, pay_df, collateral_df, settings_df, exp_df = get_all_data()
 
 # 2. Define the helper (This fixes your NameError!)
 def get_setting(prop, default):
