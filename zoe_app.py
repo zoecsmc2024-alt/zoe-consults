@@ -106,10 +106,13 @@ def get_all_data():
         p_df = conn.read(worksheet="Payments").dropna(how="all")
         c_df = conn.read(worksheet="Collateral").dropna(how="all")
         s_df = conn.read(worksheet="Settings").dropna(how="all")
-        return b_df, p_df, c_df, s_df
+        e_df = conn.read(worksheet="Expenses").dropna(how="all") # <--- ADD THIS
+        return b_df, p_df, c_df, s_df, e_df
     except Exception:
-        # Returns empty dataframes if the API is busy or tab is missing
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+# Update your loading line:
+df, pay_df, collateral_df, settings_df, exp_df = get_all_data()
 
 # 1. Load the data
 df, pay_df, collateral_df, settings_df = get_all_data()
