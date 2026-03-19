@@ -263,8 +263,19 @@ elif page == "Borrowers":
         display_df['TOTAL_EXPECTED'] = display_df['LOAN_AMOUNT'] + display_df['INTEREST_AMT']
         display_df['REAL_OUTSTANDING'] = display_df['TOTAL_EXPECTED'] - display_df['AMOUNT_PAID']
         
+        # --- SMART DUE DATE LOGIC ---
+        display_df = df.copy()
+        
+        # Fallback to 30 if 'DURATION' column is missing in old records
+        if 'DURATION' not in display_df.columns:
+            display_df['DURATION'] = 30
+            
         display_df['ISSUED_DT'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.date
-        display_df['DUE_DT'] = (pd.to_datetime(display_df['DATE_ISSUED']) + pd.Timedelta(days=30)).dt.date
+        
+        # Calculate Due Date based on the specific duration for each row
+        display_df['DUE_DT'] = display_df.apply(
+            lambda x: x['ISSUED_DT'] + pd.Timedelta(days=int(x['DURATION'])), axis=1
+        )
         
         def get_status(row):
             if row['REAL_OUTSTANDING'] <= 0: return "✅ SETTLED"
@@ -334,27 +345,30 @@ elif page == "Borrowers":
     # --- 4. NEW REGISTRATION ---
     st.write("")
     with st.popover("➕ Register New Loan", use_container_width=True):
-        with st.form("new_loan_validated", clear_on_submit=True):
-            f_name = st.text_input("Borrower Full Name", placeholder="Enter official name")
-            f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000, help="Amount given to borrower")
-            f_rate = st.number_input("Interest Rate (%)", value=10, min_value=1)
+        with st.form("new_loan_flexible", clear_on_submit=True):
+            f_name = st.text_input("Borrower Full Name")
+            f_amt = st.number_input("Principal (UGX)", min_value=0, step=50000)
+            f_rate = st.number_input("Interest Rate (%)", value=10)
+            
+            # --- NEW DURATION SELECTOR ---
+            f_duration = st.selectbox("Loan Duration", 
+                                    options=[15, 30, 45, 60, 90], 
+                                    index=1, 
+                                    format_func=lambda x: f"{x} Days")
+            
             f_date = st.date_input("Date Issued", datetime.now())
             
-            # --- THE BOUNCER (Validation Logic) ---
             if st.form_submit_button("✅ Disburse & Sync", use_container_width=True):
-                if not f_name or len(f_name) < 3:
-                    st.error("❌ Invalid Name: Please enter a full name (at least 3 characters).")
-                elif f_amt <= 0:
-                    st.error("❌ Invalid Amount: Principal must be greater than 0.")
-                else:
-                    # Everything is good, proceed to save
+                if f_name and f_amt > 0:
                     new_id = int(df['SN'].max() + 1) if not df.empty else 1
                     starting_bal = f_amt + (f_amt * f_rate / 100)
-                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date)]], 
-                                         columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED'])
+                    
+                    # Add 'DURATION' to your columns
+                    new_row = pd.DataFrame([[new_id, f_name, f_amt, 0, starting_bal, f_rate, str(f_date), f_duration]], 
+                                         columns=['SN', 'CUSTOMER_NAME', 'LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT', 'INTEREST_RATE', 'DATE_ISSUED', 'DURATION'])
+                    
                     conn.update(worksheet="Borrowers", data=pd.concat([df, new_row], ignore_index=True))
-                    st.success(f"🎉 Success! Loan for {f_name} synced to cloud.")
-                    st.balloons()
+                    st.success(f"Loan created for {f_duration} days.")
                     st.rerun()
 
 elif page == "Repayments":
