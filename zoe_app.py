@@ -794,23 +794,14 @@ elif page == "Ledger":
                 from fpdf import FPDF
                 import base64
                 
-                # Setup Professional PDF
-                class PDF(FPDF):
-                    def header(self):
-                        self.set_fill_color(30, 58, 138)
-                        self.rect(0, 0, 210, 40, 'F')
-                        self.set_text_color(255, 255, 255)
-                        self.set_font("Arial", 'B', 18)
-                        self.set_xy(10, 12)
-                        self.cell(0, 10, "ZOE CONSULTS LTD - STATEMENT", ln=True)
-
+                # 1. SETUP THE PDF CLASS
                 class PDF(FPDF):
                     def header(self):
                         # Navy Blue Banner
                         self.set_fill_color(30, 58, 138)
                         self.rect(0, 0, 210, 45, 'F')
                         self.set_text_color(255, 255, 255)
-                        self.set_font("Arial", 'B', 20)
+                        self.set_font("Arial", 'B', 22)
                         self.set_xy(10, 12)
                         self.cell(0, 10, "ZOE CONSULTS LTD", ln=True)
                         self.set_font("Arial", size=9)
@@ -818,39 +809,73 @@ elif page == "Ledger":
                         self.ln(20)
 
                     def footer(self):
-                        # Position at 1.5 cm from bottom
-                        self.set_y(-30)
+                        self.set_y(-25)
                         self.set_font('Arial', 'I', 8)
                         self.set_text_color(128, 128, 128)
-                        self.cell(0, 10, 'Terms: All payments must be made via official channels. Late fees apply as per the signed contract.', 0, 1, 'C')
-                        self.cell(0, 10, f'Page {self.page_no()} | Generated on {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 0, 'C')
+                        self.cell(0, 10, f'Page {self.page_no()} | Statement Date: {datetime.now().strftime("%Y-%m-%d")}', 0, 0, 'C')
 
                 pdf = PDF()
                 pdf.add_page()
                 pdf.set_text_color(0, 0, 0)
 
-                # --- CLIENT IDENTIFICATION ---
+                # Helper to clean 'nan' values from the sheet
+                def clean(val):
+                    v = str(val)
+                    return "---" if v.lower() == "nan" or v.lower() == "none" else v
+
+                # 2. BORROWER PROFILE
                 pdf.set_fill_color(240, 242, 246)
                 pdf.set_font("Arial", 'B', 11)
                 pdf.cell(0, 10, f"  OFFICIAL STATEMENT: {target_client.upper()}", 0, 1, 'L', True)
                 
-                pdf.ln(2)
                 pdf.set_font("Arial", size=10)
-                pdf.cell(95, 7, f"NIN: {str(loan_info.get('NIN', 'N/A'))}", 0, 0)
-                pdf.cell(95, 7, f"Loan Type: {str(loan_info.get('LOAN_TYPE', 'General'))}", 0, 1)
-                pdf.cell(95, 7, f"Business: {str(loan_info.get('BUSINESS_NAME', 'N/A'))}", 0, 0)
-                pdf.cell(95, 7, f"Contact: {str(loan_info.get('CONTACT', 'N/A'))}", 0, 1)
-                pdf.ln(10)
+                pdf.ln(2)
+                pdf.cell(95, 7, f"NIN: {clean(loan_info.get('NIN'))}", 0, 0)
+                pdf.cell(95, 7, f"Loan Type: {clean(loan_info.get('LOAN_TYPE'))}", 0, 1)
+                pdf.cell(95, 7, f"Business: {clean(loan_info.get('BUSINESS_NAME'))}", 0, 0)
+                pdf.cell(95, 7, f"Contact: {clean(loan_info.get('CONTACT'))}", 0, 1)
+                pdf.ln(8)
 
-                # --- THE STAMP AREA ---
-                pdf.set_draw_color(30, 58, 138)
-                pdf.set_xy(140, 210) # Position near bottom right
-                pdf.set_font("Arial", 'B', 8)
-                pdf.cell(50, 25, "OFFICIAL STAMP", 1, 0, 'C')
+                # 3. FINANCIAL SUMMARY (Restored)
+                pdf.set_font("Arial", 'B', 11)
+                pdf.cell(0, 10, "  LOAN SUMMARY", 0, 1, 'L', True)
+                pdf.ln(2)
+                pdf.set_font("Arial", 'B', 10)
+                pdf.cell(60, 10, "Principal", 1, 0, 'C')
+                pdf.cell(60, 10, "Total Paid", 1, 0, 'C')
+                pdf.cell(70, 10, "CURRENT BALANCE", 1, 1, 'C')
                 
-                # ... (Keep the summary box and history table logic from before) ...
+                pdf.set_font("Arial", size=10)
+                pdf.cell(60, 12, f"UGX {loan_info['LOAN_AMOUNT']:,.0f}", 1, 0, 'C')
+                pdf.cell(60, 12, f"UGX {loan_info['AMOUNT_PAID']:,.0f}", 1, 0, 'C')
+                pdf.set_font("Arial", 'B', 11)
+                pdf.cell(70, 12, f"UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", 1, 1, 'C')
+                pdf.ln(8)
 
-                # Save to state
+                # 4. PAYMENT HISTORY TABLE (Restored)
+                if not client_payments.empty:
+                    pdf.set_font("Arial", 'B', 11)
+                    pdf.cell(0, 10, "  TRANSACTION HISTORY", 0, 1, 'L', True)
+                    pdf.ln(2)
+                    pdf.set_fill_color(30, 58, 138); pdf.set_text_color(255, 255, 255)
+                    pdf.cell(50, 10, "Date", 1, 0, 'C', True)
+                    pdf.cell(80, 10, "Reference #", 1, 0, 'C', True)
+                    pdf.cell(60, 10, "Amount Paid", 1, 1, 'C', True)
+                    
+                    pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", size=10)
+                    for _, row in client_payments.iterrows():
+                        pdf.cell(50, 10, str(row['DATE']), 1, 0, 'C')
+                        pdf.cell(80, 10, f" {str(row['REF'])}", 1, 0, 'L')
+                        pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f} ", 1, 1, 'R')
+                
+                # 5. STAMP AREA
+                pdf.set_y(220)
+                pdf.set_draw_color(30, 58, 138)
+                pdf.set_font("Arial", 'B', 8)
+                pdf.set_x(140)
+                pdf.cell(50, 25, "OFFICIAL STAMP", 1, 0, 'C')
+
+                # --- 6. SAVE & RERUN ---
                 st.session_state.b64_str = base64.b64encode(pdf.output()).decode()
                 st.session_state.ready = True
                 st.rerun()
