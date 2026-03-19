@@ -846,64 +846,59 @@ elif page == "Ledger":
             st.session_state.pdf_ready = False
             st.session_state.pdf_data = None
 
-        # --- 1. STATE INITIALIZATION ---
+        # --- 1. SESSION STATE (Keep this at the top of the Ledger logic) ---
         if 'pdf_ready' not in st.session_state:
             st.session_state.pdf_ready = False
             st.session_state.pdf_base64 = ""
 
-        # --- 2. THE BUTTONS (Now Smaller & Professional) ---
-        col_btns1, col_btns2 = st.columns([1, 1])
-        
-        with col_btns1:
-            if st.button("📄 Prepare Statement", use_container_width=True, key="prep_btn"):
+        st.write("---")
+        st.subheader("📄 Export Account Statement")
+
+        # --- 2. THE COMPACT BUTTON ROW ---
+        # We use a small column layout to keep buttons tiny and professional
+        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
+
+        with btn_col1:
+            if st.button("🔄 Prepare PDF", use_container_width=True, key="prep_final"):
                 from fpdf import FPDF
                 import base64
                 
-                # --- PDF Generation Logic ---
-                is_overdue = loan_info['OUTSTANDING_AMOUNT'] > 0
-                class PDF(FPDF):
-                    def header(self):
-                        self.set_fill_color(30, 58, 138)
-                        self.rect(0, 0, 210, 40, 'F')
-                        self.set_text_color(255, 255, 255)
-                        self.set_font("Arial", 'B', 16)
-                        self.set_xy(10, 10)
-                        self.cell(0, 10, f"{brand_name} LTD", ln=True)
-                
-                pdf = PDF()
+                # Setup PDF
+                pdf = FPDF()
                 pdf.add_page()
-                pdf.set_font("Arial", size=12)
-                pdf.cell(0, 10, f"Statement for: {target_client}", ln=True)
-                # ... (You can add back your full profile/table code here) ...
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(0, 10, f"{brand_name} LTD - Statement", ln=True)
+                pdf.set_font("Arial", size=10)
+                pdf.cell(0, 10, f"Client: {target_client}", ln=True)
+                pdf.cell(0, 10, f"Balance: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True)
                 
-                # Encode to Base64 to bypass the " Diva" API errors
+                # Logic: Convert to base64 string
                 b64 = base64.b64encode(pdf.output()).decode()
                 st.session_state.pdf_base64 = b64
                 st.session_state.pdf_ready = True
                 st.rerun()
 
-        with col_btns2:
+        with btn_col2:
             if st.session_state.pdf_ready:
-                # This is the actual download link, styled to look like a small grey button
+                # The "Download" link styled as a small, quiet grey button
                 st.markdown(f'''
                     <a href="data:application/pdf;base64,{st.session_state.pdf_base64}" 
                        download="Zoe_{target_client}.pdf" style="text-decoration:none;">
-                        <div style="background-color:#e2e8f0; color:#1e293b; padding:8px; 
+                        <div style="background-color:#f1f5f9; color:#475569; padding:8px; 
                                     border-radius:5px; text-align:center; font-size:14px; 
                                     font-weight:bold; border:1px solid #cbd5e1;">
-                            📥 Download Now
+                            📥 Download
                         </div>
                     </a>
                 ''', unsafe_allow_html=True)
             else:
                 st.button("📥 Download", disabled=True, use_container_width=True)
 
-        # --- 3. REFRESH BUTTON (To clear and start over) ---
-        if st.session_state.pdf_ready:
-            if st.button("🔄 Clear", type="secondary", icon="🗑️"):
-                st.session_state.pdf_ready = False
-                st.rerun()
-
+        with btn_col3:
+            if st.session_state.pdf_ready:
+                if st.button("🗑️ Reset", use_container_width=True):
+                    st.session_state.pdf_ready = False
+                    st.rerun()
             # --- TABLE ---
             # ... (Keep your existing transaction table code here) ...
         # 6. TABLE STYLE
