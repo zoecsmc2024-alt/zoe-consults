@@ -441,29 +441,26 @@ elif page == "Payments":
                 if p_amt > 0 and p_ref:
                     # 1. Start the 'Thinking' animation
                     with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
-                        try:  # <--- This is now pushed to the right
-                # 1. Create the payment row
-                           new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
+            try:
+                # --- ALL THIS MUST BE INDENTED 4 SPACES FROM THE 'TRY' ---
+                new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                    columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                 
-                # 2. Sync to Payments Sheet
-                           conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+                conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                 
-                # 3. Update Borrowers Sheet
-                           idx = df[df['CUSTOMER_NAME'] == p_name].index
-                           df.loc[idx, 'AMOUNT_PAID'] += p_amt
-                           df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
-                           conn.update(worksheet="Borrowers", data=df)
-                            
+                idx = df[df['CUSTOMER_NAME'] == p_name].index
+                df.loc[idx, 'AMOUNT_PAID'] += p_amt
+                df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
+                conn.update(worksheet="Borrowers", data=df)
+                
                 st.toast(f"✅ Receipt {p_ref} secured!", icon="💰")
-                 import time
-                 time.sleep(1)
-                 st.rerun()
-                        
-                except Exception as e:
+                import time
+                time.sleep(1)
+                st.rerun()
+                # -------------------------------------------------------
+
+            except Exception as e:
                 st.error(f"❌ Cloud Sync Failed: {e}")
-                 else:
-                st.error("⚠️ Please provide both an Amount and a Reference Number.")
 
         with col2:
             st.info("**System Tip:** Recording a payment here automatically updates the Ledger and reduces the Outstanding Risk on the Executive Summary.")
