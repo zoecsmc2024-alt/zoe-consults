@@ -872,8 +872,20 @@ elif page == "Ledger":
             # --- 1. GENERATE PDF ---
             # (Make sure this follows your existing table/header logic)
             
-            # Use 'latin-1' encoding to ensure it converts correctly to bytes
-            pdf_bytes = pdf.output(dest='S').encode('latin-1')
+            # --- 1. GENERATE PDF OUTPUT ---
+            # In fpdf2, this returns a bytearray automatically
+            pdf_output = pdf.output() 
+            
+            # --- 2. SHOW SUCCESS AND DOWNLOAD ---
+            st.success("✅ Statement Generated Successfully!")
+            
+            st.download_button(
+                label=f"💾 Click Here to Download {target_client}'s PDF",
+                data=pdf_output,
+                file_name=f"Zoe_Statement_{target_client}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
             
             # --- 2. SHOW SUCCESS AND DOWNLOAD ---
             st.success("✅ Statement Generated Successfully!")
