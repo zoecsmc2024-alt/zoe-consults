@@ -451,9 +451,9 @@ elif page == "Borrowers":
             st.subheader("📈 Revenue Trend")
             # Prepare monthly data
             # 1. Ensure 'DATE' is in datetime format and create the 'Month' column
-    display_df['DATE'] = pd.to_datetime(display_df['DATE'])
-    display_df['Month'] = display_df['DATE'].dt.strftime('%b %Y') # e.g., "Mar 2026"
-
+    # ✅ FIX: Use the actual column name from your 'Borrowers' sheet
+display_df['DATE_ISSUED'] = pd.to_datetime(display_df['DATE_ISSUED'])
+display_df['Month'] = display_df['DATE_ISSUED'].dt.strftime('%b %Y')
     # 2. Make sure the columns we want to sum actually exist
     cols_to_sum = {}
     if 'INTEREST_AMT' in display_df.columns:
