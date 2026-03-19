@@ -172,7 +172,7 @@ with st.sidebar:
     # Using 'option_menu' for a more mobile-responsive, centered feel
     page = option_menu(
         menu_title=None,
-        options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings"],
+        options=["Overview", "Borrowers", "Repayments", "Calendar", "Collateral", "Ledger", "Settings", "Insights"],
         icons=["grid-1x2", "people", "wallet2", "calendar-check", "safe2", "file-earmark-medical", "sliders"],
         menu_icon="cast",
         default_index=0,
@@ -282,6 +282,36 @@ if page == "Overview":
         overdue_count = len(df[df['OUTSTANDING_AMOUNT'] > 0]) # Simplify logic for now
         if overdue_count > 0:
             st.info(f"💡 System Note: You have **{overdue_count}** active loan files currently being tracked.")
+
+elif page == "Insights":
+    st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
+    
+    # CALCULATE REVENUE (Interest Collected)
+    # Note: We only count Interest/Penalties as 'Income', not the Principal
+    total_interest_earned = df['INTEREST_AMT'].sum()
+    total_expenses = exp_df['AMOUNT'].sum() if not exp_df.empty else 0
+    net_profit = total_interest_earned - total_expenses
+
+    # KPI TILES
+    i1, i2, i3 = st.columns(3)
+    i1.metric("Gross Revenue (Interest)", f"UGX {total_interest_earned:,.0f}")
+    i2.metric("Total Operating Costs", f"UGX {total_expenses:,.0f}", delta=f"-{total_expenses:,.0f}", delta_color="inverse")
+    i3.metric("Net Profit", f"UGX {net_profit:,.0f}", delta=f"{(net_profit/total_interest_earned*100):.1f}% Margin" if total_interest_earned > 0 else "0%")
+
+    st.write("---")
+    
+    # EXPENSE ENTRY FORM (Keep it small!)
+    with st.expander("💸 Record New Business Expense"):
+        with st.form("expense_form", clear_on_submit=True):
+            e_cat = st.selectbox("Category", ["Data/Internet", "Transport", "Marketing", "Rent", "Taxes", "Other"])
+            e_amt = st.number_input("Amount (UGX)", min_value=0, step=5000)
+            e_desc = st.text_input("Note (e.g. Monthly MTN Bundle)")
+            if st.form_submit_button("Post Expense", use_container_width=True):
+                new_e = pd.DataFrame([[str(datetime.now().date()), e_cat, e_desc, e_amt]], 
+                                    columns=['DATE', 'CATEGORY', 'DESCRIPTION', 'AMOUNT'])
+                conn.update(worksheet="Expenses", data=pd.concat([exp_df, new_e], ignore_index=True))
+                st.toast("Expense Recorded!")
+                st.rerun()
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Active Loan Registry</div>', unsafe_allow_html=True)
