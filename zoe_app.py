@@ -316,9 +316,9 @@ st.write("")
 with st.expander("🛠️ Manage Records (Edit/Delete)"):
     # ... your management code ...
     st.write("Management tools active.")
-            target = st.selectbox("Select Client to Modify:", options=df['CUSTOMER_NAME'].unique())
-            # Logic for editing/deleting goes here (indented properly)
-            st.info(f"Management mode active for {target}")
+    target = st.selectbox("Select Client to Modify:", options=df['CUSTOMER_NAME'].unique())
+    # Logic for editing/deleting goes here (indented properly)
+    st.info(f"Management mode active for {target}")
 
     else:
         st.info("The registry is currently empty.")
