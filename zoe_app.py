@@ -454,16 +454,16 @@ elif page == "Payments":
                            df.loc[idx, 'AMOUNT_PAID'] += p_amt
                            df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
                            conn.update(worksheet="Borrowers", data=df)
-                
-                st.toast(f"✅ Receipt {p_ref} secured!", icon="💰")
-                import time
-                time.sleep(1)
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"❌ Cloud Sync Failed: {e}")
-            else:
-                st.error("⚠️ Please provide both an Amount and a Reference Number.")
+                            
+                            st.toast(f"✅ Receipt {p_ref} secured!", icon="💰")
+                            import time
+                            time.sleep(1)
+                            st.rerun()
+                        
+                        except Exception as e:
+                            st.error(f"❌ Cloud Sync Failed: {e}")
+                        else:
+                            st.error("⚠️ Please provide both an Amount and a Reference Number.")
 
         with col2:
             st.info("**System Tip:** Recording a payment here automatically updates the Ledger and reduces the Outstanding Risk on the Executive Summary.")
