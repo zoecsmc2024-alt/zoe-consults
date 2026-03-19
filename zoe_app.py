@@ -447,7 +447,7 @@ elif page == "Payments":
                                    columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                 
                 # 2. Sync to Payments Sheet
-                conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
+                          conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                 
                 # 3. Update Borrowers Sheet
                 idx = df[df['CUSTOMER_NAME'] == p_name].index
