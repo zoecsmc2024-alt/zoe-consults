@@ -774,46 +774,79 @@ import io
 # ... inside your Ledger page logic ...
 
 if not client_payments.empty:
-    # 1. GENERATE PDF BUTTON
-    if st.button("📄 Generate PDF Statement", use_container_width=True):
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
-        
-        # Header
-        pdf.cell(200, 10, txt=f"{brand_name} - Official Statement", ln=True, align='C')
-        pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt=f"Client: {target_client}", ln=True, align='L')
-        pdf.cell(200, 10, txt=f"Date: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='L')
-        pdf.ln(10)
-        
-        # Table Headers
-        pdf.set_fill_color(200, 220, 255)
-        pdf.cell(60, 10, "Date", 1, 0, 'C', True)
-        pdf.cell(80, 10, "Reference", 1, 0, 'C', True)
-        pdf.cell(50, 10, "Amount (UGX)", 1, 1, 'C', True)
-        
-        # Table Rows
-        for index, row in client_payments.iterrows():
-            pdf.cell(60, 10, str(row['DATE']), 1)
-            pdf.cell(80, 10, str(row['REF']), 1)
-            pdf.cell(50, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
+    # --- EXECUTIVE PDF GENERATOR ---
+        if st.button("📄 Generate Official PDF Statement", use_container_width=True):
+            from fpdf import FPDF
             
-        # Total Summary
-        pdf.ln(5)
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(200, 10, txt=f"REMAINING BALANCE: UGX {loan_info['OUTSTANDING_AMOUNT']:,.0f}", ln=True, align='R')
-        
-        # Output as bytes for Streamlit
-        html_pdf = pdf.output(dest='S').encode('latin-1')
-        
-        st.download_button(
-            label="⬇️ Download PDF to Send via WhatsApp",
-            data=html_pdf,
-            file_name=f"Statement_{target_client}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+            class PDF(FPDF):
+                def header(self):
+                    # 1. Blue Header Bar
+                    self.set_fill_color(30, 58, 138)  # Deep Navy Blue
+                    self.rect(0, 0, 210, 40, 'F')
+                    
+                    # 2. Company Name in Gold/White
+                    self.set_text_color(255, 255, 255)
+                    self.set_font("Arial", 'B', 24)
+                    self.cell(0, 10, f"{brand_name}", ln=True, align='L')
+                    
+                    self.set_font("Arial", size=10)
+                    self.cell(0, 5, "Plot 45, Kampala Road, Uganda", ln=True, align='L')
+                    self.cell(0, 5, "Contact: +256 700 000 000 | info@zoeconsults.com", ln=True, align='L')
+                    
+                    self.set_y(15)
+                    self.set_font("Arial", 'B', 14)
+                    self.cell(0, 10, "OFFICIAL STATEMENT", ln=True, align='R')
+                    self.set_font("Arial", size=9)
+                    self.cell(0, 5, f"Date: {datetime.now().strftime('%d %b %Y')}", ln=True, align='R')
+                    self.ln(20)
+
+            pdf = PDF()
+            pdf.add_page()
+            
+            # --- CLIENT INFO ---
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(0, 10, f"CLIENT NAME: {target_client.upper()}", ln=True)
+            pdf.ln(5)
+
+            # --- FINANCIAL SUMMARY ---
+            pdf.set_fill_color(240, 244, 248)
+            pdf.cell(47, 15, f"Principal: {loan_info['LOAN_AMOUNT']:,.0f}", 1, 0, 'C', True)
+            pdf.cell(47, 15, f"Interest: {loan_info['INTEREST_RATE']}%", 1, 0, 'C', True)
+            pdf.cell(47, 15, f"Paid: {loan_info['AMOUNT_PAID']:,.0f}", 1, 0, 'C', True)
+            pdf.cell(47, 15, f"Balance: {loan_info['OUTSTANDING_AMOUNT']:,.0f}", 1, 1, 'C', True)
+            pdf.ln(10)
+
+            # --- TRANSACTION TABLE ---
+            pdf.set_font("Arial", 'B', 10)
+            pdf.set_fill_color(30, 58, 138)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(50, 10, "Date", 1, 0, 'C', True)
+            pdf.cell(80, 10, "Reference / Receipt No.", 1, 0, 'C', True)
+            pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
+            
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", size=10)
+            for _, row in client_payments.iterrows():
+                pdf.cell(50, 10, str(row['DATE']), 1, 0, 'C')
+                pdf.cell(80, 10, str(row['REF']), 1, 0, 'L')
+                pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
+
+            # --- FOOTER / STAMP AREA ---
+            pdf.ln(20)
+            pdf.set_font("Arial", 'I', 8)
+            pdf.cell(0, 10, "This is a computer-generated statement. No signature required.", align='C')
+            
+            # Generate the file
+            obj = pdf.output(dest='S')
+            
+            st.download_button(
+                label=f"⬇️ Download {target_client}'s Statement",
+                data=obj,
+                file_name=f"Zoe_Statement_{target_client}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
         # 5. WHATSAPP BUTTON
         message = (
