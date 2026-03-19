@@ -450,33 +450,29 @@ elif page == "Borrowers":
         with col_chart1:
             st.subheader("📈 Revenue Trend")
             # Prepare monthly data
-            display_df['Month'] = pd.to_datetime(display_df['DATE_ISSUED']).dt.strftime('%b %Y')
-            monthly_rev = display_df.groupby('Month').agg({'INTEREST_AMT': 'sum', 'Penalty': 'sum'}).reset_index()
-            # Sort chronologically
-            monthly_rev['Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
-            monthly_rev = monthly_rev.sort_values('Sort')
-            
-            st.bar_chart(monthly_rev, x="Month", y=["INTEREST_AMT", "Penalty"], 
-                         color=["#0284c7", "#ef4444"], use_container_width=True)
-            st.caption("🔵 Interest | 🔴 Penalties")
+            # 1. Ensure 'DATE' is in datetime format and create the 'Month' column
+    display_df['DATE'] = pd.to_datetime(display_df['DATE'])
+    display_df['Month'] = display_df['DATE'].dt.strftime('%b %Y') # e.g., "Mar 2026"
 
-        with col_chart2:
-            st.subheader("🍕 Portfolio Split")
-            # We look at the 'Collateral' type if you have that column, 
-            # or we can split by Loan Duration to see which 'Product' is most popular
-            if 'DURATION' in display_df.columns:
-                duration_split = display_df['DURATION'].value_counts()
-                st.vega_lite_chart(display_df, {
-                    'mark': {'type': 'arc', 'innerRadius': 50},
-                    'encoding': {
-                        'theta': {'field': 'LOAN_AMOUNT', 'type': 'quantitative', 'aggregate': 'sum'},
-                        'color': {'field': 'DURATION', 'type': 'nominal', 'legend': {"title": "Loan Term (Days)"}},
-                    },
-                }, use_container_width=True)
-                st.caption("Distribution of Capital by Loan Duration")
-            else:
-                st.info("Add more categories to see a portfolio split.")
-
+    # 2. Make sure the columns we want to sum actually exist
+    cols_to_sum = {}
+    if 'INTEREST_AMT' in display_df.columns:
+        cols_to_sum['INTEREST_AMT'] = 'sum'
+    if 'Penalty' in display_df.columns:
+        cols_to_sum['Penalty'] = 'sum'
+    
+    # 3. Perform the grouping safely
+    if cols_to_sum:
+        monthly_rev = display_df.groupby('Month').agg(cols_to_sum).reset_index()
+        
+        # Sort by date so the chart flows correctly (Jan, Feb, Mar...)
+        monthly_rev['Date_Sort'] = pd.to_datetime(monthly_rev['Month'], format='%b %Y')
+        monthly_rev = monthly_rev.sort_values('Date_Sort')
+        
+        # 4. Display the chart
+        st.bar_chart(data=monthly_rev, x='Month', y=list(cols_to_sum.keys()))
+    else:
+        st.warning("📊 No revenue data available to chart yet.")
         # --- 5. MANAGEMENT & REGISTRATION ---
         st.write("")
         with st.expander("🛠️ Manage Records (Edit/Delete)"):
