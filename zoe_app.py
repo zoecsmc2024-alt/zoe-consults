@@ -783,52 +783,47 @@ elif page == "Ledger":
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
     
-    # Create the Tabs
-    tab_sync, tab_branding = st.tabs(["🔄 Data Sync", "🎨 Branding & Identity"])
+    # 1. TABS FOR ORGANIZATION
+    tab_sync, tab_branding, tab_backup = st.tabs(["🔄 Data Sync", "🎨 Branding", "📥 Database Backup"])
     
     with tab_sync:
-        st.subheader("Maintenance")
-        st.write("Force the app to pull the latest data from Google Sheets.")
-        if st.button("🧹 Clear Cache & Refresh", use_container_width=True):
+        st.subheader("System Maintenance")
+        if st.button("🧹 Clear Cache & Refresh All Sheets", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
     with tab_branding:
-        st.subheader("Edit Company Profile")
+        # ... [Keep your Branding Form here] ...
+        st.info("Identity changes are saved directly to the 'Settings' tab in your Google Sheet.")
+
+    with tab_backup:
+        st.subheader("Export Entire Database")
+        st.write("Download all records (Borrowers, Payments, Collateral) as a single Excel file for offline storage.")
         
-        # This form must be indented inside the 'with tab_branding' block
-        with st.form("branding_editor_v2"):
-            # Get current values (using the helper function we defined earlier)
-            curr_name = get_setting("Company Name", "ZOE")
-            curr_tagline = get_setting("Tagline", "CONSULTS")
-            curr_logo_type = get_setting("Logo Type", "Emoji")
-            curr_logo_val = get_setting("Logo Value", "🛡️")
-
-            new_name = st.text_input("Company Name", value=curr_name)
-            new_tagline = st.text_input("Tagline", value=curr_tagline)
+        # LOGIC TO CREATE THE EXCEL FILE
+        import io
+        buffer = io.BytesIO()
+        
+        try:
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                # Write each dataframe to a different sheet
+                df.to_excel(writer, sheet_name='Borrowers', index=False)
+                pay_df.to_excel(writer, sheet_name='Payments', index=False)
+                collateral_df.to_excel(writer, sheet_name='Collateral', index=False)
+                settings_df.to_excel(writer, sheet_name='SystemSettings', index=False)
             
-            logo_choice = st.radio("Logo Style", ["Emoji", "URL"], 
-                                   index=0 if curr_logo_type == "Emoji" else 1,
-                                   horizontal=True)
-            
-            new_logo_val = st.text_input("Logo Value (Emoji or Image URL)", 
-                                         value=curr_logo_val,
-                                         help="Direct link to image or a single emoji")
+            # Create the Download Button
+            st.download_button(
+                label="📥 Download Master Backup (.xlsx)",
+                data=buffer,
+                file_name=f"ZoeLend_Backup_{datetime.now().strftime('%d_%b_%Y')}.xlsx",
+                mime="application/vnd.ms-excel",
+                use_container_width=True
+            )
+            st.success("Excel file generated successfully!")
+        except Exception as e:
+            st.error(f"Backup engine error: {e}. Please ensure the 'xlsxwriter' library is installed.")
 
-            if st.form_submit_button("💾 Save Branding Changes", use_container_width=True):
-                # Prepare data for Google Sheets
-                new_settings_data = pd.DataFrame([
-                    ["Company Name", new_name],
-                    ["Tagline", new_tagline],
-                    ["Logo Type", logo_choice],
-                    ["Logo Value", new_logo_val]
-                ], columns=["Property", "Value"])
-                
-                # Sync back to the 'Settings' tab in your Google Sheet
-                try:
-                    conn.update(worksheet="Settings", data=new_settings_data)
-                    st.success("✅ Identity updated! Refreshing app...")
-                    st.cache_data.clear()
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: Make sure you created a tab named 'Settings' in your Google Sheet. {e}")
+    # 2. FOOTER INFO
+    st.markdown("---")
+    st.caption(f"Zoe Consults IQ • Version 2.5.0 • Last Sync: {datetime.now().strftime('%H:%M:%S')}")
