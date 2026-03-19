@@ -504,7 +504,7 @@ elif page == "Borrowers":
 
 # --- End of Insights Page ---
 
-     elif page == "Insights":
+elif page == "Insights":
     st.markdown('<div class="main-title">📈 Zoe Consults Financial Insights</div>', unsafe_allow_html=True)
     
     # CALCULATE REVENUE (Interest Collected)
