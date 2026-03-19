@@ -757,50 +757,78 @@ elif page == "Collateral":
 elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
     
-    # --- 1. STATE ---
+    # 1. BRAIN CHECK (Session State for PDF)
     if 'ready' not in st.session_state:
         st.session_state.ready = False
         st.session_state.b64_str = ""
 
-    # --- 2. BUTTON ---
-    if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="btn_final_v5"):
-        from fpdf import FPDF
-        import base64
+    # 2. CLIENT SELECTION (The part that disappeared)
+    if not df.empty:
+        target_client = st.selectbox("🔍 Search & Select Borrower", options=df['CUSTOMER_NAME'].unique())
         
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, "ZOE CONSULTS LTD", ln=True, align='C')
-        pdf.set_font("Arial", size=12)
-        pdf.cell(0, 10, f"Client: {target_client}", ln=True)
-        pdf.cell(0, 10, f"Date: {datetime.now().strftime('%Y-%m-%d')}", ln=True)
-        
-        # Binary to String conversion
-        pdf_bytes = pdf.output()
-        st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
-        st.session_state.ready = True
-        st.rerun()
+        # Get specific borrower data
+        loan_info = df[df['CUSTOMER_NAME'] == target_client].iloc[0]
+        client_payments = pay_df[pay_df['CUSTOMER_NAME'] == target_client]
 
-    # --- 3. THE LINK (The part that was crashing) ---
-    if st.session_state.ready:
-        st.success("✅ Statement Ready!")
-        
-        # Using the exact name 'b64_str' from above
-        link_html = f'''
-            <a href="data:application/pdf;base64,{st.session_state.b64_str}" 
-               download="Statement_{target_client}.pdf" style="text-decoration:none;">
-                <div style="background-color:#1e3a8a; color:white; padding:12px; 
-                            border-radius:8px; text-align:center; font-weight:bold; cursor:pointer;">
-                    📥 CLICK TO DOWNLOAD PDF
-                </div>
-            </a>
-        '''
-        st.markdown(link_html, unsafe_allow_html=True)
-        
-        if st.button("🗑️ Reset", use_container_width=True):
-            st.session_state.ready = False
-            st.session_state.b64_str = ""
-            st.rerun()
+        # 3. ACCOUNT SUMMARY CARDS
+        st.write("")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Principal (UGX)", f"{loan_info['LOAN_AMOUNT']:,.0f}")
+        with c2:
+            st.metric("Paid to Date", f"{loan_info['AMOUNT_PAID']:,.0f}", delta_color="normal")
+        with c3:
+            st.metric("Balance Due", f"{loan_info['OUTSTANDING_AMOUNT']:,.0f}", delta="-Pending", delta_color="inverse")
+
+        st.divider()
+
+        # 4. THE COMPACT PDF ACTION ROW
+        p1, p2 = st.columns([1, 1])
+        with p1:
+            if st.button("🔄 Prepare PDF Statement", use_container_width=True, key="btn_prep_v6"):
+                from fpdf import FPDF
+                import base64
+                
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(0, 10, "ZOE CONSULTS LTD - STATEMENT", ln=True, align='C')
+                pdf.set_font("Arial", size=10)
+                pdf.cell(0, 10, f"Client: {target_client}", ln=True)
+                pdf.cell(0, 10, f"Date: {datetime.now().date()}", ln=True)
+                
+                # Encode and Save
+                pdf_bytes = pdf.output()
+                st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
+                st.session_state.ready = True
+                st.rerun()
+
+        with p2:
+            if st.session_state.ready:
+                link_html = f'''
+                    <a href="data:application/pdf;base64,{st.session_state.b64_str}" 
+                       download="Statement_{target_client}.pdf" style="text-decoration:none;">
+                        <div style="background-color:#1e3a8a; color:white; padding:9px; 
+                                    border-radius:5px; text-align:center; font-weight:bold;">
+                            📥 Click to Download
+                        </div>
+                    </a>
+                '''
+                st.markdown(link_html, unsafe_allow_html=True)
+            else:
+                st.button("📥 Download", disabled=True, use_container_width=True)
+
+        # 5. TRANSACTION HISTORY TABLE
+        st.write("---")
+        st.markdown("##### 💳 Payment History")
+        if not client_payments.empty:
+            st.dataframe(client_payments[['DATE', 'REF', 'AMOUNT_PAID']], 
+                         use_container_width=True, hide_index=True)
+        else:
+            st.info("No payments recorded for this client yet.")
+
+    else:
+        st.warning("No borrower data found in the system.")
     
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ System Configuration</div>', unsafe_allow_html=True)
