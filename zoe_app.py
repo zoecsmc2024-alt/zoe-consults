@@ -512,79 +512,61 @@ elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
     
     if not df.empty:
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-         if st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True):
+        # 1. CREATE THE FORM ENVELOPE
+        with st.form("cloud_pay_form", clear_on_submit=True):
+            st.subheader("Record New Payment")
+            
+            p_name = st.selectbox("Select Borrower 👤", options=df['CUSTOMER_NAME'].unique())
+            p_amt = st.number_input("Amount Received (UGX) 💵", min_value=0, step=5000)
+            p_ref = st.text_input("Reference / Receipt Number 🏷️", placeholder="e.g. REC-102")
+            
+            # --- THE BUTTON (NOW SAFELY INSIDE THE FORM) ---
+            submit_payment = st.form_submit_button("🚀 Confirm & Post Payment", use_container_width=True)
+            
+            if submit_payment:
                 if p_amt > 0 and p_ref:
-                    # 1. Start the 'Thinking' animation
-                    with st.spinner("🔒 Encrypting & Syncing to Cloud..."):
+                    with st.spinner("🔒 Syncing to Zoe Cloud..."):
                         try:
-                            # Create the payment row
+                            # Create entry
                             new_p = pd.DataFrame([[str(datetime.now().date()), p_name, p_amt, p_ref]], 
                                                columns=['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID', 'REF'])
                             
-                            # Sync Payments
+                            # Sync to Payments Sheet
                             conn.update(worksheet="Payments", data=pd.concat([pay_df, new_p], ignore_index=True))
                             
-                            # Update Local Balance & Sync Borrowers
+                            # Update Borrower Balance
                             idx = df[df['CUSTOMER_NAME'] == p_name].index
                             df.loc[idx, 'AMOUNT_PAID'] += p_amt
                             df.loc[idx, 'OUTSTANDING_AMOUNT'] -= p_amt
                             conn.update(worksheet="Borrowers", data=df)
                             
-                            st.toast(f"✅ Receipt {p_ref} secured for {p_name}", icon="💰")
-                            
+                            st.toast(f"✅ Receipt {p_ref} secured!", icon="💰")
                             import time
-                            time.sleep(1) 
+                            time.sleep(1)
                             st.rerun()
-                            
                         except Exception as e:
-                            st.error(f"❌ Cloud Sync Failed: {e}")
+                            st.error(f"❌ Sync Failed: {e}")
                 else:
                     st.error("⚠️ Please provide both an Amount and a Reference Number.")
 
-        with col2:
-            st.info("**System Tip:** Recording a payment here automatically updates the Ledger and reduces the Outstanding Risk on the Executive Summary.")
-
+        # 2. SHOW THE HISTORY TABLE (OUTSIDE THE FORM)
         st.write("---")
-st.subheader("📋 Recent Transaction History")
-
-if not pay_df.empty:
-    # 1. CLEAN THE DATA FOR DISPLAY
-    display_pay = pay_df.copy()
-    display_pay = display_pay.iloc[::-1]  # Newest on top
-    
-    # 2. THE STYLED DATAFRAME
-    st.dataframe(
-        display_pay,
-        column_config={
-            "DATE": st.column_config.DateColumn("Payment Date", format="DD/MM/YYYY"),
-            "CUSTOMER_NAME": st.column_config.TextColumn("Borrower 👤"),
-            "AMOUNT_PAID": st.column_config.NumberColumn(
-                "Amount Received 💰", 
-                format="UGX %,d",
-                help="Total money collected in this transaction"
-            ),
-            "REF": st.column_config.TextColumn(
-                "Receipt / Ref #", 
-                help="Audit reference number"
+        st.subheader("📋 Recent Transaction History")
+        if not pay_df.empty:
+            display_pay = pay_df.copy().iloc[::-1]
+            st.dataframe(
+                display_pay,
+                column_config={
+                    "DATE": "Date",
+                    "CUSTOMER_NAME": "Borrower",
+                    "AMOUNT_PAID": st.column_config.NumberColumn("Amount", format="UGX %,d"),
+                    "REF": "Receipt #"
+                },
+                use_container_width=True,
+                hide_index=True
             )
-        },
-        use_container_width=True,
-        hide_index=True
-    )
-    
-    # 3. QUICK EXPORT OPTION (Keep it small)
-    c1, c2 = st.columns([4, 1])
-    with c2:
-        st.download_button(
-            label="📥 Export CSV",
-            data=display_pay.to_csv(index=False),
-            file_name=f"Transactions_{datetime.now().strftime('%d_%m_%y')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+    else:
+        st.info("📢 No borrowers found. Please register a client in the 'Borrowers' tab first.")
 
 elif page == "Repayments":
     st.markdown('<div class="main-title">💰 Payment Processing Center</div>', unsafe_allow_html=True)
