@@ -299,14 +299,66 @@ elif page == "Overdue Tracker":
         c1.write(f"🚩 **{r['CUSTOMER_NAME']}** - Balance: UGX {r['OUTSTANDING_AMOUNT']:,.0f}")
         c2.markdown(f"[Send WhatsApp](https://wa.me/{r['CONTACT']})")
 
-# PAGE: EXPENSES & PETTY CASH
+# --- PAGE: OPERATING EXPENSES ---
 elif page == "Expenses":
-    with st.form("exp_f"):
-        cat = st.selectbox("Category", ["Rent", "Salary", "Utility", "Other"])
-        amt = st.number_input("Amount")
-        if st.form_submit_button("Save"):
-            g_client.open("Zoe_Consults_Database").worksheet("Expenses").append_row([str(datetime.now().date()), cat, "Office", amt])
-            st.success("Expense Logged!"); st.cache_data.clear()
+    st.markdown('<div class="main-title">📉 Operating Expenses</div>', unsafe_allow_html=True)
+    
+    # 1. EXPENSE SUMMARY
+    if not expense_df.empty:
+        total_exp = expense_df['AMOUNT'].sum()
+        st.metric("Total Monthly Expenses", f"UGX {total_exp:,.0f}", delta_color="inverse")
+    
+    # 2. RECORD NEW EXPENSE
+    with st.expander("➕ Log Business Expense", expanded=True):
+        with st.form("exp_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            exp_cat = col1.selectbox("Category", ["Rent", "Salaries", "Trading License", "Utilities", "Marketing", "Other"])
+            exp_amt = col2.number_input("Amount (UGX)", min_value=0, step=5000)
+            
+            exp_date = st.date_input("Date", value=datetime.now())
+            exp_desc = st.text_input("Description / Payee")
+            
+            if st.form_submit_button("💾 Save Expense", use_container_width=True):
+                new_exp = [str(exp_date), exp_cat, exp_desc, exp_amt]
+                g_client.open("Zoe_Consults_Database").worksheet("Expenses").append_row(new_exp)
+                st.success("Expense recorded!"); st.cache_data.clear()
+
+    # 3. EXPENSE HISTORY
+    st.markdown("#### 📜 Expense Ledger")
+    st.dataframe(expense_df.sort_values(by=expense_df.columns[0], ascending=False), use_container_width=True)
+
+# --- PAGE: PETTY CASH ---
+elif page == "Petty Cash":
+    st.markdown('<div class="main-title">☕ Petty Cash Management</div>', unsafe_allow_html=True)
+    
+    # 1. FLOAT TRACKER
+    # We calculate float as (Total In - Total Out)
+    if not petty_df.empty:
+        p_in = petty_df[petty_df['TYPE'] == 'Float Top-up']['AMOUNT'].sum()
+        p_out = petty_df[petty_df['TYPE'] == 'Spend']['AMOUNT'].sum()
+        current_float = p_in - p_out
+        
+        color = "#1e3a8a" if current_float > 10000 else "#dc2626"
+        st.markdown(f"""
+            <div style="background-color: #f0f9ff; padding: 20px; border-radius: 12px; border-left: 6px solid {color};">
+                <h3 style="margin:0; color: {color};">Current Float: UGX {current_float:,.0f}</h3>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # 2. LOG PETTY CASH ACTIVITY
+    st.write("---")
+    with st.form("petty_form", clear_on_submit=True):
+        p_type = st.radio("Transaction Type", ["Spend", "Float Top-up"], horizontal=True)
+        col_a, col_b = st.columns(2)
+        p_amt = col_a.number_input("Amount (UGX)", min_value=0, step=1000)
+        p_item = col_b.text_input("Item (e.g., Office Tea, Transport, Printing)")
+        
+        if st.form_submit_button("💸 Update Petty Cash", use_container_width=True):
+            new_p = [str(datetime.now().date()), p_type, p_item, p_amt]
+            g_client.open("Zoe_Consults_Database").worksheet("PettyCash").append_row(new_p)
+            st.success("Petty cash updated!"); st.cache_data.clear()
+
+    st.dataframe(petty_df, use_container_width=True)
 
 elif page == "Petty Cash":
     st.metric("Current Float Balance", f"UGX {(petty_df[petty_df['TYPE']=='Float Top-up']['AMOUNT'].sum() - petty_df[petty_df['TYPE']=='Spend']['AMOUNT'].sum()):,.0f}")
