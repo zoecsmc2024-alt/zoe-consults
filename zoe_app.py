@@ -276,21 +276,32 @@ elif page == "Borrowers":
                 email = st.text_input("Email (Optional)")
 
             if st.form_submit_button("🚀 Finalize Registration & Disburse"):
-                if f_name and l_name and nin and g_client:
+                if f_name and l_name and nin:
                     full_name = f"{f_name} {l_name}".upper()
-                    new_row = [full_name, phone, loan_amt, 0, loan_amt, interest, str(datetime.now().date()), nin, address, gender, email, loan_type]
+                    new_row = [
+                        full_name, phone, loan_amt, 0, loan_amt, 
+                        interest, str(datetime.now().date()), nin, 
+                        address, gender, email, loan_type
+                    ]
                     
                     try:
-                        # Direct save to Google Sheets
-                        g_client.open("Zoe_Consults_Database").worksheet("Clients").append_row(new_row)
+                        # 🔄 RE-AUTHORIZE FRESH (Prevents the 'AuthorizedSession' error)
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        
+                        # Use direct service_account login for the save action
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        
+                        # Save the row
+                        fresh_client.open("Zoe_Consults_Database").worksheet("Clients").append_row(new_row)
+                        
                         st.balloons()
-                        st.success(f"✅ {full_name} is now registered!")
-                        st.cache_data.clear()
+                        st.success(f"✅ {full_name} has been successfully onboarded!")
+                        st.cache_data.clear() # Refresh data immediately
                     except Exception as e:
-                        st.error(f"Error saving: {e}")
+                        st.error(f"Error saving to Cloud: {e}")
                 else:
-                    st.warning("Ensure Name/NIN are filled and System is Connected.")
-
+                    st.warning("Please fill in Name and NIN to proceed.")
     st.write("---")
 
     # 2. THE DATABASE SECTION (The Safety Net)
