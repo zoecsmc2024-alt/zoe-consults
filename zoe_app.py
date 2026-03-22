@@ -298,6 +298,8 @@ elif page == "Borrowers":
                         st.cache_data.clear() # This pulls the new data into your table below
                     
                     except Exception as e:
+                        # This will tell us the EXACT reason Google said no
+                        st.error(f"Google says: {str(e)}")
                         # 🤫 FILTER THE "FAKE" ERROR
                         if "200" in str(e):
                             st.balloons()
