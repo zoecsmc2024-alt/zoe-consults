@@ -1,7 +1,9 @@
 streamlit
 pandas
 plotly
-st-gsheets-connection
+gspread
+fpdf
 streamlit-option-menu
+gspread-streamlit
+google-auth
 xlsxwriter
-fpdf2
