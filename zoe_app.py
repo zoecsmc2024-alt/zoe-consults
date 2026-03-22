@@ -138,21 +138,32 @@ with st.sidebar:
 
 # --- 7. PAGE MODULES ---
 
-# PAGE: OVERVIEW (With Net Revenue)
+# PAGE: OVERVIEW
 if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
-    t_cap = df['LOAN_AMOUNT'].sum()
-    t_coll = df['AMOUNT_PAID'].sum()
-    t_ops = expense_df['AMOUNT'].sum()
-    t_petty = petty_df[petty_df['TYPE'] == 'Spend']['AMOUNT'].sum()
-    t_pay = payroll_df['NET_PAY'].sum()
+    
+    # SAFETY CHECK: If the dataframe is empty or columns are missing, set totals to 0
+    if not df.empty and 'LOAN_AMOUNT' in df.columns:
+        t_cap = pd.to_numeric(df['LOAN_AMOUNT'], errors='coerce').sum()
+        t_coll = pd.to_numeric(df['AMOUNT_PAID'], errors='coerce').sum() if 'AMOUNT_PAID' in df.columns else 0
+        t_due = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').sum() if 'OUTSTANDING_AMOUNT' in df.columns else 0
+    else:
+        t_cap, t_coll, t_due = 0, 0, 0
+        st.warning("⚠️ Warning: 'LOAN_AMOUNT' column not found in Google Sheets. Please check your headers!")
+
+    # Calculate other expenses (same logic)
+    t_ops = expense_df['AMOUNT'].sum() if not expense_df.empty else 0
+    t_petty = petty_df[petty_df['TYPE'] == 'Spend']['AMOUNT'].sum() if not petty_df.empty else 0
+    t_pay = payroll_df['NET_PAY'].sum() if not payroll_df.empty else 0
+    
     net_rev = t_coll - (t_ops + t_petty + t_pay)
     
+    # Display the Metrics
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("💰 Capital Out", f"UGX {t_cap:,.0f}")
     k2.metric("📈 Collected", f"UGX {t_coll:,.0f}")
     k3.metric("💎 Net Revenue", f"UGX {net_rev:,.0f}", delta="After Bills")
-    k4.metric("🚨 At Risk", f"UGX {df['OUTSTANDING_AMOUNT'].sum():,.0f}", delta_color="inverse")
+    k4.metric("🚨 At Risk", f"UGX {t_due:,.0f}", delta_color="inverse")
     
     st.write("---")
     c1, c2 = st.columns(2)
