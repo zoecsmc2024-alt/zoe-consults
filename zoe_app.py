@@ -142,118 +142,60 @@ with st.sidebar:
 if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
     
-    # SAFETY CHECK: If the dataframe is empty or columns are missing, set totals to 0
-    if not df.empty and 'LOAN_AMOUNT' in df.columns:
-        t_cap = pd.to_numeric(df['LOAN_AMOUNT'], errors='coerce').sum()
-        t_coll = pd.to_numeric(df['AMOUNT_PAID'], errors='coerce').sum() if 'AMOUNT_PAID' in df.columns else 0
-        t_due = pd.to_numeric(df['OUTSTANDING_AMOUNT'], errors='coerce').sum() if 'OUTSTANDING_AMOUNT' in df.columns else 0
+    # 1. MERGE CLOUD + LOCAL DATA FOR TOTALS
+    # This ensures your new registration shows up here immediately!
+    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined_df = pd.concat([df, local_df], ignore_index=True)
+    
+    if not combined_df.empty:
+        # Ensure the math columns are numbers, not text
+        for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
+            if col in combined_df.columns:
+                combined_df[col] = pd.to_numeric(combined_df[col], errors='coerce').fillna(0)
+        
+        t_cap = combined_df['LOAN_AMOUNT'].sum()
+        t_coll = combined_df['AMOUNT_PAID'].sum()
+        t_due = combined_df['OUTSTANDING_AMOUNT'].sum()
     else:
         t_cap, t_coll, t_due = 0, 0, 0
-        st.warning("⚠️ Warning: 'LOAN_AMOUNT' column not found in Google Sheets. Please check your headers!")
 
-    # Calculate other expenses (same logic)
+    # 2. EXPENSE TOTALS
     t_ops = expense_df['AMOUNT'].sum() if not expense_df.empty else 0
     t_petty = petty_df[petty_df['TYPE'] == 'Spend']['AMOUNT'].sum() if not petty_df.empty else 0
     t_pay = payroll_df['NET_PAY'].sum() if not payroll_df.empty else 0
     
     net_rev = t_coll - (t_ops + t_petty + t_pay)
     
-    # Display the Metrics
+    # 3. DISPLAY METRICS (With Comma Formatting)
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("💰 Capital Out", f"UGX {t_cap:,.0f}")
     k2.metric("📈 Collected", f"UGX {t_coll:,.0f}")
     k3.metric("💎 Net Revenue", f"UGX {net_rev:,.0f}", delta="After Bills")
     k4.metric("🚨 At Risk", f"UGX {t_due:,.0f}", delta_color="inverse")
 
-    st.divider()
-    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>📊 Financial Reporting</p>", unsafe_allow_html=True)
-    st.info("Generate a professional P&L Statement for the current month.")
-
-    if st.button("📝 Generate Monthly P&L Report", use_container_width=True):
-        def generate_pl_pdf(collected, ops, petty, net, biz_name):
-            pdf = FPDF()
-            pdf.add_page()
-            
-            # 1. Header & Branding
-            pdf.set_font("Arial", 'B', 18)
-            pdf.set_text_color(30, 58, 138) # Navy Blue
-            pdf.cell(200, 15, biz_name, ln=True, align='C')
-            pdf.set_font("Arial", 'B', 12)
-            pdf.set_text_color(100, 116, 139) # Baby Blue / Slate
-            pdf.cell(200, 10, f"Profit & Loss Statement: {datetime.now().strftime('%B %Y')}", ln=True, align='C')
-            pdf.ln(10)
-
-            # 2. Revenue Section (Green Vibes)
-            pdf.set_fill_color(240, 253, 244) # Light Green
-            pdf.set_font("Arial", 'B', 12)
-            pdf.set_text_color(22, 101, 52) # Dark Green
-            pdf.cell(190, 12, " TOTAL REVENUE (Collections)", 1, 1, 'L', True)
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font("Arial", '', 11)
-            pdf.cell(130, 10, "Total Loan Repayments Received", 1, 0)
-            pdf.cell(60, 10, f"UGX {collected:,.0f}", 1, 1, 'R')
-            pdf.ln(5)
-
-            # 3. Expenses Section (Red Vibes)
-            pdf.set_fill_color(254, 242, 242) # Light Red
-            pdf.set_font("Arial", 'B', 12)
-            pdf.set_text_color(153, 27, 27) # Dark Red
-            pdf.cell(190, 12, " OPERATING EXPENSES", 1, 1, 'L', True)
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font("Arial", '', 11)
-            pdf.cell(130, 10, "Business Operating Costs (Rent, Salaries, etc.)", 1, 0)
-            pdf.cell(60, 10, f"- UGX {ops:,.0f}", 1, 1, 'R')
-            pdf.cell(130, 10, "Petty Cash Spend (Office, Transport)", 1, 0)
-            pdf.cell(60, 10, f"- UGX {petty:,.0f}", 1, 1, 'R')
-            pdf.ln(10)
-
-            # 4. Final Profit (Navy Blue)
-            pdf.set_fill_color(30, 58, 138) # Navy
-            pdf.set_text_color(255, 255, 255) # White
-            pdf.set_font("Arial", 'B', 14)
-            pdf.cell(130, 15, " NET PROFIT / LOSS", 1, 0, 'L', True)
-            pdf.cell(60, 15, f"UGX {net:,.0f}", 1, 1, 'R', True)
-
-            # 5. Footer
-            pdf.ln(30)
-            pdf.set_text_color(100, 116, 139)
-            pdf.set_font("Arial", 'I', 8)
-            pdf.cell(190, 10, f"Report Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 0, 'R')
-            
-            return pdf.output(dest='S').encode('latin-1')
-
-        # Logic to trigger download
-        pl_pdf = generate_pl_pdf(total_collected, total_ops, total_petty, net_revenue, "ZOE CONSULTS SMC LTD")
-        b64_pl = base64.b64encode(pl_pdf).decode()
-        href_pl = f'<a href="data:application/octet-stream;base64,{b64_pl}" download="Zoe_PL_Report_{datetime.now().strftime("%b_%Y")}.pdf" style="text-decoration:none;">' \
-                  f'<div style="background-color:#1e3a8a; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
-                  f'📥 DOWNLOAD MONTHLY P&L REPORT</div></a>'
-        st.markdown(href_pl, unsafe_allow_html=True)
-    
     st.write("---")
+    
+    # 4. CHARTS (Updated to use Combined Data)
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("#### Collection Ratio")
-        # Check if we have the data needed for the chart
-        if not df.empty and 'OUTSTANDING_AMOUNT' in df.columns:
-            total_due = df['OUTSTANDING_AMOUNT'].sum()
+        if t_cap > 0:
             fig = px.pie(
-                values=[t_coll, total_due], 
+                values=[t_coll, t_due], 
                 names=['Paid', 'Due'], 
                 hole=.5, 
                 color_discrete_sequence=['#1e3a8a', '#3b82f6']
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("ℹ️ Add your first client to see the Collection Ratio chart.")
+            st.info("ℹ️ Add a borrower to see the ratio.")
             
     with c2:
         st.markdown("#### Monthly Expense Breakdown")
-        if not expense_df.empty and 'CATEGORY' in expense_df.columns:
+        if not expense_df.empty:
             st.bar_chart(expense_df.groupby('CATEGORY')['AMOUNT'].sum())
         else:
             st.info("ℹ️ No expenses recorded yet.")
-
 # PAGE: BORROWERS (Now includes Registration)
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
