@@ -7,7 +7,7 @@ import io
 from datetime import datetime, timedelta
 from fpdf import FPDF
 from streamlit_option_menu import option_menu
-from gspread_streamlit import get_as_dataframe, set_with_dataframe
+sheet.worksheet("Name").get_all_records()
 from google.oauth2.service_account import Credentials
 
 # --- 1. PAGE CONFIGURATION ---
@@ -80,21 +80,25 @@ def load_full_database():
         client = gspread.authorize(creds)
         sheet = client.open("Zoe_Consults_Database")
         
-        # Load all 6 tabs
-        df = get_as_dataframe(sheet.worksheet("Clients")).dropna(how="all")
-        pay_df = get_as_dataframe(sheet.worksheet("Repayments")).dropna(how="all")
-        collateral_df = get_as_dataframe(sheet.worksheet("Collateral")).dropna(how="all")
-        expense_df = get_as_dataframe(sheet.worksheet("Expenses")).dropna(how="all")
-        petty_df = get_as_dataframe(sheet.worksheet("PettyCash")).dropna(how="all")
-        payroll_df = get_as_dataframe(sheet.worksheet("Payroll")).dropna(how="all")
+        # Helper to convert gspread data to Dataframe
+        def get_df(worksheet_name):
+            data = sheet.worksheet(worksheet_name).get_all_records()
+            return pd.DataFrame(data)
+
+        df = get_df("Clients")
+        pay_df = get_df("Repayments")
+        collateral_df = get_df("Collateral")
+        expense_df = get_df("Expenses")
+        petty_df = get_df("PettyCash")
+        payroll_df = get_df("Payroll")
         
         # Clean numeric data
         num_cols = ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']
         df[num_cols] = df[num_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
         pay_df['AMOUNT_PAID'] = pd.to_numeric(pay_df['AMOUNT_PAID'], errors='coerce').fillna(0)
-        expense_df['AMOUNT'] = pd.to_numeric(expense_df['AMOUNT'], errors='coerce').fillna(0)
-        petty_df['AMOUNT'] = pd.to_numeric(petty_df['AMOUNT'], errors='coerce').fillna(0)
-        payroll_df['NET_PAY'] = pd.to_numeric(payroll_df['NET_PAY'], errors='coerce').fillna(0)
+        if not expense_df.empty: expense_df['AMOUNT'] = pd.to_numeric(expense_df['AMOUNT'], errors='coerce').fillna(0)
+        if not petty_df.empty: petty_df['AMOUNT'] = pd.to_numeric(petty_df['AMOUNT'], errors='coerce').fillna(0)
+        if not payroll_df.empty: payroll_df['NET_PAY'] = pd.to_numeric(payroll_df['NET_PAY'], errors='coerce').fillna(0)
         
         return df, pay_df, collateral_df, expense_df, petty_df, payroll_df, client
     except Exception as e:
