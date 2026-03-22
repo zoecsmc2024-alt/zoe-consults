@@ -4,6 +4,5 @@ plotly
 gspread
 fpdf
 streamlit-option-menu
-gspread-streamlit
 google-auth
 xlsxwriter
