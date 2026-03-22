@@ -258,63 +258,52 @@ if page == "Overview":
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
     
-    # 1. REGISTRATION SECTION (KYC)
-    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=False):
+    # 1. REGISTRATION SECTION
+    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
         with st.form("kyc_registration_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
                 f_name = st.text_input("First Name")
                 l_name = st.text_input("Last Name")
                 phone = st.text_input("Contact Number (256...)")
-                gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+                gender = st.selectbox("Gender", ["Male", "Female"])
                 nin = st.text_input("NIN (National ID Number)")
-            
             with c2:
                 loan_amt = st.number_input("Approved Loan Amount (UGX)", min_value=0)
                 interest = st.number_input("Agreed Interest Rate (%)", min_value=0)
-                loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency", "Salary Advance"])
+                loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency"])
                 address = st.text_area("Residential Address")
-                email = st.text_input("Email Address (Optional)")
+                email = st.text_input("Email (Optional)")
 
             if st.form_submit_button("🚀 Finalize Registration & Disburse"):
-                if f_name and l_name and nin:
+                if f_name and l_name and nin and g_client:
                     full_name = f"{f_name} {l_name}".upper()
-                    # Data mapping to match your Google Sheet Columns
-                    # Order: CUSTOMER_NAME, CONTACT, LOAN_AMOUNT, AMOUNT_PAID, OUTSTANDING_AMOUNT, INTEREST_RATE, DATE, NIN, ADDRESS, GENDER, EMAIL, LOAN_TYPE
-                    new_row = [
-                        full_name, phone, loan_amt, 0, loan_amt, 
-                        interest, str(datetime.now().date()), nin, 
-                        address, gender, email, loan_type
-                    ]
+                    new_row = [full_name, phone, loan_amt, 0, loan_amt, interest, str(datetime.now().date()), nin, address, gender, email, loan_type]
                     
                     try:
+                        # Direct save to Google Sheets
                         g_client.open("Zoe_Consults_Database").worksheet("Clients").append_row(new_row)
                         st.balloons()
-                        st.success(f"✅ {full_name} has been successfully onboarded!")
-                        st.cache_data.clear() # Refresh data immediately
+                        st.success(f"✅ {full_name} is now registered!")
+                        st.cache_data.clear()
                     except Exception as e:
-                        st.error(f"Error saving to Cloud: {e}")
+                        st.error(f"Error saving: {e}")
                 else:
-                    st.warning("Please fill in Name and NIN to proceed.")
+                    st.warning("Ensure Name/NIN are filled and System is Connected.")
 
     st.write("---")
 
-    # 2. DATABASE SECTION
+    # 2. THE DATABASE SECTION (The Safety Net)
     st.markdown("#### 🔍 Active Borrower Directory")
-    search_query = st.text_input("Search by Name, NIN, or Phone Number")
     
-    if not df.empty:
-        # Filter logic
-        filtered_df = df[df.astype(str).apply(lambda x: x.str.contains(search_query, case=False)).any(axis=1)] if search_query else df
-        
-        st.dataframe(
-            filtered_df, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=("CUSTOMER_NAME", "CONTACT", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "NIN", "LOAN_TYPE")
-        )
+    # Check if df exists and is not empty
+    if 'df' in locals() and not df.empty:
+        search = st.text_input("Search Name/NIN")
+        display_df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)] if search else df
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
-        st.info("No borrowers found. Use the form above to register your first client.")
+        # This is what shows instead of a red error box!
+        st.info("ℹ️ Your Borrower Directory is currently empty. Register your first client above to begin.")
 
     # 3. EDIT/DELETE ACTIONS (The Pencil & Eraser)
     if not df.empty:
