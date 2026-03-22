@@ -383,20 +383,175 @@ elif page == "Calendar":
 
 # PAGE: LEDGER (PDF Statements)
 elif page == "Ledger":
-    st.markdown('<div class="main-title">📑 PDF Statement Center</div>', unsafe_allow_html=True)
-    sc = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
-    if st.button("🛠️ Prepare Official PDF"):
-        st.info(f"PDF Logic Ready for {sc}. Download Button Generated below.")
-        # (PDF Function would be called here)
+    st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
+    
+    # 1. SEARCH & SELECT
+    search_query = st.text_input("🔍 Search Client Name", placeholder="Enter name to filter list...")
+    filtered_clients = df[df['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]['CUSTOMER_NAME'].tolist()
+    
+    selected_client = st.selectbox("Select Client Profile", options=filtered_clients if filtered_clients else ["No clients found"])
+
+    if selected_client and selected_client != "No clients found":
+        # Get Client Data
+        client_data = df[df['CUSTOMER_NAME'] == selected_client].iloc[0]
+        client_pays = pay_df[pay_df['CUSTOMER_NAME'] == selected_client].sort_values(by="DATE")
+
+        # 2. MINI-DASHBOARD FOR CLIENT
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Original Loan", f"UGX {client_data['LOAN_AMOUNT']:,.0f}")
+        c2.metric("Total Repaid", f"UGX {client_data['AMOUNT_PAID']:,.0f}")
+        c3.metric("Current Balance", f"UGX {client_data['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
+
+        st.write("---")
+
+        # 3. PDF GENERATION LOGIC (The "Official Statement")
+        def generate_pdf(name, loan, paid, balance, history):
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # Header & Branding
+            pdf.set_font("Arial", 'B', 16)
+            pdf.set_text_color(30, 58, 138) # Navy Blue
+            pdf.cell(200, 10, "ZOE CONSULTS SMC LTD", ln=True, align='C')
+            pdf.set_font("Arial", '', 10)
+            pdf.set_text_color(100, 116, 139) # Slate
+            pdf.cell(200, 10, "Official Loan Statement & Repayment Ledger", ln=True, align='C')
+            pdf.ln(10)
+
+            # Summary Box
+            pdf.set_fill_color(248, 250, 252)
+            pdf.rect(10, 35, 190, 40, 'F')
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(100, 10, f"Client: {name}", ln=True)
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(100, 8, f"Initial Capital: UGX {loan:,.0f}", ln=True)
+            pdf.cell(100, 8, f"Total Amount Repaid: UGX {paid:,.0f}", ln=True)
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(100, 8, f"OUTSTANDING BALANCE: UGX {balance:,.0f}", ln=True)
+            pdf.ln(10)
+
+            # Table Header
+            pdf.set_fill_color(30, 58, 138)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(60, 10, "Date", 1, 0, 'C', True)
+            pdf.cell(70, 10, "Reference / Mode", 1, 0, 'C', True)
+            pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
+
+            # Table Rows
+            pdf.set_text_color(0, 0, 0)
+            for _, row in history.iterrows():
+                pdf.cell(60, 10, str(row['DATE']), 1)
+                pdf.cell(70, 10, str(row.get('PAYMENT_MODE', 'Deposit')), 1)
+                pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
+
+            # Official Stamp Box
+            pdf.ln(20)
+            pdf.set_draw_color(30, 58, 138)
+            pdf.cell(60, 25, "OFFICIAL STAMP", 1, 0, 'C')
+            pdf.cell(70) # Spacer
+            pdf.set_font("Arial", 'I', 8)
+            pdf.cell(60, 25, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 0, 0, 'R')
+            
+            return pdf.output(dest='S').encode('latin-1')
+
+        # 4. DOWNLOAD BUTTON & STATE
+        if st.button("🛠️ Prepare Official PDF", use_container_width=True):
+            pdf_bytes = generate_pdf(
+                selected_client, 
+                client_data['LOAN_AMOUNT'], 
+                client_data['AMOUNT_PAID'], 
+                client_data['OUTSTANDING_AMOUNT'], 
+                client_pays
+            )
+            st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
+            st.session_state.ready = True
+            st.session_state.last_client = selected_client
+
+        if st.session_state.ready and st.session_state.last_client == selected_client:
+            href = f'<a href="data:application/octet-stream;base64,{st.session_state.b64_str}" download="Zoe_Statement_{selected_client}.pdf" style="text-decoration:none;">' \
+                   f'<div style="background-color:#1e3a8a; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
+                   f'📥 DOWNLOAD PDF STATEMENT FOR {selected_client}</div></a>'
+            st.markdown(href, unsafe_allow_html=True)
+
+        # 5. TRANSACTION PREVIEW
+        st.write("---")
+        st.markdown("#### 🕒 Payment History")
+        st.dataframe(client_pays[['DATE', 'AMOUNT_PAID', 'PAYMENT_MODE']], use_container_width=True)
 
 # PAGE: OVERDUE TRACKER
 elif page == "Overdue Tracker":
-    st.markdown('<div class="main-title">🚨 Debt Collection</div>', unsafe_allow_html=True)
-    for _, r in df[df['OUTSTANDING_AMOUNT'] > 0].iterrows():
-        c1, c2 = st.columns([4,1])
-        c1.write(f"🚩 **{r['CUSTOMER_NAME']}** - Balance: UGX {r['OUTSTANDING_AMOUNT']:,.0f}")
-        c2.markdown(f"[Send WhatsApp](https://wa.me/{r['CONTACT']})")
+    st.markdown('<div class="main-title">🚨 Urgent Follow-up: Overdue Portfolios</div>', unsafe_allow_html=True)
+    
+    # 1. CALCULATE OVERDUE STATUS
+    today = datetime.now().date()
+    thirty_days_ago = today - timedelta(days=30)
+    
+    # Identify late payers by checking the last date in pay_df
+    if not pay_df.empty:
+        latest_pays = pay_df.groupby('CUSTOMER_NAME')['DATE'].max().reset_index()
+        latest_pays['DATE'] = pd.to_datetime(latest_pays['DATE']).dt.date
+        
+        # Merge with main client list to see who has a balance AND no recent pay
+        overdue_df = df.merge(latest_pays, on='CUSTOMER_NAME', how='left')
+        
+        # Filter: Balance > 0 AND (Last Pay > 30 days OR No Pay Recorded)
+        overdue_list = overdue_df[
+            (overdue_df['OUTSTANDING_AMOUNT'] > 0) & 
+            ((overdue_df['DATE'] < thirty_days_ago) | (overdue_df['DATE'].isna()))
+        ].copy()
+    else:
+        overdue_list = df[df['OUTSTANDING_AMOUNT'] > 0].copy()
+        overdue_list['DATE'] = None
 
+    # 2. THE ALERT BANNER (Baby Blue Border / Red Text)
+    if not overdue_list.empty:
+        st.markdown(f"""
+            <div style="background-color: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px; border-radius: 5px;">
+                <p style="margin:0; color: #1e3a8a; font-weight: bold;">
+                    ⚠️ ATTENTION: {len(overdue_list)} clients are currently 30+ days behind schedule.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.write("")
+
+        # 3. THE "RED LIST" ROWS
+        for _, row in overdue_list.iterrows():
+            with st.container():
+                c1, c2, c3 = st.columns([2, 1, 1])
+                
+                # Column 1: Borrower Info (Navy Blue Text)
+                c1.markdown(f"<span style='color: #1e3a8a; font-weight: bold; font-size: 18px;'>👤 {row['CUSTOMER_NAME']}</span>", unsafe_allow_html=True)
+                last_pay = row['DATE'] if pd.notna(row['DATE']) else "No payments recorded"
+                c1.markdown(f"<span style='color: #64748b; font-size: 13px;'>Last Payment: {last_pay}</span>", unsafe_allow_html=True)
+                
+                # Column 2: Money Owed (Baby Blue Accent)
+                c2.markdown(f"<span style='color: #3b82f6; font-weight: bold; font-size: 18px;'>UGX {row['OUTSTANDING_AMOUNT']:,.0f}</span>", unsafe_allow_html=True)
+                c2.caption("Balance Due")
+                
+                # Column 3: Red Action Button (The Chaser)
+                # We use a unique key to prevent the 'DuplicateElementId' error
+                clean_p = "".join(filter(str.isdigit, str(row.get('CONTACT', ''))))
+                
+                if clean_p:
+                    msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan balance of UGX {row['OUTSTANDING_AMOUNT']:,.0f} is overdue. Please settle this today to avoid penalties."
+                    wa_url = f"https://wa.me/{clean_p}?text={msg.replace(' ', '%20')}"
+                    
+                    c3.markdown(f'''
+                        <a href="{wa_url}" target="_blank" style="text-decoration:none;">
+                            <div style="background-color:#dc2626; color:white; padding:12px; 
+                                        border-radius:8px; text-align:center; font-weight:bold; font-size:14px; 
+                                        box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
+                                🚩 SEND REMINDER
+                            </div>
+                        </a>
+                    ''', unsafe_allow_html=True)
+                else:
+                    c3.button("No Phone", disabled=True, use_container_width=True, key=f"dead_btn_{row['CUSTOMER_NAME']}")
+                
+                st.divider()
+    else:
+        st.success("🎉 Excellent! All clients are up to date. No overdue payments found.")
 # --- PAGE: OPERATING EXPENSES ---
 elif page == "Expenses":
     st.markdown('<div class="main-title">📉 Operating Expenses</div>', unsafe_allow_html=True)
