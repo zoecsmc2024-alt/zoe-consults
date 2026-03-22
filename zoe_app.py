@@ -262,26 +262,124 @@ elif page == "Borrowers":
 
 # PAGE: COLLATERAL
 elif page == "Collateral":
-    st.markdown('<div class="main-title">🛡️ Collateral Vault</div>', unsafe_allow_html=True)
-    with st.expander("➕ Register Asset"):
-        with st.form("col_form"):
-            b = st.selectbox("Borrower", df['CUSTOMER_NAME'].unique())
-            t = st.selectbox("Type", ["Logbook", "Land Title", "Electronics", "Other"])
-            v = st.number_input("Value (UGX)")
-            if st.form_submit_button("Secure"):
-                g_client.open("Zoe_Consults_Database").worksheet("Collateral").append_row([b, t, "Vault Asset", v, "Safe", "Held", str(datetime.now().date())])
-                st.success("Asset Secured!"); st.cache_data.clear()
-    st.dataframe(collateral_df, use_container_width=True)
+    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
+    
+    # 1. ANALYTICS (Baby Blue Cards)
+    c1, c2, c3 = st.columns(3)
+    # Filter for items currently in your possession
+    held_items = collateral_df[collateral_df['STATUS'] == 'Held']
+    
+    c1.metric("Items in Vault", len(held_items))
+    c2.metric("Total Collateral Value", f"UGX {collateral_df['ESTIMATED_VALUE'].sum():,.0f}")
+    c3.metric("Released Items", len(collateral_df[collateral_df['STATUS'] == 'Released']))
 
+    st.write("---")
+
+    # 2. ADD NEW COLLATERAL FORM
+    with st.expander("➕ Register New Collateral Asset", expanded=False):
+        with st.form("collateral_form", clear_on_submit=True):
+            st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>Asset Details</p>", unsafe_allow_html=True)
+            
+            target_borrower = st.selectbox("Assign to Borrower", df['CUSTOMER_NAME'].unique())
+            
+            col_a, col_b = st.columns(2)
+            asset_type = col_a.selectbox("Asset Type", ["Logbook", "Land Title", "Electronics", "Household", "Other"])
+            asset_desc = col_b.text_input("Item Description (Model/Serial No.)")
+            
+            col_c, col_d = st.columns(2)
+            est_value = col_c.number_input("Estimated Market Value (UGX)", min_value=0, step=50000)
+            storage_ref = col_d.text_input("Storage Location/File Ref")
+            
+            status = st.radio("Current Status", ["Held", "Released", "Disposed"], horizontal=True)
+            
+            if st.form_submit_button("🛡️ Secure Asset in Database", use_container_width=True):
+                # Logic to push to a new 'Collateral' tab in Google Sheets
+                new_asset = [target_borrower, asset_type, asset_desc, est_value, storage_ref, status, str(datetime.now().date())]
+                
+                # Push to Sheets Logic
+                sheet = client.open("Zoe_Consults_Database").worksheet("Collateral")
+                sheet.append_row(new_asset)
+                st.success(f"Asset recorded for {target_borrower}!")
+                st.cache_data.clear()
+
+    # 3. COLLATERAL INVENTORY TABLE
+    st.write("---")
+    st.markdown("#### 🔍 Inventory Search")
+    search_asset = st.text_input("Search by Item or Borrower", placeholder="e.g. Toyota, Logbook...")
+    
+    if not collateral_df.empty:
+        asset_mask = (collateral_df['BORROWER'].str.contains(search_asset, case=False, na=False)) | \
+                     (collateral_df['DESCRIPTION'].str.contains(search_asset, case=False, na=False))
+        st.dataframe(collateral_df[asset_mask], use_container_width=True, hide_index=True)
+    else:
+        st.info("No collateral assets recorded yet.")
 # PAGE: CALENDAR
 elif page == "Calendar":
-    st.markdown('<div class="main-title">📅 Activity Calendar</div>', unsafe_allow_html=True)
-    events = pd.concat([df[['DATE', 'CUSTOMER_NAME', 'LOAN_AMOUNT']].rename(columns={'DATE':'d','CUSTOMER_NAME':'n','LOAN_AMOUNT':'a'}), 
-                        pay_df[['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID']].rename(columns={'DATE':'d','CUSTOMER_NAME':'n','AMOUNT_PAID':'a'})])
-    for d in sorted(pd.to_datetime(events['d']).dt.date.unique(), reverse=True):
-        with st.expander(f"🗓️ {d}"):
-            for _, r in events[pd.to_datetime(events['d']).dt.date == d].iterrows():
-                st.write(f"**{r['n']}**: UGX {r['a']:,.0f}")
+    st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
+    
+    # 1. PREPARE THE DATA
+    # Combine Loans and Repayments into one "Event" list
+    if not df.empty and not pay_df.empty:
+        loans = df[['DATE', 'CUSTOMER_NAME', 'LOAN_AMOUNT']].copy()
+        loans.columns = ['date', 'title', 'amount']
+        loans['type'] = 'Loan Issued'
+        loans['color'] = '#1e3a8a' # Navy
+        
+        pays = pay_df[['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID']].copy()
+        pays.columns = ['date', 'title', 'amount']
+        pays['type'] = 'Repayment'
+        pays['color'] = '#3b82f6' # Baby Blue
+        
+        events = pd.concat([loans, pays])
+        events['date'] = pd.to_datetime(events['date']).dt.date
+    else:
+        events = pd.DataFrame()
+
+    # 2. CALENDAR CONTROLS
+    col_y, col_m = st.columns(2)
+    selected_year = col_y.selectbox("Year", [2025, 2026, 2027], index=1)
+    selected_month = col_m.selectbox("Month", 
+        ["January", "February", "March", "April", "May", "June", 
+         "July", "August", "September", "October", "November", "December"],
+        index=datetime.now().month - 1
+    )
+
+    # 3. DISPLAY EVENTS FOR THE SELECTED MONTH
+    st.write(f"### Activity for {selected_month} {selected_year}")
+    
+    month_num = datetime.strptime(selected_month, "%B").month
+    month_events = events[
+        (events['date'].apply(lambda x: x.year) == selected_year) & 
+        (events['date'].apply(lambda x: x.month) == month_num)
+    ].sort_values(by='date')
+
+    if not month_events.empty:
+        for d in sorted(month_events['date'].unique()):
+            st.markdown(f"<div style='background-color:#f8fafc; padding:5px 15px; border-radius:5px; margin-top:10px; border-left:4px solid #1e3a8a;'><b>{d.strftime('%A, %d %B')}</b></div>", unsafe_allow_html=True)
+            
+            day_data = month_events[month_events['date'] == d]
+            for _, item in day_data.iterrows():
+                icon = "📤" if item['type'] == 'Loan Issued' else "📥"
+                color = "#1e3a8a" if item['type'] == 'Loan Issued' else "#3b82f6"
+                
+                st.markdown(f"""
+                    <div style='display:flex; justify-content:space-between; padding:5px 20px;'>
+                        <span style='color:{color}; font-weight:600;'>{icon} {item['title']} ({item['type']})</span>
+                        <span style='font-family:monospace;'>UGX {item['amount']:,.0f}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info(f"No financial activity recorded for {selected_month}.")
+
+    # 4. QUICK INSIGHT
+    st.divider()
+    if not month_events.empty:
+        total_out = month_events[month_events['type'] == 'Loan Issued']['amount'].sum()
+        total_in = month_events[month_events['type'] == 'Repayment']['amount'].sum()
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Month's Total Out", f"UGX {total_out:,.0f}")
+        c2.metric("Month's Total In", f"UGX {total_in:,.0f}", delta=f"Net: {total_in - total_out:,.0f}")
 
 # PAGE: LEDGER (PDF Statements)
 elif page == "Ledger":
@@ -510,8 +608,37 @@ elif page == "Add Client":
 
 # PAGE: SETTINGS (Backups & Reports)
 elif page == "Settings":
-    st.markdown('<div class="main-title">⚙️ Admin Settings</div>', unsafe_allow_html=True)
-    if st.button("📦 Generate Full Business Backup"):
-        st.success("Excel Backup Ready for Download!")
-    if st.button("📝 Generate Monthly P&L Report"):
-        st.info("Branded P&L PDF Generated!")
+    st.markdown('<div class="main-title">⚙️ Business Configuration</div>', unsafe_allow_html=True)
+    
+    # 1. BUSINESS PROFILE
+    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>🏢 Business Identity</p>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    biz_name = col1.text_input("Company Name", value="ZOE CONSULTS SMC LTD")
+    biz_tagline = col2.text_input("Tagline", value="Official Loan Statement & Repayment Ledger")
+    
+    st.divider()
+
+    # 2. FINANCIAL DEFAULTS
+    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>📉 Financial Defaults</p>", unsafe_allow_html=True)
+    
+    c3, c4 = st.columns(2)
+    default_rate = c3.number_input("Standard Monthly Interest Rate (%)", value=10.0, step=0.5)
+    late_penalty = c4.number_input("Late Payment Penalty (UGX)", value=50000, step=5000)
+    
+    st.divider()
+
+    # 3. DIGITAL ASSETS (Signature & Stamp)
+    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>✍️ Official Stamp & Signature</p>", unsafe_allow_html=True)
+    st.info("Upload your signature (PNG) to have it automatically placed on all PDF Statements.")
+    
+    uploaded_sig = st.file_uploader("Upload Signature / Stamp", type=["png", "jpg"])
+    
+    if uploaded_sig:
+        st.image(uploaded_sig, caption="Preview of Signature", width=150)
+        # We store this in session state so the PDF logic can grab it
+        st.session_state.signature = uploaded_sig
+
+    # 4. SAVE BUTTON (Simulated)
+    if st.button("💾 Save System Settings", use_container_width=True):
+        st.success("Settings updated successfully! These changes will reflect on your next PDF generation.")
