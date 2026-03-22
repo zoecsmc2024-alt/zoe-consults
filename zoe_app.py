@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import base64
 import gspread
+import json
 import io
 from datetime import datetime, timedelta
 from fpdf import FPDF
@@ -71,17 +72,20 @@ if not st.session_state.authenticated:
                     st.error("Invalid Credentials")
     st.stop()
 
-# --- 5. DATA ENGINE (Google Sheets) ---
+# --- 5. DATA ENGINE (Google Sheets - Ironclad Version) ---
 @st.cache_data(ttl=600)
 def load_full_database():
-    # 1. Scopes and Credentials
-    SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds_info = st.secrets["gcp_service_account"]
-    creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
-    
-    # 2. Authorize
     try:
-        client = gspread.authorize(creds)
+        # 1. Setup Scopes
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        
+        # 2. Reconstruct credentials correctly for gspread
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        # Ensure private key handles newlines correctly
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        
+        # 3. Direct Authorization
+        client = gspread.service_account_from_dict(creds_dict)
         database = client.open("Zoe_Consults_Database")
         
         def fetch_worksheet(name):
@@ -107,19 +111,10 @@ def load_full_database():
         return df, pay_df, collateral_df, expense_df, petty_df, payroll_df, client
 
     except Exception as e:
-        # ONLY show an error if it's NOT a successful response (200)
-        if "200" not in str(e):
-            st.error(f"Actual Connection Error: {e}")
-        
-        # If the error was just a '200' success, we can actually still return the client
-        # This part handles the weird gspread behavior
-        try:
-            client = gspread.authorize(creds)
-            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), client
-        except:
-            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
+        st.error(f"Sync Error: {e}")
+        return [pd.DataFrame()]*6 + [None]
 
-# ACTIVATE THE ENGINE
+# ACTIVATE
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
 # --- 6. NAVIGATION (Sidebar) ---
 with st.sidebar:
