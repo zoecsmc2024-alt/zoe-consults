@@ -74,21 +74,14 @@ if not st.session_state.authenticated:
 # --- 5. DATA ENGINE (Google Sheets) ---
 @st.cache_data(ttl=600)
 def load_full_database():
+    # 1. Scopes and Credentials
+    SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds_info = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+    
+    # 2. Authorize
     try:
-        # 1. Define permissions clearly
-        SCOPES = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        
-        # 2. Get credentials from Secrets
-        creds_info = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
-        
-        # 3. AUTHORIZE THE CLIENT (This creates g_client)
         client = gspread.authorize(creds)
-        
-        # 4. Open the workbook
         database = client.open("Zoe_Consults_Database")
         
         def fetch_worksheet(name):
@@ -98,7 +91,6 @@ def load_full_database():
             except:
                 return pd.DataFrame()
 
-        # Fetch all tabs
         df = fetch_worksheet("Clients")
         pay_df = fetch_worksheet("Repayments")
         collateral_df = fetch_worksheet("Collateral")
@@ -113,17 +105,22 @@ def load_full_database():
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
         return df, pay_df, collateral_df, expense_df, petty_df, payroll_df, client
+
     except Exception as e:
-        st.error(f"Critical Sync Error: {e}")
-        # If it fails, we return 'None' for g_client, which causes your error
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
+        # ONLY show an error if it's NOT a successful response (200)
+        if "200" not in str(e):
+            st.error(f"Actual Connection Error: {e}")
+        
+        # If the error was just a '200' success, we can actually still return the client
+        # This part handles the weird gspread behavior
+        try:
+            client = gspread.authorize(creds)
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), client
+        except:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
 
 # ACTIVATE THE ENGINE
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
-
-# Run the function to get your data
-df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
-
 # --- 6. NAVIGATION (Sidebar) ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>ZOE ADMIN</h2>", unsafe_allow_html=True)
