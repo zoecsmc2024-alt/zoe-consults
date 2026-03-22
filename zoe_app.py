@@ -76,35 +76,47 @@ if not st.session_state.authenticated:
 @st.cache_data(ttl=600)
 def load_full_database():
     try:
+        # Connect to Google
         creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"])
         client = gspread.authorize(creds)
-        sheet = client.open("Zoe_Consults_Database")
+        # Open the specific workbook
+        database = client.open("Zoe_Consults_Database")
         
-        # Helper to convert gspread data to Dataframe
-        def get_df(worksheet_name):
-            data = sheet.worksheet(worksheet_name).get_all_records()
-            return pd.DataFrame(data)
+        # Helper function to convert sheets to DataFrames safely
+        def fetch_worksheet(name):
+            try:
+                data = database.worksheet(name).get_all_records()
+                return pd.DataFrame(data)
+            except:
+                return pd.DataFrame() # Return empty if tab is missing
 
-        df = get_df("Clients")
-        pay_df = get_df("Repayments")
-        collateral_df = get_df("Collateral")
-        expense_df = get_df("Expenses")
-        petty_df = get_df("PettyCash")
-        payroll_df = get_df("Payroll")
+        # Fetch all 6 tabs using the helper
+        df = fetch_worksheet("Clients")
+        pay_df = fetch_worksheet("Repayments")
+        collateral_df = fetch_worksheet("Collateral")
+        expense_df = fetch_worksheet("Expenses")
+        petty_df = fetch_worksheet("PettyCash")
+        payroll_df = fetch_worksheet("Payroll")
         
-        # Clean numeric data
+        # Clean numeric data for math
         num_cols = ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']
-        df[num_cols] = df[num_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
-        pay_df['AMOUNT_PAID'] = pd.to_numeric(pay_df['AMOUNT_PAID'], errors='coerce').fillna(0)
-        if not expense_df.empty: expense_df['AMOUNT'] = pd.to_numeric(expense_df['AMOUNT'], errors='coerce').fillna(0)
-        if not petty_df.empty: petty_df['AMOUNT'] = pd.to_numeric(petty_df['AMOUNT'], errors='coerce').fillna(0)
-        if not payroll_df.empty: payroll_df['NET_PAY'] = pd.to_numeric(payroll_df['NET_PAY'], errors='coerce').fillna(0)
+        if not df.empty:
+            df[num_cols] = df[num_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
+        if not pay_df.empty:
+            pay_df['AMOUNT_PAID'] = pd.to_numeric(pay_df['AMOUNT_PAID'], errors='coerce').fillna(0)
+        if not expense_df.empty:
+            expense_df['AMOUNT'] = pd.to_numeric(expense_df['AMOUNT'], errors='coerce').fillna(0)
+        if not petty_df.empty:
+            petty_df['AMOUNT'] = pd.to_numeric(petty_df['AMOUNT'], errors='coerce').fillna(0)
+        if not payroll_df.empty:
+            payroll_df['NET_PAY'] = pd.to_numeric(payroll_df['NET_PAY'], errors='coerce').fillna(0)
         
         return df, pay_df, collateral_df, expense_df, petty_df, payroll_df, client
     except Exception as e:
         st.error(f"Sync Error: {e}")
-        return [pd.DataFrame()]*6 + [None]
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
 
+# Run the function to get your data
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
 
 # --- 6. NAVIGATION (Sidebar) ---
