@@ -258,7 +258,11 @@ if page == "Overview":
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
     
-    # 1. REGISTRATION SECTION
+    # 1. Initialize a Local Backup (In case Google is slow)
+    if 'local_registry' not in st.session_state:
+        st.session_state.local_registry = []
+
+    # 2. REGISTRATION SECTION
     with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
         with st.form("kyc_registration_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
@@ -278,50 +282,69 @@ elif page == "Borrowers":
             if st.form_submit_button("🚀 Finalize Registration & Disburse"):
                 if f_name and l_name and nin:
                     full_name = f"{f_name} {l_name}".upper()
-                    new_row = [
-                        full_name, phone, loan_amt, 0, loan_amt, 
-                        interest, str(datetime.now().date()), nin, 
-                        address, gender, email, loan_type
-                    ]
+                    today = str(datetime.now().date())
                     
+                    # This is exactly how your Google Sheet headers are ordered
+                    new_entry = {
+                        "CUSTOMER_NAME": full_name,
+                        "CONTACT": phone,
+                        "LOAN_AMOUNT": loan_amt,
+                        "AMOUNT_PAID": 0,
+                        "OUTSTANDING_AMOUNT": loan_amt,
+                        "INTEREST_RATE": interest,
+                        "DATE": today,
+                        "NIN": nin,
+                        "ADDRESS": address,
+                        "GENDER": gender,
+                        "EMAIL": email,
+                        "LOAN_TYPE": loan_type
+                    }
+
+                    # --- STEP A: SAVE LOCALLY (Instant Feedback) ---
+                    st.session_state.local_registry.append(new_entry)
+                    
+                    # --- STEP B: TRY GOOGLE CLOUD ---
                     try:
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         
-                        # EXECUTE THE SAVE
-                        fresh_client.open("Zoe_Consults_Database").worksheet("Clients").append_row(new_row)
+                        # Open by the ID in your URL
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = fresh_client.open_by_key(sheet_id).worksheet("Clients")
                         
-                        # 🎉 THE CELEBRATION
+                        # Convert dict values to a list for appending
+                        ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
                         st.balloons()
-                        st.success(f"✅ SUCCESS: {full_name} is now officially registered!")
-                        st.cache_data.clear() # This pulls the new data into your table below
-                    
+                        st.success(f"✅ {full_name} saved to Cloud!")
                     except Exception as e:
-                        # This will tell us the EXACT reason Google said no
-                        st.error(f"Google says: {str(e)}")
-                        # 🤫 FILTER THE "FAKE" ERROR
-                        if "200" in str(e):
-                            st.balloons()
-                            st.success(f"✅ SUCCESS: {full_name} is now officially registered!")
-                            st.cache_data.clear()
-                        else:
-                            st.error(f"Actual Cloud Error: {e}")
+                        st.warning(f"⚠️ Saved locally, but Cloud Sync failed: {e}")
+                    
+                    st.cache_data.clear()
                 else:
-                    st.warning("Please fill in Name and NIN to proceed.")
+                    st.warning("Please fill in Name and NIN.")
+
     st.write("---")
 
-    # 2. THE DATABASE SECTION (The Safety Net)
+    # 3. THE LIVE DIRECTORY (Combines Google Data + Local Recent Additions)
     st.markdown("#### 🔍 Active Borrower Directory")
     
-    # Check if df exists and is not empty
-    if 'df' in locals() and not df.empty:
-        search = st.text_input("Search Name/NIN")
-        display_df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)] if search else df
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    # Combine cloud data with local recent additions
+    cloud_df = df if not df.empty else pd.DataFrame()
+    local_df = pd.DataFrame(st.session_state.local_registry)
+    
+    # Merge them so you see EVERYTHING
+    combined_display = pd.concat([cloud_df, local_df], ignore_index=True).drop_duplicates(subset=['NIN'], keep='last')
+
+    if not combined_display.empty:
+        st.dataframe(
+            combined_display, 
+            use_container_width=True, 
+            hide_index=True,
+            column_order=("CUSTOMER_NAME", "CONTACT", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "NIN", "LOAN_TYPE")
+        )
     else:
-        # This is what shows instead of a red error box!
-        st.info("ℹ️ Your Borrower Directory is currently empty. Register your first client above to begin.")
+        st.info("ℹ️ Your Borrower Directory is empty. Register a client above.")
 
     # 3. EDIT/DELETE ACTIONS (The Pencil & Eraser)
     if not df.empty:
