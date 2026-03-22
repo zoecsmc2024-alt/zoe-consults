@@ -164,6 +164,71 @@ if page == "Overview":
     k2.metric("📈 Collected", f"UGX {t_coll:,.0f}")
     k3.metric("💎 Net Revenue", f"UGX {net_rev:,.0f}", delta="After Bills")
     k4.metric("🚨 At Risk", f"UGX {t_due:,.0f}", delta_color="inverse")
+
+    st.divider()
+    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>📊 Financial Reporting</p>", unsafe_allow_html=True)
+    st.info("Generate a professional P&L Statement for the current month.")
+
+    if st.button("📝 Generate Monthly P&L Report", use_container_width=True):
+        def generate_pl_pdf(collected, ops, petty, net, biz_name):
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # 1. Header & Branding
+            pdf.set_font("Arial", 'B', 18)
+            pdf.set_text_color(30, 58, 138) # Navy Blue
+            pdf.cell(200, 15, biz_name, ln=True, align='C')
+            pdf.set_font("Arial", 'B', 12)
+            pdf.set_text_color(100, 116, 139) # Baby Blue / Slate
+            pdf.cell(200, 10, f"Profit & Loss Statement: {datetime.now().strftime('%B %Y')}", ln=True, align='C')
+            pdf.ln(10)
+
+            # 2. Revenue Section (Green Vibes)
+            pdf.set_fill_color(240, 253, 244) # Light Green
+            pdf.set_font("Arial", 'B', 12)
+            pdf.set_text_color(22, 101, 52) # Dark Green
+            pdf.cell(190, 12, " TOTAL REVENUE (Collections)", 1, 1, 'L', True)
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(130, 10, "Total Loan Repayments Received", 1, 0)
+            pdf.cell(60, 10, f"UGX {collected:,.0f}", 1, 1, 'R')
+            pdf.ln(5)
+
+            # 3. Expenses Section (Red Vibes)
+            pdf.set_fill_color(254, 242, 242) # Light Red
+            pdf.set_font("Arial", 'B', 12)
+            pdf.set_text_color(153, 27, 27) # Dark Red
+            pdf.cell(190, 12, " OPERATING EXPENSES", 1, 1, 'L', True)
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(130, 10, "Business Operating Costs (Rent, Salaries, etc.)", 1, 0)
+            pdf.cell(60, 10, f"- UGX {ops:,.0f}", 1, 1, 'R')
+            pdf.cell(130, 10, "Petty Cash Spend (Office, Transport)", 1, 0)
+            pdf.cell(60, 10, f"- UGX {petty:,.0f}", 1, 1, 'R')
+            pdf.ln(10)
+
+            # 4. Final Profit (Navy Blue)
+            pdf.set_fill_color(30, 58, 138) # Navy
+            pdf.set_text_color(255, 255, 255) # White
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(130, 15, " NET PROFIT / LOSS", 1, 0, 'L', True)
+            pdf.cell(60, 15, f"UGX {net:,.0f}", 1, 1, 'R', True)
+
+            # 5. Footer
+            pdf.ln(30)
+            pdf.set_text_color(100, 116, 139)
+            pdf.set_font("Arial", 'I', 8)
+            pdf.cell(190, 10, f"Report Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 0, 'R')
+            
+            return pdf.output(dest='S').encode('latin-1')
+
+        # Logic to trigger download
+        pl_pdf = generate_pl_pdf(total_collected, total_ops, total_petty, net_revenue, "ZOE CONSULTS SMC LTD")
+        b64_pl = base64.b64encode(pl_pdf).decode()
+        href_pl = f'<a href="data:application/octet-stream;base64,{b64_pl}" download="Zoe_PL_Report_{datetime.now().strftime("%b_%Y")}.pdf" style="text-decoration:none;">' \
+                  f'<div style="background-color:#1e3a8a; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
+                  f'📥 DOWNLOAD MONTHLY P&L REPORT</div></a>'
+        st.markdown(href_pl, unsafe_allow_html=True)
     
     st.write("---")
     c1, c2 = st.columns(2)
