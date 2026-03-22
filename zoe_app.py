@@ -7,7 +7,6 @@ import io
 from datetime import datetime, timedelta
 from fpdf import FPDF
 from streamlit_option_menu import option_menu
-sheet.worksheet("Name").get_all_records()
 from google.oauth2.service_account import Credentials
 
 # --- 1. PAGE CONFIGURATION ---
