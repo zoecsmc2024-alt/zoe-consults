@@ -128,7 +128,7 @@ with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>ZOE ADMIN</h2>", unsafe_allow_html=True)
     page = option_menu(
         menu_title=None,
-        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "Petty Cash", "Payroll", "Add Payment", "Add Client", "Settings"],
+        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "Petty Cash", "Payroll", "Add Payment", "Settings"],
         icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "person-plus", "gear"],
         default_index=0,
         styles={"nav-link": {"font-size": "12px"}, "nav-link-selected": {"background-color": "#1e3a8a"}}
@@ -254,11 +254,92 @@ if page == "Overview":
         else:
             st.info("ℹ️ No expenses recorded yet.")
 
-# PAGE: BORROWERS
+# PAGE: BORROWERS (Now includes Registration)
 elif page == "Borrowers":
-    st.markdown('<div class="main-title">👥 Borrower Database</div>', unsafe_allow_html=True)
-    s = st.text_input("🔍 Search NIN, Name or Phone")
-    st.dataframe(df[df.astype(str).apply(lambda x: x.str.contains(s, case=False)).any(axis=1)] if s else df, use_container_width=True, hide_index=True)
+    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
+    
+    # 1. REGISTRATION SECTION (KYC)
+    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=False):
+        with st.form("kyc_registration_form", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            with c1:
+                f_name = st.text_input("First Name")
+                l_name = st.text_input("Last Name")
+                phone = st.text_input("Contact Number (256...)")
+                gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+                nin = st.text_input("NIN (National ID Number)")
+            
+            with c2:
+                loan_amt = st.number_input("Approved Loan Amount (UGX)", min_value=0)
+                interest = st.number_input("Agreed Interest Rate (%)", min_value=0)
+                loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency", "Salary Advance"])
+                address = st.text_area("Residential Address")
+                email = st.text_input("Email Address (Optional)")
+
+            if st.form_submit_button("🚀 Finalize Registration & Disburse"):
+                if f_name and l_name and nin:
+                    full_name = f"{f_name} {l_name}".upper()
+                    # Data mapping to match your Google Sheet Columns
+                    # Order: CUSTOMER_NAME, CONTACT, LOAN_AMOUNT, AMOUNT_PAID, OUTSTANDING_AMOUNT, INTEREST_RATE, DATE, NIN, ADDRESS, GENDER, EMAIL, LOAN_TYPE
+                    new_row = [
+                        full_name, phone, loan_amt, 0, loan_amt, 
+                        interest, str(datetime.now().date()), nin, 
+                        address, gender, email, loan_type
+                    ]
+                    
+                    try:
+                        g_client.open("Zoe_Consults_Database").worksheet("Clients").append_row(new_row)
+                        st.balloons()
+                        st.success(f"✅ {full_name} has been successfully onboarded!")
+                        st.cache_data.clear() # Refresh data immediately
+                    except Exception as e:
+                        st.error(f"Error saving to Cloud: {e}")
+                else:
+                    st.warning("Please fill in Name and NIN to proceed.")
+
+    st.write("---")
+
+    # 2. DATABASE SECTION
+    st.markdown("#### 🔍 Active Borrower Directory")
+    search_query = st.text_input("Search by Name, NIN, or Phone Number")
+    
+    if not df.empty:
+        # Filter logic
+        filtered_df = df[df.astype(str).apply(lambda x: x.str.contains(search_query, case=False)).any(axis=1)] if search_query else df
+        
+        st.dataframe(
+            filtered_df, 
+            use_container_width=True, 
+            hide_index=True,
+            column_order=("CUSTOMER_NAME", "CONTACT", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "NIN", "LOAN_TYPE")
+        )
+    else:
+        st.info("No borrowers found. Use the form above to register your first client.")
+
+    # 3. EDIT/DELETE ACTIONS (The Pencil & Eraser)
+    if not df.empty:
+        st.write("---")
+        with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
+            to_action = st.selectbox("Select Client to Modify", df['CUSTOMER_NAME'].unique())
+            act = st.radio("Action", ["Update Contact/Address", "Remove Client Forever"], horizontal=True)
+            
+            if act == "Update Contact/Address":
+                with st.form("edit_kyc"):
+                    new_p = st.text_input("New Phone", value=str(df[df['CUSTOMER_NAME']==to_action]['CONTACT'].values[0]))
+                    new_a = st.text_area("New Address", value=str(df[df['CUSTOMER_NAME']==to_action]['ADDRESS'].values[0]))
+                    if st.form_submit_button("Save Changes"):
+                        ws = g_client.open("Zoe_Consults_Database").worksheet("Clients")
+                        cell = ws.find(to_action)
+                        ws.update_cell(cell.row, 2, new_p) # Update Contact
+                        ws.update_cell(cell.row, 9, new_a) # Update Address
+                        st.success("Details Updated!"); st.cache_data.clear()
+            
+            elif act == "Remove Client Forever":
+                if st.button("🚨 CONFIRM DELETE"):
+                    ws = g_client.open("Zoe_Consults_Database").worksheet("Clients")
+                    cell = ws.find(to_action)
+                    ws.delete_rows(cell.row)
+                    st.warning("Client erased from database."); st.cache_data.clear()
 
 # PAGE: COLLATERAL
 elif page == "Collateral":
