@@ -75,29 +75,30 @@ if not st.session_state.authenticated:
 @st.cache_data(ttl=600)
 def load_full_database():
     try:
+        # 1. Define permissions clearly
         SCOPES = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
         ]
         
+        # 2. Get credentials from Secrets
         creds_info = st.secrets["gcp_service_account"]
         creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+        
+        # 3. AUTHORIZE THE CLIENT (This creates g_client)
         client = gspread.authorize(creds)
         
+        # 4. Open the workbook
         database = client.open("Zoe_Consults_Database")
         
         def fetch_worksheet(name):
             try:
-                sheet = database.worksheet(name)
-                data = sheet.get_all_records()
-                # If the sheet is empty, get_all_records() might return an empty list
-                if not data:
-                    return pd.DataFrame()
+                data = database.worksheet(name).get_all_records()
                 return pd.DataFrame(data)
-            except Exception:
+            except:
                 return pd.DataFrame()
 
-        # Load all tabs
+        # Fetch all tabs
         df = fetch_worksheet("Clients")
         pay_df = fetch_worksheet("Repayments")
         collateral_df = fetch_worksheet("Collateral")
@@ -105,20 +106,20 @@ def load_full_database():
         petty_df = fetch_worksheet("PettyCash")
         payroll_df = fetch_worksheet("Payroll")
         
-        # MATH CLEANING
+        # Numeric Cleaning
         if not df.empty:
             for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
-        # Return all dataframes
         return df, pay_df, collateral_df, expense_df, petty_df, payroll_df, client
-
     except Exception as e:
-        # Only show the error if it's a real problem, not a <Response [200]>
-        if "200" not in str(e):
-            st.error(f"Sync Error: {e}")
+        st.error(f"Critical Sync Error: {e}")
+        # If it fails, we return 'None' for g_client, which causes your error
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
+
+# ACTIVATE THE ENGINE
+df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
 
 # Run the function to get your data
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
