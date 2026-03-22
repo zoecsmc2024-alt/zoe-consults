@@ -258,11 +258,10 @@ if page == "Overview":
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
     
-    # 1. Initialize a Local Backup (In case Google is slow)
     if 'local_registry' not in st.session_state:
         st.session_state.local_registry = []
 
-    # 2. REGISTRATION SECTION
+    # 1. REGISTRATION SECTION
     with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
         with st.form("kyc_registration_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
@@ -272,19 +271,20 @@ elif page == "Borrowers":
                 phone = st.text_input("Contact Number (256...)")
                 gender = st.selectbox("Gender", ["Male", "Female"])
                 nin = st.text_input("NIN (National ID Number)")
+                issue_date = st.date_input("Loan Issue Date", value=datetime.now())
+            
             with c2:
-                loan_amt = st.number_input("Approved Loan Amount (UGX)", min_value=0)
+                loan_amt = st.number_input("Approved Loan Amount (UGX)", min_value=0, step=50000)
                 interest = st.number_input("Agreed Interest Rate (%)", min_value=0)
                 loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency"])
                 address = st.text_area("Residential Address")
-                email = st.text_input("Email (Optional)")
+                due_date = st.date_input("Repayment Due Date", value=datetime.now() + timedelta(days=30))
 
             if st.form_submit_button("🚀 Finalize Registration & Disburse"):
                 if f_name and l_name and nin:
                     full_name = f"{f_name} {l_name}".upper()
-                    today = str(datetime.now().date())
                     
-                    # This is exactly how your Google Sheet headers are ordered
+                    # Constructing the row with new Date columns
                     new_entry = {
                         "CUSTOMER_NAME": full_name,
                         "CONTACT": phone,
@@ -292,59 +292,61 @@ elif page == "Borrowers":
                         "AMOUNT_PAID": 0,
                         "OUTSTANDING_AMOUNT": loan_amt,
                         "INTEREST_RATE": interest,
-                        "DATE": today,
                         "NIN": nin,
                         "ADDRESS": address,
                         "GENDER": gender,
-                        "EMAIL": email,
-                        "LOAN_TYPE": loan_type
+                        "LOAN_TYPE": loan_type,
+                        "ISSUE_DATE": str(issue_date),
+                        "DUE_DATE": str(due_date)
                     }
 
-                    # --- STEP A: SAVE LOCALLY (Instant Feedback) ---
                     st.session_state.local_registry.append(new_entry)
                     
-                    # --- STEP B: TRY GOOGLE CLOUD ---
                     try:
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         
-                        # Open by the ID in your URL
                         sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
                         ws = fresh_client.open_by_key(sheet_id).worksheet("Clients")
                         
-                        # Convert dict values to a list for appending
+                        # Save to Google (appends to the end of the sheet)
                         ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
                         st.balloons()
-                        st.success(f"✅ {full_name} saved to Cloud!")
+                        st.success(f"✅ {full_name} saved successfully!")
                     except Exception as e:
-                        st.warning(f"⚠️ Saved locally, but Cloud Sync failed: {e}")
+                        st.warning(f"⚠️ Saved locally, but Cloud Sync delayed: {e}")
                     
                     st.cache_data.clear()
                 else:
-                    st.warning("Please fill in Name and NIN.")
+                    st.warning("Please fill in required fields (Name/NIN).")
 
     st.write("---")
 
-    # 3. THE LIVE DIRECTORY (Combines Google Data + Local Recent Additions)
+    # 2. THE DIRECTORY (With Formatting)
     st.markdown("#### 🔍 Active Borrower Directory")
     
-    # Combine cloud data with local recent additions
-    cloud_df = df if not df.empty else pd.DataFrame()
-    local_df = pd.DataFrame(st.session_state.local_registry)
-    
-    # Merge them so you see EVERYTHING
-    combined_display = pd.concat([cloud_df, local_df], ignore_index=True).drop_duplicates(subset=['NIN'], keep='last')
-
+    # Merge Cloud + Local data
+    combined_display = pd.concat([df, pd.DataFrame(st.session_state.local_registry)], ignore_index=True)
     if not combined_display.empty:
+        combined_display = combined_display.drop_duplicates(subset=['NIN'], keep='last')
+        
+        # --- COMMA FORMATTING ---
+        # We create a display-only version so we don't break the math later
+        formatted_df = combined_display.copy()
+        money_cols = ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']
+        for col in money_cols:
+            if col in formatted_df.columns:
+                formatted_df[col] = formatted_df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
+
         st.dataframe(
-            combined_display, 
+            formatted_df, 
             use_container_width=True, 
             hide_index=True,
-            column_order=("CUSTOMER_NAME", "CONTACT", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "NIN", "LOAN_TYPE")
+            column_order=("CUSTOMER_NAME", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "ISSUE_DATE", "DUE_DATE", "LOAN_TYPE")
         )
     else:
-        st.info("ℹ️ Your Borrower Directory is empty. Register a client above.")
+        st.info("ℹ️ No borrowers yet.")
 
     # 3. EDIT/DELETE ACTIONS (The Pencil & Eraser)
     if not df.empty:
