@@ -168,10 +168,26 @@ if page == "Overview":
     st.write("---")
     c1, c2 = st.columns(2)
     with c1:
-        st.plotly_chart(px.pie(values=[t_coll, df['OUTSTANDING_AMOUNT'].sum()], names=['Paid', 'Due'], hole=.5, color_discrete_sequence=['#1e3a8a', '#3b82f6']), use_container_width=True)
+        st.markdown("#### Collection Ratio")
+        # Check if we have the data needed for the chart
+        if not df.empty and 'OUTSTANDING_AMOUNT' in df.columns:
+            total_due = df['OUTSTANDING_AMOUNT'].sum()
+            fig = px.pie(
+                values=[t_coll, total_due], 
+                names=['Paid', 'Due'], 
+                hole=.5, 
+                color_discrete_sequence=['#1e3a8a', '#3b82f6']
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("ℹ️ Add your first client to see the Collection Ratio chart.")
+            
     with c2:
         st.markdown("#### Monthly Expense Breakdown")
-        st.bar_chart(expense_df.groupby('CATEGORY')['AMOUNT'].sum())
+        if not expense_df.empty and 'CATEGORY' in expense_df.columns:
+            st.bar_chart(expense_df.groupby('CATEGORY')['AMOUNT'].sum())
+        else:
+            st.info("ℹ️ No expenses recorded yet.")
 
 # PAGE: BORROWERS
 elif page == "Borrowers":
