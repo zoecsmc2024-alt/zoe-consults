@@ -75,27 +75,29 @@ if not st.session_state.authenticated:
 @st.cache_data(ttl=600)
 def load_full_database():
     try:
-        # 1. Define the Scopes (The Permission List)
         SCOPES = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
         ]
         
-        # 2. Connect with Scopes
         creds_info = st.secrets["gcp_service_account"]
         creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
         client = gspread.authorize(creds)
         
-        # 3. Open the database
         database = client.open("Zoe_Consults_Database")
         
         def fetch_worksheet(name):
             try:
-                data = database.worksheet(name).get_all_records()
+                sheet = database.worksheet(name)
+                data = sheet.get_all_records()
+                # If the sheet is empty, get_all_records() might return an empty list
+                if not data:
+                    return pd.DataFrame()
                 return pd.DataFrame(data)
-            except:
+            except Exception:
                 return pd.DataFrame()
 
+        # Load all tabs
         df = fetch_worksheet("Clients")
         pay_df = fetch_worksheet("Repayments")
         collateral_df = fetch_worksheet("Collateral")
@@ -103,12 +105,19 @@ def load_full_database():
         petty_df = fetch_worksheet("PettyCash")
         payroll_df = fetch_worksheet("Payroll")
         
-        # Numeric Cleaning Logic (Keep your current cleaning code here)
-        # ... [Your existing numeric cleaning code] ...
-
+        # MATH CLEANING
+        if not df.empty:
+            for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        # Return all dataframes
         return df, pay_df, collateral_df, expense_df, petty_df, payroll_df, client
+
     except Exception as e:
-        st.error(f"Sync Error: {e}")
+        # Only show the error if it's a real problem, not a <Response [200]>
+        if "200" not in str(e):
+            st.error(f"Sync Error: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
 
 # Run the function to get your data
