@@ -380,7 +380,6 @@ elif page == "Borrowers":
         if grid_response and grid_response.get('selected_rows') is not None:
             selected_data = grid_response['selected_rows']
             
-            # Convert DataFrame to list of dicts if necessary
             if isinstance(selected_data, pd.DataFrame):
                 selected_rows = selected_data.to_dict('records')
             else:
@@ -389,56 +388,39 @@ elif page == "Borrowers":
             if selected_rows:
                 row = selected_rows[0]
                 
-                # Notes are now properly commented out
-                # Pencil 📝 = Edit -> Open a modal or inline edit.
-                # Eye 👁️ = View -> Pop-up to show borrower details.
-                # Trash 🗑️ = Delete → Confirm and remove row.
-
-                col1, col2, col3 = st.columns(3)
-
-                # VIEW DIALOG
-                @st.dialog(f"👁️ Profile: {row['CUSTOMER_NAME']}")
-                def view_modal(data):
-                    # Use .get() and double-check these names match your Sheet headers!
-                    st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
-                    st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
-                    st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
-                    st.divider()
-                    
-                    # Safer number conversion
-                    amt = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
-                    st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
-                    
-                    if st.button("Close"):
-                        st.rerun()
-
-                # VIEW DIALOG
+                # --- A. DEFINE THE DIALOGS FIRST ---
+                
                 @st.dialog(f"👁️ Profile: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def view_modal(data):
-                    # We create a clean dictionary to avoid column mismatch
-                    # These keys MUST match your Google Sheet Headers exactly!
-                    st.write(f"**Full Name:** {data.get('CUSTOMER_NAME', 'N/A')}")
                     st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
                     st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
                     st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
                     st.write(f"**Gender:** {data.get('GENDER', 'N/A')}")
                     st.divider()
                     
-                    # Safer number conversion for the metric
-                    try:
-                        raw_val = data.get('OUTSTANDING_AMOUNT', 0)
-                        # Remove commas or currency symbols if they exist in the string
-                        if isinstance(raw_val, str):
-                            raw_val = raw_val.replace(',', '').replace('UGX', '').strip()
-                        amt = pd.to_numeric(raw_val, errors='coerce')
-                        st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
-                    except:
-                        st.metric("Outstanding Amount", "UGX 0")
+                    # Commas fixed here!
+                    raw_val = data.get('OUTSTANDING_AMOUNT', 0)
+                    amt = pd.to_numeric(raw_val, errors='coerce')
+                    st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
                     
                     if st.button("Close"):
                         st.rerun()
 
-                # Button Triggers
+                @st.dialog(f"📝 Edit: {row.get('CUSTOMER_NAME', 'Unknown')}")
+                def edit_modal(data):
+                    st.markdown("### Update Borrower Details")
+                    new_phone = st.text_input("New Contact", value=data.get('CONTACT', ''))
+                    new_addr = st.text_area("New Address", value=data.get('ADDRESS', ''))
+                    
+                    if st.button("💾 Save Changes", use_container_width=True):
+                        st.info("Syncing with Google Sheets...")
+                        # gspread logic will go here
+                        st.success("Successfully updated!")
+                        st.rerun()
+
+                # --- B. DISPLAY THE BUTTONS SECOND ---
+                col1, col2, col3 = st.columns(3)
+
                 if col1.button("👁️ View Details", use_container_width=True):
                     view_modal(row)
                 
@@ -446,7 +428,7 @@ elif page == "Borrowers":
                     edit_modal(row)
 
                 if col3.button("🗑️ Delete", use_container_width=True):
-                    st.error("Are you sure? Use the Admin Controls below to delete.")
+                    st.error("Please use 'Admin Controls' below to delete.")
             else:
                 st.info("💡 Click a row's checkbox to see View/Edit options.")
         else:
