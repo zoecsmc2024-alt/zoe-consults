@@ -116,14 +116,18 @@ def load_full_database():
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
 # --- 6. NAVIGATION (Sidebar) ---
 with st.sidebar:
-    # 1. THE LOGO & BRANDING
-    try:
-        # 'use_container_width' ensures it fits the sidebar perfectly
+    # 1. SMART LOGO LOADER
+    import os
+    if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
-    except:
+    else:
+        # This only shows if the file is missing or misnamed
+        st.error("⚠️ 'logo.png' not found in root folder.")
         st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>ZOE ADMIN</h2>", unsafe_allow_html=True)
     
     st.markdown("---")
+    
+    # ... rest of your option_menu code ...
 
     # 2. THE NAVIGATION MENU (Keeping your original setup)
     page = option_menu(
