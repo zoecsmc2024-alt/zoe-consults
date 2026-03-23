@@ -377,11 +377,10 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
 # <--- MAKE SURE THIS LINE IS NOT INDENTED INSIDE THE PREVIOUS 'IF'
     
     elif page == "Collateral":
-    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-    
-    # 1. Initialize Local Memory
-    if 'local_collateral' not in st.session_state:
-        st.session_state.local_collateral = []
+        st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
+        # 1. Initialize Local Memory
+        if 'local_collateral' not in st.session_state:
+            st.session_state.local_collateral = []
 
     # 2. LOG NEW COLLATERAL FORM
     with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
