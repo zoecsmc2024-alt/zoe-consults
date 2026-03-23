@@ -375,7 +375,8 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
                 st.success("Details Updated!"); st.cache_data.clear(); st.rerun()
 
 # <--- MAKE SURE THIS LINE IS NOT INDENTED INSIDE THE PREVIOUS 'IF'
-elif page == "Collateral":
+    
+    elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     
     # 1. Initialize Local Memory
