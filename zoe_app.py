@@ -13,10 +13,10 @@ from google.oauth2.service_account import Credentials
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Zoe Consults Admin",
-    page_icon="🏛️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+  page_title="Zoe Consults Admin",
+  page_icon="🏛️",
+  layout="wide",
+  initial_sidebar_state="expanded"
 )
 
 # --- 2. BRANDING & NAVY/BABY BLUE STYLING ---
