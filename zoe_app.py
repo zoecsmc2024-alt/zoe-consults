@@ -163,6 +163,7 @@ with st.sidebar:
 # --- 7. MODULE PLACEHOLDER ---
 st.markdown(f"<div class='main-title'>🖥️ {page} Module</div>", unsafe_allow_html=True)
 st.info("Module content will load here based on your navigation selection.")
+
 if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
 
