@@ -313,13 +313,14 @@ import gspread
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 # --- 1. Page Title ---
+elif page == "Borrowers":
 st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
-# --- 2. Initialize Local Storage ---
+# --- 2. Initialize local registry ---
 if 'local_registry' not in st.session_state:
     st.session_state.local_registry = []
 
-# --- 3. Fetch Cloud Data ---
+# --- 3. Fetch cloud data ---
 def get_cloud_data():
     try:
         creds_dict = dict(st.secrets["gcp_service_account"])
@@ -333,82 +334,65 @@ def get_cloud_data():
         return pd.DataFrame(), None
 
 df_cloud, ws_clients = get_cloud_data()
+
+# --- 4. Combine cloud + local data ---
 local_df = pd.DataFrame(st.session_state.local_registry)
-combined = pd.concat([df_cloud, local_df], ignore_index=True) if not df_cloud.empty else local_df
+if not df_cloud.empty and not local_df.empty:
+    combined = pd.concat([df_cloud, local_df], ignore_index=True)
+elif not df_cloud.empty:
+    combined = df_cloud
+elif not local_df.empty:
+    combined = local_df
+else:
+    combined = pd.DataFrame()  # Ensure combined always exists
 
-# --- 4. Register New Client ---
-with st.expander("➕ Register New Client (KYC Enrollment)", expanded=False):
-    with st.form("kyc_registration_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
+# --- 5. Register new client ---
+with st.expander("➕ Register New Client", expanded=False):
+    with st.form("kyc_form", clear_on_submit=True):
+        f_name = st.text_input("First Name")
+        l_name = st.text_input("Last Name")
+        nin = st.text_input("NIN")
+        loan_amt = st.number_input("Loan Amount (UGX)", min_value=0)
+        interest = st.number_input("Interest Rate (%)", min_value=0.0)
 
-        with c1:
-            f_name = st.text_input("First Name")
-            l_name = st.text_input("Last Name")
-            phone = st.text_input("Contact (256...)")
-            gender = st.selectbox("Gender", ["Male", "Female"])
-            nin = st.text_input("NIN")
-            issue_date = st.date_input("Loan Issue Date", value=datetime.now())
-
-        with c2:
-            loan_amt = st.number_input("Loan Amount (UGX)", min_value=0, step=50000)
-            interest = st.number_input("Interest Rate (%)", min_value=0.0)
-            loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency"])
-            address = st.text_area("Address")
-            due_date = st.date_input("Due Date", value=datetime.now() + timedelta(days=30))
-
-        total_due = loan_amt + (loan_amt * interest / 100)
-        st.info(f"💰 Total Payable: UGX {total_due:,.0f}")
-
-        if st.form_submit_button("🚀 Register & Disburse"):
+        submitted = st.form_submit_button("Register")
+        if submitted:
             if f_name and l_name and nin:
                 full_name = f"{f_name} {l_name}".upper()
+                total_due = loan_amt + (loan_amt * interest / 100)
                 new_entry = {
                     "CUSTOMER_NAME": full_name,
-                    "CONTACT": phone,
                     "NIN": nin,
-                    "GENDER": gender,
-                    "ADDRESS": address,
-                    "LOAN_TYPE": loan_type,
                     "LOAN_AMOUNT": loan_amt,
                     "INTEREST_RATE": interest,
                     "TOTAL_DUE": total_due,
                     "AMOUNT_PAID": 0,
-                    "OUTSTANDING_AMOUNT": total_due,
-                    "ISSUE_DATE": str(issue_date),
-                    "DUE_DATE": str(due_date)
+                    "OUTSTANDING_AMOUNT": total_due
                 }
                 st.session_state.local_registry.append(new_entry)
+                st.success(f"✅ {full_name} registered locally!")
+                st.experimental_rerun()
 
-                # Try to save to Google Sheets
-                try:
-                    if ws_clients:
-                        ws_clients.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
-                        st.success(f"✅ {full_name} registered successfully!")
-                        st.balloons()
-                except:
-                    st.warning("Saved locally. Cloud sync pending.")
-
-            else:
-                st.warning("Please fill all required fields.")
-
-st.markdown("---")
-
-# --- 5. Borrower Directory Table ---
+# --- 6. Display borrower table ---
 st.markdown("#### 🔍 Borrower Directory")
+
+# Recombine after registration
+local_df = pd.DataFrame(st.session_state.local_registry)
+combined = pd.concat([df_cloud, local_df], ignore_index=True) if not df_cloud.empty else local_df
 
 if not combined.empty:
     # Format money
-    for col in ['LOAN_AMOUNT','TOTAL_DUE','AMOUNT_PAID','OUTSTANDING_AMOUNT']:
+    for col in ["LOAN_AMOUNT", "TOTAL_DUE", "AMOUNT_PAID", "OUTSTANDING_AMOUNT"]:
         if col in combined.columns:
             combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
             combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
 
-    # Add actions column placeholder
+    # Add actions column
     combined["ACTIONS"] = "👁️ ✏️ 🗑️"
 
-    # Build AgGrid table
+    # Build table
     gb = GridOptionsBuilder.from_dataframe(combined)
-    gb.configure_selection('single', use_checkbox=True)
+    gb.configure_selection("single", use_checkbox=True)
     gb.configure_column("ACTIONS", editable=False)
     grid_options = gb.build()
 
@@ -416,67 +400,16 @@ if not combined.empty:
         combined,
         gridOptions=grid_options,
         update_mode=GridUpdateMode.SELECTION_CHANGED,
-        theme='streamlit',
         height=400,
-        enable_enterprise_modules=False
+        theme="streamlit"
     )
 
-    # Handle selected row actions
-    selected_rows = grid_response.get('selected_rows')
+    selected_rows = grid_response.get("selected_rows")
     if selected_rows:
         row = selected_rows[0]
-        st.markdown(f"### Actions for {row['CUSTOMER_NAME']}")
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            if st.button("👁️ View Details"):
-                st.info(f"""
-                **Name:** {row['CUSTOMER_NAME']}
-                **NIN:** {row['NIN']}
-                **Contact:** {row['CONTACT']}
-                **Address:** {row['ADDRESS']}
-                **Gender:** {row['GENDER']}
-                **Loan Type:** {row['LOAN_TYPE']}
-                **Loan Amount:** UGX {row['LOAN_AMOUNT']}
-                **Total Due:** UGX {row['TOTAL_DUE']}
-                **Outstanding:** UGX {row['OUTSTANDING_AMOUNT']}
-                **Issue Date:** {row['ISSUE_DATE']}
-                **Due Date:** {row['DUE_DATE']}
-                """)
-
-        with col2:
-            if st.button("✏️ Edit KYC"):
-                with st.form("edit_form", clear_on_submit=False):
-                    new_name = st.text_input("Full Name", value=row["CUSTOMER_NAME"])
-                    new_nin = st.text_input("NIN", value=row["NIN"])
-                    new_phone = st.text_input("Contact", value=row["CONTACT"])
-                    new_gender = st.selectbox("Gender", ["Male","Female"], index=0 if row["GENDER"]=="Male" else 1)
-                    new_address = st.text_area("Address", value=row["ADDRESS"])
-                    new_loan = st.number_input("Loan Amount (UGX)", value=int(row["LOAN_AMOUNT"].replace(",","")))
-                    new_out = st.number_input("Outstanding (UGX)", value=int(row["OUTSTANDING_AMOUNT"].replace(",","")))
-                    if st.form_submit_button("💾 Save Changes"):
-                        # Update local registry
-                        for r in st.session_state.local_registry:
-                            if r["NIN"] == row["NIN"]:
-                                r.update({
-                                    "CUSTOMER_NAME": new_name,
-                                    "NIN": new_nin,
-                                    "CONTACT": new_phone,
-                                    "GENDER": new_gender,
-                                    "ADDRESS": new_address,
-                                    "LOAN_AMOUNT": new_loan,
-                                    "OUTSTANDING_AMOUNT": new_out
-                                })
-                        st.success("✅ Borrower updated locally!")
-                        st.experimental_rerun()
-
-        with col3:
-            if st.button("🗑️ Delete"):
-                st.session_state.local_registry = [r for r in st.session_state.local_registry if r["NIN"] != row["NIN"]]
-                st.success("✅ Borrower deleted locally!")
-                st.experimental_rerun()
-            else:
-                st.info("No borrowers found. Register a client above to start.")
+        st.info(f"Selected Borrower: {row['CUSTOMER_NAME']} | NIN: {row['NIN']}")
+else:
+    st.info("No borrowers found. Register a client above to start.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
