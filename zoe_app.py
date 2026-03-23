@@ -132,16 +132,6 @@ with st.sidebar:
     # ... rest of your option_menu code ...
 
 
-    # 3. UTILITY BUTTONS (Sync & Logout)
-    col1, col2 = st.columns(2)
-    if col1.button("🔄 Sync", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
-    if col2.button("🚪 Exit", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
-
     # 4. STATUS LIGHT
     if not df.empty:
         st.markdown("<p style='text-align: center; color: #16a34a; font-size: 11px;'>🟢 Cloud Database Connected</p>", unsafe_allow_html=True)
