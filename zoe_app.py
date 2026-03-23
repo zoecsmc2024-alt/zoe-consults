@@ -1728,33 +1728,29 @@ biz_name = col1.text_input("Company Name", value=st.session_state.get('biz_name'
 biz_tagline = col2.text_input("Tagline", value=st.session_state.get('biz_tagline', "Official Loan Statement & Repayment Ledger"))
 st.divider()
 
-    # 2. FINANCIAL DEFAULTS
-    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>📉 Financial Defaults</p>", unsafe_allow_html=True)
-    
-    c3, c4 = st.columns(2)
-    default_rate = c3.number_input("Standard Monthly Interest Rate (%)", value=10.0, step=0.5)
-    late_penalty = c4.number_input("Late Payment Penalty (UGX)", value=50000, step=5000)
-    
-    st.divider()
+# 2. FINANCIAL DEFAULTS
+st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>📉 Financial Defaults</p>", unsafe_allow_html=True)
+c3, c4 = st.columns(2)
+default_rate = c3.number_input("Standard Monthly Interest Rate (%)", value=10.0, step=0.5)
+late_penalty = c4.number_input("Late Payment Penalty (UGX)", value=50000, step=5000)
 
-    # 3. DIGITAL ASSETS (Signature & Stamp)
-    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>✍️ Official Stamp & Signature</p>", unsafe_allow_html=True)
-    st.info("Upload your signature (PNG) to have it automatically placed on all PDF Statements.")
-    
-    uploaded_sig = st.file_uploader("Upload Signature / Stamp", type=["png", "jpg"])
-    
-    if uploaded_sig:
-        st.image(uploaded_sig, caption="Preview of Signature", width=150)
-        # Store for PDF logic
-        st.session_state.signature = uploaded_sig.read()
+st.divider()
 
-    # 4. SAVE BUTTON
-    if st.button("💾 Save System Settings", use_container_width=True):
-        # Commit choices to session state
-        st.session_state.biz_name = biz_name
-        st.session_state.biz_tagline = biz_tagline
-        st.session_state.default_rate = default_rate
-        st.session_state.late_penalty = late_penalty
-        
-        st.balloons()
+# 3. DIGITAL ASSETS (Signature & Stamp)
+st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>✍️ Official Stamp & Signature</p>", unsafe_allow_html=True)
+st.info("Upload your signature (PNG) to have it automatically placed on all PDF Statements.")
+
+uploaded_sig = st.file_uploader("Upload Signature / Stamp", type=["png", "jpg"])
+if uploaded_sig:
+st.image(uploaded_sig, caption="Preview of Signature", width=150)
+# Store for PDF logic
+st.session_state.signature = uploaded_sig.read()
+# 4. SAVE BUTTON
+if st.button("💾 Save System Settings", use_container_width=True):
+# Commit choices to session state
+st.session_state.biz_name = biz_name
+st.session_state.biz_tagline = biz_tagline
+st.session_state.default_rate = default_rate
+st.session_state.late_penalty = late_penalty
+st.balloons()
         st.success("Settings updated successfully! Changes are active for this session.")
