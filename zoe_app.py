@@ -422,7 +422,7 @@ if not combined.empty:
             # row contains the clicked row data; implement your logic
             st.write(row)
     else:
-    st.info("No borrowers yet.")
+        st.info("No borrowers yet.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
