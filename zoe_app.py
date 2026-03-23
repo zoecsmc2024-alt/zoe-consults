@@ -417,10 +417,21 @@ if not combined.empty:
     )
 
     # --- Handle Actions ---
-    if grid_response and "selected_rows" in grid_response:
-        for row in grid_response['selected_rows']:
-            # row contains the clicked row data; implement your logic
-            st.write(row)
+    if grid_response and grid_response.get('selected_rows') is not None:
+        selected_data = grid_response['selected_rows']
+        
+        # Convert to list of dicts if it's a DataFrame (prevents TypeError)
+        if isinstance(selected_data, pd.DataFrame):
+            selected_rows = selected_data.to_dict('records')
+        else:
+            selected_rows = selected_data
+
+        if selected_rows:
+            for row in selected_rows:
+                # row contains the clicked row data; implement your logic
+                st.write(row)
+        else:
+            st.info("Select a row in the grid to see details.")
     else:
         st.info("No borrowers yet.")
     
