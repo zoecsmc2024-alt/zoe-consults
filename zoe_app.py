@@ -130,21 +130,7 @@ with st.sidebar:
     
     st.markdown("---")
     # ... rest of your option_menu code ...
-    
-    # 2. THE NAVIGATION MENU
-    page = option_menu(
-        menu_title=None,
-        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "PettyCash", "Payroll", "Add Payment", "Settings"],
-        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "gear"],
-        default_index=0,
-        styles={
-            "container": {"padding": "5px", "background-color": "#ffffff", "border-radius": "10px"},
-            "nav-link": {"font-size": "13px", "text-align": "left", "margin":"5px", "--hover-color": "#f1f5f9"},
-            "nav-link-selected": {"background-color": "#1e3a8a", "color": "white"}
-        }
-    )
-    
-    st.markdown("---")
+
 
     # 3. UTILITY BUTTONS (Sync & Logout)
     col1, col2 = st.columns(2)
