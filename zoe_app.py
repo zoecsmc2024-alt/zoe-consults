@@ -739,47 +739,89 @@ elif page == "Expenses":
         st.info(f"📊 Total Operating Expenses logged: **UGX {total_val:,.0f}**")
     else:
         st.info("ℹ️ Your Expense Ledger is empty. Log your first business expense above.")
-# --- PAGE: PETTY CASH ---
-elif page == "Petty Cash":
-    st.markdown('<div class="main-title">☕ Petty Cash Management</div>', unsafe_allow_html=True)
+# PAGE: PETTY CASH
+elif page == "PettyCash":
+    st.markdown('<div class="main-title">🪙 Petty Cash Management</div>', unsafe_allow_html=True)
     
-    # 1. FLOAT TRACKER
-    # We calculate float as (Total In - Total Out)
-    if not petty_df.empty:
-        p_in = petty_df[petty_df['TYPE'] == 'Float Top-up']['AMOUNT'].sum()
-        p_out = petty_df[petty_df['TYPE'] == 'Spend']['AMOUNT'].sum()
-        current_float = p_in - p_out
-        
-        color = "#1e3a8a" if current_float > 10000 else "#dc2626"
-        st.markdown(f"""
-            <div style="background-color: #f0f9ff; padding: 20px; border-radius: 12px; border-left: 6px solid {color};">
-                <h3 style="margin:0; color: {color};">Current Float: UGX {current_float:,.0f}</h3>
-            </div>
-        """, unsafe_allow_html=True)
+    # 1. Initialize Local Memory
+    if 'local_petty' not in st.session_state:
+        st.session_state.local_petty = []
+
+    # 2. CALCULATE LIVE BALANCE
+    local_p_df = pd.DataFrame(st.session_state.local_petty)
+    combined_petty = pd.concat([petty_df, local_p_df], ignore_index=True)
     
-    # 2. LOG PETTY CASH ACTIVITY
+    if not combined_petty.empty:
+        # Math: Top-ups increase balance, Spends decrease it
+        total_in = combined_petty[combined_petty['TYPE'] == 'Float Top-up']['AMOUNT'].sum()
+        total_out = combined_petty[combined_petty['TYPE'] == 'Spend']['AMOUNT'].sum()
+        current_balance = total_in - total_out
+    else:
+        current_balance = 0
+
+    st.metric("Current Petty Cash Balance", f"UGX {current_balance:,.0f}")
+
+    # 3. TRANSACTION FORM
+    with st.expander("💸 Update Petty Cash (Spend or Top-up)", expanded=True):
+        with st.form("petty_form", clear_on_submit=True):
+            p_type = st.radio("Transaction Type", ["Spend", "Float Top-up"], horizontal=True)
+            c1, c2 = st.columns(2)
+            p_amt = c1.number_input("Amount (UGX)", min_value=0, step=1000)
+            p_item = c2.text_input("Item / Reason", placeholder="e.g., Office Tea, Transport")
+            
+            if st.form_submit_button("💸 Update Petty Cash", use_container_width=True):
+                if p_amt > 0 and p_item:
+                    new_p = {
+                        "DATE": str(datetime.now().date()),
+                        "TYPE": p_type,
+                        "ITEM": p_item,
+                        "AMOUNT": p_amt
+                    }
+                    
+                    # Instant Local Update
+                    st.session_state.local_petty.append(new_p)
+                    
+                    try:
+                        # FRESH HANDSHAKE
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = fresh_client.open_by_key(sheet_id).worksheet("PettyCash")
+                        ws.append_row(list(new_p.values()), value_input_option='USER_ENTERED')
+                        
+                        st.success(f"✅ {p_type} of {p_amt:,.0f} recorded!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        if "200" in str(e):
+                            st.success("✅ Recorded!")
+                            st.cache_data.clear()
+                        else:
+                            st.warning(f"⚠️ Saved locally, Cloud Sync pending: {e}")
+                else:
+                    st.warning("Please enter an amount and reason.")
+
     st.write("---")
-    with st.form("petty_form", clear_on_submit=True):
-        p_type = st.radio("Transaction Type", ["Spend", "Float Top-up"], horizontal=True)
-        col_a, col_b = st.columns(2)
-        p_amt = col_a.number_input("Amount (UGX)", min_value=0, step=1000)
-        p_item = col_b.text_input("Item (e.g., Office Tea, Transport, Printing)")
+
+    # 4. TRANSACTION TABLE
+    st.markdown("#### 📜 Petty Cash Ledger")
+    if not combined_petty.empty:
+        # Sort by latest
+        display_p = combined_petty.copy().sort_index(ascending=False)
         
-        if st.form_submit_button("💸 Update Petty Cash", use_container_width=True):
-            new_p = [str(datetime.now().date()), p_type, p_item, p_amt]
-            g_client.open("Zoe_Consults_Database").worksheet("PettyCash").append_row(new_p)
-            st.success("Petty cash updated!"); st.cache_data.clear()
-
-    st.dataframe(petty_df, use_container_width=True)
-
-elif page == "Petty Cash":
-    st.metric("Current Float Balance", f"UGX {(petty_df[petty_df['TYPE']=='Float Top-up']['AMOUNT'].sum() - petty_df[petty_df['TYPE']=='Spend']['AMOUNT'].sum()):,.0f}")
-    with st.form("p_cash"):
-        t = st.radio("Type", ["Spend", "Float Top-up"])
-        a = st.number_input("Amount")
-        if st.form_submit_button("Update"):
-            g_client.open("Zoe_Consults_Database").worksheet("PettyCash").append_row([str(datetime.now().date()), t, "Cash Desk", a])
-            st.success("Float Updated!"); st.cache_data.clear()
+        # Comma Formatting
+        if 'AMOUNT' in display_p.columns:
+            display_p['AMOUNT'] = display_p['AMOUNT'].apply(lambda x: f"{float(x):,.0f}")
+            
+        st.dataframe(
+            display_p, 
+            use_container_width=True, 
+            hide_index=True,
+            column_order=("DATE", "TYPE", "ITEM", "AMOUNT")
+        )
+    else:
+        st.info("ℹ️ No petty cash transactions found.")
 
 # PAGE: PAYROLL
 elif page == "Payroll":
