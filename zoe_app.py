@@ -368,18 +368,13 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
     sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
     ws = g_client.open_by_key(sheet_id).worksheet("Clients")
     
-    if act == "Update Contact/Address":
-        with st.form("edit_kyc"):
-            current_row = combined_display[combined_display['CUSTOMER_NAME'] == to_action].iloc[0]
-            new_p = st.text_input("New Phone", value=str(current_row['CONTACT']))
-            new_a = st.text_area("New Address", value=str(current_row['ADDRESS']))
-            
-            if st.form_submit_button("Save Changes"):
+    if st.form_submit_button("Save Changes"):
                 cell = ws.find(to_action)
-                ws.update_cell(cell.row, 2, new_p) # Update Contact (Col B)
-                ws.update_cell(cell.row, 8, new_a) # Update Address (Col H - verify your sheet index!)
+                ws.update_cell(cell.row, 2, new_p) 
+                ws.update_cell(cell.row, 8, new_a) 
                 st.success("Details Updated!"); st.cache_data.clear(); st.rerun()
-# PAGE: COLLATERAL
+
+# <--- MAKE SURE THIS LINE IS NOT INDENTED INSIDE THE PREVIOUS 'IF'
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     
