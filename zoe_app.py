@@ -49,7 +49,7 @@ st.markdown(f"""
 
 # --- 3. SESSION STATE ---
 if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
+  st.session_state.authenticated = False
 if 'ready' not in st.session_state:
     st.session_state.ready = False
 if 'b64_str' not in st.session_state:
