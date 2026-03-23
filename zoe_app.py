@@ -406,8 +406,8 @@ if not combined.empty:
     )
 
     else:
-        # This ELSE now correctly belongs to "if not combined.empty"
         st.info("No borrowers yet.")
+        
 
 # --- NOW you can start the next page ---
 elif page == "Collateral":
