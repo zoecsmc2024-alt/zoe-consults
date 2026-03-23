@@ -116,20 +116,60 @@ def load_full_database():
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
 # --- 6. NAVIGATION (Sidebar) ---
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>ZOE ADMIN</h2>", unsafe_allow_html=True)
+    # 1. THE LOGO & BRANDING
+    try:
+        # 'use_container_width' ensures it fits the sidebar perfectly
+        st.image("logo.png", use_container_width=True)
+    except:
+        st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>ZOE ADMIN</h2>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+    # 2. THE NAVIGATION MENU (Keeping your original setup)
     page = option_menu(
         menu_title=None,
         options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "PettyCash", "Payroll", "Add Payment", "Settings"],
-        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "person-plus", "gear"],
+        # Note: Added 'box-arrow-right' for Logout or others if you want to expand icons later
+        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "gear"],
         default_index=0,
-        styles={"nav-link": {"font-size": "12px"}, "nav-link-selected": {"background-color": "#1e3a8a"}}
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "nav-link": {"font-size": "13px", "text-align": "left", "margin":"0px", "--hover-color": "#eff6ff"},
+            "nav-link-selected": {"background-color": "#1e3a8a"},
+        }
     )
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.clear(); st.rerun()
+    
+    st.markdown("---")
+
+    # 3. CLOUD SYNC & LOGOUT (The "Engine Room")
+    c1, c2 = st.columns(2)
+    
+    # Manual Sync Button
+    if c1.button("🔄 Sync", use_container_width=True, help="Force pull latest data from Google Sheets"):
+        st.cache_data.clear()
+        st.rerun()
+
+    # Logout Button
+    if c2.button("🚪 Exit", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+    # 4. CONNECTION STATUS INDICATOR
+    if not df.empty:
+        st.markdown("<p style='color: #16a34a; font-size: 10px; text-align: center;'>● System Online (Cloud Synced)</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p style='color: #dc2626; font-size: 10px; text-align: center;'>○ System Offline (Check Connection)</p>", unsafe_allow_html=True)
 
 # --- 7. PAGE MODULES ---
 
 # PAGE: OVERVIEW
+# Place this at the start of your Overview or Ledger page
+t1, t2 = st.columns([1, 5])
+with t1:
+    st.image("logo.png", width=80) # Small icon version
+with t2:
+    st.markdown("# ZOE CONSULTS SMC LTD")
+    st.caption("Professional Credit & Financial Management")
 if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
     
