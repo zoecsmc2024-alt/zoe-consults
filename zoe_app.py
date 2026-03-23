@@ -497,7 +497,6 @@ elif page == "Borrowers":
                                 
                         except Exception as e:
                             st.error(f"Delete failed: {e}")
-
                 # --- BUTTON TRIGGERS ---
                 col1, col2, col3 = st.columns(3)
 
