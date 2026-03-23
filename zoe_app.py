@@ -313,8 +313,9 @@ import gspread
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 # --- 1. Page Title ---
+
 elif page == "Borrowers":
-st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
+  st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
 # --- 2. Initialize local registry ---
 if 'local_registry' not in st.session_state:
