@@ -452,7 +452,7 @@ elif page == "Collateral":
     if not combined_collat.empty:
         # --- THE FIX: SAFETY CHECK FOR COLUMNS ---
         cols_found = combined_collat.columns.tolist()
-        subset_to_check = []
+        subset_cols = [] # Defined correctly here
         if 'BORROWER_NAME' in cols_found: subset_cols.append('BORROWER_NAME')
         if 'ITEM_NAME' in cols_found: subset_cols.append('ITEM_NAME')
         
@@ -461,7 +461,7 @@ elif page == "Collateral":
             combined_collat = combined_collat.drop_duplicates(subset=subset_cols, keep='last')
         
         # Display search
-        search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...")
+        search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...", key="collat_search")
         display_df = combined_collat.copy()
         
         if search:
