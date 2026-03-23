@@ -66,7 +66,7 @@ if not st.session_state.authenticated:
             user = st.text_input("Username")
             pw = st.text_input("Access Key", type="password")
             if st.button("Login to Zoe Consults", use_container_width=True):
-                if user == "bestie" and pw == "ZoeAdmin2026":
+                if user == st.secrets["admin_user"] and pw == st.secrets["admin_pass"]:
                     st.session_state.authenticated = True
                     st.rerun()
                 else:
@@ -74,7 +74,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # --- 5. DATA ENGINE (Google Sheets - High Performance Version) ---
-@st.cache_data(ttl=60) # Changed from 600 to 60 (Checks Google every minute)
+@st.cache_data(ttl=120, show_spinner="Syncing cloud data...") # Changed from 600 to 60 (Checks Google every minute)
 def load_full_database():
     try:
         # 1. Setup Dict and Clean Newlines
@@ -117,26 +117,47 @@ def load_full_database():
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
 # --- 6. NAVIGATION (Sidebar) ---
 with st.sidebar:
-    # 1. DYNAMIC LOGO LOADER
-    if 'custom_logo' in st.session_state:
-        # Show the logo the user just uploaded from their PC
-        st.image(st.session_state.custom_logo, use_container_width=True)
-    elif os.path.exists("logo.png"):
-        # Fallback to GitHub file if it exists
-        st.image("logo.png", use_container_width=True)
-    else:
-        # Fallback to text if everything else fails
-        st.markdown(f"<h2 style='text-align: center; color: #1e3a8a;'>{st.session_state.get('biz_name', 'ZOE ADMIN')}</h2>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    # ... rest of your option_menu code ...
+    # LOGO
+    if 'custom_logo' in st.session_state:
+        st.image(st.session_state.custom_logo, use_container_width=True)
+    elif os.path.exists("logo.png"):
+        st.image("logo.png", use_container_width=True)
+    else:
+        st.markdown(f"<h2 style='text-align: center; color: #1e3a8a;'>{st.session_state.get('biz_name', 'ZOE ADMIN')}</h2>", unsafe_allow_html=True)
 
+    st.markdown("---")
 
-    # 4. STATUS LIGHT
-    if not df.empty:
-        st.markdown("<p style='text-align: center; color: #16a34a; font-size: 11px;'>🟢 Cloud Database Connected</p>", unsafe_allow_html=True)
-    else:
-        st.markdown("<p style='text-align: center; color: #dc2626; font-size: 11px;'>🔴 Database Offline</p>", unsafe_allow_html=True)
+    # NAVIGATION
+    page = option_menu(
+        menu_title=None,
+        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "PettyCash", "Payroll", "Add Payment", "Settings"],
+        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "gear"],
+        default_index=0,
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "nav-link": {"font-size": "13px", "text-align": "left"},
+            "nav-link-selected": {"background-color": "#1e3a8a"},
+        }
+    )
+
+    st.markdown("---")
+
+    # BUTTONS
+    c1, c2 = st.columns(2)
+
+    if c1.button("🔄 Sync", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+    if c2.button("🚪 Exit", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+    # STATUS
+    if not df.empty:
+        st.success("🟢 Cloud Connected")
+    else:
+        st.error("🔴 Database Offline")
     # 2. THE NAVIGATION MENU (Keeping your original setup)
     page = option_menu(
         menu_title=None,
@@ -155,17 +176,14 @@ with st.sidebar:
 
     # 3. CLOUD SYNC & LOGOUT (The "Engine Room")
     c1, c2 = st.columns(2)
-    
-    # Manual Sync Button
-    if c1.button("🔄 Sync", use_container_width=True, help="Force pull latest data from Google Sheets"):
-        st.cache_data.clear()
-        st.rerun()
 
-    # Logout Button
-    # Added key="sidebar_exit_btn" to make it unique
-if c2.button("🚪 Exit", use_container_width=True, key="sidebar_exit_btn"):
-    st.session_state.clear()
-    st.rerun()
+    if c1.button("🔄 Sync", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+    if c2.button("🚪 Exit", use_container_width=True, key="sidebar_exit_btn"):
+        st.session_state.clear()
+        st.rerun()
     # 4. CONNECTION STATUS INDICATOR
     if not df.empty:
         st.markdown("<p style='color: #16a34a; font-size: 10px; text-align: center;'>● System Online (Cloud Synced)</p>", unsafe_allow_html=True)
