@@ -319,43 +319,39 @@ elif page == "Borrowers":
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     
-    # 1. ANALYTICS (Baby Blue Cards)
-    c1, c2, c3 = st.columns(3)
-    # Filter for items currently in your possession
-    held_items = collateral_df[collateral_df['STATUS'] == 'Held']
-    
-    c1.metric("Items in Vault", len(held_items))
-    c2.metric("Total Collateral Value", f"UGX {collateral_df['ESTIMATED_VALUE'].sum():,.0f}")
-    c3.metric("Released Items", len(collateral_df[collateral_df['STATUS'] == 'Released']))
-
-    st.write("---")
-
-    # 2. ADD NEW COLLATERAL FORM
-    with st.expander("➕ Register New Collateral Asset", expanded=False):
-        with st.form("collateral_form", clear_on_submit=True):
-            st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>Asset Details</p>", unsafe_allow_html=True)
+    # SAFETY CHECK: Only try to filter if the column exists
+    if not collateral_df.empty and 'STATUS' in collateral_df.columns:
+        held_items = collateral_df[collateral_df['STATUS'] == 'Held']
+        released_items = collateral_df[collateral_df['STATUS'] == 'Released']
+        
+        # Display Metrics
+        c1, c2 = st.columns(2)
+        c1.metric("🔒 Items Held", len(held_items))
+        c2.metric("🔓 Items Released", len(released_items))
+        
+        st.write("---")
+        st.markdown("#### Inventory List")
+        st.dataframe(collateral_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ No collateral records found. Start by adding collateral for a borrower!")
+        
+    # --- ADD COLLATERAL FORM ---
+    with st.expander("📝 Log New Collateral"):
+        with st.form("collateral_form"):
+            b_name = st.selectbox("Select Borrower", df['CUSTOMER_NAME'].unique() if not df.empty else ["No Borrowers"])
+            item = st.text_input("Item Description (e.g., Car Logbook, Land Title)")
+            val = st.number_input("Estimated Value (UGX)", min_value=0)
             
-            target_borrower = st.selectbox("Assign to Borrower", df['CUSTOMER_NAME'].unique())
-            
-            col_a, col_b = st.columns(2)
-            asset_type = col_a.selectbox("Asset Type", ["Logbook", "Land Title", "Electronics", "Household", "Other"])
-            asset_desc = col_b.text_input("Item Description (Model/Serial No.)")
-            
-            col_c, col_d = st.columns(2)
-            est_value = col_c.number_input("Estimated Market Value (UGX)", min_value=0, step=50000)
-            storage_ref = col_d.text_input("Storage Location/File Ref")
-            
-            status = st.radio("Current Status", ["Held", "Released", "Disposed"], horizontal=True)
-            
-            if st.form_submit_button("🛡️ Secure Asset in Database", use_container_width=True):
-                # Logic to push to a new 'Collateral' tab in Google Sheets
-                new_asset = [target_borrower, asset_type, asset_desc, est_value, storage_ref, status, str(datetime.now().date())]
-                
-                # Push to Sheets Logic
-                sheet = client.open("Zoe_Consults_Database").worksheet("Collateral")
-                sheet.append_row(new_asset)
-                st.success(f"Asset recorded for {target_borrower}!")
-                st.cache_data.clear()
+            if st.form_submit_button("🔒 Secure Item"):
+                if b_name != "No Borrowers" and item:
+                    new_collat = [b_name, item, val, "Held", str(datetime.now().date())]
+                    try:
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = g_client.open_by_key(sheet_id).worksheet("Collateral")
+                        ws.append_row(new_collat)
+                        st.success(f"Item secured for {b_name}!"); st.cache_data.clear(); st.rerun()
+                    except Exception as e:
+                        st.error(f"Sync Error: {e}")
 
     # 3. COLLATERAL INVENTORY TABLE
     st.write("---")
