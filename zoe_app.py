@@ -305,28 +305,56 @@ elif page == "Borrowers":
         st.dataframe(combined_display, use_container_width=True, hide_index=True, column_order=cols_to_show)
         
         # 3. ADMIN ACTIONS (Edit/Delete)
+        # 3. ADMIN ACTIONS (Edit/Delete Records)
         st.write("---")
         with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
-            if g_client:
-                to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique())
-                act = st.radio("Action", ["Update Details", "Delete Client"], horizontal=True)
-                ws = g_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-                
-                if act == "Update Details":
-                    with st.form("edit_kyc_f"):
-                        curr = combined_display[combined_display['CUSTOMER_NAME']==to_action].iloc[0]
-                        new_p = st.text_input("Update Phone", value=str(curr['CONTACT']))
-                        new_a = st.text_area("Update Address", value=str(curr['ADDRESS']))
-                        if st.form_submit_button("Save Changes"):
+            # FIRST: Check if the connection exists
+            if g_client is not None:
+                try:
+                    to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique(), key="admin_sel_borrower")
+                    act = st.radio("Action", ["Update Details", "Delete Client"], horizontal=True)
+                    
+                    # Connect to Google
+                    sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                    ws = g_client.open_by_key(sheet_id).worksheet("Clients")
+                    
+                    if act == "Update Details":
+                        with st.form("edit_kyc_f"):
+                            curr_match = combined_display[combined_display['CUSTOMER_NAME'] == to_action]
+                            if not curr_match.empty:
+                                curr = curr_match.iloc[0]
+                                new_p = st.text_input("Update Phone", value=str(curr.get('CONTACT', '')))
+                                new_a = st.text_area("Update Address", value=str(curr.get('ADDRESS', '')))
+                                
+                                if st.form_submit_button("💾 Save Changes"):
+                                    cell = ws.find(to_action)
+                                    if cell:
+                                        ws.update_cell(cell.row, 2, new_p) # Update Contact
+                                        ws.update_cell(cell.row, 8, new_a) # Update Address
+                                        st.success("✅ Success! Details updated.")
+                                        st.cache_data.clear()
+                                        st.rerun()
+                                    else:
+                                        st.error("Could not find client in Google Sheets.")
+                    
+                    else: # Delete Action
+                        if st.button("🚨 CONFIRM PERMANENT DELETE"):
                             cell = ws.find(to_action)
-                            ws.update_cell(cell.row, 2, new_p) # Contact
-                            ws.update_cell(cell.row, 8, new_a) # Address (Verify your sheet col H)
-                            st.success("Updated!"); st.cache_data.clear(); st.rerun()
-                else:
-                    if st.button("🚨 CONFIRM PERMANENT DELETE"):
-                        cell = ws.find(to_action); ws.delete_rows(cell.row)
-                        st.warning("Deleted!"); st.cache_data.clear(); st.rerun()
-            else: st.error("Database connection required for Admin Actions.")
+                            if cell:
+                                ws.delete_rows(cell.row)
+                                st.warning(f"Client {to_action} erased from database.")
+                                st.cache_data.clear()
+                                st.rerun()
+                
+                except Exception as e:
+                    st.error(f"⚠️ Google Sheets Connection Error: {e}")
+            
+            else:
+                # If g_client is None, show this instead of crashing
+                st.error("📡 Connection to Cloud Database is currently offline. Please refresh or check your Internet.")
+                if st.button("🔄 Try Reconnecting"):
+                    st.cache_data.clear()
+                    st.rerun()
 
 # --- CRITICAL: THIS ELIF MUST BE AT THE FAR LEFT (aligned with 'if page == "Overview"') ---
 elif page == "Collateral":
