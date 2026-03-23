@@ -1726,8 +1726,7 @@ st.success("✅ Logo uploaded! It will now appear in the sidebar.")
 col1, col2 = st.columns(2)
 biz_name = col1.text_input("Company Name", value=st.session_state.get('biz_name', "ZOE CONSULTS SMC LTD"))
 biz_tagline = col2.text_input("Tagline", value=st.session_state.get('biz_tagline', "Official Loan Statement & Repayment Ledger"))
-    
-    st.divider()
+st.divider()
 
     # 2. FINANCIAL DEFAULTS
     st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>📉 Financial Defaults</p>", unsafe_allow_html=True)
