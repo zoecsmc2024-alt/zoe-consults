@@ -142,47 +142,60 @@ with st.sidebar:
 if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
     
-    # 1. MERGE CLOUD + LOCAL DATA FOR TOTALS
-    # This ensures your new registration shows up here immediately!
-    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
-    combined_df = pd.concat([df, local_df], ignore_index=True)
+    # 1. MERGE ALL DATA (Cloud + Local)
+    # Borrowers
+    local_b = pd.DataFrame(st.session_state.get('local_registry', []))
+    all_b = pd.concat([df, local_b], ignore_index=True)
     
-    if not combined_df.empty:
-        # Ensure the math columns are numbers, not text
-        for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
-            if col in combined_df.columns:
-                combined_df[col] = pd.to_numeric(combined_df[col], errors='coerce').fillna(0)
-        
-        t_cap = combined_df['LOAN_AMOUNT'].sum()
-        t_coll = combined_df['AMOUNT_PAID'].sum()
-        t_due = combined_df['OUTSTANDING_AMOUNT'].sum()
-    else:
-        t_cap, t_coll, t_due = 0, 0, 0
+    # Repayments (Revenue)
+    local_r = pd.DataFrame(st.session_state.get('local_repayments', []))
+    all_r = pd.concat([pay_df, local_r], ignore_index=True)
+    
+    # Expenses
+    local_e = pd.DataFrame(st.session_state.get('local_expenses', []))
+    all_e = pd.concat([expense_df, local_e], ignore_index=True)
 
-    # 2. EXPENSE TOTALS
-    t_ops = expense_df['AMOUNT'].sum() if not expense_df.empty else 0
-    t_petty = petty_df[petty_df['TYPE'] == 'Spend']['AMOUNT'].sum() if not petty_df.empty else 0
-    t_pay = payroll_df['NET_PAY'].sum() if not payroll_df.empty else 0
+    # 2. CALCULATE MASTER METRICS
+    if not all_b.empty:
+        # Convert to numbers safely
+        cap_out = pd.to_numeric(all_b['LOAN_AMOUNT'], errors='coerce').sum()
+        # Revenue is the sum of all payments collected
+        collected = pd.to_numeric(all_r['AMOUNT_PAID'], errors='coerce').sum() if not all_r.empty else 0
+        # Risk is Capital Out minus what has been paid back
+        at_risk = cap_out - collected
+    else:
+        cap_out, collected, at_risk = 0, 0, 0
+
+    # 3. CALCULATE NET REVENUE (Collected - Bills)
+    t_ops = pd.to_numeric(all_e['AMOUNT'], errors='coerce').sum() if not all_e.empty else 0
+    # Petty Cash Spends
+    local_p = pd.DataFrame(st.session_state.get('local_petty', []))
+    all_p = pd.concat([petty_df, local_p], ignore_index=True)
+    t_petty = all_p[all_p['TYPE'] == 'Spend']['AMOUNT'].sum() if not all_p.empty else 0
+    # Payroll
+    local_pay = pd.DataFrame(st.session_state.get('local_payroll', []))
+    all_pay = pd.concat([payroll_df, local_pay], ignore_index=True)
+    t_payroll = all_pay['NET_PAY'].sum() if not all_pay.empty else 0
     
-    net_rev = t_coll - (t_ops + t_petty + t_pay)
+    net_rev = collected - (t_ops + t_petty + t_payroll)
     
-    # 3. DISPLAY METRICS (With Comma Formatting)
+    # 4. DISPLAY TOP METRICS
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric("💰 Capital Out", f"UGX {t_cap:,.0f}")
-    k2.metric("📈 Collected", f"UGX {t_coll:,.0f}")
+    k1.metric("💰 Capital Out", f"UGX {cap_out:,.0f}")
+    k2.metric("📈 Collected", f"UGX {collected:,.0f}")
     k3.metric("💎 Net Revenue", f"UGX {net_rev:,.0f}", delta="After Bills")
-    k4.metric("🚨 At Risk", f"UGX {t_due:,.0f}", delta_color="inverse")
+    k4.metric("🚨 At Risk", f"UGX {at_risk:,.0f}", delta_color="inverse")
 
     st.write("---")
     
-    # 4. CHARTS (Updated to use Combined Data)
+    # 5. CHARTS (Live Update)
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("#### Collection Ratio")
-        if t_cap > 0:
+        if cap_out > 0:
             fig = px.pie(
-                values=[t_coll, t_due], 
-                names=['Paid', 'Due'], 
+                values=[collected, at_risk if at_risk > 0 else 0], 
+                names=['Paid', 'Outstanding'], 
                 hole=.5, 
                 color_discrete_sequence=['#1e3a8a', '#3b82f6']
             )
@@ -192,8 +205,9 @@ if page == "Overview":
             
     with c2:
         st.markdown("#### Monthly Expense Breakdown")
-        if not expense_df.empty:
-            st.bar_chart(expense_df.groupby('CATEGORY')['AMOUNT'].sum())
+        if not all_e.empty:
+            exp_chart_data = all_e.groupby('CATEGORY')['AMOUNT'].sum()
+            st.bar_chart(exp_chart_data)
         else:
             st.info("ℹ️ No expenses recorded yet.")
 # PAGE: BORROWERS (Now includes Registration)
