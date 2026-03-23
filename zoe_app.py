@@ -99,9 +99,9 @@ df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_ful
 with st.sidebar:
     # Logo
     if 'custom_logo' in st.session_state:
-        st.image(st.session_state.custom_logo, use_container_width=50)
+        st.image(st.session_state.custom_logo, use_container_width=10)
     elif os.path.exists("logo.png"):
-        st.image("logo.png", use_container_width=50)
+        st.image("logo.png", use_container_width=10)
     else:
         st.markdown(f"<h2 style='text-align: center; color: #1e3a8a;'>{st.session_state.get('biz_name', 'ZOE ADMIN')}</h2>", unsafe_allow_html=True)
 
