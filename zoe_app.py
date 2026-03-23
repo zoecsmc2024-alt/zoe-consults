@@ -984,58 +984,73 @@ elif page == "Payroll":
 elif page == "Add Payment":
     st.markdown('<div class="main-title">📥 Post Loan Repayment</div>', unsafe_allow_html=True)
     
-    # 1. SYNC DATA (Combine Cloud + Local)
-    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
-    combined_borrowers = pd.concat([df, local_df], ignore_index=True)
+    # 1. Initialize Local Payment Memory
+    if 'local_repayments' not in st.session_state:
+        st.session_state.local_repayments = []
+
+    # 2. SYNC DATA (Combine Cloud + Local Borrowers for the dropdown)
+    local_borrowers = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined_borrowers = pd.concat([df, local_borrowers], ignore_index=True)
     
     if not combined_borrowers.empty:
-        # 2. THE REPAYMENT FORM
+        # --- REPAYMENT FORM ---
         with st.form("add_p", clear_on_submit=True):
-            # Dropdown shows all borrowers (Cloud + Local)
             borrower_list = combined_borrowers['CUSTOMER_NAME'].unique().tolist()
             cn = st.selectbox("Select Client", options=borrower_list)
             
             c1, c2 = st.columns(2)
             ap = c1.number_input("Amount Paid (UGX)", min_value=0, step=10000)
             p_mode = c2.selectbox("Payment Mode", ["Mobile Money", "Cash", "Bank Deposit"])
-            
-            p_note = st.text_input("Note (Optional)", placeholder="e.g. Partial payment for March")
+            p_note = st.text_input("Note (Optional)")
             
             if st.form_submit_button("🚀 Post Repayment & Update Ledger", use_container_width=True):
                 if ap > 0:
                     today = str(datetime.now().date())
-                    # Format: NAME, AMOUNT, DATE, MODE, NOTE
-                    new_pay_row = [cn, ap, today, p_mode, p_note]
+                    # Dictionary for local memory
+                    new_pay_dict = {
+                        "CUSTOMER_NAME": cn,
+                        "AMOUNT_PAID": ap,
+                        "DATE": today,
+                        "PAYMENT_MODE": p_mode,
+                        "NOTES": p_note
+                    }
+                    
+                    # STEP A: Save locally for the table below
+                    st.session_state.local_repayments.append(new_pay_dict)
                     
                     try:
-                        # FRESH HANDSHAKE
+                        # STEP B: Save to Google (Fresh Handshake)
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         
                         sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
                         ws = fresh_client.open_by_key(sheet_id).worksheet("Repayments")
-                        ws.append_row(new_pay_row, value_input_option='USER_ENTERED')
+                        ws.append_row(list(new_pay_dict.values()), value_input_option='USER_ENTERED')
                         
                         st.balloons()
                         st.success(f"✅ UGX {ap:,.0f} collected from {cn}!")
                         st.cache_data.clear()
-                        st.rerun() # Refresh to show the new payment in the table below
+                        # No st.rerun() here so the form stays cleared but the table below updates via session_state
                     except Exception as e:
                         if "200" in str(e):
-                            st.balloons(); st.success("✅ Payment Posted!"); st.cache_data.clear(); st.rerun()
+                            st.balloons(); st.cache_data.clear()
                         else:
-                            st.error(f"Sync Error: {e}")
+                            st.warning(f"⚠️ Saved locally, Cloud Sync pending: {e}")
                 else:
-                    st.warning("Please enter a valid repayment amount.")
+                    st.warning("Please enter a valid amount.")
 
-        # 3. COLLECTIONS LEDGER (The History Table)
+        # 3. THE COLLECTIONS TABLE (Combined Cloud + Local)
         st.write("---")
         st.markdown("#### 🕒 Recent Collections Ledger")
         
-        if not pay_df.empty:
-            # Sort by latest date
-            display_pay = pay_df.copy().sort_index(ascending=False)
+        # Merge Cloud payments with your new local payments
+        local_pay_df = pd.DataFrame(st.session_state.local_repayments)
+        combined_payments = pd.concat([pay_df, local_pay_df], ignore_index=True)
+
+        if not combined_payments.empty:
+            # Clean up and sort by date (newest first)
+            display_pay = combined_payments.copy().sort_index(ascending=False)
             
             # Format numbers with commas
             if 'AMOUNT_PAID' in display_pay.columns:
@@ -1048,12 +1063,12 @@ elif page == "Add Payment":
                 column_order=("DATE", "CUSTOMER_NAME", "AMOUNT_PAID", "PAYMENT_MODE", "NOTES")
             )
             
-            total_collected = pd.to_numeric(pay_df['AMOUNT_PAID'], errors='coerce').sum()
-            st.info(f"📈 Total Revenue Collected to date: **UGX {total_collected:,.0f}**")
+            total_rev = pd.to_numeric(combined_payments['AMOUNT_PAID'], errors='coerce').sum()
+            st.info(f"📈 Total Revenue Collected: **UGX {total_rev:,.0f}**")
         else:
-            st.info("ℹ️ No repayments recorded yet. Start collecting to see the ledger grow!")
+            st.info("ℹ️ No repayments recorded yet.")
     else:
-        st.info("ℹ️ No borrowers found. You must register a client before posting a payment.")
+        st.info("ℹ️ No borrowers found. Register a client first.")
 
 
 # PAGE: SETTINGS (Backups & Reports)
