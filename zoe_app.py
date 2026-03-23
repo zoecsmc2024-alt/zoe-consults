@@ -310,10 +310,8 @@ elif page == "Borrowers":
 
             # --- CALCULATIONS ---
             total_due = loan_amt + (loan_amt * interest / 100)
-
             st.info(f"💰 Total Payable: UGX {total_due:,.0f}")
 
-            # --- ADDED SUBMIT BUTTON HERE ---
             submitted = st.form_submit_button("🚀 Register & Disburse")
 
             if submitted:
@@ -335,14 +333,11 @@ elif page == "Borrowers":
                         "DUE_DATE": str(due_date)
                     }
 
-                    # SAVE LOCAL
                     st.session_state.local_registry.append(new_entry)
 
-                    # SAVE TO GOOGLE
                     try:
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-
                         client = gspread.service_account_from_dict(creds_dict)
                         ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
                         ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
@@ -350,7 +345,6 @@ elif page == "Borrowers":
                         st.success(f"✅ {full_name} registered successfully!")
                         st.balloons()
                         st.cache_data.clear()
-
                     except Exception as e:
                         st.warning(f"Saved locally. Cloud sync pending.")
                 else:
@@ -358,10 +352,82 @@ elif page == "Borrowers":
 
     st.write("---")
 
-    # --- 3. DISPLAY TABLE (Now properly indented) ---
-    # Pencil 📝 = Edit -> Open a modal or inline edit.
-# Eye 👁️ = View -> Pop-up to show borrower details.
-#Trash 🗑️ = Delete → Confirm and remove row.
+    # --- 3. DISPLAY & ACTIONS ---
+    st.markdown("#### 🔍 Borrower Directory")
+
+    # Merge Google Sheets data with local session data
+    local_df = pd.DataFrame(st.session_state.local_registry)
+    combined = pd.concat([df, local_df], ignore_index=True)
+
+    if not combined.empty:
+        combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
+        
+        # Display the interactive grid
+        gb = GridOptionsBuilder.from_dataframe(combined)
+        gb.configure_selection('single', use_checkbox=True)
+        grid_options = gb.build()
+
+        grid_response = AgGrid(
+            combined,
+            gridOptions=grid_options,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            theme='streamlit',
+            height=300
+        )
+
+        # --- 4. HANDLE SELECTED ROW ACTIONS ---
+        if grid_response and grid_response.get('selected_rows') is not None:
+            selected_data = grid_response['selected_rows']
+            
+            # Convert DataFrame to list of dicts if necessary
+            if isinstance(selected_data, pd.DataFrame):
+                selected_rows = selected_data.to_dict('records')
+            else:
+                selected_rows = selected_data
+
+            if selected_rows:
+                row = selected_rows[0]
+                
+                # Notes are now properly commented out
+                # Pencil 📝 = Edit -> Open a modal or inline edit.
+                # Eye 👁️ = View -> Pop-up to show borrower details.
+                # Trash 🗑️ = Delete → Confirm and remove row.
+
+                col1, col2, col3 = st.columns(3)
+
+                # VIEW DIALOG
+                @st.dialog(f"👁️ Profile: {row['CUSTOMER_NAME']}")
+                def view_modal(data):
+                    st.write(f"**NIN:** {data['NIN']}")
+                    st.write(f"**Contact:** {data['CONTACT']}")
+                    st.write(f"**Address:** {data['ADDRESS']}")
+                    st.divider()
+                    st.metric("Outstanding Amount", f"UGX {data['OUTSTANDING_AMOUNT']:,.0f}")
+                    if st.button("Close"):
+                        st.rerun()
+
+                # EDIT DIALOG
+                @st.dialog(f"📝 Edit: {row['CUSTOMER_NAME']}")
+                def edit_modal(data):
+                    new_phone = st.text_input("Phone", value=data['CONTACT'])
+                    new_addr = st.text_area("Address", value=data['ADDRESS'])
+                    if st.button("Save Changes"):
+                        st.success("Updating Google Sheets...")
+                        # Add your gspread update logic here
+                        st.rerun()
+
+                if col1.button("👁️ View Details", use_container_width=True):
+                    view_modal(row)
+                
+                if col2.button("✏️ Edit Client", use_container_width=True):
+                    edit_modal(row)
+
+                if col3.button("🗑️ Delete", use_container_width=True):
+                    st.error("Are you sure? Use the Admin Controls below to delete.")
+            else:
+                st.info("💡 Click a row's checkbox to see View/Edit options.")
+    else:
+        st.info("No borrowers registered yet.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
