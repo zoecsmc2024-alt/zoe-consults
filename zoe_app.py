@@ -348,19 +348,19 @@ elif page == "Collateral":
         "Select Borrower", 
         all_borrowers if all_borrowers else ["No Borrowers Found"]
     )
-            item = st.text_input("Item Description (e.g., Car Logbook, Land Title)")
-            val = st.number_input("Estimated Value (UGX)", min_value=0)
-            
-            if st.form_submit_button("🔒 Secure Item"):
-                if b_name != "No Borrowers" and item:
-                    new_collat = [b_name, item, val, "Held", str(datetime.now().date())]
-                    try:
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = g_client.open_by_key(sheet_id).worksheet("Collateral")
-                        ws.append_row(new_collat)
-                        st.success(f"Item secured for {b_name}!"); st.cache_data.clear(); st.rerun()
-                    except Exception as e:
-                        st.error(f"Sync Error: {e}")
+    item = st.text_input("Item Description (e.g., Car Logbook, Land Title)")
+    val = st.number_input("Estimated Value (UGX)", min_value=0)
+    
+    if st.form_submit_button("🔒 Secure Item"):
+        if b_name != "No Borrowers" and item:
+            new_collat = [b_name, item, val, "Held", str(datetime.now().date())]
+            try:
+                sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                ws = g_client.open_by_key(sheet_id).worksheet("Collateral")
+                ws.append_row(new_collat)
+                st.success(f"Item secured for {b_name}!"); st.cache_data.clear(); st.rerun()
+            except Exception as e:
+                st.error(f"Sync Error: {e}")
 
     # 3. COLLATERAL INVENTORY TABLE
     st.write("---")
