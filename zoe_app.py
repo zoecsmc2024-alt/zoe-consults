@@ -458,103 +458,120 @@ elif page == "Calendar":
     else:
         st.info("ℹ️ Add your first borrower or collateral to see dates on the calendar.")
 
-# PAGE: LEDGER (PDF Statements)
+# PAGE: LEDGER (Individual Client Statements & PDF Export)
 elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
     
-    # 1. SEARCH & SELECT
-    search_query = st.text_input("🔍 Search Client Name", placeholder="Enter name to filter list...")
-    filtered_clients = df[df['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]['CUSTOMER_NAME'].tolist()
+    # 1. SYNC DATA (Combine Cloud + Local so new clients appear here)
+    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined_borrowers = pd.concat([df, local_df], ignore_index=True)
     
-    selected_client = st.selectbox("Select Client Profile", options=filtered_clients if filtered_clients else ["No clients found"])
-
-    if selected_client and selected_client != "No clients found":
-        # Get Client Data
-        client_data = df[df['CUSTOMER_NAME'] == selected_client].iloc[0]
-        client_pays = pay_df[pay_df['CUSTOMER_NAME'] == selected_client].sort_values(by="DATE")
-
-        # 2. MINI-DASHBOARD FOR CLIENT
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Original Loan", f"UGX {client_data['LOAN_AMOUNT']:,.0f}")
-        c2.metric("Total Repaid", f"UGX {client_data['AMOUNT_PAID']:,.0f}")
-        c3.metric("Current Balance", f"UGX {client_data['OUTSTANDING_AMOUNT']:,.0f}", delta_color="inverse")
-
-        st.write("---")
-
-        # 3. PDF GENERATION LOGIC (The "Official Statement")
-        def generate_pdf(name, loan, paid, balance, history):
-            pdf = FPDF()
-            pdf.add_page()
+    if not combined_borrowers.empty:
+        # 2. SEARCH & SELECT
+        search_query = st.text_input("🔍 Search Client Name", placeholder="Enter name to filter list...")
+        
+        # Ensure we have a clean list of names
+        if 'CUSTOMER_NAME' in combined_borrowers.columns:
+            combined_borrowers = combined_borrowers.drop_duplicates(subset=['NIN'], keep='last')
+            filtered_clients = combined_borrowers[combined_borrowers['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]['CUSTOMER_NAME'].tolist()
             
-            # Header & Branding
-            pdf.set_font("Arial", 'B', 16)
-            pdf.set_text_color(30, 58, 138) # Navy Blue
-            pdf.cell(200, 10, "ZOE CONSULTS SMC LTD", ln=True, align='C')
-            pdf.set_font("Arial", '', 10)
-            pdf.set_text_color(100, 116, 139) # Slate
-            pdf.cell(200, 10, "Official Loan Statement & Repayment Ledger", ln=True, align='C')
-            pdf.ln(10)
+            selected_client = st.selectbox("Select Client Profile", options=filtered_clients if filtered_clients else ["No clients found"])
 
-            # Summary Box
-            pdf.set_fill_color(248, 250, 252)
-            pdf.rect(10, 35, 190, 40, 'F')
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font("Arial", 'B', 12)
-            pdf.cell(100, 10, f"Client: {name}", ln=True)
-            pdf.set_font("Arial", '', 11)
-            pdf.cell(100, 8, f"Initial Capital: UGX {loan:,.0f}", ln=True)
-            pdf.cell(100, 8, f"Total Amount Repaid: UGX {paid:,.0f}", ln=True)
-            pdf.set_font("Arial", 'B', 11)
-            pdf.cell(100, 8, f"OUTSTANDING BALANCE: UGX {balance:,.0f}", ln=True)
-            pdf.ln(10)
+            if selected_client and selected_client != "No clients found":
+                # Get Client Data
+                client_data = combined_borrowers[combined_borrowers['CUSTOMER_NAME'] == selected_client].iloc[0]
+                
+                # Get Repayments (Ensure local/cloud sync for payments too if applicable)
+                client_pays = pay_df[pay_df['CUSTOMER_NAME'] == selected_client].sort_values(by="DATE") if not pay_df.empty else pd.DataFrame(columns=['DATE', 'AMOUNT_PAID', 'PAYMENT_MODE'])
 
-            # Table Header
-            pdf.set_fill_color(30, 58, 138)
-            pdf.set_text_color(255, 255, 255)
-            pdf.cell(60, 10, "Date", 1, 0, 'C', True)
-            pdf.cell(70, 10, "Reference / Mode", 1, 0, 'C', True)
-            pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
+                # 3. MINI-DASHBOARD
+                c1, c2, c3 = st.columns(3)
+                l_amt = float(client_data.get('LOAN_AMOUNT', 0))
+                p_amt = float(client_data.get('AMOUNT_PAID', 0))
+                o_amt = float(client_data.get('OUTSTANDING_AMOUNT', 0))
 
-            # Table Rows
-            pdf.set_text_color(0, 0, 0)
-            for _, row in history.iterrows():
-                pdf.cell(60, 10, str(row['DATE']), 1)
-                pdf.cell(70, 10, str(row.get('PAYMENT_MODE', 'Deposit')), 1)
-                pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
+                c1.metric("Original Loan", f"UGX {l_amt:,.0f}")
+                c2.metric("Total Repaid", f"UGX {p_amt:,.0f}")
+                c3.metric("Current Balance", f"UGX {o_amt:,.0f}", delta_color="inverse")
 
-            # Official Stamp Box
-            pdf.ln(20)
-            pdf.set_draw_color(30, 58, 138)
-            pdf.cell(60, 25, "OFFICIAL STAMP", 1, 0, 'C')
-            pdf.cell(70) # Spacer
-            pdf.set_font("Arial", 'I', 8)
-            pdf.cell(60, 25, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 0, 0, 'R')
-            
-            return pdf.output(dest='S').encode('latin-1')
+                st.write("---")
 
-        # 4. DOWNLOAD BUTTON & STATE
-        if st.button("🛠️ Prepare Official PDF", use_container_width=True):
-            pdf_bytes = generate_pdf(
-                selected_client, 
-                client_data['LOAN_AMOUNT'], 
-                client_data['AMOUNT_PAID'], 
-                client_data['OUTSTANDING_AMOUNT'], 
-                client_pays
-            )
-            st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
-            st.session_state.ready = True
-            st.session_state.last_client = selected_client
+                # 4. RESTORED PDF GENERATION LOGIC
+                def generate_pdf(name, loan, paid, balance, history):
+                    pdf = FPDF()
+                    pdf.add_page()
+                    
+                    # Header & Branding
+                    pdf.set_font("Arial", 'B', 16)
+                    pdf.set_text_color(30, 58, 138) # Navy Blue
+                    pdf.cell(200, 10, "ZOE CONSULTS SMC LTD", ln=True, align='C')
+                    pdf.set_font("Arial", '', 10)
+                    pdf.set_text_color(100, 116, 139) # Slate
+                    pdf.cell(200, 10, "Official Loan Statement & Repayment Ledger", ln=True, align='C')
+                    pdf.ln(10)
 
-        if st.session_state.ready and st.session_state.last_client == selected_client:
-            href = f'<a href="data:application/octet-stream;base64,{st.session_state.b64_str}" download="Zoe_Statement_{selected_client}.pdf" style="text-decoration:none;">' \
-                   f'<div style="background-color:#1e3a8a; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
-                   f'📥 DOWNLOAD PDF STATEMENT FOR {selected_client}</div></a>'
-            st.markdown(href, unsafe_allow_html=True)
+                    # Summary Box
+                    pdf.set_fill_color(248, 250, 252)
+                    pdf.rect(10, 35, 190, 40, 'F')
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.set_font("Arial", 'B', 12)
+                    pdf.cell(100, 10, f"Client: {name}", ln=True)
+                    pdf.set_font("Arial", '', 11)
+                    pdf.cell(100, 8, f"Initial Capital: UGX {loan:,.0f}", ln=True)
+                    pdf.cell(100, 8, f"Total Amount Repaid: UGX {paid:,.0f}", ln=True)
+                    pdf.set_font("Arial", 'B', 11)
+                    pdf.cell(100, 8, f"OUTSTANDING BALANCE: UGX {balance:,.0f}", ln=True)
+                    pdf.ln(10)
 
-        # 5. TRANSACTION PREVIEW
-        st.write("---")
-        st.markdown("#### 🕒 Payment History")
-        st.dataframe(client_pays[['DATE', 'AMOUNT_PAID', 'PAYMENT_MODE']], use_container_width=True)
+                    # Table Header
+                    pdf.set_fill_color(30, 58, 138)
+                    pdf.set_text_color(255, 255, 255)
+                    pdf.cell(60, 10, "Date", 1, 0, 'C', True)
+                    pdf.cell(70, 10, "Reference / Mode", 1, 0, 'C', True)
+                    pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
+
+                    # Table Rows
+                    pdf.set_text_color(0, 0, 0)
+                    if not history.empty:
+                        for _, row in history.iterrows():
+                            pdf.cell(60, 10, str(row['DATE']), 1)
+                            pdf.cell(70, 10, str(row.get('PAYMENT_MODE', 'Deposit')), 1)
+                            pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
+                    else:
+                        pdf.cell(190, 10, "No repayments recorded yet.", 1, 1, 'C')
+
+                    # Official Stamp Box
+                    pdf.ln(20)
+                    pdf.set_draw_color(30, 58, 138)
+                    pdf.cell(60, 25, "OFFICIAL STAMP", 1, 0, 'C')
+                    pdf.cell(70) # Spacer
+                    pdf.set_font("Arial", 'I', 8)
+                    pdf.cell(60, 25, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 0, 0, 'R')
+                    
+                    return pdf.output(dest='S').encode('latin-1')
+
+                # 5. DOWNLOAD BUTTON & STATE
+                if st.button("🛠️ Prepare Official PDF", use_container_width=True):
+                    pdf_bytes = generate_pdf(selected_client, l_amt, p_amt, o_amt, client_pays)
+                    st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
+                    st.session_state.ready = True
+                    st.session_state.last_client = selected_client
+
+                if st.session_state.get('ready') and st.session_state.get('last_client') == selected_client:
+                    href = f'<a href="data:application/octet-stream;base64,{st.session_state.b64_str}" download="Zoe_Statement_{selected_client}.pdf" style="text-decoration:none;">' \
+                           f'<div style="background-color:#1e3a8a; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
+                           f'📥 DOWNLOAD PDF STATEMENT FOR {selected_client}</div></a>'
+                    st.markdown(href, unsafe_allow_html=True)
+
+                # 6. TRANSACTION PREVIEW
+                st.write("---")
+                st.markdown("#### 🕒 Payment History")
+                if not client_pays.empty:
+                    st.dataframe(client_pays[['DATE', 'AMOUNT_PAID', 'PAYMENT_MODE']], use_container_width=True)
+                else:
+                    st.info("No payments recorded yet.")
+    else:
+        st.info("ℹ️ Your Ledger is empty. Register your first borrower in the Borrower Hub.")
 
 # PAGE: OVERDUE TRACKER
 elif page == "Overdue Tracker":
