@@ -450,7 +450,7 @@ elif page == "Collateral":
     # 3. THE INVENTORY TABLE
     st.markdown("#### 📦 Current Inventory List")
     
-    # Define these GLOBAL headers here so the Manage section can see them
+    # 1. Standard Global Headers
     b_col = 'BORROWER' if 'BORROWER' in collateral_df.columns else 'BORROWER_NAME'
     i_col = 'ASSET_TYPE' if 'ASSET_TYPE' in collateral_df.columns else 'ITEM_NAME'
     v_col = 'ESTIMATED_VALUE' if 'ESTIMATED_VALUE' in collateral_df.columns else 'VALUE'
@@ -462,26 +462,40 @@ elif page == "Collateral":
     combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
     
     if not combined_collat.empty:
-        # Hide Deleted
-        combined_collat = combined_collat[~combined_collat[s_col].astype(str).str.contains("DELETED|REMOVED", case=False, na=False)]
+        # --- THE FIX: LOGICAL FILTERING ---
         
-        # Keep Latest & Sort
+        # A. Clean up Status text (Make it all UPPERCASE so 'deleted' vs 'DELETED' doesn't matter)
+        combined_collat[s_col] = combined_collat[s_col].astype(str).str.upper().str.strip()
+        
+        # B. DEDUPLICATE FIRST: Keep the LATEST entry for every Borrower + Asset Type
+        # This ensures the 'DELETED' row (added last) replaces the 'HELD' row
         combined_collat = combined_collat.drop_duplicates(subset=[b_col, i_col], keep='last')
+        
+        # C. FILTER OUT DELETED: Now that the latest status is confirmed, hide them
+        # This removes the item entirely from the view
+        combined_collat = combined_collat[~combined_collat[s_col].isin(["DELETED", "REMOVED", "NAN", "NONE"])]
+        
+        # D. Sort to show the newest active items at the top
         combined_collat = combined_collat.sort_index(ascending=False)
 
+        # 2. SEARCH & DISPLAY
         search = st.text_input("🔍 Filter Inventory", placeholder="Search name or item...", key="collat_search_main")
         display_df = combined_collat.copy()
         
         if search:
             display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # Table Display
+        # 3. TABLE FORMATTING
         table_show = display_df.copy()
         if v_col in table_show.columns:
             table_show[v_col] = pd.to_numeric(table_show[v_col], errors='coerce').fillna(0)
             table_show[v_col] = table_show[v_col].apply(lambda x: f"{float(x):,.0f}")
             
         st.dataframe(table_show, use_container_width=True, hide_index=True)
+        
+        st.caption(f"Showing {len(display_df)} active collateral items.")
+    else:
+        st.info("ℹ️ Your Collateral Inventory is currently empty.")
 
         # --- 4. MANAGE SELECTED ASSET ---
         st.write("---")
