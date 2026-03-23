@@ -373,19 +373,41 @@ elif page == "Borrowers":
     # --- 3. DISPLAY & ACTIONS ---
     st.markdown("#### 🔍 Borrower Directory")
 
-    # Merge Google Sheets data with local session data
-    local_df = pd.DataFrame(st.session_state.local_registry)
-    combined = pd.concat([df, local_df], ignore_index=True)
+    # --- DATA LOADING (Moved inside the block) ---
+    # We initialize combined as an empty DataFrame first so the script doesn't crash
+    combined = pd.DataFrame()
+
+    try:
+        df = get_data() # This pulls from Google Sheets
+    except Exception as e:
+        st.error(f"Cloud connection error: {e}")
+        df = pd.DataFrame()
+
+    # Get local entries from this specific session
+    local_registry = st.session_state.get('local_registry', [])
+    local_df = pd.DataFrame(local_registry)
+
+    # Combine them safely
+    if not df.empty and not local_df.empty:
+        combined = pd.concat([df, local_df], ignore_index=True)
+    elif not df.empty:
+        combined = df
+    elif not local_df.empty:
+        combined = local_df
+
+    st.markdown("#### 🔍 Borrower Directory")
 
     if not combined.empty:
-        # FORMATTING WITH COMMAS FOR THE GRID
+        # Remove duplicates
+        combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
+        
+        # APPLY FORMATTING (Commas)
         for col in ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
             if col in combined.columns:
                 combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
-                # This makes them look nice in the table:
                 combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
-        
-        # Display the interactive grid
+
+        # RENDER THE TABLE
         gb = GridOptionsBuilder.from_dataframe(combined)
         gb.configure_selection('single', use_checkbox=True)
         grid_options = gb.build()
@@ -395,8 +417,12 @@ elif page == "Borrowers":
             gridOptions=grid_options,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
             theme='streamlit',
-            height=300
+            height=400,
+            width='100%'
         )
+    else:
+        # This shows if BOTH Google Sheets and Local Registry are empty
+        st.info("No borrowers found. Register a client above to start.")
 
         # --- 4. HANDLE SELECTED ROW ACTIONS ---
         if grid_response and grid_response.get('selected_rows') is not None:
