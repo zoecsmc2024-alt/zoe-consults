@@ -359,28 +359,26 @@ elif page == "Borrowers":
     # 3. EDIT/DELETE ACTIONS (The Pencil & Eraser)
     if not df.empty:
         st.write("---")
-        with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
-            to_action = st.selectbox("Select Client to Modify", df['CUSTOMER_NAME'].unique())
-            act = st.radio("Action", ["Update Contact/Address", "Remove Client Forever"], horizontal=True)
+        # Updated Admin Actions for Borrowers Page
+with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
+    to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique())
+    act = st.radio("Action", ["Update Contact/Address", "Remove Client Forever"], horizontal=True)
+    
+    # Use the sheet_id you defined earlier
+    sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+    ws = g_client.open_by_key(sheet_id).worksheet("Clients")
+    
+    if act == "Update Contact/Address":
+        with st.form("edit_kyc"):
+            current_row = combined_display[combined_display['CUSTOMER_NAME'] == to_action].iloc[0]
+            new_p = st.text_input("New Phone", value=str(current_row['CONTACT']))
+            new_a = st.text_area("New Address", value=str(current_row['ADDRESS']))
             
-            if act == "Update Contact/Address":
-                with st.form("edit_kyc"):
-                    new_p = st.text_input("New Phone", value=str(df[df['CUSTOMER_NAME']==to_action]['CONTACT'].values[0]))
-                    new_a = st.text_area("New Address", value=str(df[df['CUSTOMER_NAME']==to_action]['ADDRESS'].values[0]))
-                    if st.form_submit_button("Save Changes"):
-                        ws = g_client.open("Zoe_Consults_Database").worksheet("Clients")
-                        cell = ws.find(to_action)
-                        ws.update_cell(cell.row, 2, new_p) # Update Contact
-                        ws.update_cell(cell.row, 9, new_a) # Update Address
-                        st.success("Details Updated!"); st.cache_data.clear()
-            
-            elif act == "Remove Client Forever":
-                if st.button("🚨 CONFIRM DELETE"):
-                    ws = g_client.open("Zoe_Consults_Database").worksheet("Clients")
-                    cell = ws.find(to_action)
-                    ws.delete_rows(cell.row)
-                    st.warning("Client erased from database."); st.cache_data.clear()
-
+            if st.form_submit_button("Save Changes"):
+                cell = ws.find(to_action)
+                ws.update_cell(cell.row, 2, new_p) # Update Contact (Col B)
+                ws.update_cell(cell.row, 8, new_a) # Update Address (Col H - verify your sheet index!)
+                st.success("Details Updated!"); st.cache_data.clear(); st.rerun()
 # PAGE: COLLATERAL
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
