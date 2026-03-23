@@ -359,27 +359,45 @@ elif page == "Borrowers":
     # 3. EDIT/DELETE ACTIONS (The Pencil & Eraser)
     if not df.empty:
         st.write("---")
-        # Updated Admin Actions for Borrowers Page
-with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
-    to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique())
-    act = st.radio("Action", ["Update Contact/Address", "Remove Client Forever"], horizontal=True)
-    
-    # Use the sheet_id you defined earlier
-    sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-    ws = g_client.open_by_key(sheet_id).worksheet("Clients")
-    
-    if st.form_submit_button("Save Changes"):
-                cell = ws.find(to_action)
-                ws.update_cell(cell.row, 2, new_p) 
-                ws.update_cell(cell.row, 8, new_a) 
-                st.success("Details Updated!"); st.cache_data.clear(); st.rerun()
-    
-    
+        with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
+            # Ensure we are using the combined_display from the directory logic above
+            to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique())
+            act = st.radio("Action", ["Update Contact/Address", "Remove Client Forever"], horizontal=True)
+            
+            sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+            ws = g_client.open_by_key(sheet_id).worksheet("Clients")
+            
+            if act == "Update Contact/Address":
+                with st.form("edit_borrower_form"):
+                    # Get current data for the fields
+                    curr_row = combined_display[combined_display['CUSTOMER_NAME'] == to_action].iloc[0]
+                    new_p = st.text_input("New Phone", value=str(curr_row['CONTACT']))
+                    new_a = st.text_area("New Address", value=str(curr_row['ADDRESS']))
+                    
+                    if st.form_submit_button("Save Changes"):
+                        cell = ws.find(to_action)
+                        ws.update_cell(cell.row, 2, new_p) # Col B
+                        ws.update_cell(cell.row, 8, new_a) # Col H
+                        st.success("Details Updated!")
+                        st.cache_data.clear()
+                        st.rerun()
+            
+            elif act == "Remove Client Forever":
+                if st.button("🚨 CONFIRM DELETE CLIENT"):
+                    cell = ws.find(to_action)
+                    ws.delete_rows(cell.row)
+                    st.warning("Client erased.")
+                    st.cache_data.clear()
+                    st.rerun()
+
+# --- CRITICAL: THIS ELIF MUST BE AT THE FAR LEFT (aligned with 'if page == "Overview"') ---
 elif page == "Collateral":
-        st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-        # 1. Initialize Local Memory
-        if 'local_collateral' not in st.session_state:
-            st.session_state.local_collateral = []
+    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
+    
+    if 'local_collateral' not in st.session_state:
+        st.session_state.local_collateral = []
+    
+    # ... rest of your collateral code ...
 
     # 2. LOG NEW COLLATERAL FORM
     with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
