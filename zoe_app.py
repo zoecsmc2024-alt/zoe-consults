@@ -373,8 +373,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
                 ws.update_cell(cell.row, 2, new_p) 
                 ws.update_cell(cell.row, 8, new_a) 
                 st.success("Details Updated!"); st.cache_data.clear(); st.rerun()
-
-# <--- MAKE SURE THIS LINE IS NOT INDENTED INSIDE THE PREVIOUS 'IF'
+    
     
 elif page == "Collateral":
         st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
