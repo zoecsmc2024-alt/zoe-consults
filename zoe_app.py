@@ -116,20 +116,19 @@ def load_full_database():
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
 # --- 6. NAVIGATION (Sidebar) ---
 with st.sidebar:
-    # 1. SMART LOGO LOADER
-    # Try multiple common paths just in case GitHub moved it
-    logo_path = "logo.jpg"
-    
-    if os.path.exists(logo_path):
-        st.image(logo_path, use_container_width=True)
+    # 1. DYNAMIC LOGO LOADER
+    if 'custom_logo' in st.session_state:
+        # Show the logo the user just uploaded from their PC
+        st.image(st.session_state.custom_logo, use_container_width=True)
+    elif os.path.exists("logo.png"):
+        # Fallback to GitHub file if it exists
+        st.image("logo.png", use_container_width=True)
     else:
-        # If no logo is found, show this clean branded header instead
-        st.markdown(f"""
-            <div style="text-align: center; padding: 10px; border: 2px dashed #1e3a8a; border-radius: 10px; margin-bottom: 20px;">
-                <h2 style="color: #1e3a8a; margin: 0;">ZOE ADMIN</h2>
-                <p style="font-size: 10px; color: #64748b;">(Logo.png not found)</p>
-            </div>
-        """, unsafe_allow_html=True)
+        # Fallback to text if everything else fails
+        st.markdown(f"<h2 style='text-align: center; color: #1e3a8a;'>{st.session_state.get('biz_name', 'ZOE ADMIN')}</h2>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    # ... rest of your option_menu code ...
     
     # 2. THE NAVIGATION MENU
     page = option_menu(
@@ -1152,16 +1151,24 @@ elif page == "Add Payment":
         st.info("ℹ️ No borrowers found. Register a client first.")
 
 
-# PAGE: SETTINGS (Backups & Reports)
+# PAGE: SETTINGS (Backups & Reports & Branding)
 elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ Business Configuration</div>', unsafe_allow_html=True)
     
-    # 1. BUSINESS PROFILE
-    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>🏢 Business Identity</p>", unsafe_allow_html=True)
+    # 1. BUSINESS PROFILE & LOGO
+    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>🏢 Business Identity & Branding</p>", unsafe_allow_html=True)
     
+    # --- LOGO UPLOADER SECTION ---
+    with st.expander("🎨 Logo & Visual Branding", expanded=True):
+        uploaded_logo = st.file_uploader("Upload Company Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+        if uploaded_logo:
+            st.session_state.custom_logo = uploaded_logo.read()
+            st.image(st.session_state.custom_logo, width=150, caption="Logo Preview")
+            st.success("✅ Logo uploaded! It will now appear in the sidebar.")
+
     col1, col2 = st.columns(2)
-    biz_name = col1.text_input("Company Name", value="ZOE CONSULTS SMC LTD")
-    biz_tagline = col2.text_input("Tagline", value="Official Loan Statement & Repayment Ledger")
+    biz_name = col1.text_input("Company Name", value=st.session_state.get('biz_name', "ZOE CONSULTS SMC LTD"))
+    biz_tagline = col2.text_input("Tagline", value=st.session_state.get('biz_tagline', "Official Loan Statement & Repayment Ledger"))
     
     st.divider()
 
@@ -1182,9 +1189,16 @@ elif page == "Settings":
     
     if uploaded_sig:
         st.image(uploaded_sig, caption="Preview of Signature", width=150)
-        # We store this in session state so the PDF logic can grab it
-        st.session_state.signature = uploaded_sig
+        # Store for PDF logic
+        st.session_state.signature = uploaded_sig.read()
 
-    # 4. SAVE BUTTON (Simulated)
+    # 4. SAVE BUTTON
     if st.button("💾 Save System Settings", use_container_width=True):
-        st.success("Settings updated successfully! These changes will reflect on your next PDF generation.")
+        # Commit choices to session state
+        st.session_state.biz_name = biz_name
+        st.session_state.biz_tagline = biz_tagline
+        st.session_state.default_rate = default_rate
+        st.session_state.late_penalty = late_penalty
+        
+        st.balloons()
+        st.success("Settings updated successfully! Changes are active for this session.")
