@@ -359,62 +359,71 @@ elif page == "Borrowers":
     st.write("---")
 
     # --- 3. DISPLAY TABLE (Now properly indented) ---
-    st.markdown("#### 🔍 Borrower Directory")
+    from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
-    local_df = pd.DataFrame(st.session_state.local_registry)
-    combined = pd.concat([df, local_df], ignore_index=True)
+st.markdown("#### 🔍 Borrower Directory")
 
-    if not combined.empty:
-        # Remove duplicates by NIN, keep last
-        combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
+local_df = pd.DataFrame(st.session_state.local_registry)
+combined = pd.concat([df, local_df], ignore_index=True)
 
-        # Apply comma formatting to currency columns
-        currency_cols = ["LOAN_AMOUNT", "TOTAL_DUE", "AMOUNT_PAID", "OUTSTANDING_AMOUNT"]
-        for col in currency_cols:
-            if col in combined.columns:
-                combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
+if not combined.empty:
+    # Remove duplicates by NIN
+    combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
 
-        # Search/filter box
-        client_search = st.text_input("Enter Client Name or NIN to View Details")
+    # Format money columns
+    money_cols = ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']
+    for col in money_cols:
+        if col in combined.columns:
+            combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
+            combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
 
-        if client_search:
-            filtered_client = combined[
-                combined.astype(str).apply(lambda x: x.str.contains(client_search, case=False, na=False)).any(axis=1)
-            ].copy()
+    # --- AG Grid Options ---
+    gb = GridOptionsBuilder.from_dataframe(combined)
+    gb.configure_pagination(enabled=True)
+    gb.configure_default_column(editable=False, resizable=True)
 
-            if not filtered_client.empty:
-                st.markdown("### Client Information")
-                # Format for display in table
-                for col in currency_cols:
-                    filtered_client[col] = filtered_client[col].apply(lambda x: f"{x:,.0f}")
-                st.table(filtered_client) 
-            else:
-                st.info("No client found matching that search.")
+    # Action buttons as icons
+    cell_renderer = JsCode('''
+    class BtnCellRenderer {
+        init(params) {
+            this.params = params;
+            this.eGui = document.createElement('div');
+            this.eGui.innerHTML = `
+                <span style="cursor:pointer;color:#3b82f6;margin-right:8px;" title="Edit">&#9998;</span>
+                <span style="cursor:pointer;color:#16a34a;margin-right:8px;" title="View">&#128065;</span>
+                <span style="cursor:pointer;color:#dc2626;" title="Delete">&#128465;</span>
+            `;
+            const [edit, view, del] = this.eGui.children;
+            edit.addEventListener('click', () => {params.api.dispatchEvent({type:'editRow', data: params.data})});
+            view.addEventListener('click', () => {params.api.dispatchEvent({type:'viewRow', data: params.data})});
+            del.addEventListener('click', () => {params.api.dispatchEvent({type:'deleteRow', data: params.data})});
+        }
+        getGui() { return this.eGui; }
+    }
+    ''')
+    gb.configure_column("CUSTOMER_NAME", header_name="Client", pinned='left')
+    gb.configure_column("Actions", header_name="Actions", cellRenderer=cell_renderer, editable=False)
 
-        # Show full borrower directory
-        st.markdown("### Full Borrower Directory")
-        
-        # Create a display version of combined with formatted numbers
-        display_df = combined.copy()
-        for col in currency_cols:
-            display_df[col] = display_df[col].apply(lambda x: f"{x:,.0f}")
+    grid_options = gb.build()
 
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True,
-            column_order=[
-                "CUSTOMER_NAME",
-                "LOAN_AMOUNT",
-                "TOTAL_DUE",
-                "AMOUNT_PAID",
-                "OUTSTANDING_AMOUNT",
-                "DUE_DATE",
-                "LOAN_TYPE"
-            ]
-        )
-    else:
-        st.info("No borrowers yet.")
+    # --- Render Grid ---
+    grid_response = AgGrid(
+        combined,
+        gridOptions=grid_options,
+        update_mode=GridUpdateMode.NO_UPDATE,
+        allow_unsafe_jscode=True,
+        enable_enterprise_modules=False,
+        fit_columns_on_grid_load=True
+    )
+
+    # --- Handle Actions ---
+    if grid_response and "selected_rows" in grid_response:
+        for row in grid_response['selected_rows']:
+            # row contains the clicked row data; implement your logic
+            st.write(row)
+
+else:
+    st.info("No borrowers yet.")
 
 # --- NEXT PAGE (Aligned with the first 'elif') ---
 elif page == "Collateral":
