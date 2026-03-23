@@ -446,12 +446,19 @@ elif page == "Collateral":
     st.markdown("#### 📦 Current Inventory List")
     
     # Merge Cloud Data with Local Recent Additions
-    local_collat_df = pd.DataFrame(st.session_state.local_collateral)
+    local_collat_df = pd.DataFrame(st.session_state.get('local_collateral', []))
     combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
     
     if not combined_collat.empty:
-        # Clean up duplicates in case Cloud syncs during session
-        combined_collat = combined_collat.drop_duplicates(subset=['BORROWER_NAME', 'ITEM_NAME'], keep='last')
+        # --- THE FIX: SAFETY CHECK FOR COLUMNS ---
+        cols_found = combined_collat.columns.tolist()
+        subset_to_check = []
+        if 'BORROWER_NAME' in cols_found: subset_cols.append('BORROWER_NAME')
+        if 'ITEM_NAME' in cols_found: subset_cols.append('ITEM_NAME')
+        
+        # Only drop duplicates if the columns actually exist
+        if subset_cols:
+            combined_collat = combined_collat.drop_duplicates(subset=subset_cols, keep='last')
         
         # Display search
         search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...")
@@ -460,15 +467,15 @@ elif page == "Collateral":
         if search:
             display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # Format Commas for UGX
+        # Format Commas for UGX (With safety for empty strings)
         if 'VALUE' in display_df.columns:
-            display_df['VALUE'] = display_df['VALUE'].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
+            display_df['VALUE'] = pd.to_numeric(display_df['VALUE'], errors='coerce').fillna(0)
+            display_df['VALUE'] = display_df['VALUE'].apply(lambda x: f"{float(x):,.0f}")
             
         st.dataframe(
             display_df, 
             use_container_width=True, 
-            hide_index=True,
-            column_order=("BORROWER_NAME", "ITEM_NAME", "VALUE", "STATUS", "DATE")
+            hide_index=True
         )
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
