@@ -360,7 +360,7 @@ elif page == "Borrowers":
 
     # --- 3. DISPLAY TABLE (Now properly indented) ---
     # Pencil 📝 = Edit -> Open a modal or inline edit.
-Eye 👁️ = View → Pop-up to show borrower details.
+# Eye 👁️ = View -> Pop-up to show borrower details.
 Trash 🗑️ = Delete → Confirm and remove row.
     
 elif page == "Collateral":
