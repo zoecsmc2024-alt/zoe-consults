@@ -10,6 +10,12 @@ from st_aggrid import AgGrid
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_option_menu import option_menu
 
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+import pandas as pd
+from datetime import datetime, timedelta
+
+# ... (rest of your sidebar/navigation code)
+
 # --- ADD THIS TO THE TOP OF YOUR FILE (AFTER IMPORTS) ---
 @st.cache_data(ttl=300) # This refreshes data from Google Sheets every 5 mins
 def get_data():
@@ -300,12 +306,7 @@ if page == "Overview":
         )
     else:
         st.info("No borrower data available.")
-        
-        from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-import pandas as pd
-from datetime import datetime, timedelta
-
-# ... (rest of your sidebar/navigation code)
+    
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
