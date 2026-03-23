@@ -361,6 +361,12 @@ elif page == "Collateral":
     st.write("---")
     st.markdown("#### 🔍 Inventory Search")
     search_asset = st.text_input("Search by Item or Borrower", placeholder="e.g. Toyota, Logbook...")
+    st.write("---")
+col_to_delete = st.selectbox("Select Asset to Remove/Release", collateral_df['DESCRIPTION'].unique() if not collateral_df.empty else ["None"])
+if st.button("🗑️ Delete Asset Record"):
+    cell = g_client.open("Zoe_Consults_Database").worksheet("Collateral").find(col_to_delete)
+    g_client.open("Zoe_Consults_Database").worksheet("Collateral").delete_rows(cell.row)
+    st.success("Asset Record Cleared."); st.cache_data.clear()
     
     if not collateral_df.empty:
         asset_mask = (collateral_df['BORROWER'].str.contains(search_asset, case=False, na=False)) | \
