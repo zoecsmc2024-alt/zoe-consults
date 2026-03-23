@@ -319,10 +319,13 @@ elif page == "Borrowers":
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     
-    # 1. LOG NEW COLLATERAL
+    # 1. Initialize Local Collateral Memory
+    if 'local_collateral' not in st.session_state:
+        st.session_state.local_collateral = []
+
+    # 2. LOG NEW COLLATERAL
     with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
         with st.form("collateral_form", clear_on_submit=True):
-            # Combine Cloud + Local names for the dropdown
             local_names = [b['CUSTOMER_NAME'] for b in st.session_state.get('local_registry', [])]
             cloud_names = df['CUSTOMER_NAME'].tolist() if not df.empty else []
             all_borrowers = list(set(cloud_names + local_names))
@@ -330,67 +333,77 @@ elif page == "Collateral":
             c1, c2 = st.columns(2)
             with c1:
                 b_name = st.selectbox("Select Borrower", all_borrowers if all_borrowers else ["No Borrowers Found"])
-                item_desc = st.text_input("Item Description", placeholder="e.g. Car Logbook (Toyota), Land Title")
+                item_desc = st.text_input("Item Description", placeholder="e.g. Car Logbook (Toyota)")
             with c2:
                 item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=100000)
                 status = st.selectbox("Initial Status", ["Held", "Released"])
 
             if st.form_submit_button("🔒 Secure Item"):
                 if b_name != "No Borrowers Found" and item_desc:
-                    new_asset = [b_name, item_desc, item_val, status, str(datetime.now().date())]
+                    today = str(datetime.now().date())
+                    # Format exactly like your Google Sheet columns
+                    new_asset = {
+                        "BORROWER_NAME": b_name,
+                        "ITEM_NAME": item_desc,
+                        "VALUE": item_val,
+                        "STATUS": status,
+                        "DATE": today
+                    }
                     
+                    # --- STEP A: SAVE LOCALLY (Instant Feedback) ---
+                    st.session_state.local_collateral.append(new_asset)
+                    
+                    # --- STEP B: TRY GOOGLE CLOUD ---
                     try:
-                        # 🔄 FRESH HANDSHAKE (Prevents '_auth_request' error)
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         
                         sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
                         ws = fresh_client.open_by_key(sheet_id).worksheet("Collateral")
-                        ws.append_row(new_asset, value_input_option='USER_ENTERED')
+                        ws.append_row(list(new_asset.values()), value_input_option='USER_ENTERED')
                         
                         st.balloons()
                         st.success(f"✅ Asset secured for {b_name}!")
                         st.cache_data.clear()
                     except Exception as e:
                         if "200" in str(e):
-                            st.balloons(); st.success("✅ Asset Secured!"); st.cache_data.clear()
+                            st.balloons(); st.cache_data.clear()
                         else:
-                            st.error(f"Sync Error: {e}")
+                            st.warning(f"⚠️ Saved locally, but Cloud Sync is delayed: {e}")
                 else:
-                    st.warning("Please select a borrower and describe the item.")
+                    st.warning("Please fill in the item details.")
 
     st.write("---")
 
-    # 2. INVENTORY TABLE
+    # 3. THE INVENTORY TABLE (Combined Cloud + Local)
     st.markdown("#### 📦 Current Inventory List")
     
-    if not collateral_df.empty:
-        # Search Filter
-        search = st.text_input("🔍 Search by Item or Borrower", placeholder="Type name or item...")
+    # Merge Cloud Data with Local Recent Additions
+    local_collat_df = pd.DataFrame(st.session_state.local_collateral)
+    combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
+    
+    if not combined_collat.empty:
+        # Clean up duplicates in case Cloud syncs during session
+        combined_collat = combined_collat.drop_duplicates(subset=['BORROWER_NAME', 'ITEM_NAME'], keep='last')
         
-        # Copy for formatting so we don't break the original math
-        display_collat = collateral_df.copy()
+        # Display search
+        search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...")
+        display_df = combined_collat.copy()
         
-        # Apply Search
         if search:
-            display_collat = display_collat[display_collat.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+            display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # Format Value with Commas
-        if 'VALUE' in display_collat.columns:
-            display_collat['VALUE'] = display_collat['VALUE'].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
-        
-        # Display Table
+        # Format Commas for UGX
+        if 'VALUE' in display_df.columns:
+            display_df['VALUE'] = display_df['VALUE'].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
+            
         st.dataframe(
-            display_collat, 
+            display_df, 
             use_container_width=True, 
             hide_index=True,
             column_order=("BORROWER_NAME", "ITEM_NAME", "VALUE", "STATUS", "DATE")
         )
-        
-        # Quick Summary
-        total_value = pd.to_numeric(collateral_df['VALUE'], errors='coerce').sum()
-        st.info(f"💎 Total Assets Under Security: **UGX {total_value:,.0f}**")
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: CALENDAR
