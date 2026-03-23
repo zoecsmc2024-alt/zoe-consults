@@ -368,24 +368,39 @@ elif page == "Borrowers":
         # Remove duplicates by NIN, keep last
         combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
 
+        # Apply comma formatting to currency columns
+        currency_cols = ["LOAN_AMOUNT", "TOTAL_DUE", "AMOUNT_PAID", "OUTSTANDING_AMOUNT"]
+        for col in currency_cols:
+            if col in combined.columns:
+                combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
+
         # Search/filter box
         client_search = st.text_input("Enter Client Name or NIN to View Details")
 
         if client_search:
             filtered_client = combined[
                 combined.astype(str).apply(lambda x: x.str.contains(client_search, case=False, na=False)).any(axis=1)
-            ]
+            ].copy()
 
             if not filtered_client.empty:
                 st.markdown("### Client Information")
+                # Format for display in table
+                for col in currency_cols:
+                    filtered_client[col] = filtered_client[col].apply(lambda x: f"{x:,.0f}")
                 st.table(filtered_client) 
             else:
                 st.info("No client found matching that search.")
 
         # Show full borrower directory
         st.markdown("### Full Borrower Directory")
+        
+        # Create a display version of combined with formatted numbers
+        display_df = combined.copy()
+        for col in currency_cols:
+            display_df[col] = display_df[col].apply(lambda x: f"{x:,.0f}")
+
         st.dataframe(
-            combined,
+            display_df,
             use_container_width=True,
             hide_index=True,
             column_order=[
@@ -401,6 +416,9 @@ elif page == "Borrowers":
     else:
         st.info("No borrowers yet.")
 
+# --- NEXT PAGE (Aligned with the first 'elif') ---
+elif page == "Collateral":
+    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
 # --- NEXT PAGE (Aligned with the first 'elif') ---
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
