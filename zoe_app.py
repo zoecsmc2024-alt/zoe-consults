@@ -1,123 +1,102 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import base64
 import gspread
-import json
-import io
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from fpdf import FPDF
 from streamlit_option_menu import option_menu
-from google.oauth2.service_account import Credentials
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-  page_title="Zoe Consults Admin",
-  page_icon="🏛️",
-  layout="wide",
-  initial_sidebar_state="expanded"
+    page_title="Zoe Consults Admin",
+    page_icon="🏛️",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. BRANDING & NAVY/BABY BLUE STYLING ---
-st.markdown(f"""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
-    .main-title {{ font-size: 32px; font-weight: 700; color: #1e3a8a; margin-bottom: 20px; }}
-    .stMetric {{ 
-        background-color: #f0f9ff; 
-        padding: 20px; 
-        border-radius: 12px; 
-        border-left: 6px solid #1e3a8a; 
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    }}
-    div.stButton > button:first-child {{
-        background-color: #1e3a8a;
-        color: white;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        border: none;
-        font-weight: 600;
-    }}
-    div.stButton > button:hover {{
-        background-color: #3b82f6;
-        color: white;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+# --- 2. STYLING ---
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+    .main-title { font-size: 32px; font-weight: 700; color: #1e3a8a; margin-bottom: 20px; }
+    .stMetric {
+        background-color: #f0f9ff;
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 6px solid #1e3a8a;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    div.stButton > button:first-child {
+        background-color: #1e3a8a;
+        color: white;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        border: none;
+        font-weight: 600;
+    }
+    div.stButton > button:hover {
+        background-color: #3b82f6;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- 3. SESSION STATE ---
-if 'authenticated' not in st.session_state:
-  st.session_state.authenticated = False
-if 'ready' not in st.session_state:
-    st.session_state.ready = False
-if 'b64_str' not in st.session_state:
-    st.session_state.b64_str = ""
-if 'last_client' not in st.session_state:
-    st.session_state.last_client = ""
+# --- 3. SESSION STATE INITIALIZATION ---
+for key in ["authenticated", "ready", "b64_str", "last_client"]:
+    if key not in st.session_state:
+        st.session_state[key] = False if key == "authenticated" else ""
 
-# --- 4. DUAL-KEY SECURITY (Login) ---
+# --- 4. LOGIN ---
 if not st.session_state.authenticated:
-    _, col, _ = st.columns([1, 1.5, 1])
-    with col:
-        st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>🏛️ Admin Portal</h2>", unsafe_allow_html=True)
-        with st.container(border=True):
-            user = st.text_input("Username")
-            pw = st.text_input("Access Key", type="password")
-            if st.button("Login to Zoe Consults", use_container_width=True):
-                if user == st.secrets["admin_user"] and pw == st.secrets["admin_pass"]:
-                    st.session_state.authenticated = True
-                    st.rerun()
-                else:
-                    st.error("Invalid Credentials")
-    st.stop()
+    _, col, _ = st.columns([1, 1.5, 1])
+    with col:
+        st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>🏛️ Admin Portal</h2>", unsafe_allow_html=True)
+        user = st.text_input("Username")
+        pw = st.text_input("Access Key", type="password")
+        if st.button("Login to Zoe Consults", use_container_width=True):
+            if user == st.secrets["admin_user"] and pw == st.secrets["admin_pass"]:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Invalid Credentials")
+    st.stop()
 
-# --- 5. DATA ENGINE (Google Sheets - High Performance Version) ---
-@st.cache_data(ttl=120, show_spinner="Syncing cloud data...") # Changed from 600 to 60 (Checks Google every minute)
+# --- 5. DATA ENGINE (Google Sheets) ---
+@st.cache_data(ttl=120, show_spinner="Syncing cloud data...")
 def load_full_database():
-    try:
-        # 1. Setup Dict and Clean Newlines
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        if "private_key" in creds_dict:
-            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    try:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        client = gspread.service_account_from_dict(creds_dict)
+        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+        database = client.open_by_key(sheet_id)
 
-        # 2. Direct Authorization
-        client = gspread.service_account_from_dict(creds_dict)
-        
-        # 🎯 USE THE UNIQUE ID (This ensures it ALWAYS finds the right file)
-        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-        database = client.open_by_key(sheet_id)
+        def fetch_ws(name):
+            try:
+                sheet = database.worksheet(name)
+                data = sheet.get_all_records()
+                return pd.DataFrame(data) if data else pd.DataFrame()
+            except:
+                return pd.DataFrame()
 
-        def fetch_worksheet(name):
-            try:
-                sheet = database.worksheet(name)
-                data = sheet.get_all_records()
-                # If sheet is empty, return a DataFrame with your specific headers
-                if not data:
-                    return pd.DataFrame()
-                return pd.DataFrame(data)
-            except:
-                return pd.DataFrame()
+        df = fetch_ws("Clients")
+        pay_df = fetch_ws("Repayments")
+        collat_df = fetch_ws("Collateral")
+        exp_df = fetch_ws("Expenses")
+        petty_df = fetch_ws("PettyCash")
+        payroll_df = fetch_ws("Payroll")
+        return df, pay_df, collat_df, exp_df, petty_df, payroll_df, client
+    except Exception as e:
+        st.error(f"FATAL CONNECTION ERROR: {e}")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
 
-        # 3. Pull all tabs
-        df = fetch_worksheet("Clients")
-        pay_df = fetch_worksheet("Repayments")
-        collat_df = fetch_worksheet("Collateral")
-        exp_df = fetch_worksheet("Expenses")
-        petty_df = fetch_worksheet("PettyCash")
-        payroll_df = fetch_worksheet("Payroll")
-
-        return df, pay_df, collat_df, exp_df, petty_df, payroll_df, client
-    except Exception as e:
-        st.error(f"FATAL CONNECTION ERROR: {e}")
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
-
-# ACTIVATE THE SYSTEM
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
-# --- 6. NAVIGATION (Sidebar) ---
+
+# --- 6. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    # LOGO
+    # Logo
     if 'custom_logo' in st.session_state:
         st.image(st.session_state.custom_logo, use_container_width=True)
     elif os.path.exists("logo.png"):
@@ -127,11 +106,12 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # NAVIGATION
     page = option_menu(
         menu_title=None,
-        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "PettyCash", "Payroll", "Add Payment", "Settings"],
-        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "gear"],
+        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger",
+                 "Overdue Tracker", "Expenses", "PettyCash", "Payroll", "Add Payment", "Settings"],
+        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical",
+               "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "gear"],
         default_index=0,
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
@@ -142,56 +122,25 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # BUTTONS
     c1, c2 = st.columns(2)
-
     if c1.button("🔄 Sync", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
-
     if c2.button("🚪 Exit", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
-    # STATUS
-    if not df.empty:
-        st.success("🟢 Cloud Connected")
-    else:
-        st.error("🔴 Database Offline")
-    # 2. THE NAVIGATION MENU (Keeping your original setup)
-    page = option_menu(
-        menu_title=None,
-        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "PettyCash", "Payroll", "Add Payment", "Settings"],
-        # Note: Added 'box-arrow-right' for Logout or others if you want to expand icons later
-        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "gear"],
-        default_index=0,
-        styles={
-            "container": {"padding": "0!important", "background-color": "transparent"},
-            "nav-link": {"font-size": "13px", "text-align": "left", "margin":"0px", "--hover-color": "#eff6ff"},
-            "nav-link-selected": {"background-color": "#1e3a8a"},
-        }
-    )
-    
-    st.markdown("---")
+    st.markdown(
+        "<p style='font-size:10px; text-align:center; color:{}'>{}</p>".format(
+            "#16a34a" if not df.empty else "#dc2626",
+            "● System Online (Cloud Synced)" if not df.empty else "○ System Offline (Check Connection)"
+        ),
+        unsafe_allow_html=True
+    )
 
-    # 3. CLOUD SYNC & LOGOUT (The "Engine Room")
-    c1, c2 = st.columns(2)
-
-    if c1.button("🔄 Sync", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
-    if c2.button("🚪 Exit", use_container_width=True, key="sidebar_exit_btn"):
-        st.session_state.clear()
-        st.rerun()
-    # 4. CONNECTION STATUS INDICATOR
-    if not df.empty:
-        st.markdown("<p style='color: #16a34a; font-size: 10px; text-align: center;'>● System Online (Cloud Synced)</p>", unsafe_allow_html=True)
-    else:
-        st.markdown("<p style='color: #dc2626; font-size: 10px; text-align: center;'>○ System Offline (Check Connection)</p>", unsafe_allow_html=True)
-
-# --- 7. PAGE MODULES ---
-
+# --- 7. MODULE PLACEHOLDER ---
+st.markdown(f"<div class='main-title'>🖥️ {page} Module</div>", unsafe_allow_html=True)
+st.info("Module content will load here based on your navigation selection.")
 if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
 
