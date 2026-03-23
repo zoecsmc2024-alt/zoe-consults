@@ -359,7 +359,7 @@ elif page == "Borrowers":
     st.write("---")
 
     # --- 3. DISPLAY TABLE (Now properly indented) ---
-    Pencil ✏️ = Edit → Open a modal or inline edit.
+    # Pencil 📝 = Edit -> Open a modal or inline edit.
 Eye 👁️ = View → Pop-up to show borrower details.
 Trash 🗑️ = Delete → Confirm and remove row.
     
