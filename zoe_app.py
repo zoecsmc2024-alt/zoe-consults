@@ -388,64 +388,82 @@ elif page == "Borrowers":
             if selected_rows:
                 row = selected_rows[0]
 
-                # A. VIEW DIALOG
+                # --- A. VIEW DIALOG (With Commas) ---
                 @st.dialog(f"👁️ Profile: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def view_modal(data):
                     st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
                     st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
                     st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
+                    st.write(f"**Gender:** {data.get('GENDER', 'N/A')}")
                     st.divider()
                     
-                    # Safer number conversion with commas
-                    raw_val = data.get('OUTSTANDING_AMOUNT', 0)
-                    amt = pd.to_numeric(raw_val, errors='coerce')
+                    # Commas fixed here for View
+                    amt = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
                     st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
                     
                     if st.button("Close"):
                         st.rerun()
 
-                # B. EDIT DIALOG (With Google Sheets Sync)
-                @st.dialog(f"📝 Edit: {row.get('CUSTOMER_NAME', 'Unknown')}")
+                # --- B. FULL KYC EDIT DIALOG ---
+                @st.dialog(f"📝 Full KYC Edit: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def edit_modal(data):
-                    st.markdown("### Update Borrower Details")
-                    new_phone = st.text_input("New Contact", value=data.get('CONTACT', ''))
-                    new_addr = st.text_area("New Address", value=data.get('ADDRESS', ''))
+                    st.markdown("### Update Borrower Profile")
                     
-                    if st.button("💾 Save Changes", use_container_width=True):
+                    # Row 1: Names
+                    c1, c2 = st.columns(2)
+                    new_name = c1.text_input("Full Name", value=data.get('CUSTOMER_NAME', ''))
+                    new_nin = c2.text_input("NIN", value=data.get('NIN', ''))
+                    
+                    # Row 2: Contact & Gender
+                    c3, c4 = st.columns(2)
+                    new_phone = c3.text_input("Contact", value=data.get('CONTACT', ''))
+                    new_gender = c4.selectbox("Gender", ["Male", "Female"], index=0 if data.get('GENDER') == "Male" else 1)
+                    
+                    # Row 3: Loan Details (Financials)
+                    c5, c6 = st.columns(2)
+                    new_amt = c5.number_input("Loan Amount (UGX)", value=float(data.get('LOAN_AMOUNT', 0)), step=10000.0)
+                    new_out = c6.number_input("Outstanding (UGX)", value=float(data.get('OUTSTANDING_AMOUNT', 0)), step=10000.0)
+                    
+                    new_addr = st.text_area("Address", value=data.get('ADDRESS', ''))
+                    
+                    st.divider()
+                    if st.button("💾 Save All Changes", use_container_width=True):
                         try:
-                            # Connect to Google Sheets
+                            # Connect
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             client = gspread.service_account_from_dict(creds_dict)
                             ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                            # Find row by NIN
+                            # Find by OLD NIN (the one from 'data' before editing)
                             cell = ws.find(data['NIN'])
                             if cell:
-                                ws.update_cell(cell.row, 2, new_phone) # Update Contact
-                                ws.update_cell(cell.row, 5, new_addr)  # Update Address
+                                # Update columns based on your sheet order (Update numbers if needed!)
+                                ws.update_cell(cell.row, 1, new_name.upper()) # Col 1: Name
+                                ws.update_cell(cell.row, 2, new_phone)        # Col 2: Contact
+                                ws.update_cell(cell.row, 3, new_nin)          # Col 3: NIN
+                                ws.update_cell(cell.row, 4, new_gender)       # Col 4: Gender
+                                ws.update_cell(cell.row, 5, new_addr)         # Col 5: Address
+                                ws.update_cell(cell.row, 7, new_amt)          # Col 7: Loan Amt
+                                ws.update_cell(cell.row, 11, new_out)         # Col 11: Outstanding
                                 
-                                st.success("✅ Changes synced to Google Sheets!")
+                                st.success("✅ KYC Updated & Synced!")
                                 st.cache_data.clear()
                                 st.rerun()
-                            else:
-                                st.error("Borrower not found in cloud.")
                         except Exception as e:
                             st.error(f"Sync failed: {e}")
 
-                # C. BUTTON TRIGGERS (Typo fixed here: col1 instead of coll)
+                # --- C. BUTTON TRIGGERS ---
                 col1, col2, col3 = st.columns(3)
 
                 if col1.button("👁️ View Details", use_container_width=True):
                     view_modal(row)
                 
-                if col2.button("✏️ Edit Client", use_container_width=True):
+                if col2.button("✏️ Edit KYC", use_container_width=True):
                     edit_modal(row)
 
                 if col3.button("🗑️ Delete", use_container_width=True):
-                    st.warning("Action locked. Use 'Admin Controls' below to delete.")
-            else:
-                st.info("💡 Click a row's checkbox to see View/Edit options.")
+                    st.warning("Action locked. Use 'Admin Controls' below.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
