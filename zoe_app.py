@@ -10,6 +10,24 @@ from st_aggrid import AgGrid
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_option_menu import option_menu
 
+# --- ADD THIS TO THE TOP OF YOUR FILE (AFTER IMPORTS) ---
+@st.cache_data(ttl=300) # This refreshes data from Google Sheets every 5 mins
+def get_data():
+    try:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        client = gspread.service_account_from_dict(creds_dict)
+        
+        # Open your specific spreadsheet
+        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+        
+        # Pull all data into a DataFrame
+        data = ws.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"Failed to fetch cloud data: {e}")
+        return pd.DataFrame()
+
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="Zoe Consults Admin",
