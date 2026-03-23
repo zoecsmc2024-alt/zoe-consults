@@ -399,32 +399,46 @@ elif page == "Borrowers":
                 # VIEW DIALOG
                 @st.dialog(f"👁️ Profile: {row['CUSTOMER_NAME']}")
                 def view_modal(data):
-                    st.write(f"**NIN:** {data['NIN']}")
-                    st.write(f"**Contact:** {data['CONTACT']}")
-                    st.write(f"**Address:** {data['ADDRESS']}")
+                    # Use .get() and double-check these names match your Sheet headers!
+                    st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
+                    st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
+                    st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
                     st.divider()
-                    # Convert to number first to ensure formatting works
-outstanding = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
-st.metric("Outstanding Amount", f"UGX {outstanding:,.0f}")
+                    
+                    # Safer number conversion
+                    amt = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
+                    st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
+                    
                     if st.button("Close"):
                         st.rerun()
 
-                # EDIT DIALOG
-                @st.dialog(f"👁️ Profile: {row['CUSTOMER_NAME']}")
-def view_modal(data):
-    # Use .get() and double-check these names match your Sheet headers!
-    st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
-    st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
-    st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
-    st.divider()
-    
-    # Safer number conversion
-    amt = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
-    st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
-    
-    if st.button("Close"):
-        st.rerun()
+                # VIEW DIALOG
+                @st.dialog(f"👁️ Profile: {row.get('CUSTOMER_NAME', 'Unknown')}")
+                def view_modal(data):
+                    # We create a clean dictionary to avoid column mismatch
+                    # These keys MUST match your Google Sheet Headers exactly!
+                    st.write(f"**Full Name:** {data.get('CUSTOMER_NAME', 'N/A')}")
+                    st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
+                    st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
+                    st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
+                    st.write(f"**Gender:** {data.get('GENDER', 'N/A')}")
+                    st.divider()
+                    
+                    # Safer number conversion for the metric
+                    try:
+                        raw_val = data.get('OUTSTANDING_AMOUNT', 0)
+                        # Remove commas or currency symbols if they exist in the string
+                        if isinstance(raw_val, str):
+                            raw_val = raw_val.replace(',', '').replace('UGX', '').strip()
+                        amt = pd.to_numeric(raw_val, errors='coerce')
+                        st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
+                    except:
+                        st.metric("Outstanding Amount", "UGX 0")
+                    
+                    if st.button("Close"):
+                        st.rerun()
 
+                # Button Triggers
                 if col1.button("👁️ View Details", use_container_width=True):
                     view_modal(row)
                 
@@ -435,8 +449,8 @@ def view_modal(data):
                     st.error("Are you sure? Use the Admin Controls below to delete.")
             else:
                 st.info("💡 Click a row's checkbox to see View/Edit options.")
-    else:
-        st.info("No borrowers registered yet.")
+        else:
+            st.info("No borrowers registered yet.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
