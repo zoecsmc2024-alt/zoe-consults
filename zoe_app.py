@@ -450,33 +450,84 @@ elif page == "Collateral":
     combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
     
     if not combined_collat.empty:
-        # --- THE FIX: SAFETY CHECK FOR COLUMNS ---
+        # Safety Check for Columns
         cols_found = combined_collat.columns.tolist()
-        subset_cols = [] # Defined correctly here
-        if 'BORROWER_NAME' in cols_found: subset_cols.append('BORROWER_NAME')
-        if 'ITEM_NAME' in cols_found: subset_cols.append('ITEM_NAME')
+        subset_cols = [c for c in ['BORROWER_NAME', 'ITEM_NAME'] if c in cols_found]
         
-        # Only drop duplicates if the columns actually exist
         if subset_cols:
             combined_collat = combined_collat.drop_duplicates(subset=subset_cols, keep='last')
         
-        # Display search
+        # Search Filter
         search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...", key="collat_search")
         display_df = combined_collat.copy()
         
         if search:
             display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # Format Commas for UGX (With safety for empty strings)
-        if 'VALUE' in display_df.columns:
-            display_df['VALUE'] = pd.to_numeric(display_df['VALUE'], errors='coerce').fillna(0)
-            display_df['VALUE'] = display_df['VALUE'].apply(lambda x: f"{float(x):,.0f}")
+        # Format for display (Store raw numbers for editing later)
+        table_df = display_df.copy()
+        if 'VALUE' in table_df.columns:
+            table_df['VALUE_RAW'] = pd.to_numeric(table_df['VALUE'], errors='coerce').fillna(0)
+            table_df['VALUE'] = table_df['VALUE_RAW'].apply(lambda x: f"{float(x):,.0f}")
             
-        st.dataframe(
-            display_df, 
-            use_container_width=True, 
-            hide_index=True
-        )
+        st.dataframe(table_df.drop(columns=['VALUE_RAW'] if 'VALUE_RAW' in table_df.columns else []), use_container_width=True, hide_index=True)
+
+        # --- 4. EDIT & DELETE SECTION ---
+        st.write("---")
+        st.markdown("#### 🛠️ Manage Selected Asset")
+        
+        # Create a unique identifier for selection
+        display_df['ID_STR'] = display_df['BORROWER_NAME'] + " | " + display_df['ITEM_NAME']
+        selected_asset_str = st.selectbox("Select an item to Update or Delete", options=display_df['ID_STR'].tolist())
+
+        if selected_asset_str:
+            # Get the actual data for the selected item
+            asset_row = display_df[display_df['ID_STR'] == selected_asset_str].iloc[0]
+            
+            col_a, col_b = st.columns(2)
+            
+            # --- EDIT BOX ---
+            with col_a.expander("📝 Edit Asset Details"):
+                with st.form("edit_asset_form"):
+                    new_val = st.number_input("Update Value (UGX)", value=int(pd.to_numeric(asset_row['VALUE'], errors='coerce') or 0))
+                    new_status = st.selectbox("Update Status", ["Held", "Released", "Disposed"], 
+                                             index=["Held", "Released", "Disposed"].index(asset_row['STATUS']) if asset_row['STATUS'] in ["Held", "Released", "Disposed"] else 0)
+                    
+                    if st.form_submit_button("💾 Save Changes"):
+                        # Logic: In a full app, you'd find the row in Google Sheets and update it.
+                        # For now, we update the Cloud via a fresh row (standard ledger practice).
+                        try:
+                            creds_dict = dict(st.secrets["gcp_service_account"])
+                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                            fresh_client = gspread.service_account_from_dict(creds_dict)
+                            ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+                            
+                            # Standard Ledger Edit: Append a 'correction' row or find and replace
+                            update_row = [asset_row['BORROWER_NAME'], asset_row['ITEM_NAME'], new_val, new_status, str(datetime.now().date())]
+                            ws.append_row(update_row)
+                            
+                            st.success("✅ Asset Updated!")
+                            st.cache_data.clear(); st.rerun()
+                        except Exception as e:
+                            st.error(f"Error updating: {e}")
+
+            # --- DELETE BOX ---
+            with col_b.expander("🗑️ Delete Asset"):
+                st.warning(f"Are you sure you want to remove '{asset_row['ITEM_NAME']}' from the ledger?")
+                if st.button("🔥 Permanently Delete Record"):
+                    # Logic: In the simple version, we notify the user to delete from Google Sheets
+                    # To keep it safe, we'll mark it as 'DELETED' in the cloud.
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+                        
+                        ws.append_row([asset_row['BORROWER_NAME'], asset_row['ITEM_NAME'], 0, "DELETED", str(datetime.now().date())])
+                        st.success("Record marked as Deleted!")
+                        st.cache_data.clear(); st.rerun()
+                    except Exception as e:
+                        st.error(f"Error deleting: {e}")
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: ACTIVITY CALENDAR
