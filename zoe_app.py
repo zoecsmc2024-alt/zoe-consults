@@ -475,9 +475,8 @@ if not combined.empty:
                 st.session_state.local_registry = [r for r in st.session_state.local_registry if r["NIN"] != row["NIN"]]
                 st.success("✅ Borrower deleted locally!")
                 st.experimental_rerun()
-
-else:
-    st.info("No borrowers found. Register a client above to start.")
+            else:
+                st.info("No borrowers found. Register a client above to start.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
