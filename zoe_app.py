@@ -117,18 +117,50 @@ df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_ful
 # --- 6. NAVIGATION (Sidebar) ---
 with st.sidebar:
     # 1. SMART LOGO LOADER
-    import os
-    if os.path.exists("logo.png"):
-        st.image("logo.png", use_container_width=True)
+    # Try multiple common paths just in case GitHub moved it
+    logo_path = "logo.png"
+    
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_container_width=True)
     else:
-        # This only shows if the file is missing or misnamed
-        st.error("⚠️ 'logo.png' not found in root folder.")
-        st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>ZOE ADMIN</h2>", unsafe_allow_html=True)
+        # If no logo is found, show this clean branded header instead
+        st.markdown(f"""
+            <div style="text-align: center; padding: 10px; border: 2px dashed #1e3a8a; border-radius: 10px; margin-bottom: 20px;">
+                <h2 style="color: #1e3a8a; margin: 0;">ZOE ADMIN</h2>
+                <p style="font-size: 10px; color: #64748b;">(Logo.png not found)</p>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # 2. THE NAVIGATION MENU
+    page = option_menu(
+        menu_title=None,
+        options=["Overview", "Borrowers", "Collateral", "Calendar", "Ledger", "Overdue Tracker", "Expenses", "PettyCash", "Payroll", "Add Payment", "Settings"],
+        icons=["grid-1x2", "people", "shield-lock", "calendar3", "file-earmark-medical", "alarm", "wallet2", "cash-register", "person-check", "cash-stack", "gear"],
+        default_index=0,
+        styles={
+            "container": {"padding": "5px", "background-color": "#ffffff", "border-radius": "10px"},
+            "nav-link": {"font-size": "13px", "text-align": "left", "margin":"5px", "--hover-color": "#f1f5f9"},
+            "nav-link-selected": {"background-color": "#1e3a8a", "color": "white"}
+        }
+    )
     
     st.markdown("---")
-    
-    # ... rest of your option_menu code ...
 
+    # 3. UTILITY BUTTONS (Sync & Logout)
+    col1, col2 = st.columns(2)
+    if col1.button("🔄 Sync", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+    if col2.button("🚪 Exit", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+    # 4. STATUS LIGHT
+    if not df.empty:
+        st.markdown("<p style='text-align: center; color: #16a34a; font-size: 11px;'>🟢 Cloud Database Connected</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p style='text-align: center; color: #dc2626; font-size: 11px;'>🔴 Database Offline</p>", unsafe_allow_html=True)
     # 2. THE NAVIGATION MENU (Keeping your original setup)
     page = option_menu(
         menu_title=None,
