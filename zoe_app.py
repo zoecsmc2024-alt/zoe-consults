@@ -301,9 +301,10 @@ elif page == "Borrowers":
     combined_display = pd.concat([df, pd.DataFrame(st.session_state.local_registry)], ignore_index=True)
     
     if not combined_display.empty:
+        # Drop duplicates to keep it clean
         combined_display = combined_display.drop_duplicates(subset=['NIN'], keep='last')
         
-        # COLUMN RATIOS: [Name, Balance, Due Date, NIN, Sex, Actions]
+        # COLUMN RATIOS: Adjusted for the screen width
         ratios = [2, 1.5, 1.5, 1.5, 0.8, 1.5]
         
         # Header Row
@@ -317,27 +318,33 @@ elif page == "Borrowers":
         for index, row in combined_display.iterrows():
             c = st.columns(ratios)
             
+            # 1. Name
             c[0].markdown(f"<p style='font-size:13px; font-weight:600;'>{row['CUSTOMER_NAME']}</p>", unsafe_allow_html=True)
             
+            # 2. Balance (Comma formatted)
             bal = float(row.get('OUTSTANDING_AMOUNT', 0))
             c[1].markdown(f"<p style='font-size:13px;'>{bal:,.0f}</p>", unsafe_allow_html=True)
             
+            # 3. Due Date
             d_date = str(row.get('DUE_DATE', ''))
-            c[2].markdown(f"<p style='font-size:13px;'>{d_date if d_date != 'None' else '-'}</p>", unsafe_allow_html=True)
+            c[2].markdown(f"<p style='font-size:13px;'>{d_date if d_date != 'nan' else '-'}</p>", unsafe_allow_html=True)
             
+            # 4. NIN (Pulling specifically from the NIN column)
             c[3].markdown(f"<p style='font-size:12px; color:gray;'>{row.get('NIN', '-')}</p>", unsafe_allow_html=True)
             
+            # 5. Sex (Shortened)
             gen = str(row.get('GENDER', '-'))[0].upper() if row.get('GENDER') else "-"
             c[4].markdown(f"<p style='font-size:13px;'>{gen}</p>", unsafe_allow_html=True)
             
-            # Action Buttons
+            # 6. Action Buttons
             btn_col = c[5].columns(3)
+            
             if btn_col[0].button("👁️", key=f"v_{index}"):
                 st.session_state.view_mode = row.to_dict()
                 st.rerun()
 
             if btn_col[1].button("📝", key=f"e_{index}"):
-                st.session_state.edit_mode = row.to_dict() # Store whole row
+                st.session_state.edit_mode = row.to_dict()
                 st.rerun()
                 
             if btn_col[2].button("🗑️", key=f"d_{index}"):
@@ -346,109 +353,56 @@ elif page == "Borrowers":
             
             st.markdown("<hr style='margin:0; opacity:0.1;'>", unsafe_allow_html=True)
 
-        # --- THE WORKERS (Actual Edit/Delete Logic) ---
+        # --- THE ACTION WORKERS (Edit/Delete Logic) ---
 
-        # 1. DELETE ACTION
+        # 1. DELETE WORKER
         if st.session_state.get('delete_mode'):
-            with st.status(f"⚠️ Confirm Deletion of {st.session_state.delete_mode}", expanded=True):
-                st.warning("This will permanently remove the client from the Cloud Database.")
-                col_del, col_can = st.columns(2)
-                if col_del.button("Confirm DELETE"):
-                    try:
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        ws = gspread.service_account_from_dict(creds_dict).open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-                        cell = ws.find(st.session_state.delete_mode)
-                        if cell:
-                            ws.delete_rows(cell.row)
-                            st.success("Erase Complete!")
-                            del st.session_state.delete_mode
-                            st.cache_data.clear()
-                            st.rerun()
-                    except Exception as e: st.error(f"Error: {e}")
-                if col_can.button("Cancel"):
-                    del st.session_state.delete_mode
-                    st.rerun()
+            st.error(f"⚠️ Are you sure you want to delete {st.session_state.delete_mode}?")
+            col_del, col_can = st.columns(2)
+            if col_del.button("Confirm DELETE Forever"):
+                try:
+                    creds_dict = dict(st.secrets["gcp_service_account"])
+                    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                    ws = gspread.service_account_from_dict(creds_dict).open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+                    cell = ws.find(st.session_state.delete_mode)
+                    if cell:
+                        ws.delete_rows(cell.row)
+                        st.success("Erased from Cloud!")
+                        del st.session_state.delete_mode
+                        st.cache_data.clear()
+                        st.rerun()
+                except Exception as e: st.error(f"Error: {e}")
+            if col_can.button("Cancel Deletion"):
+                del st.session_state.delete_mode
+                st.rerun()
 
-        # 2. EDIT ACTION
+        # 2. EDIT WORKER
         if st.session_state.get('edit_mode'):
             e = st.session_state.edit_mode
-            with st.status(f"📝 Editing: {e['CUSTOMER_NAME']}", expanded=True):
-                with st.form("edit_form"):
-                    new_contact = st.text_input("Contact Number", value=str(e.get('CONTACT', '')))
-                    new_address = st.text_area("Residential Address", value=str(e.get('ADDRESS', '')))
-                    if st.form_submit_button("Save Cloud Changes"):
+            with st.expander(f"📝 Editing: {e['CUSTOMER_NAME']}", expanded=True):
+                with st.form("edit_form_new"):
+                    new_contact = st.text_input("New Contact", value=str(e.get('CONTACT', '')))
+                    new_address = st.text_area("New Address", value=str(e.get('ADDRESS', '')))
+                    if st.form_submit_button("Save Changes to Cloud"):
                         try:
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             ws = gspread.service_account_from_dict(creds_dict).open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
                             cell = ws.find(e['CUSTOMER_NAME'])
                             if cell:
-                                ws.update_cell(cell.row, 2, new_contact) # Update Contact
-                                ws.update_cell(cell.row, 8, new_address) # Update Address
-                                st.success("Cloud Updated!")
+                                ws.update_cell(cell.row, 2, new_contact) # Col 2: Contact
+                                ws.update_cell(cell.row, 8, new_address) # Col 8: Address
+                                st.success("Updated Successfully!")
                                 del st.session_state.edit_mode
                                 st.cache_data.clear()
                                 st.rerun()
-                        except Exception as ex: st.error(ex)
+                        except Exception as ex: st.error(f"Edit failed: {ex}")
                 if st.button("Close Editor"):
                     del st.session_state.edit_mode
                     st.rerun()
 
     else:
         st.info("ℹ️ No borrowers yet.")
-
-        # --- MODAL OVERLAYS ---
-
-        # 1. VIEW MODAL (Compact Card)
-        if st.session_state.get('view_mode'):
-            v = st.session_state.view_mode
-            with st.container(border=True):
-                st.markdown(f"### 📋 Profile: {v['CUSTOMER_NAME']}")
-                v1, v2 = st.columns(2)
-                v1.write(f"**Contact:** {v.get('CONTACT')}")
-                v1.write(f"**NIN:** {v.get('NIN')}")
-                v2.write(f"**Loan Type:** {v.get('LOAN_TYPE')}")
-                v2.write(f"**Address:** {v.get('ADDRESS')}")
-                if st.button("Close Profile"):
-                    del st.session_state.view_mode
-                    st.rerun()
-
-        # (Keep your existing Edit/Delete Modal logic here)
-            
-            st.divider()
-
-        # --- DYNAMIC OVERLAYS (Show only when button is clicked) ---
-        
-        # 1. THE EDIT MODAL (Appears at top if edit_mode is active)
-        if st.session_state.get('edit_mode'):
-            with st.status(f"Updating: {st.session_state.edit_mode}", expanded=True):
-                with st.form("quick_edit"):
-                    st.write(f"Editing info for {st.session_state.edit_mode}")
-                    new_phone = st.text_input("New Contact")
-                    new_addr = st.text_area("New Address")
-                    col_save, col_cancel = st.columns(2)
-                    if col_save.form_submit_button("Confirm Changes"):
-                        # ... (Add your gspread update logic here) ...
-                        st.success("Updated!")
-                        del st.session_state.edit_mode
-                        st.rerun()
-                    if col_cancel.form_submit_button("Cancel"):
-                        del st.session_state.edit_mode
-                        st.rerun()
-
-        # 2. THE DELETE CONFIRMATION
-        if st.session_state.get('delete_mode'):
-            st.error(f"Are you sure you want to delete {st.session_state.delete_mode}?")
-            col_del, col_can = st.columns(2)
-            if col_del.button("YES, DELETE FOREVER"):
-                # ... (Add your gspread delete logic here) ...
-                st.warning("Client Erased.")
-                del st.session_state.delete_mode
-                st.rerun()
-            if col_can.button("CANCEL"):
-                del st.session_state.delete_mode
-                st.rerun()
 
 
 # --- CRITICAL: THIS ELIF MUST BE AT THE FAR LEFT (aligned with 'if page == "Overview"') ---
