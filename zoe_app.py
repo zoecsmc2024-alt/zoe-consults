@@ -460,7 +460,34 @@ elif page == "Borrowers":
                         except Exception as e:
                             st.error(f"Sync failed: {e}")
 
-                # --- C. BUTTON TRIGGERS ---
+                # --- C. DELETE DIALOG ---
+                @st.dialog(f"🗑️ Delete Borrower: {row.get('CUSTOMER_NAME', 'Unknown')}")
+                def delete_modal(data):
+                    st.warning("⚠️ This action is permanent and will remove the borrower from Google Sheets.")
+                    st.write(f"**Borrower:** {data.get('CUSTOMER_NAME')}")
+                    st.write(f"**NIN:** {data.get('NIN')}")
+                    
+                    if st.button("🚨 Confirm Delete", use_container_width=True):
+                        try:
+                            # Connect to Sheets
+                            creds_dict = dict(st.secrets["gcp_service_account"])
+                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                            client = gspread.service_account_from_dict(creds_dict)
+                            ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+
+                            # Find and delete row
+                            cell = ws.find(data['NIN'])
+                            if cell:
+                                ws.delete_rows(cell.row)
+                                st.success("✅ Borrower deleted from cloud!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            else:
+                                st.error("Borrower NIN not found in Google Sheets.")
+                        except Exception as e:
+                            st.error(f"Delete failed: {e}")
+
+                # --- BUTTON TRIGGERS ---
                 col1, col2, col3 = st.columns(3)
 
                 if col1.button("👁️ View Details", use_container_width=True):
@@ -469,8 +496,9 @@ elif page == "Borrowers":
                 if col2.button("✏️ Edit KYC", use_container_width=True):
                     edit_modal(row)
 
+                # Now this button opens the Confirmation Pop-up!
                 if col3.button("🗑️ Delete", use_container_width=True):
-                    st.warning("Action locked. Use 'Admin Controls' below.")
+                    delete_modal(row)
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
