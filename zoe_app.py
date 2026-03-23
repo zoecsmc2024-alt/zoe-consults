@@ -118,7 +118,7 @@ df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_ful
 with st.sidebar:
     # 1. SMART LOGO LOADER
     # Try multiple common paths just in case GitHub moved it
-    logo_path = "logo.png"
+    logo_path = "logo.jpg"
     
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
