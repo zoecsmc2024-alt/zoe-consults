@@ -482,7 +482,6 @@ elif page == "Borrowers":
 # --- NEXT PAGE (Aligned with the first 'elif') ---
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-
 # --- NEXT PAGE (Aligned with the first 'elif') ---
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
