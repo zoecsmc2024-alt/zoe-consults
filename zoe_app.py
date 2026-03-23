@@ -392,34 +392,46 @@ elif page == "Collateral":
     # 2. LOG NEW COLLATERAL
     with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
         with st.form("collateral_form", clear_on_submit=True):
+            # Fetch borrowers from cloud and local
             local_names = [b['CUSTOMER_NAME'] for b in st.session_state.get('local_registry', [])]
-            cloud_names = df['CUSTOMER_NAME'].tolist() if not df.empty else []
-            all_borrowers = list(set(cloud_names + local_names))
+            cloud_names = df['BORROWER'].tolist() if 'BORROWER' in df.columns else []
+            all_borrowers = sorted(list(set(cloud_names + local_names)))
             
             c1, c2 = st.columns(2)
             with c1:
                 b_name = st.selectbox("Select Borrower", all_borrowers if all_borrowers else ["No Borrowers Found"])
-                item_desc = st.text_input("Item Description", placeholder="e.g. Car Logbook (Toyota)")
+                asset_type = st.text_input("Asset Type", placeholder="e.g. Car Logbook, Land Title")
+                # NEW: Detailed Description
+                detailed_desc = st.text_area("Item Description / Details", placeholder="e.g. White Toyota Harrier, Plate UBF 123X, Engine No...")
+            
             with c2:
-                item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=100000)
-                status = st.selectbox("Initial Status", ["Held", "Released"])
+                item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
+                # LIVE PREVIEW: Shows commas as you type
+                st.caption(f"💰 Value Preview: **UGX {item_val:,.0f}**")
+                
+                status = st.selectbox("Initial Status", ["Held", "Released", "Disposed"])
+                # NEW: Date Added Selector
+                date_added = st.date_input("Date Added to Inventory", value=datetime.now())
 
-            if st.form_submit_button("🔒 Secure Item"):
-                if b_name != "No Borrowers Found" and item_desc:
-                    today = str(datetime.now().date())
-                    # Format exactly like your Google Sheet columns
+            if st.form_submit_button("🔒 Secure Item", use_container_width=True):
+                if b_name != "No Borrowers Found" and asset_type:
+                    # Creating the new row dictionary
                     new_asset = {
-                        "BORROWER_NAME": b_name,
-                        "ITEM_NAME": item_desc,
-                        "VALUE": item_val,
+                        "BORROWER": b_name,
+                        "ASSET_TYPE": asset_type,
+                        "DESCRIPTION": detailed_desc,
+                        "ESTIMATED_VALUE": item_val,
+                        "STORAGE_REF": str(date_added), # Using date as the reference
                         "STATUS": status,
-                        "DATE": today
+                        "DATE_ADDED": str(date_added)
                     }
                     
-                    # --- STEP A: SAVE LOCALLY (Instant Feedback) ---
+                    # 1. Save Locally
+                    if 'local_collateral' not in st.session_state:
+                        st.session_state.local_collateral = []
                     st.session_state.local_collateral.append(new_asset)
                     
-                    # --- STEP B: TRY GOOGLE CLOUD ---
+                    # 2. Try Cloud Sync
                     try:
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
@@ -430,15 +442,13 @@ elif page == "Collateral":
                         ws.append_row(list(new_asset.values()), value_input_option='USER_ENTERED')
                         
                         st.balloons()
-                        st.success(f"✅ Asset secured for {b_name}!")
+                        st.success(f"✅ {asset_type} secured for {b_name}!")
                         st.cache_data.clear()
+                        st.rerun()
                     except Exception as e:
-                        if "200" in str(e):
-                            st.balloons(); st.cache_data.clear()
-                        else:
-                            st.warning(f"⚠️ Saved locally, but Cloud Sync is delayed: {e}")
+                        st.warning("⚠️ Saved locally! Cloud sync will happen on next refresh.")
                 else:
-                    st.warning("Please fill in the item details.")
+                    st.warning("Please select a borrower and enter the Asset Type.")
 
     st.write("---")
 
