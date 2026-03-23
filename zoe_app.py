@@ -283,24 +283,31 @@ if page == "Overview":
         st.info("No borrower data available.")
 elif page == "Borrowers":
     # 1. Pull fresh data from Google Sheets
-try:
-    # Use your existing function to get data (e.g., get_data())
-    df = get_data() 
-except:
-    df = pd.DataFrame() # Fallback if cloud fails
+    try:
+        # Use your existing function to get data
+        df = get_data() 
+    except:
+        df = pd.DataFrame() # Fallback if cloud fails
 
-# 2. Combine with any new entries from this session
-local_df = pd.DataFrame(st.session_state.local_registry)
-combined = pd.concat([df, local_df], ignore_index=True)
-    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
-
-    # --- 1. INIT LOCAL STORAGE ---
+    # 2. Combine with any new entries from this session
     if 'local_registry' not in st.session_state:
         st.session_state.local_registry = []
+        
+    local_df = pd.DataFrame(st.session_state.local_registry)
+    
+    # Check if df is empty to avoid merge errors
+    if not df.empty or not local_df.empty:
+        combined = pd.concat([df, local_df], ignore_index=True)
+    else:
+        combined = pd.DataFrame()
 
-    # --- 2. REGISTER CLIENT ---
-    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
+    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
+
+    # --- 1. REGISTER CLIENT ---
+    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=False):
         with st.form("kyc_registration_form", clear_on_submit=True):
+            # ... (your existing form code here) ...
+            pass
 
             c1, c2 = st.columns(2)
 
