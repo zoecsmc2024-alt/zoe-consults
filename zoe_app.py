@@ -573,79 +573,89 @@ elif page == "Ledger":
     else:
         st.info("ℹ️ Your Ledger is empty. Register your first borrower in the Borrower Hub.")
 
-# PAGE: OVERDUE TRACKER
+# PAGE: OVERDUE TRACKER (The Debt Collector)
 elif page == "Overdue Tracker":
     st.markdown('<div class="main-title">🚨 Urgent Follow-up: Overdue Portfolios</div>', unsafe_allow_html=True)
     
-    # 1. CALCULATE OVERDUE STATUS
-    today = datetime.now().date()
-    thirty_days_ago = today - timedelta(days=30)
+    # 1. SYNC DATA (Combine Cloud + Local)
+    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined_borrowers = pd.concat([df, local_df], ignore_index=True)
     
-    # Identify late payers by checking the last date in pay_df
-    if not pay_df.empty:
-        latest_pays = pay_df.groupby('CUSTOMER_NAME')['DATE'].max().reset_index()
-        latest_pays['DATE'] = pd.to_datetime(latest_pays['DATE']).dt.date
+    if not combined_borrowers.empty:
+        # Calculate Date Thresholds
+        today = datetime.now().date()
+        thirty_days_ago = today - timedelta(days=30)
         
-        # Merge with main client list to see who has a balance AND no recent pay
-        overdue_df = df.merge(latest_pays, on='CUSTOMER_NAME', how='left')
-        
-        # Filter: Balance > 0 AND (Last Pay > 30 days OR No Pay Recorded)
-        overdue_list = overdue_df[
-            (overdue_df['OUTSTANDING_AMOUNT'] > 0) & 
-            ((overdue_df['DATE'] < thirty_days_ago) | (overdue_df['DATE'].isna()))
-        ].copy()
-    else:
-        overdue_list = df[df['OUTSTANDING_AMOUNT'] > 0].copy()
-        overdue_list['DATE'] = None
+        # 2. CALCULATE OVERDUE STATUS
+        if not pay_df.empty:
+            latest_pays = pay_df.groupby('CUSTOMER_NAME')['DATE'].max().reset_index()
+            latest_pays['DATE'] = pd.to_datetime(latest_pays['DATE']).dt.date
+            
+            # Merge with combined list
+            overdue_df = combined_borrowers.merge(latest_pays, on='CUSTOMER_NAME', how='left', suffixes=('', '_last_pay'))
+            
+            # Filter: Balance > 0 AND (Last Pay > 30 days OR No Pay Recorded)
+            overdue_list = overdue_df[
+                (overdue_df['OUTSTANDING_AMOUNT'] > 0) & 
+                ((overdue_df['DATE_last_pay'] < thirty_days_ago) | (overdue_df['DATE_last_pay'].isna()))
+            ].copy()
+        else:
+            # If no payments exist at all, everyone with a balance is potentially overdue
+            overdue_list = combined_borrowers[combined_borrowers['OUTSTANDING_AMOUNT'] > 0].copy()
+            overdue_list['DATE_last_pay'] = None
 
-    # 2. THE ALERT BANNER (Baby Blue Border / Red Text)
-    if not overdue_list.empty:
-        st.markdown(f"""
-            <div style="background-color: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px; border-radius: 5px;">
-                <p style="margin:0; color: #1e3a8a; font-weight: bold;">
-                    ⚠️ ATTENTION: {len(overdue_list)} clients are currently 30+ days behind schedule.
-                </p>
-            </div>
-        """, unsafe_allow_html=True)
-        st.write("")
+        # 3. THE ALERT BANNER (Restored)
+        if not overdue_list.empty:
+            st.markdown(f"""
+                <div style="background-color: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px; border-radius: 5px;">
+                    <p style="margin:0; color: #1e3a8a; font-weight: bold;">
+                        ⚠️ ATTENTION: {len(overdue_list)} clients are currently behind schedule or have no recent payments.
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
+            st.write("")
 
-        # 3. THE "RED LIST" ROWS
-        for _, row in overdue_list.iterrows():
-            with st.container():
-                c1, c2, c3 = st.columns([2, 1, 1])
-                
-                # Column 1: Borrower Info (Navy Blue Text)
-                c1.markdown(f"<span style='color: #1e3a8a; font-weight: bold; font-size: 18px;'>👤 {row['CUSTOMER_NAME']}</span>", unsafe_allow_html=True)
-                last_pay = row['DATE'] if pd.notna(row['DATE']) else "No payments recorded"
-                c1.markdown(f"<span style='color: #64748b; font-size: 13px;'>Last Payment: {last_pay}</span>", unsafe_allow_html=True)
-                
-                # Column 2: Money Owed (Baby Blue Accent)
-                c2.markdown(f"<span style='color: #3b82f6; font-weight: bold; font-size: 18px;'>UGX {row['OUTSTANDING_AMOUNT']:,.0f}</span>", unsafe_allow_html=True)
-                c2.caption("Balance Due")
-                
-                # Column 3: Red Action Button (The Chaser)
-                # We use a unique key to prevent the 'DuplicateElementId' error
-                clean_p = "".join(filter(str.isdigit, str(row.get('CONTACT', ''))))
-                
-                if clean_p:
-                    msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan balance of UGX {row['OUTSTANDING_AMOUNT']:,.0f} is overdue. Please settle this today to avoid penalties."
-                    wa_url = f"https://wa.me/{clean_p}?text={msg.replace(' ', '%20')}"
+            # 4. THE "RED LIST" ROWS (Restored UI)
+            for _, row in overdue_list.iterrows():
+                with st.container():
+                    c1, c2, c3 = st.columns([2, 1, 1])
                     
-                    c3.markdown(f'''
-                        <a href="{wa_url}" target="_blank" style="text-decoration:none;">
-                            <div style="background-color:#dc2626; color:white; padding:12px; 
-                                        border-radius:8px; text-align:center; font-weight:bold; font-size:14px; 
-                                        box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
-                                🚩 SEND REMINDER
-                            </div>
-                        </a>
-                    ''', unsafe_allow_html=True)
-                else:
-                    c3.button("No Phone", disabled=True, use_container_width=True, key=f"dead_btn_{row['CUSTOMER_NAME']}")
-                
-                st.divider()
+                    # Column 1: Borrower Info
+                    c1.markdown(f"<span style='color: #1e3a8a; font-weight: bold; font-size: 18px;'>👤 {row['CUSTOMER_NAME']}</span>", unsafe_allow_html=True)
+                    last_pay = row['DATE_last_pay'] if pd.notna(row['DATE_last_pay']) else "No payments recorded"
+                    c1.markdown(f"<span style='color: #64748b; font-size: 13px;'>Last Payment: {last_pay}</span>", unsafe_allow_html=True)
+                    
+                    # Column 2: Money Owed
+                    bal = float(row['OUTSTANDING_AMOUNT'])
+                    c2.markdown(f"<span style='color: #3b82f6; font-weight: bold; font-size: 18px;'>UGX {bal:,.0f}</span>", unsafe_allow_html=True)
+                    c2.caption("Balance Due")
+                    
+                    # Column 3: Red WhatsApp Action Button
+                    clean_p = "".join(filter(str.isdigit, str(row.get('CONTACT', ''))))
+                    
+                    if clean_p:
+                        # Professional Chaser Message
+                        msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan balance of UGX {bal:,.0f} is overdue. Please settle this today to avoid penalties."
+                        wa_url = f"https://wa.me/{clean_p}?text={msg.replace(' ', '%20')}"
+                        
+                        c3.markdown(f'''
+                            <a href="{wa_url}" target="_blank" style="text-decoration:none;">
+                                <div style="background-color:#dc2626; color:white; padding:12px; 
+                                            border-radius:8px; text-align:center; font-weight:bold; font-size:14px; 
+                                            box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
+                                    🚩 SEND REMINDER
+                                </div>
+                            </a>
+                        ''', unsafe_allow_html=True)
+                    else:
+                        c3.button("No Phone", disabled=True, use_container_width=True, key=f"dead_btn_{row['CUSTOMER_NAME']}")
+                    
+                    st.divider()
+        else:
+            st.balloons()
+            st.success("🎉 Excellent! All clients are up to date. No overdue payments found.")
     else:
-        st.success("🎉 Excellent! All clients are up to date. No overdue payments found.")
+        st.info("ℹ️ No borrowers registered. The tracker will wake up once you add clients.")
 # --- PAGE: OPERATING EXPENSES ---
 elif page == "Expenses":
     st.markdown('<div class="main-title">📉 Operating Expenses</div>', unsafe_allow_html=True)
