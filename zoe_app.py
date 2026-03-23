@@ -364,10 +364,48 @@ elif page == "Borrowers":
     st.write("---")
 
     # --- 3. DISPLAY TABLE ---
-    st.markdown("#### 🔍 Borrower Directory")
+st.markdown("#### 🔍 Borrower Directory")
 
-    local_df = pd.DataFrame(st.session_state.local_registry)
-    combined = pd.concat([df, local_df], ignore_index=True)
+local_df = pd.DataFrame(st.session_state.local_registry)
+combined = pd.concat([df, local_df], ignore_index=True)
+
+if not combined.empty:
+    # Remove duplicates by NIN, keep last
+    combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
+
+    # Search/filter box to pick client by name or NIN
+    client_search = st.text_input("Enter Client Name or NIN to View Details")
+
+    if client_search:
+        # Filter rows containing the search string (case-insensitive)
+        filtered_client = combined[
+            combined.astype(str).apply(lambda x: x.str.contains(client_search, case=False, na=False)).any(axis=1)
+        ]
+
+        if not filtered_client.empty:
+            st.markdown("### Client Information")
+            st.table(filtered_client)  # display info as table
+        else:
+            st.info("No client found matching that search.")
+
+    # Show full borrower directory below search
+    st.markdown("### Full Borrower Directory")
+    st.dataframe(
+        combined,
+        use_container_width=True,
+        hide_index=True,
+        column_order=[
+            "CUSTOMER_NAME",
+            "LOAN_AMOUNT",
+            "TOTAL_DUE",
+            "AMOUNT_PAID",
+            "OUTSTANDING_AMOUNT",
+            "DUE_DATE",
+            "LOAN_TYPE"
+        ]
+    )
+else:
+    st.info("No borrowers yet.")
 
 
 elif page == "Collateral":
