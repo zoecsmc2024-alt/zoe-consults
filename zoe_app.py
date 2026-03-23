@@ -358,7 +358,7 @@ elif page == "Borrowers":
 
     st.write("---")
 
-    elif page == "Borrowers":
+elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
     # --- 1. INIT LOCAL STORAGE ---
