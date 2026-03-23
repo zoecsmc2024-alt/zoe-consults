@@ -484,27 +484,44 @@ elif page == "Collateral":
             
             col_a, col_b = st.columns(2)
             
-            # EDIT SECTION
+            # EDIT SECTION (Enhanced for Data Safety)
             with col_a.expander("📝 Edit Asset Details"):
                 with st.form("edit_asset_form"):
-                    curr_val = pd.to_numeric(asset_row[v_col], errors='coerce') or 0
-                    new_val = st.number_input("Update Value (UGX)", value=int(curr_val))
-                    new_status = st.selectbox("Update Status", ["Held", "Released", "Disposed"], 
-                                             index=0 if asset_row[s_col] == "Held" else 1)
+                    # 1. CLEAN THE DATA FIRST
+                    raw_val = str(asset_row[v_col])
+                    # Remove commas, spaces, and 'UGX' if they exist in the sheet
+                    clean_val = raw_val.replace(",", "").replace("UGX", "").replace(" ", "").strip()
+                    
+                    try:
+                        # Convert to float first (handles decimals), then to int
+                        curr_val = int(float(clean_val)) if clean_val else 0
+                    except:
+                        curr_val = 0
+                        
+                    new_val = st.number_input("Update Value (UGX)", value=curr_val, step=50000)
+                    
+                    # 2. STATUS SELECTOR
+                    curr_status = str(asset_row[s_col])
+                    status_options = ["Held", "Released", "Disposed"]
+                    default_idx = status_options.index(curr_status) if curr_status in status_options else 0
+                    
+                    new_status = st.selectbox("Update Status", options=status_options, index=default_idx)
                     
                     if st.form_submit_button("💾 Save Changes"):
                         try:
+                            # FRESH HANDSHAKE
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             fresh_client = gspread.service_account_from_dict(creds_dict)
                             ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                             
-                            # Match your specific sheet columns: BORROWER, ASSET_TYPE, DESCRIPTION, ESTIMATED_VALUE...
+                            # Append the update row
                             update_row = [asset_row[b_col], asset_row[i_col], "", new_val, str(datetime.now().date()), new_status]
                             ws.append_row(update_row)
                             
                             st.success("✅ Changes saved to Cloud!")
-                            st.cache_data.clear(); st.rerun()
+                            st.cache_data.clear()
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Sync error: {e}")
 
