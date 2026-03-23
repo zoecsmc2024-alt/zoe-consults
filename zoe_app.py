@@ -7,6 +7,7 @@ import plotly.express as px
 from datetime import datetime
 from fpdf import FPDF
 from st_aggrid import AgGrid
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_option_menu import option_menu
 
 # --- 1. PAGE CONFIGURATION ---
