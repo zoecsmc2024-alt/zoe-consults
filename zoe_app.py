@@ -359,81 +359,9 @@ elif page == "Borrowers":
     st.write("---")
 
     # --- 3. DISPLAY TABLE (Now properly indented) ---
-    from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
-
-st.markdown("#### 🔍 Borrower Directory")
-
-local_df = pd.DataFrame(st.session_state.local_registry)
-combined = pd.concat([df, local_df], ignore_index=True)
-
-if not combined.empty:
-    # Remove duplicates by NIN
-    combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
-
-    # Format money columns
-    money_cols = ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']
-    for col in money_cols:
-        if col in combined.columns:
-            combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
-            combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
-
-    # --- AG Grid Options ---
-    gb = GridOptionsBuilder.from_dataframe(combined)
-    gb.configure_pagination(enabled=True)
-    gb.configure_default_column(editable=False, resizable=True)
-
-    # Action buttons as icons
-    cell_renderer = JsCode('''
-    class BtnCellRenderer {
-        init(params) {
-            this.params = params;
-            this.eGui = document.createElement('div');
-            this.eGui.innerHTML = `
-                <span style="cursor:pointer;color:#3b82f6;margin-right:8px;" title="Edit">&#9998;</span>
-                <span style="cursor:pointer;color:#16a34a;margin-right:8px;" title="View">&#128065;</span>
-                <span style="cursor:pointer;color:#dc2626;" title="Delete">&#128465;</span>
-            `;
-            const [edit, view, del] = this.eGui.children;
-            edit.addEventListener('click', () => {params.api.dispatchEvent({type:'editRow', data: params.data})});
-            view.addEventListener('click', () => {params.api.dispatchEvent({type:'viewRow', data: params.data})});
-            del.addEventListener('click', () => {params.api.dispatchEvent({type:'deleteRow', data: params.data})});
-        }
-        getGui() { return this.eGui; }
-    }
-    ''')
-    gb.configure_column("CUSTOMER_NAME", header_name="Client", pinned='left')
-    gb.configure_column("Actions", header_name="Actions", cellRenderer=cell_renderer, editable=False)
-
-    grid_options = gb.build()
-
-    # --- Render Grid ---
-    grid_response = AgGrid(
-        combined,
-        gridOptions=grid_options,
-        update_mode=GridUpdateMode.NO_UPDATE,
-        allow_unsafe_jscode=True,
-        enable_enterprise_modules=False,
-        fit_columns_on_grid_load=True
-    )
-
-    # --- Handle Actions ---
-    if grid_response and grid_response.get('selected_rows') is not None:
-        selected_data = grid_response['selected_rows']
-        
-        # Convert to list of dicts if it's a DataFrame (prevents TypeError)
-        if isinstance(selected_data, pd.DataFrame):
-            selected_rows = selected_data.to_dict('records')
-        else:
-            selected_rows = selected_data
-
-        if selected_rows:
-            for row in selected_rows:
-                # row contains the clicked row data; implement your logic
-                st.write(row)
-        else:
-            st.info("Select a row in the grid to see details.")
-    else:
-        st.info("No borrowers yet.")
+    Pencil ✏️ = Edit → Open a modal or inline edit.
+Eye 👁️ = View → Pop-up to show borrower details.
+Trash 🗑️ = Delete → Confirm and remove row.
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
