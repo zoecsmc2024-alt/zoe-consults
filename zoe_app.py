@@ -72,54 +72,45 @@ if not st.session_state.authenticated:
                     st.error("Invalid Credentials")
     st.stop()
 
-# --- 5. DATA ENGINE (Google Sheets - Silent Success Version) ---
-@st.cache_data(ttl=600)
+# --- 5. DATA ENGINE (Google Sheets - High Performance Version) ---
+@st.cache_data(ttl=60) # Changed from 600 to 60 (Checks Google every minute)
 def load_full_database():
     try:
         # 1. Setup Dict and Clean Newlines
         creds_dict = dict(st.secrets["gcp_service_account"])
         if "private_key" in creds_dict:
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-        
-        # 2. Direct Authorization (The g_client)
+
+        # 2. Direct Authorization
         client = gspread.service_account_from_dict(creds_dict)
-        database = client.open("Zoe_Consults_Database")
         
+        # 🎯 USE THE UNIQUE ID (This ensures it ALWAYS finds the right file)
+        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+        database = client.open_by_key(sheet_id)
+
         def fetch_worksheet(name):
             try:
                 sheet = database.worksheet(name)
                 data = sheet.get_all_records()
-                return pd.DataFrame(data) if data else pd.DataFrame()
+                # If sheet is empty, return a DataFrame with your specific headers
+                if not data:
+                    return pd.DataFrame()
+                return pd.DataFrame(data)
             except:
                 return pd.DataFrame()
 
-        # Fetch Data
+        # 3. Pull all tabs
         df = fetch_worksheet("Clients")
         pay_df = fetch_worksheet("Repayments")
-        collateral_df = fetch_worksheet("Collateral")
-        expense_df = fetch_worksheet("Expenses")
+        collat_df = fetch_worksheet("Collateral")
+        exp_df = fetch_worksheet("Expenses")
         petty_df = fetch_worksheet("PettyCash")
         payroll_df = fetch_worksheet("Payroll")
-        
-        # Clean Numeric Columns
-        if not df.empty:
-            for col in ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        
-        return df, pay_df, collateral_df, expense_df, petty_df, payroll_df, client
 
+        return df, pay_df, collat_df, exp_df, petty_df, payroll_df, client
     except Exception as e:
-        # 🤫 The Magic Filter: Ignore the "Success" response
-        if "200" not in str(e):
-            st.error(f"Actual Sync Error: {e}")
-        
-        # We still return the client even if a '200' message was sent
-        try:
-            client = gspread.service_account_from_dict(creds_dict)
-            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), client
-        except:
-            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
+        st.error(f"FATAL CONNECTION ERROR: {e}")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), None
 
 # ACTIVATE THE SYSTEM
 df, pay_df, collateral_df, expense_df, petty_df, payroll_df, g_client = load_full_database()
