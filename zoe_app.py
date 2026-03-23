@@ -1712,7 +1712,7 @@ elif page == "Add Payment":
 
 # PAGE: SETTINGS (Backups & Reports & Branding)
 elif page == "Settings":
-    st.markdown('<div class="main-title">⚙️ Business Configuration</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">⚙️ Business Configuration</div>', unsafe_allow_html=True)
     
     # 1. BUSINESS PROFILE & LOGO
     st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>🏢 Business Identity & Branding</p>", unsafe_allow_html=True)
