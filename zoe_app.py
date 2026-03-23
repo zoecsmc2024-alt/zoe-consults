@@ -390,8 +390,8 @@ elif page == "Collateral":
     # 2. LOG NEW COLLATERAL FORM
     with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
         with st.form("collateral_form", clear_on_submit=True):
-            # Smart Borrower Picker
-            local_names = [b.get('CUSTOMER_NAME') or b.get('BORROWER') for b in st.session_state.get('local_registry', [])]
+            # Smart Borrower Picker (Merges names from all sources)
+            local_names = [b.get('CUSTOMER_NAME') for b in st.session_state.get('local_registry', [])]
             cloud_names = df['CUSTOMER_NAME'].tolist() if 'CUSTOMER_NAME' in df.columns else []
             all_borrowers = sorted(list(set([str(n) for n in cloud_names + local_names if n])))
             
@@ -404,12 +404,10 @@ elif page == "Collateral":
             with c2:
                 item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
                 st.caption(f"💰 Value Preview: **UGX {item_val:,.0f}**")
-                status = st.selectbox("Initial Status", ["Held", "Released", "Disposed"])
+                status = st.selectbox("Initial Status", ["HELD", "RELEASED", "DISPOSED"])
                 date_added = st.date_input("Date Added", value=datetime.now())
 
-            submit_btn = st.form_submit_button("🔒 Secure Item", use_container_width=True)
-            
-            if submit_btn:
+            if st.form_submit_button("🔒 Secure Item", use_container_width=True):
                 if b_name != "No Borrowers Found" and asset_type:
                     new_asset = {
                         "BORROWER": b_name,
@@ -421,17 +419,11 @@ elif page == "Collateral":
                         "DATE_ADDED": str(date_added)
                     }
                     
-                    # Save Locally
                     st.session_state.local_collateral.append(new_asset)
                     
                     try:
-                        # Fresh Cloud Handshake
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
                         sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("Collateral")
-                        
+                        ws = g_client.open_by_key(sheet_id).worksheet("Collateral")
                         ws.append_row(list(new_asset.values()), value_input_option='USER_ENTERED')
                         
                         st.balloons()
@@ -440,95 +432,68 @@ elif page == "Collateral":
                         st.rerun()
                     except Exception as e:
                         st.warning(f"⚠️ Saved locally, Cloud sync pending: {e}")
-                else:
-                    st.warning("Please select a borrower and enter an Asset Type.")
 
     st.write("---")
 
     # 3. THE INVENTORY TABLE
     st.markdown("#### 📦 Current Inventory List")
     
-    # 1. Global Headers (Universal across the page)
-    b_col = 'BORROWER' if 'BORROWER' in collateral_df.columns else 'BORROWER_NAME'
-    i_col = 'ASSET_TYPE' if 'ASSET_TYPE' in collateral_df.columns else 'ITEM_NAME'
-    v_col = 'ESTIMATED_VALUE' if 'ESTIMATED_VALUE' in collateral_df.columns else 'VALUE'
-    s_col = 'STATUS' if 'STATUS' in collateral_df.columns else 'STATUS'
-    d_col = 'DESCRIPTION' if 'DESCRIPTION' in collateral_df.columns else 'ITEM_NAME'
-    dt_col = 'DATE_ADDED' if 'DATE_ADDED' in collateral_df.columns else 'STORAGE_REF'
-
     # Merge Cloud + Local
     local_collat_df = pd.DataFrame(st.session_state.get('local_collateral', []))
     combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
     
     if not combined_collat.empty:
-        # --- THE REFRESH ENGINE ---
-        # A. Clean data types for matching
-        combined_collat[b_col] = combined_collat[b_col].astype(str).str.strip()
-        combined_collat[i_col] = combined_collat[i_col].astype(str).str.strip()
-        combined_collat[s_col] = combined_collat[s_col].astype(str).str.upper().str.strip()
+        # Clean data for matching
+        combined_collat['BORROWER'] = combined_collat['BORROWER'].astype(str).str.strip()
+        combined_collat['ASSET_TYPE'] = combined_collat['ASSET_TYPE'].astype(str).str.strip()
+        combined_collat['STATUS'] = combined_collat['STATUS'].astype(str).str.upper().str.strip()
         
-        # B. DEDUPLICATE (This is the most important line!)
-        # It keeps the LATEST row for each Borrower + Item.
-        # This makes Edits and Deletes "overwrite" the old data in the view.
-        combined_collat = combined_collat.drop_duplicates(subset=[b_col, i_col], keep='last')
+        # DEDUPLICATE: Keeps the LATEST status/entry for each Borrower + Item
+        display_df = combined_collat.drop_duplicates(subset=['BORROWER', 'ASSET_TYPE'], keep='last')
         
-        # C. HIDE DELETED (Now that we have the latest status, hide the trash)
-        display_df = combined_collat[~combined_collat[s_col].isin(["DELETED", "REMOVED", "NAN", "NONE"])].copy()
-        
-        # D. SORT (Newest updates on top)
+        # Filter out "Deleted" markers
+        display_df = display_df[~display_df['STATUS'].isin(["DELETED", "REMOVED", "NAN", "NONE"])].copy()
         display_df = display_df.sort_index(ascending=False)
 
-        # --- SEARCH & DISPLAY ---
+        # Search & Display
         search = st.text_input("🔍 Filter Inventory", placeholder="Search name or item...", key="collat_search_main")
         if search:
             display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # Currency Formatting
+        # Formatting for table
         table_show = display_df.copy()
-        if v_col in table_show.columns:
-            table_show[v_col] = pd.to_numeric(table_show[v_col], errors='coerce').fillna(0)
-            table_show[v_col] = table_show[v_col].apply(lambda x: f"{float(x):,.0f}")
+        table_show['ESTIMATED_VALUE'] = pd.to_numeric(table_show['ESTIMATED_VALUE'], errors='coerce').fillna(0)
+        table_show['ESTIMATED_VALUE'] = table_show['ESTIMATED_VALUE'].apply(lambda x: f"{float(x):,.0f}")
             
         st.dataframe(table_show, use_container_width=True, hide_index=True)
-        st.caption(f"Showing {len(display_df)} active collateral items.")
 
-        # --- 4. MANAGE SELECTED ASSET (Sync-Fix) ---
+        # 4. MANAGE SELECTED ASSET (The Fix for Edit/Delete)
         st.write("---")
         st.markdown("#### 🛠️ Manage Selected Asset")
         
-        # Generate clean labels for the dropdown
-        dropdown_options = [f"{row[b_col]} | {row[i_col]} (UGX {row[v_col]})" for _, row in display_df.iterrows()]
+        options = [f"{row['BORROWER']} | {row['ASSET_TYPE']}" for _, row in display_df.iterrows()]
 
-        if dropdown_options:
-            selected_asset_str = st.selectbox("Select item to Update/Delete", options=dropdown_options)
-            
-            # Identify the exact row using the index of the option
-            idx = dropdown_options.index(selected_asset_str)
+        if options:
+            selected_asset_str = st.selectbox("Select item to Update/Delete", options=options)
+            idx = options.index(selected_asset_str)
             asset_row = display_df.iloc[idx]
             
             col_a, col_b = st.columns(2)
             
             with col_a.expander("📝 Edit Asset Details"):
                 with st.form("edit_asset_form_final"):
-                    new_desc = st.text_input("Update Description", value=str(asset_row.get(d_col, "")))
-                    
-                    # Clean number logic
-                    raw_v = str(asset_row.get(v_col, "0")).replace(",", "").strip()
-                    try: curr_v = int(float(raw_v))
-                    except: curr_v = 0
-                    
-                    new_val = st.number_input("Update Value (UGX)", value=curr_v, step=50000)
+                    new_desc = st.text_input("Update Description", value=str(asset_row.get('DESCRIPTION', "")))
+                    raw_v = str(asset_row.get('ESTIMATED_VALUE', "0")).replace(",", "").strip()
+                    new_val = st.number_input("Update Value (UGX)", value=int(float(raw_v)), step=50000)
                     new_status = st.selectbox("Update Status", ["HELD", "RELEASED", "DISPOSED"])
                     
                     if st.form_submit_button("💾 Save Changes"):
                         try:
-                            creds_dict = dict(st.secrets["gcp_service_account"])
-                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                            fresh_client = gspread.service_account_from_dict(creds_dict)
-                            ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
-                            
-                            # Standard 7-column push (MATCHES YOUR GOOGLE SHEET)
-                            ws.append_row([asset_row[b_col], asset_row[i_col], new_desc, new_val, asset_row.get(dt_col, ""), new_status, str(datetime.now().date())])
+                            sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                            ws = g_client.open_by_key(sheet_id).worksheet("Collateral")
+                            # We append a NEW row with the SAME name/item but UPDATED status
+                            # The "drop_duplicates" above will ensure only this newest row shows.
+                            ws.append_row([asset_row['BORROWER'], asset_row['ASSET_TYPE'], new_desc, new_val, asset_row.get('STORAGE_REF', ""), new_status, str(datetime.now().date())])
                             
                             st.success("✅ Changes saved to Cloud!")
                             st.cache_data.clear()
@@ -537,22 +502,19 @@ elif page == "Collateral":
                             st.error(f"Sync error: {e}")
 
             with col_b.expander("🗑️ Delete Record"):
-                st.warning("Remove this item from view.")
-                if st.button("🔥 Confirm Deletion", key="del_btn_v_final"):
+                st.warning("This will remove the item from your active inventory list.")
+                if st.button("🔥 Confirm Deletion", key="del_btn_collat"):
                     try:
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = g_client.open_by_key(sheet_id).worksheet("Collateral")
+                        # Mark as DELETED
+                        ws.append_row([asset_row['BORROWER'], asset_row['ASSET_TYPE'], "REMOVED", 0, asset_row.get('STORAGE_REF', ""), "DELETED", str(datetime.now().date())])
                         
-                        # Mark as DELETED so the filter hides it
-                        ws.append_row([asset_row[b_col], asset_row[i_col], "DELETED", 0, asset_row.get(dt_col, ""), "DELETED", str(datetime.now().date())])
-                        
-                        st.success("Deleted!")
+                        st.success("Item removed from ledger.")
                         st.cache_data.clear()
                         st.rerun()
-                    except:
-                        st.error("Delete failed. Check connection.")
+                    except Exception as e:
+                        st.error(f"Delete failed: {e}")
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: ACTIVITY CALENDAR
