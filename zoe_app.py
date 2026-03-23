@@ -263,7 +263,7 @@ if page == "Overview":
         else:
             st.info("ℹ️ No expenses recorded yet.")
 # PAGE: BORROWERS (Now includes Registration)
-    elif page == "Borrowers":
+elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
     
     if 'local_registry' not in st.session_state:
@@ -376,7 +376,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
 
 # <--- MAKE SURE THIS LINE IS NOT INDENTED INSIDE THE PREVIOUS 'IF'
     
-    elif page == "Collateral":
+elif page == "Collateral":
         st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
         # 1. Initialize Local Memory
         if 'local_collateral' not in st.session_state:
@@ -513,7 +513,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: ACTIVITY CALENDAR
-    elif page == "Calendar":
+elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
     
     # 1. Create the Event List from all your data
@@ -565,7 +565,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
         st.info("ℹ️ Add your first borrower or collateral to see dates on the calendar.")
 
 # PAGE: LEDGER (Individual Client Statements & PDF Export)
-    elif page == "Ledger":
+elif page == "Ledger":
     st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
     
     # 1. SYNC DATA (Combine Cloud + Local so new clients appear here)
@@ -680,7 +680,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
         st.info("ℹ️ Your Ledger is empty. Register your first borrower in the Borrower Hub.")
 
 # PAGE: OVERDUE TRACKER (The Debt Collector)
-    elif page == "Overdue Tracker":
+elif page == "Overdue Tracker":
     st.markdown('<div class="main-title">🚨 Urgent Follow-up: Overdue Portfolios</div>', unsafe_allow_html=True)
     
     # 1. SYNC DATA (Combine Cloud + Local)
@@ -763,7 +763,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
     else:
         st.info("ℹ️ No borrowers registered. The tracker will wake up once you add clients.")
 # PAGE: OPERATING EXPENSES
-    elif page == "Expenses":
+elif page == "Expenses":
     st.markdown('<div class="main-title">📉 Operating Expenses</div>', unsafe_allow_html=True)
     
     # 1. Initialize Local Expense Memory (for instant feedback)
@@ -846,7 +846,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
     else:
         st.info("ℹ️ Your Expense Ledger is empty. Log your first business expense above.")
 # PAGE: PETTY CASH
-    elif page == "PettyCash":
+elif page == "PettyCash":
     st.markdown('<div class="main-title">🪙 Petty Cash Management</div>', unsafe_allow_html=True)
     
     # 1. Initialize Local Memory
@@ -934,7 +934,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
         st.info("ℹ️ No petty cash transactions found. Top up your float to get started!")
 
 # PAGE: PAYROLL (Salaries & Digital Pay Slips)
-    elif page == "Payroll":
+elif page == "Payroll":
     st.markdown('<div class="main-title">👔 Team Payroll Management</div>', unsafe_allow_html=True)
     
     # 1. Initialize Local Memory
@@ -1087,7 +1087,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
     else:
         st.info("Record a staff salary first to generate a pay slip.")
 # PAGE: ADD PAYMENT (Loan Collections)
-    elif page == "Add Payment":
+elif page == "Add Payment":
     st.markdown('<div class="main-title">📥 Post Loan Repayment</div>', unsafe_allow_html=True)
     
     # 1. Initialize Local Payment Memory
@@ -1178,7 +1178,7 @@ with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
 
 
 # PAGE: SETTINGS (Backups & Reports & Branding)
-    elif page == "Settings":
+elif page == "Settings":
     st.markdown('<div class="main-title">⚙️ Business Configuration</div>', unsafe_allow_html=True)
     
     # 1. BUSINESS PROFILE & LOGO
