@@ -192,374 +192,493 @@ with st.sidebar:
 
 # --- 7. PAGE MODULES ---
 
-# PAGE: OVERVIEW
-
 if page == "Overview":
-    st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
-    
-    # 1. MERGE ALL DATA (Cloud + Local)
-    # Borrowers
-    local_b = pd.DataFrame(st.session_state.get('local_registry', []))
-    all_b = pd.concat([df, local_b], ignore_index=True)
-    
-    # Repayments (Revenue)
-    local_r = pd.DataFrame(st.session_state.get('local_repayments', []))
-    all_r = pd.concat([pay_df, local_r], ignore_index=True)
-    
-    # Expenses
-    local_e = pd.DataFrame(st.session_state.get('local_expenses', []))
-    all_e = pd.concat([expense_df, local_e], ignore_index=True)
+    st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
 
-    # 2. CALCULATE MASTER METRICS
-    if not all_b.empty:
-        # Convert to numbers safely
-        cap_out = pd.to_numeric(all_b['LOAN_AMOUNT'], errors='coerce').sum()
-        # Revenue is the sum of all payments collected
-        collected = pd.to_numeric(all_r['AMOUNT_PAID'], errors='coerce').sum() if not all_r.empty else 0
-        # Risk is Capital Out minus what has been paid back
-        at_risk = cap_out - collected
-    else:
-        cap_out, collected, at_risk = 0, 0, 0
+    # --- 1. MERGE ALL DATA (CLOUD + LOCAL) ---
+    local_b = pd.DataFrame(st.session_state.get('local_registry', []))
+    local_r = pd.DataFrame(st.session_state.get('local_repayments', []))
+    local_e = pd.DataFrame(st.session_state.get('local_expenses', []))
+    local_p = pd.DataFrame(st.session_state.get('local_petty', []))
+    local_pay = pd.DataFrame(st.session_state.get('local_payroll', []))
 
-    # 3. CALCULATE NET REVENUE (Collected - Bills)
-    t_ops = pd.to_numeric(all_e['AMOUNT'], errors='coerce').sum() if not all_e.empty else 0
-    # Petty Cash Spends
-    local_p = pd.DataFrame(st.session_state.get('local_petty', []))
-    all_p = pd.concat([petty_df, local_p], ignore_index=True)
-    t_petty = all_p[all_p['TYPE'] == 'Spend']['AMOUNT'].sum() if not all_p.empty else 0
-    # Payroll
-    local_pay = pd.DataFrame(st.session_state.get('local_payroll', []))
-    all_pay = pd.concat([payroll_df, local_pay], ignore_index=True)
-    t_payroll = all_pay['NET_PAY'].sum() if not all_pay.empty else 0
-    
-    net_rev = collected - (t_ops + t_petty + t_payroll)
-    
-    # 4. DISPLAY TOP METRICS
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("💰 Capital Out", f"UGX {cap_out:,.0f}")
-    k2.metric("📈 Collected", f"UGX {collected:,.0f}")
-    k3.metric("💎 Net Revenue", f"UGX {net_rev:,.0f}", delta="After Bills")
-    k4.metric("🚨 At Risk", f"UGX {at_risk:,.0f}", delta_color="inverse")
+    all_b = pd.concat([df, local_b], ignore_index=True)
+    all_r = pd.concat([pay_df, local_r], ignore_index=True)
+    all_e = pd.concat([expense_df, local_e], ignore_index=True)
+    all_p = pd.concat([petty_df, local_p], ignore_index=True)
+    all_pay = pd.concat([payroll_df, local_pay], ignore_index=True)
 
-    st.write("---")
-    
-    # 5. CHARTS (Live Update)
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("#### Collection Ratio")
-        if cap_out > 0:
-            fig = px.pie(
-                values=[collected, at_risk if at_risk > 0 else 0], 
-                names=['Paid', 'Outstanding'], 
-                hole=.5, 
-                color_discrete_sequence=['#1e3a8a', '#3b82f6']
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("ℹ️ Add a borrower to see the ratio.")
-            
-    with c2:
-        st.markdown("#### Monthly Expense Breakdown")
-        if not all_e.empty:
-            exp_chart_data = all_e.groupby('CATEGORY')['AMOUNT'].sum()
-            st.bar_chart(exp_chart_data)
-        else:
-            st.info("ℹ️ No expenses recorded yet.")
-# PAGE: BORROWERS (Now includes Registration)
+    # --- 2. CLEAN DATA (VERY IMPORTANT) ---
+    def clean(df, col):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        return df
+
+    all_b = clean(all_b, 'LOAN_AMOUNT')
+    all_b = clean(all_b, 'AMOUNT_PAID')
+    all_b = clean(all_b, 'OUTSTANDING_AMOUNT')
+
+    all_r = clean(all_r, 'AMOUNT_PAID')
+    all_e = clean(all_e, 'AMOUNT')
+    all_p = clean(all_p, 'AMOUNT')
+    all_pay = clean(all_pay, 'NET_PAY')
+
+    # --- 3. CORE METRICS ---
+    cap_out = all_b['LOAN_AMOUNT'].sum() if not all_b.empty else 0
+    collected = all_r['AMOUNT_PAID'].sum() if not all_r.empty else 0
+    outstanding = all_b['OUTSTANDING_AMOUNT'].sum() if not all_b.empty else 0
+
+    # EXPENSES BREAKDOWN
+    t_ops = all_e['AMOUNT'].sum() if not all_e.empty else 0
+    t_petty = all_p[all_p['TYPE'] == 'Spend']['AMOUNT'].sum() if not all_p.empty else 0
+    t_payroll = all_pay['NET_PAY'].sum() if not all_pay.empty else 0
+
+    total_expenses = t_ops + t_petty + t_payroll
+    net_profit = collected - total_expenses
+
+    # COLLECTION RATE
+    collection_rate = (collected / cap_out * 100) if cap_out > 0 else 0
+
+    # --- 4. KPI DISPLAY (KEEP YOUR COLORS) ---
+    k1, k2, k3, k4 = st.columns(4)
+
+    k1.metric("💰 Capital Out", f"UGX {cap_out:,.0f}")
+    k2.metric("📈 Collected", f"UGX {collected:,.0f}")
+    k3.metric("💎 Net Profit", f"UGX {net_profit:,.0f}", delta="After Expenses")
+    k4.metric("🚨 Outstanding", f"UGX {outstanding:,.0f}", delta_color="inverse")
+
+    st.write("---")
+
+    # --- 5. SECONDARY METRICS ---
+    s1, s2, s3 = st.columns(3)
+    s1.metric("📊 Collection Rate", f"{collection_rate:.1f}%")
+    s2.metric("💸 Total Expenses", f"UGX {total_expenses:,.0f}")
+    s3.metric("👥 Total Clients", f"{len(all_b)}")
+
+    st.write("---")
+
+    # --- 6. VISUALS ---
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown("#### 💰 Portfolio Distribution")
+
+        if cap_out > 0:
+            fig = px.pie(
+                values=[collected, outstanding],
+                names=['Collected', 'Outstanding'],
+                hole=0.5,
+                color_discrete_sequence=['#1e3a8a', '#3b82f6']
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No loan data available yet.")
+
+    with c2:
+        st.markdown("#### 📉 Expense Breakdown")
+
+        if not all_e.empty:
+            exp_chart = all_e.groupby('CATEGORY')['AMOUNT'].sum().sort_values(ascending=False)
+
+            fig2 = px.bar(
+                exp_chart,
+                x=exp_chart.index,
+                y=exp_chart.values,
+                color_discrete_sequence=['#3b82f6']
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("No expenses recorded yet.")
+
+    st.write("---")
+
+    # --- 7. MONTHLY PERFORMANCE (🔥 UPGRADE) ---
+    st.markdown("#### 📆 Monthly Performance")
+
+    if not all_r.empty:
+        all_r['DATE'] = pd.to_datetime(all_r['DATE'], errors='coerce')
+        monthly_rev = all_r.groupby(all_r['DATE'].dt.to_period("M"))['AMOUNT_PAID'].sum()
+
+        monthly_rev.index = monthly_rev.index.astype(str)
+
+        fig3 = px.line(
+            monthly_rev,
+            x=monthly_rev.index,
+            y=monthly_rev.values,
+            markers=True
+        )
+        fig3.update_traces(line_color='#1e3a8a')
+
+        st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.info("No revenue data yet.")
+
+    st.write("---")
+
+    # --- 8. TOP BORROWERS (SMART INSIGHT) ---
+    st.markdown("#### 🏆 Top Borrowers (Highest Loans)")
+
+    if not all_b.empty:
+        top_clients = all_b.sort_values(by='LOAN_AMOUNT', ascending=False).head(5)
+
+        st.dataframe(
+            top_clients[['CUSTOMER_NAME', 'LOAN_AMOUNT', 'OUTSTANDING_AMOUNT']],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No borrower data available.")
 elif page == "Borrowers":
-    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
-    
-    if 'local_registry' not in st.session_state:
-        st.session_state.local_registry = []
+    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
-    # 1. REGISTRATION SECTION
-    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
-        with st.form("kyc_registration_form", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                f_name = st.text_input("First Name")
-                l_name = st.text_input("Last Name")
-                phone = st.text_input("Contact Number (256...)")
-                gender = st.selectbox("Gender", ["Male", "Female"])
-                nin = st.text_input("NIN (National ID Number)")
-                issue_date = st.date_input("Loan Issue Date", value=datetime.now())
-            
-            with c2:
-                loan_amt = st.number_input("Approved Loan Amount (UGX)", min_value=0, step=50000)
-                interest = st.number_input("Agreed Interest Rate (%)", min_value=0)
-                loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency"])
-                address = st.text_area("Residential Address")
-                due_date = st.date_input("Repayment Due Date", value=datetime.now() + timedelta(days=30))
+    # --- 1. INIT LOCAL STORAGE ---
+    if 'local_registry' not in st.session_state:
+        st.session_state.local_registry = []
 
-            if st.form_submit_button("🚀 Finalize Registration & Disburse"):
-                if f_name and l_name and nin:
-                    full_name = f"{f_name} {l_name}".upper()
-                    
-                    # Constructing the row with new Date columns
-                    new_entry = {
-                        "CUSTOMER_NAME": full_name,
-                        "CONTACT": phone,
-                        "LOAN_AMOUNT": loan_amt,
-                        "AMOUNT_PAID": 0,
-                        "OUTSTANDING_AMOUNT": loan_amt,
-                        "INTEREST_RATE": interest,
-                        "NIN": nin,
-                        "ADDRESS": address,
-                        "GENDER": gender,
-                        "LOAN_TYPE": loan_type,
-                        "ISSUE_DATE": str(issue_date),
-                        "DUE_DATE": str(due_date)
-                    }
+    # --- 2. REGISTER CLIENT ---
+    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
+        with st.form("kyc_registration_form", clear_on_submit=True):
 
-                    st.session_state.local_registry.append(new_entry)
-                    
-                    try:
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("Clients")
-                        
-                        # Save to Google (appends to the end of the sheet)
-                        ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
-                        st.balloons()
-                        st.success(f"✅ {full_name} saved successfully!")
-                    except Exception as e:
-                        st.warning(f"⚠️ Saved locally, but Cloud Sync delayed: {e}")
-                    
-                    st.cache_data.clear()
-                else:
-                    st.warning("Please fill in required fields (Name/NIN).")
+            c1, c2 = st.columns(2)
 
-    st.write("---")
+            with c1:
+                f_name = st.text_input("First Name")
+                l_name = st.text_input("Last Name")
+                phone = st.text_input("Contact (256...)")
+                gender = st.selectbox("Gender", ["Male", "Female"])
+                nin = st.text_input("NIN")
+                issue_date = st.date_input("Loan Issue Date", value=datetime.now())
 
-    # 2. THE DIRECTORY (With Formatting)
-    st.markdown("#### 🔍 Active Borrower Directory")
-    
-    # Merge Cloud + Local data
-    combined_display = pd.concat([df, pd.DataFrame(st.session_state.local_registry)], ignore_index=True)
-    if not combined_display.empty:
-        combined_display = combined_display.drop_duplicates(subset=['NIN'], keep='last')
-        
-        # --- COMMA FORMATTING ---
-        # We create a display-only version so we don't break the math later
-        formatted_df = combined_display.copy()
-        money_cols = ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']
-        for col in money_cols:
-            if col in formatted_df.columns:
-                formatted_df[col] = formatted_df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
+            with c2:
+                loan_amt = st.number_input("Loan Amount (UGX)", min_value=0, step=50000)
+                interest = st.number_input("Interest Rate (%)", min_value=0.0)
+                loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency"])
+                address = st.text_area("Address")
+                due_date = st.date_input("Due Date", value=datetime.now() + timedelta(days=30))
 
-        st.dataframe(
-            formatted_df, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=("CUSTOMER_NAME", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "ISSUE_DATE", "DUE_DATE", "LOAN_TYPE")
-        )
-    else:
-        st.info("ℹ️ No borrowers yet.")
+            # --- CALCULATIONS ---
+            total_due = loan_amt + (loan_amt * interest / 100)
 
-    # 3. EDIT/DELETE ACTIONS (The Pencil & Eraser)
-    if not df.empty:
-        st.write("---")
-        with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
-            to_action = st.selectbox("Select Client to Modify", df['CUSTOMER_NAME'].unique())
-            act = st.radio("Action", ["Update Contact/Address", "Remove Client Forever"], horizontal=True)
-            
-            if act == "Update Contact/Address":
-                with st.form("edit_kyc"):
-                    new_p = st.text_input("New Phone", value=str(df[df['CUSTOMER_NAME']==to_action]['CONTACT'].values[0]))
-                    new_a = st.text_area("New Address", value=str(df[df['CUSTOMER_NAME']==to_action]['ADDRESS'].values[0]))
-                    if st.form_submit_button("Save Changes"):
-                        ws = g_client.open("Zoe_Consults_Database").worksheet("Clients")
-                        cell = ws.find(to_action)
-                        ws.update_cell(cell.row, 2, new_p) # Update Contact
-                        ws.update_cell(cell.row, 9, new_a) # Update Address
-                        st.success("Details Updated!"); st.cache_data.clear()
-            
-            elif act == "Remove Client Forever":
-                if st.button("🚨 CONFIRM DELETE"):
-                    ws = g_client.open("Zoe_Consults_Database").worksheet("Clients")
-                    cell = ws.find(to_action)
-                    ws.delete_rows(cell.row)
-                    st.warning("Client erased from database."); st.cache_data.clear()
+            st.info(f"💰 Total Payable: UGX {total_due:,.0f}")
 
-# PAGE: COLLATERAL
+            if st.form_submit_button("🚀 Register & Disburse"):
+                if f_name and l_name and nin:
+
+                    full_name = f"{f_name} {l_name}".upper()
+
+                    new_entry = {
+                        "CUSTOMER_NAME": full_name,
+                        "CONTACT": phone,
+                        "NIN": nin,
+                        "GENDER": gender,
+                        "ADDRESS": address,
+                        "LOAN_TYPE": loan_type,
+                        "LOAN_AMOUNT": loan_amt,
+                        "INTEREST_RATE": interest,
+                        "TOTAL_DUE": total_due,
+                        "AMOUNT_PAID": 0,
+                        "OUTSTANDING_AMOUNT": total_due,
+                        "ISSUE_DATE": str(issue_date),
+                        "DUE_DATE": str(due_date)
+                    }
+
+                    # SAVE LOCAL
+                    st.session_state.local_registry.append(new_entry)
+
+                    # SAVE TO GOOGLE
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+                        client = gspread.service_account_from_dict(creds_dict)
+                        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+
+                        ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
+
+                        st.success(f"✅ {full_name} registered successfully!")
+                        st.balloons()
+
+                        st.cache_data.clear()
+
+                    except Exception as e:
+                        st.warning(f"Saved locally. Cloud sync pending.")
+
+                else:
+                    st.warning("Please fill all required fields.")
+
+    st.write("---")
+
+    # --- 3. DISPLAY TABLE ---
+    st.markdown("#### 🔍 Borrower Directory")
+
+    local_df = pd.DataFrame(st.session_state.local_registry)
+    combined = pd.concat([df, local_df], ignore_index=True)
+
+    if not combined.empty:
+
+        # REMOVE DUPLICATES
+        combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
+
+        # SEARCH
+        search = st.text_input("Search client...")
+        if search:
+            combined = combined[combined.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+
+        # FORMAT MONEY
+        for col in ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
+            if col in combined.columns:
+                combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
+                combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
+
+        st.dataframe(
+            combined,
+            use_container_width=True,
+            hide_index=True,
+            column_order=[
+                "CUSTOMER_NAME",
+                "LOAN_AMOUNT",
+                "TOTAL_DUE",
+                "AMOUNT_PAID",
+                "OUTSTANDING_AMOUNT",
+                "DUE_DATE",
+                "LOAN_TYPE"
+            ]
+        )
+
+    else:
+        st.info("No borrowers yet.")
+
+    st.write("---")
+
+    # --- 4. ADMIN ACTIONS ---
+    if not df.empty:
+
+        st.markdown("#### 🛠️ Admin Controls")
+
+        selected = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
+
+        action = st.radio("Choose Action", ["Update Contact", "Delete Client"], horizontal=True)
+
+        if action == "Update Contact":
+            with st.form("edit_client"):
+                new_phone = st.text_input("New Phone")
+                new_address = st.text_area("New Address")
+
+                if st.form_submit_button("Save Changes"):
+                    try:
+                        ws = g_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+                        cell = ws.find(selected)
+
+                        ws.update_cell(cell.row, 2, new_phone)
+                        ws.update_cell(cell.row, 5, new_address)
+
+                        st.success("Updated successfully!")
+                        st.cache_data.clear()
+
+                    except:
+                        st.error("Update failed.")
+
+        elif action == "Delete Client":
+            st.warning("This action is permanent.")
+
+            if st.button("🚨 Confirm Delete"):
+                try:
+                    ws = g_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+                    cell = ws.find(selected)
+
+                    ws.delete_rows(cell.row)
+
+                    st.success("Client deleted.")
+                    st.cache_data.clear()
+
+                except:
+                    st.error("Delete failed.")
+
 elif page == "Collateral":
-    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-    
-    # 1. Initialize Local Memory
-    if 'local_collateral' not in st.session_state:
-        st.session_state.local_collateral = []
+    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
 
-    # 2. LOG NEW COLLATERAL FORM
-    with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
-        with st.form("collateral_form", clear_on_submit=True):
-            # Smart Borrower Picker
-            local_names = [b.get('CUSTOMER_NAME') or b.get('BORROWER') for b in st.session_state.get('local_registry', [])]
-            cloud_names = df['CUSTOMER_NAME'].tolist() if 'CUSTOMER_NAME' in df.columns else []
-            all_borrowers = sorted(list(set([str(n) for n in cloud_names + local_names if n])))
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                b_name = st.selectbox("Select Borrower", options=all_borrowers if all_borrowers else ["No Borrowers Found"])
-                asset_type = st.text_input("Asset Type", placeholder="e.g. Car Logbook")
-                detailed_desc = st.text_area("Detailed Description", placeholder="Plate No, Color, Condition...")
-            
-            with c2:
-                item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
-                st.caption(f"💰 Value Preview: **UGX {item_val:,.0f}**")
-                status = st.selectbox("Initial Status", ["Held", "Released", "Disposed"])
-                date_added = st.date_input("Date Added", value=datetime.now())
+    # --- 1. INIT LOCAL STORAGE ---
+    if 'local_collateral' not in st.session_state:
+        st.session_state.local_collateral = []
 
-            submit_btn = st.form_submit_button("🔒 Secure Item", use_container_width=True)
-            
-            if submit_btn:
-                if b_name != "No Borrowers Found" and asset_type:
-                    new_asset = {
-                        "BORROWER": b_name,
-                        "ASSET_TYPE": asset_type,
-                        "DESCRIPTION": detailed_desc,
-                        "ESTIMATED_VALUE": item_val,
-                        "STORAGE_REF": str(date_added),
-                        "STATUS": status,
-                        "DATE_ADDED": str(date_added)
-                    }
-                    
-                    # Save Locally
-                    st.session_state.local_collateral.append(new_asset)
-                    
-                    try:
-                        # Fresh Cloud Handshake
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("Collateral")
-                        
-                        ws.append_row(list(new_asset.values()), value_input_option='USER_ENTERED')
-                        
-                        st.balloons()
-                        st.success(f"✅ {asset_type} secured for {b_name}!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.warning(f"⚠️ Saved locally, Cloud sync pending: {e}")
-                else:
-                    st.warning("Please select a borrower and enter an Asset Type.")
+    # --- 2. LOAD BORROWERS ---
+    local_b = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined_borrowers = pd.concat([df, local_b], ignore_index=True)
 
-    st.write("---")
+    borrower_names = []
+    if not combined_borrowers.empty and 'CUSTOMER_NAME' in combined_borrowers.columns:
+        borrower_names = combined_borrowers['CUSTOMER_NAME'].dropna().unique().tolist()
 
-    # 3. THE INVENTORY TABLE
-    st.markdown("#### 📦 Current Inventory List")
-    
-    # 1. Global Headers (Universal across the page)
-    b_col = 'BORROWER' if 'BORROWER' in collateral_df.columns else 'BORROWER_NAME'
-    i_col = 'ASSET_TYPE' if 'ASSET_TYPE' in collateral_df.columns else 'ITEM_NAME'
-    v_col = 'ESTIMATED_VALUE' if 'ESTIMATED_VALUE' in collateral_df.columns else 'VALUE'
-    s_col = 'STATUS' if 'STATUS' in collateral_df.columns else 'STATUS'
-    d_col = 'DESCRIPTION' if 'DESCRIPTION' in collateral_df.columns else 'ITEM_NAME'
-    dt_col = 'DATE_ADDED' if 'DATE_ADDED' in collateral_df.columns else 'STORAGE_REF'
+    # --- 3. ADD COLLATERAL ---
+    with st.expander("📝 Log New Collateral", expanded=True):
+        with st.form("collateral_form", clear_on_submit=True):
 
-    # Merge Cloud + Local
-    local_collat_df = pd.DataFrame(st.session_state.get('local_collateral', []))
-    combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
-    
-    if not combined_collat.empty:
-        # --- THE REFRESH ENGINE ---
-        # A. Clean data types for matching
-        combined_collat[b_col] = combined_collat[b_col].astype(str).str.strip()
-        combined_collat[i_col] = combined_collat[i_col].astype(str).str.strip()
-        combined_collat[s_col] = combined_collat[s_col].astype(str).str.upper().str.strip()
-        
-        # B. DEDUPLICATE (This is the most important line!)
-        # It keeps the LATEST row for each Borrower + Item.
-        # This makes Edits and Deletes "overwrite" the old data in the view.
-        combined_collat = combined_collat.drop_duplicates(subset=[b_col, i_col], keep='last')
-        
-        # C. HIDE DELETED (Now that we have the latest status, hide the trash)
-        display_df = combined_collat[~combined_collat[s_col].isin(["DELETED", "REMOVED", "NAN", "NONE"])].copy()
-        
-        # D. SORT (Newest updates on top)
-        display_df = display_df.sort_index(ascending=False)
+            c1, c2 = st.columns(2)
 
-        # --- SEARCH & DISPLAY ---
-        search = st.text_input("🔍 Filter Inventory", placeholder="Search name or item...", key="collat_search_main")
-        if search:
-            display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        
-        # Currency Formatting
-        table_show = display_df.copy()
-        if v_col in table_show.columns:
-            table_show[v_col] = pd.to_numeric(table_show[v_col], errors='coerce').fillna(0)
-            table_show[v_col] = table_show[v_col].apply(lambda x: f"{float(x):,.0f}")
-            
-        st.dataframe(table_show, use_container_width=True, hide_index=True)
-        st.caption(f"Showing {len(display_df)} active collateral items.")
+            with c1:
+                borrower = st.selectbox("Borrower", borrower_names if borrower_names else ["No borrowers found"])
+                asset_type = st.text_input("Asset Type (e.g. Car, Land, Phone)")
+                description = st.text_area("Description (Plate No, Serial, etc)")
 
-        # --- 4. MANAGE SELECTED ASSET (Sync-Fix) ---
-        st.write("---")
-        st.markdown("#### 🛠️ Manage Selected Asset")
-        
-        # Generate clean labels for the dropdown
-        dropdown_options = [f"{row[b_col]} | {row[i_col]} (UGX {row[v_col]})" for _, row in display_df.iterrows()]
+            with c2:
+                value = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
+                status = st.selectbox("Status", ["HELD", "RELEASED", "DISPOSED"])
+                date_added = st.date_input("Date Added", value=datetime.now())
 
-        if dropdown_options:
-            selected_asset_str = st.selectbox("Select item to Update/Delete", options=dropdown_options)
-            
-            # Identify the exact row using the index of the option
-            idx = dropdown_options.index(selected_asset_str)
-            asset_row = display_df.iloc[idx]
-            
-            col_a, col_b = st.columns(2)
-            
-            with col_a.expander("📝 Edit Asset Details"):
-                with st.form("edit_asset_form_final"):
-                    new_desc = st.text_input("Update Description", value=str(asset_row.get(d_col, "")))
-                    
-                    # Clean number logic
-                    raw_v = str(asset_row.get(v_col, "0")).replace(",", "").strip()
-                    try: curr_v = int(float(raw_v))
-                    except: curr_v = 0
-                    
-                    new_val = st.number_input("Update Value (UGX)", value=curr_v, step=50000)
-                    new_status = st.selectbox("Update Status", ["HELD", "RELEASED", "DISPOSED"])
-                    
-                    if st.form_submit_button("💾 Save Changes"):
-                        try:
-                            creds_dict = dict(st.secrets["gcp_service_account"])
-                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                            fresh_client = gspread.service_account_from_dict(creds_dict)
-                            ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
-                            
-                            # Standard 7-column push (MATCHES YOUR GOOGLE SHEET)
-                            ws.append_row([asset_row[b_col], asset_row[i_col], new_desc, new_val, asset_row.get(dt_col, ""), new_status, str(datetime.now().date())])
-                            
-                            st.success("✅ Changes saved to Cloud!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Sync error: {e}")
+            if st.form_submit_button("🔒 Save Collateral"):
+                if borrower != "No borrowers found" and asset_type:
 
-            with col_b.expander("🗑️ Delete Record"):
-                st.warning("Remove this item from view.")
-                if st.button("🔥 Confirm Deletion", key="del_btn_v_final"):
-                    try:
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
-                        
-                        # Mark as DELETED so the filter hides it
-                        ws.append_row([asset_row[b_col], asset_row[i_col], "DELETED", 0, asset_row.get(dt_col, ""), "DELETED", str(datetime.now().date())])
-                        
-                        st.success("Deleted!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except:
-                        st.error("Delete failed. Check connection.")
-    else:
-        st.info("ℹ️ Your Collateral Inventory is currently empty.")
+                    new_asset = {
+                        "BORROWER": borrower,
+                        "ASSET_TYPE": asset_type,
+                        "DESCRIPTION": description,
+                        "ESTIMATED_VALUE": value,
+                        "STATUS": status,
+                        "DATE_ADDED": str(date_added)
+                    }
+
+                    # LOCAL SAVE
+                    st.session_state.local_collateral.append(new_asset)
+
+                    # CLOUD SAVE
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+                        client = gspread.service_account_from_dict(creds_dict)
+                        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+
+                        ws.append_row(list(new_asset.values()), value_input_option='USER_ENTERED')
+
+                        st.success("✅ Collateral saved!")
+                        st.balloons()
+                        st.cache_data.clear()
+                        st.rerun()
+
+                    except:
+                        st.warning("Saved locally. Cloud sync pending.")
+
+                else:
+                    st.warning("Fill all required fields.")
+
+    st.write("---")
+
+    # --- 4. DISPLAY COLLATERAL ---
+    st.markdown("#### 📦 Collateral Inventory")
+
+    local_c = pd.DataFrame(st.session_state.local_collateral)
+    combined_c = pd.concat([collateral_df, local_c], ignore_index=True)
+
+    if not combined_c.empty:
+
+        # CLEAN DATA
+        combined_c['BORROWER'] = combined_c['BORROWER'].astype(str).str.strip()
+        combined_c['ASSET_TYPE'] = combined_c['ASSET_TYPE'].astype(str).str.strip()
+        combined_c['STATUS'] = combined_c['STATUS'].astype(str).str.upper().str.strip()
+
+        # REMOVE DUPLICATES (LATEST ENTRY WINS)
+        combined_c = combined_c.drop_duplicates(subset=['BORROWER', 'ASSET_TYPE'], keep='last')
+
+        # REMOVE DELETED
+        combined_c = combined_c[~combined_c['STATUS'].isin(['DELETED', 'REMOVED'])]
+
+        # SEARCH
+        search = st.text_input("🔍 Search collateral...")
+        if search:
+            combined_c = combined_c[
+                combined_c.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)
+            ]
+
+        # FORMAT VALUE
+        combined_c['ESTIMATED_VALUE'] = pd.to_numeric(combined_c['ESTIMATED_VALUE'], errors='coerce').fillna(0)
+        combined_c['ESTIMATED_VALUE'] = combined_c['ESTIMATED_VALUE'].apply(lambda x: f"{x:,.0f}")
+
+        st.dataframe(
+            combined_c,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+        st.info("No collateral recorded.")
+
+    st.write("---")
+
+    # --- 5. MANAGE COLLATERAL ---
+    st.markdown("#### 🛠️ Manage Asset")
+
+    if not combined_c.empty:
+
+        options = combined_c.apply(lambda row: f"{row['BORROWER']} | {row['ASSET_TYPE']}", axis=1).tolist()
+        selected = st.selectbox("Select Asset", options)
+
+        selected_row = combined_c.iloc[options.index(selected)]
+
+        c1, c2 = st.columns(2)
+
+        # --- EDIT ---
+        with c1:
+            with st.expander("📝 Edit Asset"):
+                with st.form("edit_asset"):
+
+                    new_desc = st.text_input("Description", value=str(selected_row['DESCRIPTION']))
+                    new_val = st.number_input("Value", value=int(str(selected_row['ESTIMATED_VALUE']).replace(",", "")))
+                    new_status = st.selectbox("Status", ["HELD", "RELEASED", "DISPOSED"])
+
+                    if st.form_submit_button("💾 Save Changes"):
+
+                        try:
+                            creds_dict = dict(st.secrets["gcp_service_account"])
+                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+                            client = gspread.service_account_from_dict(creds_dict)
+                            ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+
+                            ws.append_row([
+                                selected_row['BORROWER'],
+                                selected_row['ASSET_TYPE'],
+                                new_desc,
+                                new_val,
+                                new_status,
+                                str(datetime.now().date())
+                            ])
+
+                            st.success("Updated successfully!")
+                            st.cache_data.clear()
+                            st.rerun()
+
+                        except:
+                            st.error("Update failed.")
+
+        # --- DELETE ---
+        with c2:
+            with st.expander("🗑️ Delete Asset"):
+                st.warning("This will hide the asset from the system.")
+
+                if st.button("🔥 Confirm Delete"):
+
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+                        client = gspread.service_account_from_dict(creds_dict)
+                        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+
+                        ws.append_row([
+                            selected_row['BORROWER'],
+                            selected_row['ASSET_TYPE'],
+                            "DELETED",
+                            0,
+                            "DELETED",
+                            str(datetime.now().date())
+                        ])
+
+                        st.success("Asset removed.")
+                        st.cache_data.clear()
+                        st.rerun()
+
+                    except:
+                        st.error("Delete failed.")
 # PAGE: ACTIVITY CALENDAR
 elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
