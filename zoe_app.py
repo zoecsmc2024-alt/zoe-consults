@@ -338,7 +338,16 @@ elif page == "Collateral":
     # --- ADD COLLATERAL FORM ---
     with st.expander("📝 Log New Collateral"):
         with st.form("collateral_form"):
-            b_name = st.selectbox("Select Borrower", df['CUSTOMER_NAME'].unique() if not df.empty else ["No Borrowers"])
+            # 1. Create a combined list of names from Cloud and Local memory
+            local_names = [b['CUSTOMER_NAME'] for b in st.session_state.get('local_registry', [])]
+            cloud_names = df['CUSTOMER_NAME'].tolist() if not df.empty else []
+            all_borrowers = list(set(cloud_names + local_names)) # 'set' removes duplicates
+
+# 2. Update the selectbox to use the 'all_borrowers' list
+    b_name = st.selectbox(
+        "Select Borrower", 
+        all_borrowers if all_borrowers else ["No Borrowers Found"]
+    )
             item = st.text_input("Item Description (e.g., Car Logbook, Land Title)")
             val = st.number_input("Estimated Value (UGX)", min_value=0)
             
