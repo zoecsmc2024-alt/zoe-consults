@@ -20,16 +20,14 @@ from datetime import datetime, timedelta
 @st.cache_data(ttl=300) # This refreshes data from Google Sheets every 5 mins
 def get_data():
     try:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-        client = gspread.service_account_from_dict(creds_dict)
-        
-        # Open your specific spreadsheet
-        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-        
-        # Pull all data into a DataFrame
+        # ... your existing connection code ...
         data = ws.get_all_records()
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data)
+        
+        # DEBUG: This will show in your terminal/logs
+        print(f"Fetched {len(df)} rows from Google Sheets") 
+        
+        return df
     except Exception as e:
         st.error(f"Failed to fetch cloud data: {e}")
         return pd.DataFrame()
@@ -309,6 +307,10 @@ if page == "Overview":
     
 
 elif page == "Borrowers":
+    # Add this at the very top of the Borrowers page
+    if st.button("🔄 Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
     if 'local_registry' not in st.session_state:
