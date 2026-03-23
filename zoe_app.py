@@ -309,7 +309,7 @@ elif page == "Borrowers":
         
         # Header Row
         h = st.columns(ratios)
-        headers = ["NAME", "BALANCE", "DUE DATE", "NIN", "SEX", "ACTIONS"]
+        headers = ["NAME", "PRINCIPLE", "DUE DATE", "NIN", "GENDER", "ACTIONS"]
         for col, text in zip(h, headers):
             col.markdown(f"<p style='font-size:11px; font-weight:bold; color:gray; margin-bottom:0;'>{text}</p>", unsafe_allow_html=True)
         st.divider()
