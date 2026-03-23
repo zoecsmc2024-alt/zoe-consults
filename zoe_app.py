@@ -300,33 +300,32 @@ if page == "Overview":
     else:
         st.info("No borrower data available.")
 elif page == "Borrowers":
-    # 1. Pull fresh data from Google Sheets
-    try:
-        # Use your existing function to get data
-        df = get_data() 
-    except:
-        df = pd.DataFrame() # Fallback if cloud fails
+    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
-    # 2. Combine with any new entries from this session
+    # --- 1. DATA LOADING & INITIALIZATION ---
     if 'local_registry' not in st.session_state:
         st.session_state.local_registry = []
-        
+
+    combined = pd.DataFrame()
+
+    try:
+        # Pull fresh data from Google Sheets
+        df = get_data() 
+    except Exception as e:
+        st.error(f"Cloud connection error: {e}")
+        df = pd.DataFrame()
+
     local_df = pd.DataFrame(st.session_state.local_registry)
-    
-    # Check if df is empty to avoid merge errors
+
+    # Combine safely
     if not df.empty or not local_df.empty:
         combined = pd.concat([df, local_df], ignore_index=True)
     else:
         combined = pd.DataFrame()
 
-    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
-
-    # --- 1. REGISTER CLIENT ---
+    # --- 2. REGISTER CLIENT ---
     with st.expander("➕ Register New Client (KYC Enrollment)", expanded=False):
         with st.form("kyc_registration_form", clear_on_submit=True):
-            # ... (your existing form code here) ...
-            pass
-
             c1, c2 = st.columns(2)
 
             with c1:
@@ -381,6 +380,7 @@ elif page == "Borrowers":
                         st.success(f"✅ {full_name} registered successfully!")
                         st.balloons()
                         st.cache_data.clear()
+                        st.rerun()
                     except Exception as e:
                         st.warning(f"Saved locally. Cloud sync pending.")
                 else:
@@ -391,70 +391,46 @@ elif page == "Borrowers":
     # --- 3. DISPLAY & ACTIONS ---
     st.markdown("#### 🔍 Borrower Directory")
 
-    # --- DATA LOADING (Moved inside the block) ---
-    # We initialize combined as an empty DataFrame first so the script doesn't crash
-    combined = pd.DataFrame()
-
-    try:
-        df = get_data() # This pulls from Google Sheets
-    except Exception as e:
-        st.error(f"Cloud connection error: {e}")
-        df = pd.DataFrame()
-
-    # Get local entries from this specific session
-    local_registry = st.session_state.get('local_registry', [])
-    local_df = pd.DataFrame(local_registry)
-
-    # Combine them safely
-    if not df.empty and not local_df.empty:
-        combined = pd.concat([df, local_df], ignore_index=True)
-    elif not df.empty:
-        combined = df
-    elif not local_df.empty:
-        combined = local_df
-
-    st.markdown("#### 🔍 Borrower Directory")
-
     if not combined.empty:
         # Remove duplicates
         combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
         
-        # APPLY FORMATTING (Commas)
+        # APPLY FORMATTING (Commas) - Using a copy for display to keep math columns clean
+        display_df = combined.copy()
         for col in ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
-            if col in combined.columns:
-                combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
-                combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
+            if col in display_df.columns:
+                display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+                display_df[col] = display_df[col].apply(lambda x: f"{x:,.0f}")
 
         # RENDER THE TABLE
-        gb = GridOptionsBuilder.from_dataframe(combined)
+        gb = GridOptionsBuilder.from_dataframe(display_df)
         gb.configure_selection('single', use_checkbox=True)
         grid_options = gb.build()
 
         grid_response = AgGrid(
-            combined,
+            display_df,
             gridOptions=grid_options,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
             theme='streamlit',
             height=400,
             width='100%'
         )
-    else:
-        # This shows if BOTH Google Sheets and Local Registry are empty
-        st.info("No borrowers found. Register a client above to start.")
 
         # --- 4. HANDLE SELECTED ROW ACTIONS ---
         if grid_response and grid_response.get('selected_rows') is not None:
+            # Safely handle AgGrid response
             selected_data = grid_response['selected_rows']
-            
             if isinstance(selected_data, pd.DataFrame):
                 selected_rows = selected_data.to_dict('records')
             else:
                 selected_rows = selected_data
 
             if selected_rows:
-                row = selected_rows[0]
+                # IMPORTANT: Map back to 'combined' to get clean numbers for editing
+                row_display = selected_rows[0]
+                row = combined[combined['NIN'] == row_display['NIN']].iloc[0].to_dict()
 
-                # --- A. VIEW DIALOG (With Commas) ---
+                # --- A. VIEW DIALOG ---
                 @st.dialog(f"👁️ Profile: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def view_modal(data):
                     st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
@@ -462,11 +438,8 @@ elif page == "Borrowers":
                     st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
                     st.write(f"**Gender:** {data.get('GENDER', 'N/A')}")
                     st.divider()
-                    
-                    # Commas fixed here for View
                     amt = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
                     st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
-                    
                     if st.button("Close"):
                         st.rerun()
 
@@ -475,16 +448,13 @@ elif page == "Borrowers":
                 def edit_modal(data):
                     st.markdown("### Update Borrower Profile")
                     
-                    # 1. CLEAN DATA HELPER
                     def clean_num(val):
                         if isinstance(val, str):
                             val = val.replace(',', '').replace('UGX', '').strip()
                         try:
                             return float(pd.to_numeric(val, errors='coerce'))
-                        except:
-                            return 0.0
+                        except: return 0.0
 
-                    # 2. RENDER INPUTS
                     c1, c2 = st.columns(2)
                     new_name = c1.text_input("Full Name", value=data.get('CUSTOMER_NAME', ''))
                     new_nin = c2.text_input("NIN", value=data.get('NIN', ''))
@@ -499,22 +469,15 @@ elif page == "Borrowers":
                     
                     new_addr = st.text_area("Address", value=data.get('ADDRESS', ''))
                     
-                    st.divider()
-
-                    # 3. THE SAVE BUTTON
                     if st.button("💾 Save All Changes", use_container_width=True):
-                        with st.spinner("Searching Zoe Consults Database..."):
+                        with st.spinner("Updating Database..."):
                             try:
-                                # 1. Connect
                                 creds_dict = dict(st.secrets["gcp_service_account"])
                                 creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                                 client = gspread.service_account_from_dict(creds_dict)
                                 ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                                # 2. GET ALL NINS FROM THE SHEET (Column 3)
                                 all_nins = ws.col_values(3) 
-                                
-                                # 3. SEARCH USING THE ORIGINAL NIN (The one before you edited it)
                                 original_nin = str(data.get('NIN', '')).strip()
                                 
                                 found_row = -1
@@ -524,20 +487,18 @@ elif page == "Borrowers":
                                         break
 
                                 if found_row != -1:
-                                    # 4. UPDATE WITH THE NEW VALUES
                                     ws.update_cell(found_row, 1, new_name.upper())
                                     ws.update_cell(found_row, 2, new_phone)
-                                    ws.update_cell(found_row, 3, new_nin.strip().upper()) # Save the new NIN
+                                    ws.update_cell(found_row, 3, new_nin.strip().upper())
                                     ws.update_cell(found_row, 4, new_gender)
                                     ws.update_cell(found_row, 5, new_addr)
                                     ws.update_cell(found_row, 7, new_amt)
                                     ws.update_cell(found_row, 11, new_out)
-                                    
-                                    st.success(f"✅ KYC for {new_name} Updated!")
-                                    st.cache_data.clear() 
-                                    st.rerun() 
+                                    st.success("✅ KYC Updated!")
+                                    st.cache_data.clear()
+                                    st.rerun()
                                 else:
-                                    st.error(f"Original NIN '{original_nin}' not found. Please refresh the page.")
+                                    st.error("Original record not found.")
                             except Exception as e:
                                 st.error(f"Sync failed: {e}")
 
@@ -545,51 +506,32 @@ elif page == "Borrowers":
                 @st.dialog(f"🗑️ Delete Borrower: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def delete_modal(data):
                     st.warning("⚠️ This action is permanent.")
-                    st.write(f"**NIN to Delete:** `{data.get('NIN')}`")
-                    
                     if st.button("🚨 Confirm Delete", use_container_width=True):
                         try:
-                            # 1. Connect
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             client = gspread.service_account_from_dict(creds_dict)
                             ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-
-                            # 2. SMART SEARCH: Strip spaces from the search term
+                            all_nins = [str(n).strip() for n in ws.col_values(3)]
                             target_nin = str(data.get('NIN')).strip()
-                            
-                            # We search specifically in the NIN column (Column 3) to be safe
-                            # If your NIN column isn't the 3rd one, change '3' below
-                            all_nins = ws.col_values(3) 
-                            
-                            # Clean the list of NINs from the sheet and find the index
-                            all_nins_cleaned = [str(n).strip() for n in all_nins]
-                            
-                            if target_nin in all_nins_cleaned:
-                                # +1 because Google Sheets is 1-indexed
-                                row_to_delete = all_nins_cleaned.index(target_nin) + 1
-                                ws.delete_rows(row_to_delete)
-                                
-                                st.success("✅ Borrower deleted from cloud!")
+                            if target_nin in all_nins:
+                                ws.delete_rows(all_nins.index(target_nin) + 1)
+                                st.success("✅ Deleted!")
                                 st.cache_data.clear()
                                 st.rerun()
-                            else:
-                                st.error(f"Could not find NIN '{target_nin}' in Column 3.")
-                                
-                        except Exception as e:
-                            st.error(f"Delete failed: {e}")
+                            else: st.error("NIN not found.")
+                        except Exception as e: st.error(f"Delete failed: {e}")
+
                 # --- BUTTON TRIGGERS ---
                 col1, col2, col3 = st.columns(3)
-
                 if col1.button("👁️ View Details", use_container_width=True):
                     view_modal(row)
-                
                 if col2.button("✏️ Edit KYC", use_container_width=True):
                     edit_modal(row)
-
-                # Now this button opens the Confirmation Pop-up!
                 if col3.button("🗑️ Delete", use_container_width=True):
                     delete_modal(row)
+    else:
+        st.info("No borrowers found. Register a client above to start.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
