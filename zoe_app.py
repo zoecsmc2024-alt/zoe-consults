@@ -385,141 +385,131 @@ elif page == "Borrowers":
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     
-    # 1. Initialize Local Collateral Memory
+    # 1. Initialize Local Memory
     if 'local_collateral' not in st.session_state:
         st.session_state.local_collateral = []
 
-    # 2. LOG NEW COLLATERAL
+    # 2. LOG NEW COLLATERAL FORM
     with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
-        # Everything from here...
         with st.form("collateral_form", clear_on_submit=True):
-            # 1. Logic for borrowers (Smart Picker)
+            # Smart Borrower Picker
             local_names = [b.get('CUSTOMER_NAME') or b.get('BORROWER') for b in st.session_state.get('local_registry', [])]
             cloud_names = df['CUSTOMER_NAME'].tolist() if 'CUSTOMER_NAME' in df.columns else []
             all_borrowers = sorted(list(set([str(n) for n in cloud_names + local_names if n])))
             
-            # 2. Create the layout
             c1, c2 = st.columns(2)
-            
             with c1:
                 b_name = st.selectbox("Select Borrower", options=all_borrowers if all_borrowers else ["No Borrowers Found"])
                 asset_type = st.text_input("Asset Type", placeholder="e.g. Car Logbook")
-                detailed_desc = st.text_area("Item Description", placeholder="Plate No, Color, etc.")
+                detailed_desc = st.text_area("Detailed Description", placeholder="Plate No, Color, Condition...")
             
             with c2:
                 item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
-                st.caption(f"💰 Value: **UGX {item_val:,.0f}**")
+                st.caption(f"💰 Value Preview: **UGX {item_val:,.0f}**")
                 status = st.selectbox("Initial Status", ["Held", "Released", "Disposed"])
                 date_added = st.date_input("Date Added", value=datetime.now())
 
-            # 3. THE CRITICAL PART: The button must be inside the form!
             submit_btn = st.form_submit_button("🔒 Secure Item", use_container_width=True)
             
             if submit_btn:
                 if b_name != "No Borrowers Found" and asset_type:
-                    # (Your save logic here)
-                    st.success("Saving...")
-                    st.cache_data.clear()
-                    st.rerun()
+                    new_asset = {
+                        "BORROWER": b_name,
+                        "ASSET_TYPE": asset_type,
+                        "DESCRIPTION": detailed_desc,
+                        "ESTIMATED_VALUE": item_val,
+                        "STORAGE_REF": str(date_added),
+                        "STATUS": status,
+                        "DATE_ADDED": str(date_added)
+                    }
+                    
+                    # Save Locally
+                    st.session_state.local_collateral.append(new_asset)
+                    
+                    try:
+                        # Fresh Cloud Handshake
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = fresh_client.open_by_key(sheet_id).worksheet("Collateral")
+                        
+                        ws.append_row(list(new_asset.values()), value_input_option='USER_ENTERED')
+                        
+                        st.balloons()
+                        st.success(f"✅ {asset_type} secured for {b_name}!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.warning(f"⚠️ Saved locally, Cloud sync pending: {e}")
                 else:
-                    st.warning("Please fill in required fields.")
-        # ...to here must be correctly indented!
-            
-            # ... (Rest of your form code)
+                    st.warning("Please select a borrower and enter an Asset Type.")
 
     st.write("---")
 
-    # 3. THE INVENTORY TABLE (Combined Cloud + Local)
+    # 3. THE INVENTORY TABLE
     st.markdown("#### 📦 Current Inventory List")
     
-    # Initialize local memory if it somehow got dropped
-    if 'local_collateral' not in st.session_state:
-        st.session_state.local_collateral = []
-
-    # Merge Cloud + Local
     local_collat_df = pd.DataFrame(st.session_state.local_collateral)
     combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
     
     if not combined_collat.empty:
-        # --- THE VISIBILITY FIX ---
-        # 1. Remove any completely empty rows
+        # Visibility & Header Cleaning
         combined_collat = combined_collat.dropna(how='all')
-        
-        # 2. Match headers (using your specific sheet names from the screenshot)
         b_col = 'BORROWER' if 'BORROWER' in combined_collat.columns else 'BORROWER_NAME'
         i_col = 'ASSET_TYPE' if 'ASSET_TYPE' in combined_collat.columns else 'ITEM_NAME'
-        
-        # 3. SORT: Put the absolute newest entries at the TOP
-        # We use the index to make sure the one you just added is #1
+        v_col = 'ESTIMATED_VALUE' if 'ESTIMATED_VALUE' in combined_collat.columns else 'VALUE'
+        s_col = 'STATUS' if 'STATUS' in combined_collat.columns else 'STATUS'
+        d_col = 'DESCRIPTION' if 'DESCRIPTION' in combined_collat.columns else 'ITEM_NAME'
+        dt_col = 'DATE_ADDED' if 'DATE_ADDED' in combined_collat.columns else 'STORAGE_REF'
+
+        # Filter & Sort
         combined_collat = combined_collat.sort_index(ascending=False)
-        
-        # 4. Search Filter
-        search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...", key="collat_search_main")
+        search = st.text_input("🔍 Filter Inventory", placeholder="Search name or item...", key="collat_search_main")
         display_df = combined_collat.copy()
         
         if search:
             display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # 5. Currency Formatting
-        if 'ESTIMATED_VALUE' in display_df.columns:
-            display_df['ESTIMATED_VALUE'] = pd.to_numeric(display_df['ESTIMATED_VALUE'], errors='coerce').fillna(0)
-            display_df['ESTIMATED_VALUE'] = display_df['ESTIMATED_VALUE'].apply(lambda x: f"{float(x):,.0f}")
+        # Formatting
+        if v_col in display_df.columns:
+            display_df[v_col] = pd.to_numeric(display_df[v_col], errors='coerce').fillna(0)
+            display_df[v_col] = display_df[v_col].apply(lambda x: f"{float(x):,.0f}")
             
-        # Display the Table
-        st.dataframe(
-            display_df, 
-            use_container_width=True, 
-            hide_index=True
-        )
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+        # 4. MANAGE SELECTED ASSET (Edit/Delete)
+        st.write("---")
+        st.markdown("#### 🛠️ Manage Selected Asset")
         
-        # Quick Stat
-        st.caption(f"Showing {len(display_df)} secured assets.")
-    else:
-        st.info("ℹ️ Your Collateral Inventory is currently empty. Log an item above to see it here.")
-
-        # --- 4. MANAGE SELECTED ASSET (Enhanced with Description & Date) ---
-    st.write("---")
-    st.markdown("#### 🛠️ Manage Selected Asset")
-    
-    if not display_df.empty:
-        # Define the column names based on your sheet screenshot
-        d_col = 'DESCRIPTION' if 'DESCRIPTION' in display_df.columns else 'ITEM_NAME'
-        dt_col = 'DATE_ADDED' if 'DATE_ADDED' in display_df.columns else 'STORAGE_REF'
-
-        # 1. Create a DETAILED UNIQUE ID for the dropdown
-        # We combine: Name | Item (Desc) | Value | Date
+        # Create Detailed Labels for Dropdown
         def create_label(row):
             name = str(row[b_col])
             item = str(row[i_col])
             desc = f" - {row[d_col]}" if str(row[d_col]).strip() != "" else ""
-            val = f" (UGX {float(pd.to_numeric(row[v_col], errors='coerce') or 0):,.0f})"
+            val = f" (UGX {row[v_col]})"
             date = f" | Added: {row[dt_col]}"
             return f"{name} | {item}{desc}{val}{date}"
 
         display_df['UNIQUE_ID'] = display_df.apply(create_label, axis=1)
-        
         options_list = display_df['UNIQUE_ID'].tolist()
         selected_asset_str = st.selectbox("Select specific item to Update/Delete", options=options_list)
 
         if selected_asset_str:
-            # 2. Identify the exact row
             asset_row = display_df[display_df['UNIQUE_ID'] == selected_asset_str].iloc[0]
-            
-            st.info(f"📍 Managing: **{asset_row[i_col]}** ({asset_row[d_col]}) for **{asset_row[b_col]}**")
+            st.info(f"📍 Managing: **{asset_row[i_col]}** for **{asset_row[b_col]}**")
             
             col_a, col_b = st.columns(2)
             
-            # --- EDIT SECTION ---
+            # EDIT SECTION
             with col_a.expander("📝 Edit Asset Details"):
-                with st.form("edit_asset_form_v3"):
-                    # Pre-fill with existing data
+                with st.form("edit_asset_form_final"):
                     new_desc = st.text_input("Update Description", value=str(asset_row[d_col]))
                     
                     raw_val = str(asset_row[v_col]).replace(",", "").replace("UGX", "").strip()
-                    try:
-                        curr_val = int(float(raw_val)) if raw_val else 0
-                    except:
-                        curr_val = 0
+                    try: curr_val = int(float(raw_val))
+                    except: curr_val = 0
+                    
                     new_val = st.number_input("Update Value (UGX)", value=curr_val, step=50000)
                     
                     status_options = ["Held", "Released", "Disposed"]
@@ -529,34 +519,36 @@ elif page == "Collateral":
                     
                     if st.form_submit_button("💾 Save Changes"):
                         try:
+                            # Fresh Handshake
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             fresh_client = gspread.service_account_from_dict(creds_dict)
                             ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                             
-                            # Append update row: Borrower, Asset_Type, Description, Value, Storage_Ref, Status
-                            # Using 'STORAGE_REF' as the link to the original entry date
-                            update_row = [
-                                asset_row[b_col], 
-                                asset_row[i_col], 
-                                new_desc, 
-                                new_val, 
-                                asset_row[dt_col], 
-                                new_status
-                            ]
+                            update_row = [asset_row[b_col], asset_row[i_col], new_desc, new_val, asset_row[dt_col], new_status]
                             ws.append_row(update_row)
                             
-                            st.success("✅ Update successfully pushed to Google Sheets!")
+                            st.success("✅ Changes saved to Google Sheets!")
                             st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
                             st.error(f"Sync error: {e}")
+
             # DELETE SECTION
             with col_b.expander("🗑️ Delete Record"):
-                st.warning("This will mark the record as removed.")
-                if st.button("🔥 Confirm Deletion", key="del_btn"):
-                    # (Standard delete logic as before)
-                    st.info("Record updated in Cloud.")
+                st.warning("Deleting will mark this as removed from active inventory.")
+                if st.button("🔥 Confirm Deletion", key="del_asset_btn"):
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+                        
+                        ws.append_row([asset_row[b_col], asset_row[i_col], "REMOVED", 0, asset_row[dt_col], "DELETED"])
+                        st.success("Asset record removed!")
+                        st.cache_data.clear(); st.rerun()
+                    except:
+                        st.error("Delete failed. Check connection.")
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: ACTIVITY CALENDAR
