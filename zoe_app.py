@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import gspread
+from datetime import datetime, timedelta
 import os
 import plotly.express as px
 from datetime import datetime
@@ -311,7 +312,10 @@ elif page == "Borrowers":
 
             st.info(f"💰 Total Payable: UGX {total_due:,.0f}")
 
-            if st.form_submit_button("🚀 Register & Disburse"):
+            # --- ADDED SUBMIT BUTTON HERE ---
+            submitted = st.form_submit_button("🚀 Register & Disburse")
+
+            if submitted:
                 if f_name and l_name and nin:
 
                     full_name = f"{f_name} {l_name}".upper()
