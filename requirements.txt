@@ -6,3 +6,4 @@ fpdf
 streamlit-option-menu
 google-auth
 xlsxwriter
+streamlit-aggrid
