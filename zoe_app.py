@@ -747,12 +747,13 @@ elif page == "PettyCash":
     if 'local_petty' not in st.session_state:
         st.session_state.local_petty = []
 
-    # 2. CALCULATE LIVE BALANCE
+    # 2. CALCULATE LIVE BALANCE (Cloud + Local)
     local_p_df = pd.DataFrame(st.session_state.local_petty)
     combined_petty = pd.concat([petty_df, local_p_df], ignore_index=True)
     
     if not combined_petty.empty:
-        # Math: Top-ups increase balance, Spends decrease it
+        # Ensure numbers are valid for math
+        combined_petty['AMOUNT'] = pd.to_numeric(combined_petty['AMOUNT'], errors='coerce').fillna(0)
         total_in = combined_petty[combined_petty['TYPE'] == 'Float Top-up']['AMOUNT'].sum()
         total_out = combined_petty[combined_petty['TYPE'] == 'Spend']['AMOUNT'].sum()
         current_balance = total_in - total_out
@@ -778,11 +779,11 @@ elif page == "PettyCash":
                         "AMOUNT": p_amt
                     }
                     
-                    # Instant Local Update
+                    # Save locally for instant view
                     st.session_state.local_petty.append(new_p)
                     
                     try:
-                        # FRESH HANDSHAKE
+                        # Fresh handshake for Google
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
@@ -791,26 +792,29 @@ elif page == "PettyCash":
                         ws = fresh_client.open_by_key(sheet_id).worksheet("PettyCash")
                         ws.append_row(list(new_p.values()), value_input_option='USER_ENTERED')
                         
-                        st.success(f"✅ {p_type} of {p_amt:,.0f} recorded!")
+                        st.success(f"✅ {p_type} recorded!")
                         st.cache_data.clear()
+                        st.rerun() # <--- This makes the table show up immediately!
                     except Exception as e:
                         if "200" in str(e):
                             st.success("✅ Recorded!")
                             st.cache_data.clear()
+                            st.rerun()
                         else:
-                            st.warning(f"⚠️ Saved locally, Cloud Sync pending: {e}")
+                            st.warning(f"⚠️ Saved locally, Cloud Sync pending.")
                 else:
                     st.warning("Please enter an amount and reason.")
 
     st.write("---")
 
-    # 4. TRANSACTION TABLE
+    # 4. THE TRANSACTION TABLE (The Ledger)
     st.markdown("#### 📜 Petty Cash Ledger")
+    
     if not combined_petty.empty:
-        # Sort by latest
+        # Sort so the newest transaction is at the top
         display_p = combined_petty.copy().sort_index(ascending=False)
         
-        # Comma Formatting
+        # Comma Formatting for the 'AMOUNT' column
         if 'AMOUNT' in display_p.columns:
             display_p['AMOUNT'] = display_p['AMOUNT'].apply(lambda x: f"{float(x):,.0f}")
             
@@ -821,7 +825,7 @@ elif page == "PettyCash":
             column_order=("DATE", "TYPE", "ITEM", "AMOUNT")
         )
     else:
-        st.info("ℹ️ No petty cash transactions found.")
+        st.info("ℹ️ No petty cash transactions found. Top up your float to get started!")
 
 # PAGE: PAYROLL
 elif page == "Payroll":
