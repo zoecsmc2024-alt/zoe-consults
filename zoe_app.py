@@ -405,6 +405,7 @@ elif page == "Borrowers":
         st.info("ℹ️ No borrowers yet.")
 
 
+
 # --- CRITICAL: THIS ELIF MUST BE AT THE FAR LEFT (aligned with 'if page == "Overview"') ---
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
