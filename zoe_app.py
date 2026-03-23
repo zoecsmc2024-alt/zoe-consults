@@ -421,21 +421,9 @@ if not combined.empty:
         for row in grid_response['selected_rows']:
             # row contains the clicked row data; implement your logic
             st.write(row)
-
-else:
+    else:
     st.info("No borrowers yet.")
-
-# --- NEXT PAGE (Aligned with the first 'elif') ---
-elif page == "Collateral":
-    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-# --- NEXT PAGE (Aligned with the first 'elif') ---
-elif page == "Collateral":
-    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-
-# --- NEXT PAGE (Aligned with the first 'elif') ---
-elif page == "Collateral":
-    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-# --- NEXT PAGE (Aligned with the first 'elif') ---
+    
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     # --- 1. INIT LOCAL STORAGE ---
