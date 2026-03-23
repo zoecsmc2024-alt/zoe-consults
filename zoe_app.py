@@ -358,84 +358,6 @@ elif page == "Borrowers":
 
     st.write("---")
 
-elif page == "Borrowers":
-    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
-
-    # --- 1. INIT LOCAL STORAGE ---
-    if 'local_registry' not in st.session_state:
-        st.session_state.local_registry = []
-
-    # --- 2. REGISTER CLIENT ---
-    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
-        with st.form("kyc_registration_form", clear_on_submit=True):
-
-            c1, c2 = st.columns(2)
-
-            with c1:
-                f_name = st.text_input("First Name")
-                l_name = st.text_input("Last Name")
-                phone = st.text_input("Contact (256...)")
-                gender = st.selectbox("Gender", ["Male", "Female"])
-                nin = st.text_input("NIN")
-                issue_date = st.date_input("Loan Issue Date", value=datetime.now())
-
-            with c2:
-                loan_amt = st.number_input("Loan Amount (UGX)", min_value=0, step=50000)
-                interest = st.number_input("Interest Rate (%)", min_value=0.0)
-                loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency"])
-                address = st.text_area("Address")
-                due_date = st.date_input("Due Date", value=datetime.now() + timedelta(days=30))
-
-            # --- CALCULATIONS ---
-            total_due = loan_amt + (loan_amt * interest / 100)
-
-            st.info(f"💰 Total Payable: UGX {total_due:,.0f}")
-
-            # --- ADDED SUBMIT BUTTON HERE ---
-            submitted = st.form_submit_button("🚀 Register & Disburse")
-
-            if submitted:
-                if f_name and l_name and nin:
-                    full_name = f"{f_name} {l_name}".upper()
-                    new_entry = {
-                        "CUSTOMER_NAME": full_name,
-                        "CONTACT": phone,
-                        "NIN": nin,
-                        "GENDER": gender,
-                        "ADDRESS": address,
-                        "LOAN_TYPE": loan_type,
-                        "LOAN_AMOUNT": loan_amt,
-                        "INTEREST_RATE": interest,
-                        "TOTAL_DUE": total_due,
-                        "AMOUNT_PAID": 0,
-                        "OUTSTANDING_AMOUNT": total_due,
-                        "ISSUE_DATE": str(issue_date),
-                        "DUE_DATE": str(due_date)
-                    }
-
-                    # SAVE LOCAL
-                    st.session_state.local_registry.append(new_entry)
-
-                    # SAVE TO GOOGLE
-                    try:
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-
-                        client = gspread.service_account_from_dict(creds_dict)
-                        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-                        ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
-
-                        st.success(f"✅ {full_name} registered successfully!")
-                        st.balloons()
-                        st.cache_data.clear()
-
-                    except Exception as e:
-                        st.warning(f"Saved locally. Cloud sync pending.")
-                else:
-                    st.warning("Please fill all required fields.")
-
-    st.write("---")
-
     # --- 3. DISPLAY TABLE (Now properly indented) ---
     st.markdown("#### 🔍 Borrower Directory")
 
@@ -478,6 +400,10 @@ elif page == "Borrowers":
         )
     else:
         st.info("No borrowers yet.")
+
+# --- NEXT PAGE (Aligned with the first 'elif') ---
+elif page == "Collateral":
+    st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
 
 # --- NEXT PAGE (Aligned with the first 'elif') ---
 elif page == "Collateral":
