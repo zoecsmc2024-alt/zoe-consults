@@ -486,24 +486,35 @@ elif page == "Collateral":
             display_df[v_col] = display_df[v_col].apply(lambda x: f"{float(x):,.0f}")
             
         st.dataframe(display_df, use_container_width=True, hide_index=True)
-        # 4. MANAGE SELECTED ASSET (Edit/Delete)
-        st.write("---")
-        st.markdown("#### 🛠️ Manage Selected Asset")
-        
-        # Create Detailed Labels for Dropdown
-        def create_label(row):
-            name = str(row[b_col])
-            item = str(row[i_col])
-            desc = f" - {row[d_col]}" if str(row[d_col]).strip() != "" else ""
-            val = f" (UGX {row[v_col]})"
-            date = f" | Added: {row[dt_col]}"
-            return f"{name} | {item}{desc}{val}{date}"
+        # --- 4. MANAGE SELECTED ASSET (The Final Fix) ---
+    st.write("---")
+    st.markdown("#### 🛠️ Manage Selected Asset")
+    
+    if not display_df.empty:
+        # 1. DEFINE THE LABELS (Moved to a simple list comprehension for safety)
+        # This avoids the 'apply' NameError entirely
+        dropdown_options = []
+        for _, row in display_df.iterrows():
+            name = str(row.get(b_col, "Unknown"))
+            item = str(row.get(i_col, "Item"))
+            # Safe check for Description
+            raw_desc = str(row.get(d_col, "")).strip()
+            desc = f" - {raw_desc}" if raw_desc and raw_desc != "nan" else ""
+            # Safe check for Value
+            val_raw = row.get(v_col, "0")
+            val = f" (UGX {val_raw})"
+            # Safe check for Date
+            date = f" | Added: {row.get(dt_col, 'N/A')}"
+            
+            dropdown_options.append(f"{name} | {item}{desc}{val}{date}")
 
-        display_df['UNIQUE_ID'] = display_df.apply(create_label, axis=1)
-        options_list = display_df['UNIQUE_ID'].tolist()
-        selected_asset_str = st.selectbox("Select specific item to Update/Delete", options=options_list)
+        # Add the options back to the dataframe so we can find them
+        display_df['UNIQUE_ID'] = dropdown_options
+        
+        selected_asset_str = st.selectbox("Select specific item to Update/Delete", options=dropdown_options)
 
         if selected_asset_str:
+            # Match the row
             asset_row = display_df[display_df['UNIQUE_ID'] == selected_asset_str].iloc[0]
             st.info(f"📍 Managing: **{asset_row[i_col]}** for **{asset_row[b_col]}**")
             
@@ -512,67 +523,52 @@ elif page == "Collateral":
             # EDIT SECTION
             with col_a.expander("📝 Edit Asset Details"):
                 with st.form("edit_asset_form_final"):
-                    new_desc = st.text_input("Update Description", value=str(asset_row[d_col]))
+                    new_desc = st.text_input("Update Description", value=str(asset_row.get(d_col, "")))
                     
-                    raw_val = str(asset_row[v_col]).replace(",", "").replace("UGX", "").strip()
-                    try: curr_val = int(float(raw_val))
-                    except: curr_val = 0
+                    # Clean the value for the number input
+                    clean_v = str(asset_row.get(v_col, "0")).replace(",", "").strip()
+                    try: curr_v = int(float(clean_v))
+                    except: curr_v = 0
                     
-                    new_val = st.number_input("Update Value (UGX)", value=curr_val, step=50000)
+                    new_val = st.number_input("Update Value (UGX)", value=curr_v, step=50000)
                     
-                    status_options = ["Held", "Released", "Disposed"]
-                    curr_s = str(asset_row[s_col])
-                    def_idx = status_options.index(curr_s) if curr_s in status_options else 0
-                    new_status = st.selectbox("Update Status", options=status_options, index=def_idx)
+                    # Status logic
+                    s_opts = ["Held", "Released", "Disposed"]
+                    curr_s = str(asset_row.get(s_col, "Held"))
+                    def_idx = s_opts.index(curr_s) if curr_s in s_opts else 0
+                    new_status = st.selectbox("Update Status", options=s_opts, index=def_idx)
                     
                     if st.form_submit_button("💾 Save Changes"):
                         try:
-                            # Fresh Handshake
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             fresh_client = gspread.service_account_from_dict(creds_dict)
                             ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                             
-                            update_row = [asset_row[b_col], asset_row[i_col], new_desc, new_val, asset_row[dt_col], new_status]
-                            ws.append_row(update_row)
+                            # Standard 7-column push
+                            ws.append_row([asset_row[b_col], asset_row[i_col], new_desc, new_val, asset_row[dt_col], new_status, str(datetime.now().date())])
                             
-                            st.success("✅ Changes saved to Google Sheets!")
+                            st.success("✅ Changes saved!")
                             st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
                             st.error(f"Sync error: {e}")
 
-            # DELETE SECTION (Fixed Column Count)
+            # DELETE SECTION
             with col_b.expander("🗑️ Delete Record"):
-                st.warning("Deleting will mark this as removed from active inventory.")
-                if st.button("🔥 Confirm Deletion", key="del_asset_btn"):
+                st.warning("This will remove the item from your active inventory.")
+                if st.button("🔥 Confirm Deletion", key="del_final_btn"):
                     try:
-                        # 1. Fresh Cloud Handshake
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                         
-                        # 2. Match exact column count of your sheet (7 columns total)
-                        # [BORROWER, ASSET_TYPE, DESCRIPTION, VALUE, STORAGE_REF, STATUS, DATE_ADDED]
-                        delete_entry = [
-                            asset_row[b_col],      # BORROWER
-                            asset_row[i_col],      # ASSET_TYPE
-                            "DELETED RECORD",      # DESCRIPTION
-                            0,                     # ESTIMATED_VALUE
-                            asset_row[dt_col],     # STORAGE_REF
-                            "DELETED",             # STATUS
-                            str(datetime.now().date()) # DATE_ADDED (Today)
-                        ]
-                        
-                        ws.append_row(delete_entry)
-                        
-                        st.success("✅ Asset record removed from Cloud!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        # Detailed error message helps us find the mismatch
-                        st.error(f"Sync failed: {e}")
+                        ws.append_row([asset_row[b_col], asset_row[i_col], "DELETED", 0, asset_row[dt_col], "DELETED", str(datetime.now().date())])
+                        st.success("Asset deleted!")
+                        st.cache_data.clear(); st.rerun()
+                    except:
+                        st.error("Connection error. Try again.")
 # PAGE: ACTIVITY CALENDAR
 elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
