@@ -531,16 +531,34 @@ elif page == "Collateral":
                             st.error(f"Error: {e}")
 
             with col_b.expander("🗑️ Delete"):
-                if st.button("🔥 Confirm Deletion", key="del_final"):
+                if st.button("🔥 Confirm Deletion", key="del_final_v5"):
                     try:
+                        # 1. Fresh Handshake
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
-                        ws.append_row([asset_row[b_col], asset_row[i_col], "DELETED", 0, asset_row.get(dt_col, ""), "DELETED", str(datetime.now().date())])
-                        st.success("Deleted!"); st.cache_data.clear(); st.rerun()
-                    except:
-                        st.error("Failed to delete.")
+                        
+                        # 2. THE FIX: Match your 7 columns EXACTLY as shown in your screenshot
+                        # Columns: [BORROWER, ASSET_TYPE, DESCRIPTION, ESTIMATED_VALUE, STORAGE_REF, STATUS, DATE_ADDED]
+                        delete_row = [
+                            str(asset_row.get(b_col, "")),      # 1. BORROWER
+                            str(asset_row.get(i_col, "")),      # 2. ASSET_TYPE
+                            "DELETED RECORD",                   # 3. DESCRIPTION
+                            0,                                  # 4. ESTIMATED_VALUE
+                            str(asset_row.get(dt_col, "")),     # 5. STORAGE_REF
+                            "DELETED",                          # 6. STATUS
+                            str(datetime.now().date())          # 7. DATE_ADDED
+                        ]
+                        
+                        ws.append_row(delete_row)
+                        
+                        st.success("✅ Success! Item removed from active inventory.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        # This will tell us the exact technical reason if it fails
+                        st.error(f"Sync error: {str(e)}")
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: ACTIVITY CALENDAR
