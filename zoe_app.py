@@ -6,7 +6,7 @@ import os
 import plotly.express as px
 from datetime import datetime
 from fpdf import FPDF
-pip install streamlit-aggrid
+from st_aggrid import AgGrid
 from streamlit_option_menu import option_menu
 
 # --- 1. PAGE CONFIGURATION ---
