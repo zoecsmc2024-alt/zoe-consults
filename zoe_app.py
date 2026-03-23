@@ -175,22 +175,6 @@ if c2.button("🚪 Exit", use_container_width=True, key="sidebar_exit_btn"):
 # --- 7. PAGE MODULES ---
 
 # PAGE: OVERVIEW
-# Place this at the start of your Overview or Ledger page
-t1, t2 = st.columns([1, 5])
-with t1:
-    # Updated Line 205 Logic
-    if 'custom_logo' in st.session_state:
-    # Use the logo you browsed from your PC
-        st.image(st.session_state.custom_logo, width=80)
-    elif os.path.exists("logo.png"):
-    # Use the GitHub file ONLY if it exists
-        st.image("logo.png", width=80)
-    else:
-    # Show a nice icon if no logo is found at all
-        st.markdown("🏛️", help="Logo not found. Upload one in Settings.")
-        with t2:
-            st.markdown("# ZOE CONSULTS SMC LTD")
-            st.caption("Professional Credit & Financial Management")
 if page == "Overview":
     st.markdown('<div class="main-title">🏛️ Executive Overview</div>', unsafe_allow_html=True)
     
