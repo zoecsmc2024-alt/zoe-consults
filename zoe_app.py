@@ -450,7 +450,7 @@ elif page == "Collateral":
     # 3. THE INVENTORY TABLE
     st.markdown("#### 📦 Current Inventory List")
     
-    # 1. Standard Global Headers
+    # Define Global Headers for this section
     b_col = 'BORROWER' if 'BORROWER' in collateral_df.columns else 'BORROWER_NAME'
     i_col = 'ASSET_TYPE' if 'ASSET_TYPE' in collateral_df.columns else 'ITEM_NAME'
     v_col = 'ESTIMATED_VALUE' if 'ESTIMATED_VALUE' in collateral_df.columns else 'VALUE'
@@ -462,46 +462,37 @@ elif page == "Collateral":
     combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
     
     if not combined_collat.empty:
-        # --- THE FIX: LOGICAL FILTERING ---
-        
-        # A. Clean up Status text (Make it all UPPERCASE so 'deleted' vs 'DELETED' doesn't matter)
+        # --- THE FILTER ENGINE ---
+        # A. Clean Status text
         combined_collat[s_col] = combined_collat[s_col].astype(str).str.upper().str.strip()
         
-        # B. DEDUPLICATE FIRST: Keep the LATEST entry for every Borrower + Asset Type
-        # This ensures the 'DELETED' row (added last) replaces the 'HELD' row
+        # B. DEDUPLICATE (Keep newest entry for each item)
         combined_collat = combined_collat.drop_duplicates(subset=[b_col, i_col], keep='last')
         
-        # C. FILTER OUT DELETED: Now that the latest status is confirmed, hide them
-        # This removes the item entirely from the view
-        combined_collat = combined_collat[~combined_collat[s_col].isin(["DELETED", "REMOVED", "NAN", "NONE"])]
+        # C. HIDE DELETED (Remove anything marked DELETED or REMOVED)
+        display_df = combined_collat[~combined_collat[s_col].isin(["DELETED", "REMOVED", "NAN", "NONE"])].copy()
         
-        # D. Sort to show the newest active items at the top
-        combined_collat = combined_collat.sort_index(ascending=False)
+        # D. SORT (Newest on top)
+        display_df = display_df.sort_index(ascending=False)
 
-        # 2. SEARCH & DISPLAY
+        # --- SEARCH & DISPLAY TABLE ---
         search = st.text_input("🔍 Filter Inventory", placeholder="Search name or item...", key="collat_search_main")
-        display_df = combined_collat.copy()
-        
         if search:
             display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # 3. TABLE FORMATTING
+        # Formatting for display
         table_show = display_df.copy()
         if v_col in table_show.columns:
             table_show[v_col] = pd.to_numeric(table_show[v_col], errors='coerce').fillna(0)
             table_show[v_col] = table_show[v_col].apply(lambda x: f"{float(x):,.0f}")
             
         st.dataframe(table_show, use_container_width=True, hide_index=True)
-        
         st.caption(f"Showing {len(display_df)} active collateral items.")
-    else:
-        st.info("ℹ️ Your Collateral Inventory is currently empty.")
 
-        # --- 4. MANAGE SELECTED ASSET ---
+        # --- 4. MANAGE SELECTED ASSET (Brought Back!) ---
         st.write("---")
         st.markdown("#### 🛠️ Manage Selected Asset")
         
-        # Build Options List safely
         dropdown_options = []
         for _, row in display_df.iterrows():
             name = str(row.get(b_col, "N/A"))
@@ -509,10 +500,10 @@ elif page == "Collateral":
             val = str(row.get(v_col, "0"))
             dropdown_options.append(f"{name} | {item} (UGX {val})")
 
-        selected_asset_str = st.selectbox("Select item to Update/Delete", options=dropdown_options)
-
-        if selected_asset_str:
-            # We find the row by index in display_df to be 100% accurate
+        if dropdown_options:
+            selected_asset_str = st.selectbox("Select item to Update/Delete", options=dropdown_options)
+            
+            # Find the actual data row
             idx = dropdown_options.index(selected_asset_str)
             asset_row = display_df.iloc[idx]
             
@@ -520,17 +511,16 @@ elif page == "Collateral":
             
             col_a, col_b = st.columns(2)
             
-            with col_a.expander("📝 Edit Asset"):
-                with st.form("edit_asset_final_v4"):
-                    new_desc = st.text_input("Description", value=str(asset_row.get(d_col, "")))
+            with col_a.expander("📝 Edit Asset Details"):
+                with st.form("edit_asset_v_final"):
+                    new_desc = st.text_input("Update Description", value=str(asset_row.get(d_col, "")))
                     
-                    # Clean the value
-                    clean_v = str(asset_row.get(v_col, "0")).replace(",", "").strip()
-                    try: curr_v = int(float(clean_v))
+                    raw_v = str(asset_row.get(v_col, "0")).replace(",", "").strip()
+                    try: curr_v = int(float(raw_v))
                     except: curr_v = 0
                     
-                    new_val = st.number_input("Value (UGX)", value=curr_v, step=50000)
-                    new_status = st.selectbox("Status", ["Held", "Released", "Disposed"])
+                    new_val = st.number_input("Update Value (UGX)", value=curr_v, step=50000)
+                    new_status = st.selectbox("Update Status", ["HELD", "RELEASED", "DISPOSED"])
                     
                     if st.form_submit_button("💾 Save Changes"):
                         try:
@@ -538,43 +528,26 @@ elif page == "Collateral":
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             fresh_client = gspread.service_account_from_dict(creds_dict)
                             ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
+                            # Standard 7-column append
                             ws.append_row([asset_row[b_col], asset_row[i_col], new_desc, new_val, asset_row.get(dt_col, ""), new_status, str(datetime.now().date())])
-                            st.success("✅ Saved!")
-                            st.cache_data.clear(); st.rerun()
+                            st.success("✅ Saved!"); st.cache_data.clear(); st.rerun()
                         except Exception as e:
-                            st.error(f"Error: {e}")
+                            st.error(f"Sync error: {e}")
 
-            with col_b.expander("🗑️ Delete"):
-                if st.button("🔥 Confirm Deletion", key="del_final_v5"):
+            with col_b.expander("🗑️ Delete Record"):
+                st.warning("This will remove the item from active view.")
+                if st.button("🔥 Confirm Deletion", key="del_btn_final"):
                     try:
-                        # 1. Fresh Handshake
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
-                        
-                        # 2. THE FIX: Match your 7 columns EXACTLY as shown in your screenshot
-                        # Columns: [BORROWER, ASSET_TYPE, DESCRIPTION, ESTIMATED_VALUE, STORAGE_REF, STATUS, DATE_ADDED]
-                        delete_row = [
-                            str(asset_row.get(b_col, "")),      # 1. BORROWER
-                            str(asset_row.get(i_col, "")),      # 2. ASSET_TYPE
-                            "DELETED RECORD",                   # 3. DESCRIPTION
-                            0,                                  # 4. ESTIMATED_VALUE
-                            str(asset_row.get(dt_col, "")),     # 5. STORAGE_REF
-                            "DELETED",                          # 6. STATUS
-                            str(datetime.now().date())          # 7. DATE_ADDED
-                        ]
-                        
-                        ws.append_row(delete_row)
-                        
-                        st.success("✅ Success! Item removed from active inventory.")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        # This will tell us the exact technical reason if it fails
-                        st.error(f"Sync error: {str(e)}")
-                    else:
-                        st.info("ℹ️ Your Collateral Inventory is currently empty.")
+                        ws.append_row([asset_row[b_col], asset_row[i_col], "DELETED", 0, asset_row.get(dt_col, ""), "DELETED", str(datetime.now().date())])
+                        st.success("Deleted!"); st.cache_data.clear(); st.rerun()
+                    except:
+                        st.error("Delete failed.")
+    else:
+        st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: ACTIVITY CALENDAR
 elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
