@@ -247,6 +247,7 @@ if page == "Overview":
         else:
             st.info("ℹ️ No expenses recorded yet.")
 # PAGE: BORROWERS (Now includes Registration)
+# PAGE: BORROWERS
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
     
@@ -254,133 +255,78 @@ elif page == "Borrowers":
         st.session_state.local_registry = []
 
     # 1. REGISTRATION SECTION
-    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=True):
+    with st.expander("➕ Register New Client (KYC Enrollment)", expanded=False):
         with st.form("kyc_registration_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
                 f_name = st.text_input("First Name")
                 l_name = st.text_input("Last Name")
-                phone = st.text_input("Contact Number (256...)")
+                phone = st.text_input("Contact (256...)")
                 gender = st.selectbox("Gender", ["Male", "Female"])
-                nin = st.text_input("NIN (National ID Number)")
+                nin = st.text_input("NIN (National ID)")
                 issue_date = st.date_input("Loan Issue Date", value=datetime.now())
             
             with c2:
-                loan_amt = st.number_input("Approved Loan Amount (UGX)", min_value=0, step=50000)
-                interest = st.number_input("Agreed Interest Rate (%)", min_value=0)
+                loan_amt = st.number_input("Loan Amount (UGX)", min_value=0, step=50000)
+                interest = st.number_input("Interest Rate (%)", min_value=0)
                 loan_type = st.selectbox("Loan Type", ["Personal", "Business", "Emergency"])
                 address = st.text_area("Residential Address")
                 due_date = st.date_input("Repayment Due Date", value=datetime.now() + timedelta(days=30))
 
-            if st.form_submit_button("🚀 Finalize Registration & Disburse"):
+            if st.form_submit_button("🚀 Finalize & Disburse"):
                 if f_name and l_name and nin:
                     full_name = f"{f_name} {l_name}".upper()
-                    
-                    # Constructing the row with new Date columns
                     new_entry = {
-                        "CUSTOMER_NAME": full_name,
-                        "CONTACT": phone,
-                        "LOAN_AMOUNT": loan_amt,
-                        "AMOUNT_PAID": 0,
-                        "OUTSTANDING_AMOUNT": loan_amt,
-                        "INTEREST_RATE": interest,
-                        "NIN": nin,
-                        "ADDRESS": address,
-                        "GENDER": gender,
-                        "LOAN_TYPE": loan_type,
-                        "ISSUE_DATE": str(issue_date),
-                        "DUE_DATE": str(due_date)
+                        "CUSTOMER_NAME": full_name, "CONTACT": phone, "LOAN_AMOUNT": loan_amt,
+                        "AMOUNT_PAID": 0, "OUTSTANDING_AMOUNT": loan_amt, "INTEREST_RATE": interest,
+                        "NIN": nin, "ADDRESS": address, "GENDER": gender, "LOAN_TYPE": loan_type,
+                        "ISSUE_DATE": str(issue_date), "DUE_DATE": str(due_date)
                     }
-
                     st.session_state.local_registry.append(new_entry)
-                    
                     try:
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("Clients")
-                        
-                        # Save to Google (appends to the end of the sheet)
-                        ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
-                        st.balloons()
-                        st.success(f"✅ {full_name} saved successfully!")
-                    except Exception as e:
-                        st.warning(f"⚠️ Saved locally, but Cloud Sync delayed: {e}")
-                    
-                    st.cache_data.clear()
-                else:
-                    st.warning("Please fill in required fields (Name/NIN).")
+                        if g_client:
+                            ws = g_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+                            ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
+                            st.balloons(); st.success(f"✅ {full_name} saved!")
+                            st.cache_data.clear()
+                    except: st.warning("Saved locally, Cloud sync pending.")
+                else: st.warning("Name and NIN are required.")
 
     st.write("---")
 
-    # 2. THE DIRECTORY (With Formatting)
+    # 2. THE DIRECTORY (Full Column Display)
     st.markdown("#### 🔍 Active Borrower Directory")
-    
-    # Merge Cloud + Local data
     combined_display = pd.concat([df, pd.DataFrame(st.session_state.local_registry)], ignore_index=True)
+    
     if not combined_display.empty:
         combined_display = combined_display.drop_duplicates(subset=['NIN'], keep='last')
+        # Displaying ALL columns for a full KYC view
+        cols_to_show = ["CUSTOMER_NAME", "NIN", "CONTACT", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "ISSUE_DATE", "DUE_DATE", "GENDER", "ADDRESS"]
+        st.dataframe(combined_display, use_container_width=True, hide_index=True, column_order=cols_to_show)
         
-        # --- COMMA FORMATTING ---
-        # We create a display-only version so we don't break the math later
-        formatted_df = combined_display.copy()
-        money_cols = ['LOAN_AMOUNT', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']
-        for col in money_cols:
-            if col in formatted_df.columns:
-                formatted_df[col] = formatted_df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
-
-        st.dataframe(
-            formatted_df, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=("CUSTOMER_NAME", "LOAN_AMOUNT", "OUTSTANDING_AMOUNT", "ISSUE_DATE", "DUE_DATE", "LOAN_TYPE")
-        )
-    else:
-        st.info("ℹ️ No borrowers yet.")
-
-    # 3. EDIT/DELETE ACTIONS
-    if not df.empty:
+        # 3. ADMIN ACTIONS (Edit/Delete)
         st.write("---")
         with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
-            to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique())
-            act = st.radio("Action", ["Update Contact/Address", "Remove Client Forever"], horizontal=True)
-            
-            # --- SAFETY CHECK ADDED HERE ---
-            if g_client is not None:
-                sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                try:
-                    ws = g_client.open_by_key(sheet_id).worksheet("Clients")
-                    
-                    if act == "Update Contact/Address":
-                        with st.form("edit_borrower_form"):
-                            # Logic to get current row
-                            curr_match = combined_display[combined_display['CUSTOMER_NAME'] == to_action]
-                            if not curr_match.empty:
-                                curr_row = curr_match.iloc[0]
-                                new_p = st.text_input("New Phone", value=str(curr_row.get('CONTACT', '')))
-                                new_a = st.text_area("New Address", value=str(curr_row.get('ADDRESS', '')))
-                                
-                                if st.form_submit_button("Save Changes"):
-                                    cell = ws.find(to_action)
-                                    ws.update_cell(cell.row, 2, new_p) 
-                                    ws.update_cell(cell.row, 8, new_a) 
-                                    st.success("Details Updated!")
-                                    st.cache_data.clear()
-                                    st.rerun()
-                    
-                    elif act == "Remove Client Forever":
-                        if st.button("🚨 CONFIRM DELETE"):
+            if g_client:
+                to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique())
+                act = st.radio("Action", ["Update Details", "Delete Client"], horizontal=True)
+                ws = g_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+                
+                if act == "Update Details":
+                    with st.form("edit_kyc_f"):
+                        curr = combined_display[combined_display['CUSTOMER_NAME']==to_action].iloc[0]
+                        new_p = st.text_input("Update Phone", value=str(curr['CONTACT']))
+                        new_a = st.text_area("Update Address", value=str(curr['ADDRESS']))
+                        if st.form_submit_button("Save Changes"):
                             cell = ws.find(to_action)
-                            ws.delete_rows(cell.row)
-                            st.warning("Client removed.")
-                            st.cache_data.clear()
-                            st.rerun()
-                except Exception as e:
-                    st.error(f"Google Sheets Error: {e}")
-            else:
-                st.error("📡 Database Connection Lost. Please click 'Sync' in the sidebar.")
+                            ws.update_cell(cell.row, 2, new_p) # Contact
+                            ws.update_cell(cell.row, 8, new_a) # Address (Verify your sheet col H)
+                            st.success("Updated!"); st.cache_data.clear(); st.rerun()
+                else:
+                    if st.button("🚨 CONFIRM PERMANENT DELETE"):
+                        cell = ws.find(to_action); ws.delete_rows(cell.row)
+                        st.warning("Deleted!"); st.cache_data.clear(); st.rerun()
+            else: st.error("Database connection required for Admin Actions.")
 
 # --- CRITICAL: THIS ELIF MUST BE AT THE FAR LEFT (aligned with 'if page == "Overview"') ---
 elif page == "Collateral":
