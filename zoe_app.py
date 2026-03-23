@@ -303,58 +303,100 @@ elif page == "Borrowers":
     if not combined_display.empty:
         combined_display = combined_display.drop_duplicates(subset=['NIN'], keep='last')
         
-        # COLUMN RATIOS: Adjusted for more data
-        # [Name, Outstanding, Due, NIN, Gender, Actions]
-        ratios = [2, 1.5, 1.5, 1.5, 1, 1.5]
+        # COLUMN RATIOS: [Name, Balance, Due Date, NIN, Sex, Actions]
+        ratios = [2, 1.5, 1.5, 1.5, 0.8, 1.5]
         
         # Header Row
         h = st.columns(ratios)
-        headers = ["NAME", "PRINCIPLE", "DUE DATE", "NIN", "GENDER", "ACTIONS"]
+        headers = ["NAME", "BALANCE", "DUE DATE", "NIN", "SEX", "ACTIONS"]
         for col, text in zip(h, headers):
-            col.markdown(f"<p style='font-size:11px; font-weight:bold; color:gray; margin-bottom:0;'>{text}</p>", unsafe_allow_html=True)
-        st.divider()
+            col.markdown(f"<p style='font-size:11px; font-weight:bold; color:#1e3a8a;'>{text}</p>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin:0; border:1px solid #1e3a8a; opacity:0.2;'>", unsafe_allow_html=True)
 
         # Data Rows
         for index, row in combined_display.iterrows():
             c = st.columns(ratios)
             
-            # 1. Name (Small bold)
-            c[0].markdown(f"<p style='font-size:13px; font-weight:600; margin:0;'>{row['CUSTOMER_NAME']}</p>", unsafe_allow_html=True)
+            c[0].markdown(f"<p style='font-size:13px; font-weight:600;'>{row['CUSTOMER_NAME']}</p>", unsafe_allow_html=True)
             
-            # 2. Balance
             bal = float(row.get('OUTSTANDING_AMOUNT', 0))
-            c[1].markdown(f"<p style='font-size:13px; margin:0;'>{bal:,.0f}</p>", unsafe_allow_html=True)
+            c[1].markdown(f"<p style='font-size:13px;'>{bal:,.0f}</p>", unsafe_allow_html=True)
             
-            # 3. Due Date (Handling 'nan' or None)
             d_date = str(row.get('DUE_DATE', ''))
-            d_text = d_date if d_date not in ['nan', 'None', ''] else "-"
-            c[2].markdown(f"<p style='font-size:13px; margin:0;'>{d_text}</p>", unsafe_allow_html=True)
+            c[2].markdown(f"<p style='font-size:13px;'>{d_date if d_date != 'None' else '-'}</p>", unsafe_allow_html=True)
             
-            # 4. NIN
-            nin_text = str(row.get('NIN', '-'))[:12] # Truncate if too long
-            c[3].markdown(f"<p style='font-size:12px; color:#64748b; margin:0;'>{nin_text}</p>", unsafe_allow_html=True)
+            c[3].markdown(f"<p style='font-size:12px; color:gray;'>{row.get('NIN', '-')}</p>", unsafe_allow_html=True)
             
-            # 5. Gender
             gen = str(row.get('GENDER', '-'))[0].upper() if row.get('GENDER') else "-"
-            c[4].markdown(f"<p style='font-size:13px; margin:0;'>{gen}</p>", unsafe_allow_html=True)
+            c[4].markdown(f"<p style='font-size:13px;'>{gen}</p>", unsafe_allow_html=True)
             
-            # 6. Action Icons (View, Edit, Delete)
+            # Action Buttons
             btn_col = c[5].columns(3)
-            
-            # EYE ICON: View Full Details (Address/Contact)
-            if btn_col[0].button("👁️", key=f"view_{index}", help="View Full KYC"):
+            if btn_col[0].button("👁️", key=f"v_{index}"):
                 st.session_state.view_mode = row.to_dict()
                 st.rerun()
 
-            if btn_col[1].button("📝", key=f"edit_{index}"):
-                st.session_state.edit_mode = row['CUSTOMER_NAME']
+            if btn_col[1].button("📝", key=f"e_{index}"):
+                st.session_state.edit_mode = row.to_dict() # Store whole row
                 st.rerun()
                 
-            if btn_col[2].button("🗑️", key=f"del_{index}"):
+            if btn_col[2].button("🗑️", key=f"d_{index}"):
                 st.session_state.delete_mode = row['CUSTOMER_NAME']
                 st.rerun()
             
-            st.markdown("<hr style='margin:2px 0; opacity:0.1;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:0; opacity:0.1;'>", unsafe_allow_html=True)
+
+        # --- THE WORKERS (Actual Edit/Delete Logic) ---
+
+        # 1. DELETE ACTION
+        if st.session_state.get('delete_mode'):
+            with st.status(f"⚠️ Confirm Deletion of {st.session_state.delete_mode}", expanded=True):
+                st.warning("This will permanently remove the client from the Cloud Database.")
+                col_del, col_can = st.columns(2)
+                if col_del.button("Confirm DELETE"):
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        ws = gspread.service_account_from_dict(creds_dict).open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+                        cell = ws.find(st.session_state.delete_mode)
+                        if cell:
+                            ws.delete_rows(cell.row)
+                            st.success("Erase Complete!")
+                            del st.session_state.delete_mode
+                            st.cache_data.clear()
+                            st.rerun()
+                    except Exception as e: st.error(f"Error: {e}")
+                if col_can.button("Cancel"):
+                    del st.session_state.delete_mode
+                    st.rerun()
+
+        # 2. EDIT ACTION
+        if st.session_state.get('edit_mode'):
+            e = st.session_state.edit_mode
+            with st.status(f"📝 Editing: {e['CUSTOMER_NAME']}", expanded=True):
+                with st.form("edit_form"):
+                    new_contact = st.text_input("Contact Number", value=str(e.get('CONTACT', '')))
+                    new_address = st.text_area("Residential Address", value=str(e.get('ADDRESS', '')))
+                    if st.form_submit_button("Save Cloud Changes"):
+                        try:
+                            creds_dict = dict(st.secrets["gcp_service_account"])
+                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                            ws = gspread.service_account_from_dict(creds_dict).open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+                            cell = ws.find(e['CUSTOMER_NAME'])
+                            if cell:
+                                ws.update_cell(cell.row, 2, new_contact) # Update Contact
+                                ws.update_cell(cell.row, 8, new_address) # Update Address
+                                st.success("Cloud Updated!")
+                                del st.session_state.edit_mode
+                                st.cache_data.clear()
+                                st.rerun()
+                        except Exception as ex: st.error(ex)
+                if st.button("Close Editor"):
+                    del st.session_state.edit_mode
+                    st.rerun()
+
+    else:
+        st.info("ℹ️ No borrowers yet.")
 
         # --- MODAL OVERLAYS ---
 
