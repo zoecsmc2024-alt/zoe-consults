@@ -409,18 +409,40 @@ elif page == "Borrowers":
                 @st.dialog(f"📝 Edit: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def edit_modal(data):
                     st.markdown("### Update Borrower Details")
+                    # These inputs capture the new data
                     new_phone = st.text_input("New Contact", value=data.get('CONTACT', ''))
                     new_addr = st.text_area("New Address", value=data.get('ADDRESS', ''))
                     
                     if st.button("💾 Save Changes", use_container_width=True):
-                        st.info("Syncing with Google Sheets...")
-                        # gspread logic will go here
-                        st.success("Successfully updated!")
-                        st.rerun()
+                        try:
+                            # 1. CONNECT TO GOOGLE SHEETS
+                            creds_dict = dict(st.secrets["gcp_service_account"])
+                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                            client = gspread.service_account_from_dict(creds_dict)
+                            ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                # --- B. DISPLAY THE BUTTONS SECOND ---
-                col1, col2, col3 = st.columns(3)
+                            # 2. FIND THE ROW (Using NIN as the unique identifier)
+                            cell = ws.find(data['NIN'])
+                            
+                            if cell:
+                                # 3. UPDATE CELLS (Check your column numbers! Assuming Contact=2, Address=5)
+                                # Update Contact column
+                                ws.update_cell(cell.row, 2, new_phone)
+                                # Update Address column
+                                ws.update_cell(cell.row, 5, new_addr)
+                                
+                                st.success("✅ Google Sheets Updated!")
+                                
+                                # 4. CLEAR CACHE & REFRESH
+                                st.cache_data.clear()
+                                st.rerun()
+                            else:
+                                st.error("Could not find this borrower in the cloud.")
+                                
+                        except Exception as e:
+                            st.error(f"Error syncing to cloud: {e}")
 
+                # --- BUTTON TRIGGERS ---
                 if col1.button("👁️ View Details", use_container_width=True):
                     view_modal(row)
                 
