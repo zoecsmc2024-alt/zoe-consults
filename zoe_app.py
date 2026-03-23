@@ -361,7 +361,12 @@ elif page == "Borrowers":
     combined = pd.concat([df, local_df], ignore_index=True)
 
     if not combined.empty:
-        combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
+        # FORMATTING WITH COMMAS FOR THE GRID
+        for col in ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
+            if col in combined.columns:
+                combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
+                # This makes them look nice in the table:
+                combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
         
         # Display the interactive grid
         gb = GridOptionsBuilder.from_dataframe(combined)
