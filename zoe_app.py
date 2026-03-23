@@ -308,52 +308,50 @@ elif page == "Borrowers":
         # 3. ADMIN ACTIONS (Edit/Delete Records)
         st.write("---")
         with st.expander("🛠️ Admin Actions (Edit/Delete Records)"):
-            # FIRST: Check if the connection exists
-            if g_client is not None:
-                try:
-                    to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique(), key="admin_sel_borrower")
-                    act = st.radio("Action", ["Update Details", "Delete Client"], horizontal=True)
-                    
-                    # Connect to Google
-                    sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                    ws = g_client.open_by_key(sheet_id).worksheet("Clients")
-                    
-                    if act == "Update Details":
-                        with st.form("edit_kyc_f"):
-                            curr_match = combined_display[combined_display['CUSTOMER_NAME'] == to_action]
-                            if not curr_match.empty:
-                                curr = curr_match.iloc[0]
-                                new_p = st.text_input("Update Phone", value=str(curr.get('CONTACT', '')))
-                                new_a = st.text_area("Update Address", value=str(curr.get('ADDRESS', '')))
-                                
-                                if st.form_submit_button("💾 Save Changes"):
-                                    cell = ws.find(to_action)
-                                    if cell:
-                                        ws.update_cell(cell.row, 2, new_p) # Update Contact
-                                        ws.update_cell(cell.row, 8, new_a) # Update Address
-                                        st.success("✅ Success! Details updated.")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                    else:
-                                        st.error("Could not find client in Google Sheets.")
-                    
-                    else: # Delete Action
-                        if st.button("🚨 CONFIRM PERMANENT DELETE"):
-                            cell = ws.find(to_action)
-                            if cell:
-                                ws.delete_rows(cell.row)
-                                st.warning(f"Client {to_action} erased from database.")
-                                st.cache_data.clear()
-                                st.rerun()
-                
-                except Exception as e:
-                    st.error(f"⚠️ Google Sheets Connection Error: {e}")
+            to_action = st.selectbox("Select Client to Modify", combined_display['CUSTOMER_NAME'].unique(), key="admin_sel_borrower")
+            act = st.radio("Action", ["Update Details", "Delete Client"], horizontal=True)
             
-            else:
-                # If g_client is None, show this instead of crashing
-                st.error("📡 Connection to Cloud Database is currently offline. Please refresh or check your Internet.")
-                if st.button("🔄 Try Reconnecting"):
-                    st.cache_data.clear()
+            # RE-CONNECT LOGIC: This fixes the 'AuthorizedSession' error
+            try:
+                # 1. Re-authorize on the fly
+                creds_dict = dict(st.secrets["gcp_service_account"])
+                if "private_key" in creds_dict:
+                    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                
+                # Create a fresh, temporary client for this action
+                fresh_client = gspread.service_account_from_dict(creds_dict)
+                sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                ws = fresh_client.open_by_key(sheet_id).worksheet("Clients")
+
+                if act == "Update Details":
+                    with st.form("edit_kyc_f"):
+                        curr_match = combined_display[combined_display['CUSTOMER_NAME'] == to_action]
+                        if not curr_match.empty:
+                            curr = curr_match.iloc[0]
+                            new_p = st.text_input("Update Phone", value=str(curr.get('CONTACT', '')))
+                            new_a = st.text_area("Update Address", value=str(curr.get('ADDRESS', '')))
+                            
+                            if st.form_submit_button("💾 Save Changes"):
+                                cell = ws.find(to_action)
+                                if cell:
+                                    ws.update_cell(cell.row, 2, new_p) 
+                                    ws.update_cell(cell.row, 8, new_a) 
+                                    st.success("✅ Details updated in Cloud!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                
+                elif act == "Delete Client":
+                    if st.button("🚨 CONFIRM PERMANENT DELETE"):
+                        cell = ws.find(to_action)
+                        if cell:
+                            ws.delete_rows(cell.row)
+                            st.warning(f"Client {to_action} erased.")
+                            st.cache_data.clear()
+                            st.rerun()
+            
+            except Exception as e:
+                st.error(f"📡 Connection Refreshed Required: {e}")
+                if st.button("Reconnect to Google"):
                     st.rerun()
 
 # --- CRITICAL: THIS ELIF MUST BE AT THE FAR LEFT (aligned with 'if page == "Overview"') ---
