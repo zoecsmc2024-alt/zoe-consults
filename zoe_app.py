@@ -403,19 +403,27 @@ elif page == "Borrowers":
                     st.write(f"**Contact:** {data['CONTACT']}")
                     st.write(f"**Address:** {data['ADDRESS']}")
                     st.divider()
-                    st.metric("Outstanding Amount", f"UGX {data['OUTSTANDING_AMOUNT']:,.0f}")
+                    # Convert to number first to ensure formatting works
+outstanding = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
+st.metric("Outstanding Amount", f"UGX {outstanding:,.0f}")
                     if st.button("Close"):
                         st.rerun()
 
                 # EDIT DIALOG
-                @st.dialog(f"📝 Edit: {row['CUSTOMER_NAME']}")
-                def edit_modal(data):
-                    new_phone = st.text_input("Phone", value=data['CONTACT'])
-                    new_addr = st.text_area("Address", value=data['ADDRESS'])
-                    if st.button("Save Changes"):
-                        st.success("Updating Google Sheets...")
-                        # Add your gspread update logic here
-                        st.rerun()
+                @st.dialog(f"👁️ Profile: {row['CUSTOMER_NAME']}")
+def view_modal(data):
+    # Use .get() and double-check these names match your Sheet headers!
+    st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
+    st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
+    st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
+    st.divider()
+    
+    # Safer number conversion
+    amt = pd.to_numeric(data.get('OUTSTANDING_AMOUNT', 0), errors='coerce')
+    st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
+    
+    if st.button("Close"):
+        st.rerun()
 
                 if col1.button("👁️ View Details", use_container_width=True):
                     view_modal(row)
