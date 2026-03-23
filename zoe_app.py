@@ -1753,4 +1753,4 @@ st.session_state.biz_tagline = biz_tagline
 st.session_state.default_rate = default_rate
 st.session_state.late_penalty = late_penalty
 st.balloons()
-        st.success("Settings updated successfully! Changes are active for this session.")
+st.success("Settings updated successfully! Changes are active for this session.")
