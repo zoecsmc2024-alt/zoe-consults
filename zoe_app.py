@@ -319,73 +319,80 @@ elif page == "Borrowers":
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     
-    # SAFETY CHECK: Only try to filter if the column exists
-    if not collateral_df.empty and 'STATUS' in collateral_df.columns:
-        held_items = collateral_df[collateral_df['STATUS'] == 'Held']
-        released_items = collateral_df[collateral_df['STATUS'] == 'Released']
-        
-        # Display Metrics
-        c1, c2 = st.columns(2)
-        c1.metric("🔒 Items Held", len(held_items))
-        c2.metric("🔓 Items Released", len(released_items))
-        
-        st.write("---")
-        st.markdown("#### Inventory List")
-        st.dataframe(collateral_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("ℹ️ No collateral records found. Start by adding collateral for a borrower!")
-        
-    # --- ADD COLLATERAL FORM ---
-    with st.expander("📝 Log New Collateral"):
-        # The form starts here
-        with st.form("collateral_form"):
+    # 1. LOG NEW COLLATERAL
+    with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
+        with st.form("collateral_form", clear_on_submit=True):
+            # Combine Cloud + Local names for the dropdown
             local_names = [b['CUSTOMER_NAME'] for b in st.session_state.get('local_registry', [])]
             cloud_names = df['CUSTOMER_NAME'].tolist() if not df.empty else []
             all_borrowers = list(set(cloud_names + local_names))
             
-            b_name = st.selectbox("Select Borrower", all_borrowers if all_borrowers else ["No Borrowers"])
-            item = st.text_input("Item Description (e.g., Car Logbook, Land Title)")
-            val = st.number_input("Estimated Value (UGX)", min_value=0)
-            
-            # This button MUST be indented here (inside the 'with st.form' block)
-            submit = st.form_submit_button("🔒 Secure Item")
-            
-        # This logic happens AFTER the form is submitted
-        if submit:
-            if b_name != "No Borrowers" and item:
-                new_collat = [b_name, item, val, "Held", str(datetime.now().date())]
-                try:
-                    sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                    ws = g_client.open_by_key(sheet_id).worksheet("Collateral")
-                    ws.append_row(new_collat, value_input_option='USER_ENTERED')
-                    st.success(f"Item secured for {b_name}!")
-                    st.cache_data.clear()
-                    st.rerun()
-                except Exception as e:
-                    if "200" in str(e): # Handling that sneaky success-error
-                        st.success(f"Item secured for {b_name}!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error(f"Sync Error: {e}")
+            c1, c2 = st.columns(2)
+            with c1:
+                b_name = st.selectbox("Select Borrower", all_borrowers if all_borrowers else ["No Borrowers Found"])
+                item_desc = st.text_input("Item Description", placeholder="e.g. Car Logbook (Toyota), Land Title")
+            with c2:
+                item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=100000)
+                status = st.selectbox("Initial Status", ["Held", "Released"])
 
-    # 3. COLLATERAL INVENTORY TABLE
+            if st.form_submit_button("🔒 Secure Item"):
+                if b_name != "No Borrowers Found" and item_desc:
+                    new_asset = [b_name, item_desc, item_val, status, str(datetime.now().date())]
+                    
+                    try:
+                        # 🔄 FRESH HANDSHAKE (Prevents '_auth_request' error)
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = fresh_client.open_by_key(sheet_id).worksheet("Collateral")
+                        ws.append_row(new_asset, value_input_option='USER_ENTERED')
+                        
+                        st.balloons()
+                        st.success(f"✅ Asset secured for {b_name}!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        if "200" in str(e):
+                            st.balloons(); st.success("✅ Asset Secured!"); st.cache_data.clear()
+                        else:
+                            st.error(f"Sync Error: {e}")
+                else:
+                    st.warning("Please select a borrower and describe the item.")
+
     st.write("---")
-    st.markdown("#### 🔍 Inventory Search")
-    search_asset = st.text_input("Search by Item or Borrower", placeholder="e.g. Toyota, Logbook...")
-    st.write("---")
-col_to_delete = st.selectbox("Select Asset to Remove/Release", collateral_df['DESCRIPTION'].unique() if not collateral_df.empty else ["None"])
-if st.button("🗑️ Delete Asset Record"):
-    cell = g_client.open("Zoe_Consults_Database").worksheet("Collateral").find(col_to_delete)
-    g_client.open("Zoe_Consults_Database").worksheet("Collateral").delete_rows(cell.row)
-    st.success("Asset Record Cleared."); st.cache_data.clear()
+
+    # 2. INVENTORY TABLE
+    st.markdown("#### 📦 Current Inventory List")
     
     if not collateral_df.empty:
-        asset_mask = (collateral_df['BORROWER'].str.contains(search_asset, case=False, na=False)) | \
-                     (collateral_df['DESCRIPTION'].str.contains(search_asset, case=False, na=False))
-        st.dataframe(collateral_df[asset_mask], use_container_width=True, hide_index=True)
+        # Search Filter
+        search = st.text_input("🔍 Search by Item or Borrower", placeholder="Type name or item...")
+        
+        # Copy for formatting so we don't break the original math
+        display_collat = collateral_df.copy()
+        
+        # Apply Search
+        if search:
+            display_collat = display_collat[display_collat.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        
+        # Format Value with Commas
+        if 'VALUE' in display_collat.columns:
+            display_collat['VALUE'] = display_collat['VALUE'].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
+        
+        # Display Table
+        st.dataframe(
+            display_collat, 
+            use_container_width=True, 
+            hide_index=True,
+            column_order=("BORROWER_NAME", "ITEM_NAME", "VALUE", "STATUS", "DATE")
+        )
+        
+        # Quick Summary
+        total_value = pd.to_numeric(collateral_df['VALUE'], errors='coerce').sum()
+        st.info(f"💎 Total Assets Under Security: **UGX {total_value:,.0f}**")
     else:
-        st.info("No collateral assets recorded yet.")
+        st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: CALENDAR
 elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
