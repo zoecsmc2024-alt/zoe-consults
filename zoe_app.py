@@ -404,13 +404,14 @@ if not combined.empty:
             "LOAN_TYPE"
         ]
     )
-else:
-    st.info("No borrowers yet.")
 
+    else:
+        # This ELSE now correctly belongs to "if not combined.empty"
+        st.info("No borrowers yet.")
 
+# --- NOW you can start the next page ---
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
-
     # --- 1. INIT LOCAL STORAGE ---
     if 'local_collateral' not in st.session_state:
         st.session_state.local_collateral = []
