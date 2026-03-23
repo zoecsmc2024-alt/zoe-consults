@@ -306,12 +306,6 @@ if page == "Overview":
         st.info("No borrower data available.")
     
 
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-import gspread
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-
 # --- 1. Page Title ---
 
 elif page == "Borrowers":
