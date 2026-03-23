@@ -573,8 +573,8 @@ elif page == "Collateral":
                     except Exception as e:
                         # This will tell us the exact technical reason if it fails
                         st.error(f"Sync error: {str(e)}")
-    else:
-        st.info("ℹ️ Your Collateral Inventory is currently empty.")
+                    else:
+                        st.info("ℹ️ Your Collateral Inventory is currently empty.")
 # PAGE: ACTIVITY CALENDAR
 elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
