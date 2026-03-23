@@ -827,16 +827,24 @@ elif page == "PettyCash":
     else:
         st.info("ℹ️ No petty cash transactions found. Top up your float to get started!")
 
-# PAGE: PAYROLL
+# PAGE: PAYROLL (Salaries & Digital Pay Slips)
 elif page == "Payroll":
     st.markdown('<div class="main-title">👔 Team Payroll Management</div>', unsafe_allow_html=True)
     
-    # 1. PAYROLL SUMMARY
-    if not payroll_df.empty:
-        total_monthly_pay = payroll_df['NET_PAY'].sum()
+    # 1. Initialize Local Memory
+    if 'local_payroll' not in st.session_state:
+        st.session_state.local_payroll = []
+
+    # 2. SYNC DATA (Cloud + Local)
+    local_pay_df = pd.DataFrame(st.session_state.local_payroll)
+    combined_payroll = pd.concat([payroll_df, local_pay_df], ignore_index=True)
+    
+    # 3. PAYROLL SUMMARY
+    if not combined_payroll.empty:
+        total_monthly_pay = pd.to_numeric(combined_payroll['NET_PAY'], errors='coerce').sum()
         st.metric("Total Monthly Payroll", f"UGX {total_monthly_pay:,.0f}", delta="Staff Costs")
 
-    # 2. RECORD SALARY PAYMENT
+    # 4. RECORD SALARY PAYMENT
     with st.expander("➕ Process Staff Salary", expanded=True):
         with st.form("payroll_form", clear_on_submit=True):
             st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>Employee Disbursement Details</p>", unsafe_allow_html=True)
@@ -849,26 +857,47 @@ elif page == "Payroll":
             
             net_pay = p_basic + p_bonus - p_deduct
             st.markdown(f"**Calculated Net Pay: UGX {net_pay:,.0f}**")
-            
             p_date = st.date_input("Payment Date", value=datetime.now())
             
             if st.form_submit_button("💳 Confirm & Process Payment", use_container_width=True):
-                # Data for Google Sheets
-                new_payroll = [p_staff, p_basic, p_bonus, p_deduct, net_pay, str(p_date)]
-                g_client.open("Zoe_Consults_Database").worksheet("Payroll").append_row(new_payroll)
-                st.success(f"Salary processed for {p_staff}!"); st.cache_data.clear()
+                if p_staff and net_pay > 0:
+                    new_payroll = {
+                        "STAFF_NAME": p_staff,
+                        "BASIC_SALARY": p_basic,
+                        "BONUS": p_bonus,
+                        "DEDUCTIONS": p_deduct,
+                        "NET_PAY": net_pay,
+                        "DATE": str(p_date)
+                    }
+                    st.session_state.local_payroll.append(new_payroll)
+                    
+                    try:
+                        # Fresh handshake to avoid AttributeError
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = fresh_client.open_by_key(sheet_id).worksheet("Payroll")
+                        ws.append_row(list(new_payroll.values()), value_input_option='USER_ENTERED')
+                        
+                        st.success(f"✅ Salary processed for {p_staff}!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.warning(f"⚠️ Saved locally, Cloud sync pending: {e}")
+                else:
+                    st.warning("Please fill in Staff Name and Amount.")
 
-    # 3. PAYROLL HISTORY
+    # 5. GENERATE INDIVIDUAL PAY SLIP (Restored Logic)
     st.write("---")
     st.markdown("#### 🎫 Generate Individual Pay Slip")
     
-    # 1. SELECT STAFF FOR SLIP
-    if not payroll_df.empty:
-        staff_list = payroll_df['STAFF_NAME'].unique()
+    if not combined_payroll.empty:
+        staff_list = combined_payroll['STAFF_NAME'].unique()
         selected_staff = st.selectbox("Select Employee", options=staff_list)
         
         # Get the latest payment for this staff member
-        staff_data = payroll_df[payroll_df['STAFF_NAME'] == selected_staff].iloc[-1]
+        staff_data = combined_payroll[combined_payroll['STAFF_NAME'] == selected_staff].iloc[-1]
 
         if st.button("🖨️ Prepare Digital Pay Slip", use_container_width=True):
             def generate_payslip_pdf(name, basic, bonus, deduct, net, date, biz_name):
@@ -903,24 +932,22 @@ elif page == "Payroll":
                 # Table Body (Earnings & Deductions)
                 pdf.set_text_color(0, 0, 0)
                 pdf.cell(130, 10, "Basic Salary", 1)
-                pdf.cell(60, 10, f"{basic:,.0f}", 1, 1, 'R')
-                
+                pdf.cell(60, 10, f"{float(basic):,.0f}", 1, 1, 'R')
                 pdf.cell(130, 10, "Performance Bonus / Commission", 1)
-                pdf.cell(60, 10, f"{bonus:,.0f}", 1, 1, 'R')
-                
+                pdf.cell(60, 10, f"{float(bonus):,.0f}", 1, 1, 'R')
                 pdf.set_text_color(153, 27, 27) # Red for deductions
                 pdf.cell(130, 10, "Deductions / Salary Advance", 1)
-                pdf.cell(60, 10, f"- {deduct:,.0f}", 1, 1, 'R')
+                pdf.cell(60, 10, f"- {float(deduct):,.0f}", 1, 1, 'R')
 
-                # Net Total (Baby Blue/Navy Highlight)
+                # Net Total
                 pdf.ln(5)
                 pdf.set_font("Arial", 'B', 12)
                 pdf.set_fill_color(239, 246, 255) # Baby Blue
                 pdf.set_text_color(30, 58, 138)
                 pdf.cell(130, 12, " NET DISBURSEMENT", 1, 0, 'L', True)
-                pdf.cell(60, 12, f"UGX {net:,.0f}", 1, 1, 'R', True)
+                pdf.cell(60, 12, f"UGX {float(net):,.0f}", 1, 1, 'R', True)
 
-                # Signature Section
+                # Signatures
                 pdf.ln(20)
                 pdf.set_font("Arial", 'I', 9)
                 pdf.set_text_color(100, 116, 139)
@@ -931,21 +958,26 @@ elif page == "Payroll":
                 
                 return pdf.output(dest='S').encode('latin-1')
 
-            # PDF Download Logic
+            # PDF Generation & Download
             slip_bytes = generate_payslip_pdf(
-                staff_data['STAFF_NAME'], 
-                staff_data['BASIC_SALARY'], 
-                staff_data['BONUS'], 
-                staff_data['DEDUCTIONS'], 
-                staff_data['NET_PAY'], 
-                staff_data['DATE'], 
-                "ZOE CONSULTS SMC LTD"
+                staff_data['STAFF_NAME'], staff_data['BASIC_SALARY'], 
+                staff_data['BONUS'], staff_data['DEDUCTIONS'], 
+                staff_data['NET_PAY'], staff_data['DATE'], "ZOE CONSULTS SMC LTD"
             )
             b64_slip = base64.b64encode(slip_bytes).decode()
-            href_slip = f'<a href="data:application/octet-stream;base64,{b64_slip}" download="PaySlip_{selected_staff}_{staff_data["DATE"]}.pdf" style="text-decoration:none;">' \
+            href_slip = f'<a href="data:application/octet-stream;base64,{b64_slip}" download="PaySlip_{selected_staff}.pdf" style="text-decoration:none;">' \
                         f'<div style="background-color:#3b82f6; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
                         f'📥 DOWNLOAD PAY SLIP FOR {selected_staff}</div></a>'
             st.markdown(href_slip, unsafe_allow_html=True)
+            
+        # 6. DISBURSEMENT HISTORY TABLE
+        st.write("---")
+        st.markdown("#### 📜 Disbursement History")
+        display_pay = combined_payroll.copy().sort_values(by='DATE', ascending=False)
+        for col in ['BASIC_SALARY', 'BONUS', 'DEDUCTIONS', 'NET_PAY']:
+            if col in display_pay.columns:
+                display_pay[col] = display_pay[col].apply(lambda x: f"{float(x):,.0f}")
+        st.dataframe(display_pay, use_container_width=True, hide_index=True)
     else:
         st.info("Record a staff salary first to generate a pay slip.")
 # PAGE: ADD PAYMENT & CLIENT
