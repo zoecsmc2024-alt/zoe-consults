@@ -294,43 +294,85 @@ elif page == "Borrowers":
 
     st.write("---")
 
-    # 2. THE DIRECTORY (Full Column Display)
+    # 2. THE DIRECTORY (Compact KYC View)
     st.markdown("#### 🔍 Active Borrower Directory")
+    
+    # Merge Cloud + Local
     combined_display = pd.concat([df, pd.DataFrame(st.session_state.local_registry)], ignore_index=True)
     
     if not combined_display.empty:
         combined_display = combined_display.drop_duplicates(subset=['NIN'], keep='last')
         
-        # Header Row for the manual table
-        h1, h2, h3, h4, h5 = st.columns([2, 2, 2, 2, 1.5])
-        h1.caption("**NAME**")
-        h2.caption("**OUTSTANDING**")
-        h3.caption("**DUE DATE**")
-        h4.caption("**CONTACT**")
-        h5.caption("**ACTIONS**")
+        # COLUMN RATIOS: Adjusted for more data
+        # [Name, Outstanding, Due, NIN, Gender, Actions]
+        ratios = [2, 1.5, 1.5, 1.5, 1, 1.5]
+        
+        # Header Row
+        h = st.columns(ratios)
+        headers = ["NAME", "BALANCE", "DUE DATE", "NIN", "SEX", "ACTIONS"]
+        for col, text in zip(h, headers):
+            col.markdown(f"<p style='font-size:11px; font-weight:bold; color:gray; margin-bottom:0;'>{text}</p>", unsafe_allow_html=True)
         st.divider()
 
-        # Generate a row for every borrower
+        # Data Rows
         for index, row in combined_display.iterrows():
-            c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 1.5])
+            c = st.columns(ratios)
             
-            c1.write(f"**{row['CUSTOMER_NAME']}**")
+            # 1. Name (Small bold)
+            c[0].markdown(f"<p style='font-size:13px; font-weight:600; margin:0;'>{row['CUSTOMER_NAME']}</p>", unsafe_allow_html=True)
+            
+            # 2. Balance
             bal = float(row.get('OUTSTANDING_AMOUNT', 0))
-            c2.write(f"UGX {bal:,.0f}")
-            c3.write(str(row.get('DUE_DATE', 'N/A')))
-            c4.write(str(row.get('CONTACT', '')))
+            c[1].markdown(f"<p style='font-size:13px; margin:0;'>{bal:,.0f}</p>", unsafe_allow_html=True)
             
-            # Action Buttons in the last column
-            # Use unique keys by combining name + index
-            btn_col1, btn_col2 = c5.columns(2)
+            # 3. Due Date (Handling 'nan' or None)
+            d_date = str(row.get('DUE_DATE', ''))
+            d_text = d_date if d_date not in ['nan', 'None', ''] else "-"
+            c[2].markdown(f"<p style='font-size:13px; margin:0;'>{d_text}</p>", unsafe_allow_html=True)
             
-            if btn_col1.button("📝", key=f"edit_{index}", help="Edit Details"):
+            # 4. NIN
+            nin_text = str(row.get('NIN', '-'))[:12] # Truncate if too long
+            c[3].markdown(f"<p style='font-size:12px; color:#64748b; margin:0;'>{nin_text}</p>", unsafe_allow_html=True)
+            
+            # 5. Gender
+            gen = str(row.get('GENDER', '-'))[0].upper() if row.get('GENDER') else "-"
+            c[4].markdown(f"<p style='font-size:13px; margin:0;'>{gen}</p>", unsafe_allow_html=True)
+            
+            # 6. Action Icons (View, Edit, Delete)
+            btn_col = c[5].columns(3)
+            
+            # EYE ICON: View Full Details (Address/Contact)
+            if btn_col[0].button("👁️", key=f"view_{index}", help="View Full KYC"):
+                st.session_state.view_mode = row.to_dict()
+                st.rerun()
+
+            if btn_col[1].button("📝", key=f"edit_{index}"):
                 st.session_state.edit_mode = row['CUSTOMER_NAME']
                 st.rerun()
                 
-            if btn_col2.button("🗑️", key=f"del_{index}", help="Delete Client"):
+            if btn_col[2].button("🗑️", key=f"del_{index}"):
                 st.session_state.delete_mode = row['CUSTOMER_NAME']
                 st.rerun()
+            
+            st.markdown("<hr style='margin:2px 0; opacity:0.1;'>", unsafe_allow_html=True)
+
+        # --- MODAL OVERLAYS ---
+
+        # 1. VIEW MODAL (Compact Card)
+        if st.session_state.get('view_mode'):
+            v = st.session_state.view_mode
+            with st.container(border=True):
+                st.markdown(f"### 📋 Profile: {v['CUSTOMER_NAME']}")
+                v1, v2 = st.columns(2)
+                v1.write(f"**Contact:** {v.get('CONTACT')}")
+                v1.write(f"**NIN:** {v.get('NIN')}")
+                v2.write(f"**Loan Type:** {v.get('LOAN_TYPE')}")
+                v2.write(f"**Address:** {v.get('ADDRESS')}")
+                if st.button("Close Profile"):
+                    del st.session_state.view_mode
+                    st.rerun()
+
+        # (Keep your existing Edit/Delete Modal logic here)
             
             st.divider()
 
