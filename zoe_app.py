@@ -315,105 +315,104 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 # --- 1. Page Title ---
 
 elif page == "Borrowers":
-  st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
-# --- 2. Initialize local registry ---
-if 'local_registry' not in st.session_state:
-    st.session_state.local_registry = []
+    # --- 1. Initialize local registry ---
+    if 'local_registry' not in st.session_state:
+        st.session_state.local_registry = []
 
-# --- 3. Fetch cloud data ---
-def get_cloud_data():
+    # --- 2. Fetch cloud data ---
+    # NOTE: It's better to define get_cloud_data() at the top of your script, 
+    # but if kept here, it must be indented correctly.
     try:
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         client = gspread.service_account_from_dict(creds_dict)
-        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-        data = ws.get_all_records()
-        return pd.DataFrame(data), ws
+        ws_clients = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+        data = ws_clients.get_all_records()
+        df_cloud = pd.DataFrame(data)
     except Exception as e:
         st.warning(f"Cloud connection failed: {e}")
-        return pd.DataFrame(), None
+        df_cloud = pd.DataFrame()
+        ws_clients = None
 
-df_cloud, ws_clients = get_cloud_data()
+    # --- 3. Combine cloud + local data ---
+    local_df = pd.DataFrame(st.session_state.local_registry)
+    if not df_cloud.empty and not local_df.empty:
+        combined = pd.concat([df_cloud, local_df], ignore_index=True)
+    elif not df_cloud.empty:
+        combined = df_cloud
+    elif not local_df.empty:
+        combined = local_df
+    else:
+        combined = pd.DataFrame() 
 
-# --- 4. Combine cloud + local data ---
-local_df = pd.DataFrame(st.session_state.local_registry)
-if not df_cloud.empty and not local_df.empty:
-    combined = pd.concat([df_cloud, local_df], ignore_index=True)
-elif not df_cloud.empty:
-    combined = df_cloud
-elif not local_df.empty:
-    combined = local_df
-else:
-    combined = pd.DataFrame()  # Ensure combined always exists
+    # --- 4. Register new client ---
+    with st.expander("➕ Register New Client", expanded=False):
+        with st.form("kyc_form", clear_on_submit=True):
+            f_name = st.text_input("First Name")
+            l_name = st.text_input("Last Name")
+            nin = st.text_input("NIN")
+            loan_amt = st.number_input("Loan Amount (UGX)", min_value=0)
+            interest = st.number_input("Interest Rate (%)", min_value=0.0)
 
-# --- 5. Register new client ---
-with st.expander("➕ Register New Client", expanded=False):
-    with st.form("kyc_form", clear_on_submit=True):
-        f_name = st.text_input("First Name")
-        l_name = st.text_input("Last Name")
-        nin = st.text_input("NIN")
-        loan_amt = st.number_input("Loan Amount (UGX)", min_value=0)
-        interest = st.number_input("Interest Rate (%)", min_value=0.0)
+            submitted = st.form_submit_button("Register")
+            if submitted:
+                if f_name and l_name and nin:
+                    full_name = f"{f_name} {l_name}".upper()
+                    total_due = loan_amt + (loan_amt * interest / 100)
+                    new_entry = {
+                        "CUSTOMER_NAME": full_name,
+                        "NIN": nin,
+                        "LOAN_AMOUNT": loan_amt,
+                        "INTEREST_RATE": interest,
+                        "TOTAL_DUE": total_due,
+                        "AMOUNT_PAID": 0,
+                        "OUTSTANDING_AMOUNT": total_due
+                    }
+                    st.session_state.local_registry.append(new_entry)
+                    st.success(f"✅ {full_name} registered locally!")
+                    st.rerun() # Updated from experimental_rerun
 
-        submitted = st.form_submit_button("Register")
-        if submitted:
-            if f_name and l_name and nin:
-                full_name = f"{f_name} {l_name}".upper()
-                total_due = loan_amt + (loan_amt * interest / 100)
-                new_entry = {
-                    "CUSTOMER_NAME": full_name,
-                    "NIN": nin,
-                    "LOAN_AMOUNT": loan_amt,
-                    "INTEREST_RATE": interest,
-                    "TOTAL_DUE": total_due,
-                    "AMOUNT_PAID": 0,
-                    "OUTSTANDING_AMOUNT": total_due
-                }
-                st.session_state.local_registry.append(new_entry)
-                st.success(f"✅ {full_name} registered locally!")
-                st.experimental_rerun()
+    # --- 5. Display borrower table ---
+    st.markdown("#### 🔍 Borrower Directory")
 
-# --- 6. Display borrower table ---
-st.markdown("#### 🔍 Borrower Directory")
+    if not combined.empty:
+        # Format money
+        for col in ["LOAN_AMOUNT", "TOTAL_DUE", "AMOUNT_PAID", "OUTSTANDING_AMOUNT"]:
+            if col in combined.columns:
+                combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
+                combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
 
-# Recombine after registration
-local_df = pd.DataFrame(st.session_state.local_registry)
-combined = pd.concat([df_cloud, local_df], ignore_index=True) if not df_cloud.empty else local_df
+        # Add actions column
+        combined["ACTIONS"] = "👁️ ✏️ 🗑️"
 
-if not combined.empty:
-    # Format money
-    for col in ["LOAN_AMOUNT", "TOTAL_DUE", "AMOUNT_PAID", "OUTSTANDING_AMOUNT"]:
-        if col in combined.columns:
-            combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
-            combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
+        # Build table
+        gb = GridOptionsBuilder.from_dataframe(combined)
+        gb.configure_selection("single", use_checkbox=True)
+        gb.configure_column("ACTIONS", editable=False)
+        grid_options = gb.build()
 
-    # Add actions column
-    combined["ACTIONS"] = "👁️ ✏️ 🗑️"
+        grid_response = AgGrid(
+            combined,
+            gridOptions=grid_options,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            height=400,
+            theme="streamlit"
+        )
 
-    # Build table
-    gb = GridOptionsBuilder.from_dataframe(combined)
-    gb.configure_selection("single", use_checkbox=True)
-    gb.configure_column("ACTIONS", editable=False)
-    grid_options = gb.build()
+        selected_rows = grid_response.get("selected_rows")
+        if selected_rows is not None and len(selected_rows) > 0:
+            # Handle list vs DataFrame response from AgGrid
+            row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
+            st.info(f"Selected Borrower: {row['CUSTOMER_NAME']} | NIN: {row['NIN']}")
+    else:
+        st.info("No borrowers found. Register a client above to start.")
 
-    grid_response = AgGrid(
-        combined,
-        gridOptions=grid_options,
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        height=400,
-        theme="streamlit"
-    )
-
-    selected_rows = grid_response.get("selected_rows")
-    if selected_rows:
-        row = selected_rows[0]
-        st.info(f"Selected Borrower: {row['CUSTOMER_NAME']} | NIN: {row['NIN']}")
-else:
-    st.info("No borrowers found. Register a client above to start.")
-    
+# --- NEW PAGE START ---
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
+    # Add your collateral logic here...
     # --- 1. INIT LOCAL STORAGE ---
     if 'local_collateral' not in st.session_state:
         st.session_state.local_collateral = []
