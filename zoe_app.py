@@ -414,11 +414,14 @@ elif page == "Borrowers":
                 def edit_modal(data):
                     st.markdown("### Update Borrower Profile")
                     
-                    # 1. CLEAN DATA (Remove commas so numbers work)
+                    # 1. CLEAN DATA HELPER
                     def clean_num(val):
                         if isinstance(val, str):
                             val = val.replace(',', '').replace('UGX', '').strip()
-                        return pd.to_numeric(val, errors='coerce') or 0.0
+                        try:
+                            return float(pd.to_numeric(val, errors='coerce'))
+                        except:
+                            return 0.0
 
                     # 2. RENDER INPUTS
                     c1, c2 = st.columns(2)
@@ -430,35 +433,43 @@ elif page == "Borrowers":
                     new_gender = c4.selectbox("Gender", ["Male", "Female"], index=0 if data.get('GENDER') == "Male" else 1)
                     
                     c5, c6 = st.columns(2)
-                    # Convert to float for number_input, but we display commas in the main table
-                    new_amt = c5.number_input("Loan Amount (UGX)", value=float(clean_num(data.get('LOAN_AMOUNT'))), step=1000.0)
-                    new_out = c6.number_input("Outstanding (UGX)", value=float(clean_num(data.get('OUTSTANDING_AMOUNT'))), step=1000.0)
+                    new_amt = c5.number_input("Loan Amount (UGX)", value=clean_num(data.get('LOAN_AMOUNT')), step=1000.0)
+                    new_out = c6.number_input("Outstanding (UGX)", value=clean_num(data.get('OUTSTANDING_AMOUNT')), step=1000.0)
                     
                     new_addr = st.text_area("Address", value=data.get('ADDRESS', ''))
                     
                     st.divider()
-                    if st.button("💾 Save All Changes", use_container_width=True):
-                        try:
-                            creds_dict = dict(st.secrets["gcp_service_account"])
-                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                            client = gspread.service_account_from_dict(creds_dict)
-                            ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                            cell = ws.find(data['NIN'])
-                            if cell:
-                                ws.update_cell(cell.row, 1, new_name.upper())
-                                ws.update_cell(cell.row, 2, new_phone)
-                                ws.update_cell(cell.row, 3, new_nin)
-                                ws.update_cell(cell.row, 4, new_gender)
-                                ws.update_cell(cell.row, 5, new_addr)
-                                ws.update_cell(cell.row, 7, new_amt)
-                                ws.update_cell(cell.row, 11, new_out)
-                                
-                                st.success("✅ KYC Updated!")
-                                st.cache_data.clear()
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Sync failed: {e}")
+                    # 3. THE SAVE BUTTON
+                    if st.button("💾 Save All Changes", use_container_width=True):
+                        with st.spinner("Updating Zoe Consults Database..."):
+                            try:
+                                # Connect
+                                creds_dict = dict(st.secrets["gcp_service_account"])
+                                creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                                client = gspread.service_account_from_dict(creds_dict)
+                                ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
+
+                                # Find by Original NIN
+                                cell = ws.find(str(data['NIN']).strip())
+                                if cell:
+                                    # Update using list for speed if you have many columns, 
+                                    # or one by one for reliability:
+                                    ws.update_cell(cell.row, 1, new_name.upper())
+                                    ws.update_cell(cell.row, 2, new_phone)
+                                    ws.update_cell(cell.row, 3, new_nin)
+                                    ws.update_cell(cell.row, 4, new_gender)
+                                    ws.update_cell(cell.row, 5, new_addr)
+                                    ws.update_cell(cell.row, 7, new_amt)
+                                    ws.update_cell(cell.row, 11, new_out)
+                                    
+                                    st.success("✅ KYC Updated Successfully!")
+                                    st.cache_data.clear() # IMPORTANT: Clears the cache to show new data
+                                    st.rerun() # Closes the dialog and refreshes the table
+                                else:
+                                    st.error("Error: Could not find the original record in the sheet.")
+                            except Exception as e:
+                                st.error(f"Sync failed: {e}")
 
                 # --- C. DELETE DIALOG ---
                 @st.dialog(f"🗑️ Delete Borrower: {row.get('CUSTOMER_NAME', 'Unknown')}")
