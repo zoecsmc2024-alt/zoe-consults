@@ -491,8 +491,7 @@ elif page == "Collateral":
     st.markdown("#### 🛠️ Manage Selected Asset")
     
     if not display_df.empty:
-        # 1. DEFINE THE LABELS (Moved to a simple list comprehension for safety)
-        # This avoids the 'apply' NameError entirely
+        # 1. DEFINE THE LABELS (Using a simple list comprehension for safety)
         dropdown_options = []
         for _, row in display_df.iterrows():
             name = str(row.get(b_col, "Unknown"))
@@ -508,15 +507,15 @@ elif page == "Collateral":
             
             dropdown_options.append(f"{name} | {item}{desc}{val}{date}")
 
-        # Add the options back to the dataframe so we can find them
+        # Add the options back to a copy of the dataframe to find them
         display_df['UNIQUE_ID'] = dropdown_options
         
         selected_asset_str = st.selectbox("Select specific item to Update/Delete", options=dropdown_options)
 
         if selected_asset_str:
-            # Match the row
+            # Match the row based on the string selected
             asset_row = display_df[display_df['UNIQUE_ID'] == selected_asset_str].iloc[0]
-            st.info(f"📍 Managing: **{asset_row[i_col]}** for **{asset_row[b_col]}**")
+            st.info(f"📍 Managing: **{asset_row.get(i_col)}** for **{asset_row.get(b_col)}**")
             
             col_a, col_b = st.columns(2)
             
@@ -545,8 +544,16 @@ elif page == "Collateral":
                             fresh_client = gspread.service_account_from_dict(creds_dict)
                             ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                             
-                            # Standard 7-column push
-                            ws.append_row([asset_row[b_col], asset_row[i_col], new_desc, new_val, asset_row[dt_col], new_status, str(datetime.now().date())])
+                            # Standard 7-column push (matches your sheet)
+                            ws.append_row([
+                                asset_row.get(b_col), 
+                                asset_row.get(i_col), 
+                                new_desc, 
+                                new_val, 
+                                asset_row.get(dt_col), 
+                                new_status, 
+                                str(datetime.now().date())
+                            ])
                             
                             st.success("✅ Changes saved!")
                             st.cache_data.clear()
@@ -564,7 +571,15 @@ elif page == "Collateral":
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                         
-                        ws.append_row([asset_row[b_col], asset_row[i_col], "DELETED", 0, asset_row[dt_col], "DELETED", str(datetime.now().date())])
+                        ws.append_row([
+                            asset_row.get(b_col), 
+                            asset_row.get(i_col), 
+                            "DELETED", 
+                            0, 
+                            asset_row.get(dt_col), 
+                            "DELETED", 
+                            str(datetime.now().date())
+                        ])
                         st.success("Asset deleted!")
                         st.cache_data.clear(); st.rerun()
                     except:
