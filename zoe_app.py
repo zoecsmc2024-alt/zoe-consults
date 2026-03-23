@@ -387,18 +387,16 @@ elif page == "Borrowers":
 
             if selected_rows:
                 row = selected_rows[0]
-                
-                # --- A. DEFINE THE DIALOGS FIRST ---
-                
+
+                # A. VIEW DIALOG
                 @st.dialog(f"👁️ Profile: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def view_modal(data):
                     st.write(f"**NIN:** {data.get('NIN', 'N/A')}")
                     st.write(f"**Contact:** {data.get('CONTACT', 'N/A')}")
                     st.write(f"**Address:** {data.get('ADDRESS', 'N/A')}")
-                    st.write(f"**Gender:** {data.get('GENDER', 'N/A')}")
                     st.divider()
                     
-                    # Commas fixed here!
+                    # Safer number conversion with commas
                     raw_val = data.get('OUTSTANDING_AMOUNT', 0)
                     amt = pd.to_numeric(raw_val, errors='coerce')
                     st.metric("Outstanding Amount", f"UGX {amt:,.0f}")
@@ -406,43 +404,38 @@ elif page == "Borrowers":
                     if st.button("Close"):
                         st.rerun()
 
+                # B. EDIT DIALOG (With Google Sheets Sync)
                 @st.dialog(f"📝 Edit: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def edit_modal(data):
                     st.markdown("### Update Borrower Details")
-                    # These inputs capture the new data
                     new_phone = st.text_input("New Contact", value=data.get('CONTACT', ''))
                     new_addr = st.text_area("New Address", value=data.get('ADDRESS', ''))
                     
                     if st.button("💾 Save Changes", use_container_width=True):
                         try:
-                            # 1. CONNECT TO GOOGLE SHEETS
+                            # Connect to Google Sheets
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             client = gspread.service_account_from_dict(creds_dict)
                             ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                            # 2. FIND THE ROW (Using NIN as the unique identifier)
+                            # Find row by NIN
                             cell = ws.find(data['NIN'])
-                            
                             if cell:
-                                # 3. UPDATE CELLS (Check your column numbers! Assuming Contact=2, Address=5)
-                                # Update Contact column
-                                ws.update_cell(cell.row, 2, new_phone)
-                                # Update Address column
-                                ws.update_cell(cell.row, 5, new_addr)
+                                ws.update_cell(cell.row, 2, new_phone) # Update Contact
+                                ws.update_cell(cell.row, 5, new_addr)  # Update Address
                                 
-                                st.success("✅ Google Sheets Updated!")
-                                
-                                # 4. CLEAR CACHE & REFRESH
+                                st.success("✅ Changes synced to Google Sheets!")
                                 st.cache_data.clear()
                                 st.rerun()
                             else:
-                                st.error("Could not find this borrower in the cloud.")
-                                
+                                st.error("Borrower not found in cloud.")
                         except Exception as e:
-                            st.error(f"Error syncing to cloud: {e}")
+                            st.error(f"Sync failed: {e}")
 
-                # --- BUTTON TRIGGERS ---
+                # C. BUTTON TRIGGERS (Typo fixed here: col1 instead of coll)
+                col1, col2, col3 = st.columns(3)
+
                 if col1.button("👁️ View Details", use_container_width=True):
                     view_modal(row)
                 
@@ -450,11 +443,9 @@ elif page == "Borrowers":
                     edit_modal(row)
 
                 if col3.button("🗑️ Delete", use_container_width=True):
-                    st.error("Please use 'Admin Controls' below to delete.")
+                    st.warning("Action locked. Use 'Admin Controls' below to delete.")
             else:
                 st.info("💡 Click a row's checkbox to see View/Edit options.")
-        else:
-            st.info("No borrowers registered yet.")
     
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
