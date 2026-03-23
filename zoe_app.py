@@ -463,27 +463,38 @@ elif page == "Borrowers":
                 # --- C. DELETE DIALOG ---
                 @st.dialog(f"🗑️ Delete Borrower: {row.get('CUSTOMER_NAME', 'Unknown')}")
                 def delete_modal(data):
-                    st.warning("⚠️ This action is permanent and will remove the borrower from Google Sheets.")
-                    st.write(f"**Borrower:** {data.get('CUSTOMER_NAME')}")
-                    st.write(f"**NIN:** {data.get('NIN')}")
+                    st.warning("⚠️ This action is permanent.")
+                    st.write(f"**NIN to Delete:** `{data.get('NIN')}`")
                     
                     if st.button("🚨 Confirm Delete", use_container_width=True):
                         try:
-                            # Connect to Sheets
+                            # 1. Connect
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             client = gspread.service_account_from_dict(creds_dict)
                             ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                            # Find and delete row
-                            cell = ws.find(data['NIN'])
-                            if cell:
-                                ws.delete_rows(cell.row)
+                            # 2. SMART SEARCH: Strip spaces from the search term
+                            target_nin = str(data.get('NIN')).strip()
+                            
+                            # We search specifically in the NIN column (Column 3) to be safe
+                            # If your NIN column isn't the 3rd one, change '3' below
+                            all_nins = ws.col_values(3) 
+                            
+                            # Clean the list of NINs from the sheet and find the index
+                            all_nins_cleaned = [str(n).strip() for n in all_nins]
+                            
+                            if target_nin in all_nins_cleaned:
+                                # +1 because Google Sheets is 1-indexed
+                                row_to_delete = all_nins_cleaned.index(target_nin) + 1
+                                ws.delete_rows(row_to_delete)
+                                
                                 st.success("✅ Borrower deleted from cloud!")
                                 st.cache_data.clear()
                                 st.rerun()
                             else:
-                                st.error("Borrower NIN not found in Google Sheets.")
+                                st.error(f"Could not find NIN '{target_nin}' in Column 3.")
+                                
                         except Exception as e:
                             st.error(f"Delete failed: {e}")
 
