@@ -469,46 +469,54 @@ elif page == "Collateral":
         # Display the table
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-        # --- 4. MANAGE SELECTED ASSET (The Unique Matcher) ---
+        # --- 4. MANAGE SELECTED ASSET (Enhanced with Description & Date) ---
     st.write("---")
     st.markdown("#### 🛠️ Manage Selected Asset")
     
     if not display_df.empty:
-        # 1. Create a truly UNIQUE ID for the dropdown
-        # We add the Value and Date to the string so the app knows EXACTLY which row is which
-        display_df['UNIQUE_ID'] = (
-            display_df[b_col].astype(str) + " | " + 
-            display_df[i_col].astype(str) + " (UGX " + 
-            display_df[v_col].astype(str) + ") - " + 
-            display_df['STORAGE_REF'].astype(str)
-        )
+        # Define the column names based on your sheet screenshot
+        d_col = 'DESCRIPTION' if 'DESCRIPTION' in display_df.columns else 'ITEM_NAME'
+        dt_col = 'DATE_ADDED' if 'DATE_ADDED' in display_df.columns else 'STORAGE_REF'
+
+        # 1. Create a DETAILED UNIQUE ID for the dropdown
+        # We combine: Name | Item (Desc) | Value | Date
+        def create_label(row):
+            name = str(row[b_col])
+            item = str(row[i_col])
+            desc = f" - {row[d_col]}" if str(row[d_col]).strip() != "" else ""
+            val = f" (UGX {float(pd.to_numeric(row[v_col], errors='coerce') or 0):,.0f})"
+            date = f" | Added: {row[dt_col]}"
+            return f"{name} | {item}{desc}{val}{date}"
+
+        display_df['UNIQUE_ID'] = display_df.apply(create_label, axis=1)
         
         options_list = display_df['UNIQUE_ID'].tolist()
         selected_asset_str = st.selectbox("Select specific item to Update/Delete", options=options_list)
 
         if selected_asset_str:
-            # 2. Match the selection back to the correct row
+            # 2. Identify the exact row
             asset_row = display_df[display_df['UNIQUE_ID'] == selected_asset_str].iloc[0]
             
-            st.info(f"📍 Managing: **{asset_row[i_col]}** for **{asset_row[b_col]}**")
+            st.info(f"📍 Managing: **{asset_row[i_col]}** ({asset_row[d_col]}) for **{asset_row[b_col]}**")
             
             col_a, col_b = st.columns(2)
             
             # --- EDIT SECTION ---
             with col_a.expander("📝 Edit Asset Details"):
-                with st.form("edit_asset_form_final"):
-                    # Clean and convert value safely
+                with st.form("edit_asset_form_v3"):
+                    # Pre-fill with existing data
+                    new_desc = st.text_input("Update Description", value=str(asset_row[d_col]))
+                    
                     raw_val = str(asset_row[v_col]).replace(",", "").replace("UGX", "").strip()
                     try:
                         curr_val = int(float(raw_val)) if raw_val else 0
                     except:
                         curr_val = 0
-                        
                     new_val = st.number_input("Update Value (UGX)", value=curr_val, step=50000)
                     
-                    curr_status = str(asset_row[s_col])
                     status_options = ["Held", "Released", "Disposed"]
-                    def_idx = status_options.index(curr_status) if curr_status in status_options else 0
+                    curr_s = str(asset_row[s_col])
+                    def_idx = status_options.index(curr_s) if curr_s in status_options else 0
                     new_status = st.selectbox("Update Status", options=status_options, index=def_idx)
                     
                     if st.form_submit_button("💾 Save Changes"):
@@ -518,23 +526,23 @@ elif page == "Collateral":
                             fresh_client = gspread.service_account_from_dict(creds_dict)
                             ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                             
-                            # Matches your sheet columns exactly: Borrower, Asset_Type, Description, Value, Storage_Ref, Status
+                            # Append update row: Borrower, Asset_Type, Description, Value, Storage_Ref, Status
+                            # Using 'STORAGE_REF' as the link to the original entry date
                             update_row = [
                                 asset_row[b_col], 
                                 asset_row[i_col], 
-                                "", # Description placeholder
+                                new_desc, 
                                 new_val, 
-                                asset_row['STORAGE_REF'], 
+                                asset_row[dt_col], 
                                 new_status
                             ]
                             ws.append_row(update_row)
                             
-                            st.success("✅ Update recorded successfully!")
+                            st.success("✅ Update successfully pushed to Google Sheets!")
                             st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Error: {e}")
-
+                            st.error(f"Sync error: {e}")
             # DELETE SECTION
             with col_b.expander("🗑️ Delete Record"):
                 st.warning("This will mark the record as removed.")
