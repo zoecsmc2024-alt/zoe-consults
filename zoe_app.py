@@ -186,10 +186,10 @@ with st.sidebar:
         st.rerun()
 
     # Logout Button
-    if c2.button("🚪 Exit", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
-
+    # Added key="sidebar_exit_btn" to make it unique
+if c2.button("🚪 Exit", use_container_width=True, key="sidebar_exit_btn"):
+    st.session_state.clear()
+    st.rerun()
     # 4. CONNECTION STATUS INDICATOR
     if not df.empty:
         st.markdown("<p style='color: #16a34a; font-size: 10px; text-align: center;'>● System Online (Cloud Synced)</p>", unsafe_allow_html=True)
