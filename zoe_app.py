@@ -369,7 +369,6 @@ elif page == "Borrowers":
     local_df = pd.DataFrame(st.session_state.local_registry)
     combined = pd.concat([df, local_df], ignore_index=True)
 
-    pip install streamlit-aggrid
 
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
