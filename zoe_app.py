@@ -444,41 +444,39 @@ elif page == "Borrowers":
                     if st.button("💾 Save All Changes", use_container_width=True):
                         with st.spinner("Searching Zoe Consults Database..."):
                             try:
-                                # Connect
+                                # 1. Connect
                                 creds_dict = dict(st.secrets["gcp_service_account"])
                                 creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                                 client = gspread.service_account_from_dict(creds_dict)
                                 ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                                # --- BULLETPROOF SEARCH ---
-                                # Get all values from the NIN column (Column 3)
+                                # 2. GET ALL NINS FROM THE SHEET (Column 3)
                                 all_nins = ws.col_values(3) 
                                 
-                                # Clean the original NIN we are looking for
-                                target_nin = str(data.get('NIN', '')).strip()
+                                # 3. SEARCH USING THE ORIGINAL NIN (The one before you edited it)
+                                original_nin = str(data.get('NIN', '')).strip()
                                 
-                                # Find the row index (adding 1 because Sheets starts at 1)
                                 found_row = -1
                                 for i, val in enumerate(all_nins):
-                                    if str(val).strip() == target_nin:
+                                    if str(val).strip() == original_nin:
                                         found_row = i + 1
                                         break
 
                                 if found_row != -1:
-                                    # Update the row
+                                    # 4. UPDATE WITH THE NEW VALUES
                                     ws.update_cell(found_row, 1, new_name.upper())
                                     ws.update_cell(found_row, 2, new_phone)
-                                    ws.update_cell(found_row, 3, new_nin.strip()) # Save the new NIN clean
+                                    ws.update_cell(found_row, 3, new_nin.strip().upper()) # Save the new NIN
                                     ws.update_cell(found_row, 4, new_gender)
                                     ws.update_cell(found_row, 5, new_addr)
                                     ws.update_cell(found_row, 7, new_amt)
                                     ws.update_cell(found_row, 11, new_out)
                                     
-                                    st.success("✅ KYC Updated Successfully!")
+                                    st.success(f"✅ KYC for {new_name} Updated!")
                                     st.cache_data.clear() 
                                     st.rerun() 
                                 else:
-                                    st.error(f"Error: Could not find NIN '{target_nin}' in the sheet. Check if Column 3 is the NIN column.")
+                                    st.error(f"Original NIN '{original_nin}' not found. Please refresh the page.")
                             except Exception as e:
                                 st.error(f"Sync failed: {e}")
 
