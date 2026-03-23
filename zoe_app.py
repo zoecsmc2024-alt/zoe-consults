@@ -391,29 +391,39 @@ elif page == "Collateral":
 
     # 2. LOG NEW COLLATERAL
     with st.expander("📝 Log New Collateral (Secure Asset)", expanded=True):
+        # Everything from here...
         with st.form("collateral_form", clear_on_submit=True):
-            # --- THE FIX: SMART NAME PICKER ---
-            # 1. Pull names from your local "Whiteboard" memory
+            # 1. Logic for borrowers (Smart Picker)
             local_names = [b.get('CUSTOMER_NAME') or b.get('BORROWER') for b in st.session_state.get('local_registry', [])]
-            
-            # 2. Pull names from the Cloud (Checking both common column names)
-            cloud_names = []
-            if not df.empty:
-                if 'CUSTOMER_NAME' in df.columns:
-                    cloud_names = df['CUSTOMER_NAME'].dropna().unique().tolist()
-                elif 'BORROWER' in df.columns:
-                    cloud_names = df['BORROWER'].dropna().unique().tolist()
-            
-            # 3. Merge and Sort (Removes duplicates)
+            cloud_names = df['CUSTOMER_NAME'].tolist() if 'CUSTOMER_NAME' in df.columns else []
             all_borrowers = sorted(list(set([str(n) for n in cloud_names + local_names if n])))
             
-            # --- REMAINDER OF YOUR FORM ---
+            # 2. Create the layout
             c1, c2 = st.columns(2)
+            
             with c1:
-                # This will now show "Evans Ahuura" and others!
                 b_name = st.selectbox("Select Borrower", options=all_borrowers if all_borrowers else ["No Borrowers Found"])
                 asset_type = st.text_input("Asset Type", placeholder="e.g. Car Logbook")
                 detailed_desc = st.text_area("Item Description", placeholder="Plate No, Color, etc.")
+            
+            with c2:
+                item_val = st.number_input("Estimated Value (UGX)", min_value=0, step=50000)
+                st.caption(f"💰 Value: **UGX {item_val:,.0f}**")
+                status = st.selectbox("Initial Status", ["Held", "Released", "Disposed"])
+                date_added = st.date_input("Date Added", value=datetime.now())
+
+            # 3. THE CRITICAL PART: The button must be inside the form!
+            submit_btn = st.form_submit_button("🔒 Secure Item", use_container_width=True)
+            
+            if submit_btn:
+                if b_name != "No Borrowers Found" and asset_type:
+                    # (Your save logic here)
+                    st.success("Saving...")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.warning("Please fill in required fields.")
+        # ...to here must be correctly indented!
             
             # ... (Rest of your form code)
 
