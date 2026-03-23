@@ -6,6 +6,7 @@ import os
 import plotly.express as px
 from datetime import datetime
 from fpdf import FPDF
+pip install streamlit-aggrid
 from streamlit_option_menu import option_menu
 
 # --- 1. PAGE CONFIGURATION ---
@@ -368,85 +369,7 @@ elif page == "Borrowers":
     local_df = pd.DataFrame(st.session_state.local_registry)
     combined = pd.concat([df, local_df], ignore_index=True)
 
-    if not combined.empty:
-
-        # REMOVE DUPLICATES
-        combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
-
-        # SEARCH
-        search = st.text_input("Search client...")
-        if search:
-            combined = combined[combined.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-
-        # FORMAT MONEY
-        for col in ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
-            if col in combined.columns:
-                combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
-                combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
-
-        st.dataframe(
-            combined,
-            use_container_width=True,
-            hide_index=True,
-            column_order=[
-                "CUSTOMER_NAME",
-                "LOAN_AMOUNT",
-                "TOTAL_DUE",
-                "AMOUNT_PAID",
-                "OUTSTANDING_AMOUNT",
-                "DUE_DATE",
-                "LOAN_TYPE"
-            ]
-        )
-
-    else:
-        st.info("No borrowers yet.")
-
-    st.write("---")
-
-    # --- 4. ADMIN ACTIONS ---
-    if not df.empty:
-
-        st.markdown("#### 🛠️ Admin Controls")
-
-        selected = st.selectbox("Select Client", df['CUSTOMER_NAME'].unique())
-
-        action = st.radio("Choose Action", ["Update Contact", "Delete Client"], horizontal=True)
-
-        if action == "Update Contact":
-            with st.form("edit_client"):
-                new_phone = st.text_input("New Phone")
-                new_address = st.text_area("New Address")
-
-                if st.form_submit_button("Save Changes"):
-                    try:
-                        ws = g_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-                        cell = ws.find(selected)
-
-                        ws.update_cell(cell.row, 2, new_phone)
-                        ws.update_cell(cell.row, 5, new_address)
-
-                        st.success("Updated successfully!")
-                        st.cache_data.clear()
-
-                    except:
-                        st.error("Update failed.")
-
-        elif action == "Delete Client":
-            st.warning("This action is permanent.")
-
-            if st.button("🚨 Confirm Delete"):
-                try:
-                    ws = g_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-                    cell = ws.find(selected)
-
-                    ws.delete_rows(cell.row)
-
-                    st.success("Client deleted.")
-                    st.cache_data.clear()
-
-                except:
-                    st.error("Delete failed.")
+    pip install streamlit-aggrid
 
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
