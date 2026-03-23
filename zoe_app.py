@@ -1281,348 +1281,484 @@ elif page == "Expenses":
 
     else:
         st.info("No expenses recorded.")
-# PAGE: PETTY CASH
+# PAGE: PETTY CASH (UPGRADED)
 elif page == "PettyCash":
-    import streamlit as st
-import pandas as pd
-from datetime import datetime
+    st.markdown('<div class="main-title">💵 Petty Cash Intelligence Center</div>', unsafe_allow_html=True)
 
-st.title("💵 Petty Cash Management")
+    # --- 1. INIT STORAGE ---
+    if 'local_petty_cash' not in st.session_state:
+        st.session_state.local_petty_cash = []
 
-# Initialize session state
-if "petty_cash" not in st.session_state:
-    st.session_state.petty_cash = pd.DataFrame(columns=[
-        "Date", "Description", "Type", "Amount"
-    ])
+    # --- 2. LOAD DATA ---
+    local_df = pd.DataFrame(st.session_state.local_petty_cash)
+    combined = pd.concat([petty_df, local_df], ignore_index=True) if 'petty_df' in locals() else local_df
 
-# ---- Add Entry Form ----
-st.subheader("➕ Add Petty Cash Entry")
+    # --- 3. ENTRY FORM ---
+    with st.expander("➕ Record Cash Movement", expanded=True):
+        with st.form("petty_form", clear_on_submit=True):
 
-with st.form("petty_cash_form"):
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        date = st.date_input("Date", datetime.today())
-        description = st.text_input("Description")
-    
-    with col2:
-        entry_type = st.selectbox("Type", ["Inflow", "Outflow"])
-        amount = st.number_input("Amount", min_value=0.0, step=1.0)
+            c1, c2 = st.columns(2)
 
-    submit = st.form_submit_button("Add Entry")
+            date = c1.date_input("Date", datetime.now())
+            entry_type = c2.selectbox("Type", ["INFLOW", "OUTFLOW"])
 
-    if submit:
-        new_entry = pd.DataFrame([{
-            "Date": date,
-            "Description": description,
-            "Type": entry_type,
-            "Amount": amount
-        }])
+            category = c1.selectbox("Category", [
+                "Office Supplies", "Transport", "Fuel",
+                "Maintenance", "Airtime", "Miscellaneous"
+            ])
 
-        st.session_state.petty_cash = pd.concat(
-            [st.session_state.petty_cash, new_entry],
-            ignore_index=True
+            amount = c2.number_input("Amount (UGX)", min_value=0, step=1000)
+
+            desc = st.text_input("Description")
+
+            if st.form_submit_button("💾 Save Entry", use_container_width=True):
+
+                if amount > 0 and desc:
+
+                    new_entry = {
+                        "DATE": str(date),
+                        "TYPE": entry_type,
+                        "CATEGORY": category,
+                        "DESCRIPTION": desc,
+                        "AMOUNT": amount
+                    }
+
+                    st.session_state.local_petty_cash.append(new_entry)
+
+                    # --- CLOUD SYNC (OPTIONAL LIKE EXPENSES) ---
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        client = gspread.service_account_from_dict(creds_dict)
+
+                        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("PettyCash")
+                        ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
+
+                        st.success("✅ Saved & Synced")
+
+                    except:
+                        st.warning("Saved locally (offline mode)")
+
+                else:
+                    st.warning("Enter amount and description")
+
+    st.write("---")
+
+    # --- 4. CLEAN DATA ---
+    if not combined.empty:
+        combined['DATE'] = pd.to_datetime(combined['DATE'], errors='coerce')
+        combined['AMOUNT'] = pd.to_numeric(combined['AMOUNT'], errors='coerce').fillna(0)
+
+        combined = combined.sort_values("DATE")
+
+        # --- RUNNING BALANCE ENGINE ---
+        combined['SIGNED'] = combined.apply(
+            lambda x: x['AMOUNT'] if x['TYPE'] == "INFLOW" else -x['AMOUNT'],
+            axis=1
+        )
+        combined['BALANCE'] = combined['SIGNED'].cumsum()
+
+    # --- 5. KPI DASHBOARD ---
+    if not combined.empty:
+
+        total_in = combined[combined['TYPE'] == "INFLOW"]['AMOUNT'].sum()
+        total_out = combined[combined['TYPE'] == "OUTFLOW"]['AMOUNT'].sum()
+        balance = total_in - total_out
+
+        today = datetime.now().month
+        month_exp = combined[
+            (combined['TYPE'] == "OUTFLOW") &
+            (combined['DATE'].dt.month == today)
+        ]['AMOUNT'].sum()
+
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Cash In", f"UGX {total_in:,.0f}")
+        k2.metric("Cash Out", f"UGX {total_out:,.0f}")
+        k3.metric("Balance", f"UGX {balance:,.0f}")
+        k4.metric("This Month Out", f"UGX {month_exp:,.0f}")
+
+    st.write("---")
+
+    # --- 6. CASH FLOW CHART ---
+    st.markdown("### 📈 Cash Balance Trend")
+
+    if not combined.empty:
+        fig = px.line(combined, x='DATE', y='BALANCE', markers=True)
+        fig.update_traces(line_color='#16a34a')
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data yet")
+
+    st.write("---")
+
+    # --- 7. CATEGORY ANALYSIS ---
+    st.markdown("### 📊 Spending by Category")
+
+    if not combined.empty:
+        outflow = combined[combined['TYPE'] == "OUTFLOW"]
+
+        if not outflow.empty:
+            cat = outflow.groupby('CATEGORY')['AMOUNT'].sum()
+
+            fig2 = px.pie(
+                values=cat.values,
+                names=cat.index,
+                hole=0.5,
+                color_discrete_sequence=px.colors.sequential.Reds
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("No expenses recorded")
+
+    st.write("---")
+
+    # --- 8. FILTERS ---
+    st.markdown("### 🔍 Filter Cashbook")
+
+    if not combined.empty:
+        f1, f2 = st.columns(2)
+
+        type_filter = f1.selectbox("Type", ["ALL", "INFLOW", "OUTFLOW"])
+        month_filter = f2.selectbox(
+            "Month",
+            ["ALL"] + combined['DATE'].dt.strftime("%Y-%m").dropna().unique().tolist()
         )
 
-        st.success("Entry added successfully!")
+        filtered = combined.copy()
 
-# ---- Data Processing ----
-df = st.session_state.petty_cash.copy()
+        if type_filter != "ALL":
+            filtered = filtered[filtered['TYPE'] == type_filter]
 
-if not df.empty:
-    df["Date"] = pd.to_datetime(df["Date"])
+        if month_filter != "ALL":
+            filtered = filtered[filtered['DATE'].dt.strftime("%Y-%m") == month_filter]
 
-    # Calculate balance
-    df["Signed Amount"] = df.apply(
-        lambda x: x["Amount"] if x["Type"] == "Inflow" else -x["Amount"],
-        axis=1
-    )
+        # Format display
+        display = filtered.copy()
+        display['AMOUNT'] = display['AMOUNT'].apply(lambda x: f"{x:,.0f}")
+        display['BALANCE'] = display['BALANCE'].apply(lambda x: f"{x:,.0f}")
 
-    df = df.sort_values("Date")
-    df["Balance"] = df["Signed Amount"].cumsum()
+        st.dataframe(
+            display.sort_values(by='DATE', ascending=False),
+            use_container_width=True,
+            hide_index=True
+        )
 
-# ---- Filters ----
-st.subheader("🔍 Filter Records")
+        st.info(f"Filtered Balance: UGX {filtered['SIGNED'].sum():,.0f}")
 
-col1, col2 = st.columns(2)
-with col1:
-    start_date = st.date_input("From Date", value=None)
-with col2:
-    end_date = st.date_input("To Date", value=None)
+        # --- EXPORT ---
+        csv = filtered.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Export CSV", csv, "petty_cash.csv", "text/csv")
 
-filtered_df = df.copy()
-
-if start_date:
-    filtered_df = filtered_df[filtered_df["Date"] >= pd.to_datetime(start_date)]
-if end_date:
-    filtered_df = filtered_df[filtered_df["Date"] <= pd.to_datetime(end_date)]
-
-# ---- Summary ----
-st.subheader("📊 Summary")
-
-if not filtered_df.empty:
-    total_in = filtered_df[filtered_df["Type"] == "Inflow"]["Amount"].sum()
-    total_out = filtered_df[filtered_df["Type"] == "Outflow"]["Amount"].sum()
-    balance = total_in - total_out
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Inflow", f"{total_in:,.2f}")
-    col2.metric("Total Outflow", f"{total_out:,.2f}")
-    col3.metric("Balance", f"{balance:,.2f}")
-else:
-    st.info("No records available")
-
-# ---- Table ----
-st.subheader("📋 Petty Cash Records")
-
-if not filtered_df.empty:
-    st.dataframe(filtered_df[[
-        "Date", "Description", "Type", "Amount", "Balance"
-    ]], use_container_width=True)
-else:
-    st.warning("No data to display")
-# PAGE: PAYROLL (Salaries & Digital Pay Slips)
+    else:
+        st.info("No petty cash records yet")
+# PAGE: PAYROLL (UPGRADED PRO VERSION)
 elif page == "Payroll":
-    st.markdown('<div class="main-title">👔 Team Payroll Management</div>', unsafe_allow_html=True)
-    
-    # 1. Initialize Local Memory
-    if 'local_payroll' not in st.session_state:
-        st.session_state.local_payroll = []
+    st.markdown('<div class="main-title">👔 Team Payroll Management</div>', unsafe_allow_html=True)
 
-    # 2. SYNC DATA (Cloud + Local)
-    local_pay_df = pd.DataFrame(st.session_state.local_payroll)
-    combined_payroll = pd.concat([payroll_df, local_pay_df], ignore_index=True)
-    
-    # 3. PAYROLL SUMMARY
-    if not combined_payroll.empty:
-        total_monthly_pay = pd.to_numeric(combined_payroll['NET_PAY'], errors='coerce').sum()
-        st.metric("Total Monthly Payroll", f"UGX {total_monthly_pay:,.0f}", delta="Staff Costs")
+    # --- 1. INIT STATE ---
+    if 'local_payroll' not in st.session_state:
+        st.session_state.local_payroll = []
 
-    # 4. RECORD SALARY PAYMENT
-    with st.expander("➕ Process Staff Salary", expanded=True):
-        with st.form("payroll_form", clear_on_submit=True):
-            st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>Employee Disbursement Details</p>", unsafe_allow_html=True)
-            
-            p_staff = st.text_input("Staff Name")
-            col1, col2, col3 = st.columns(3)
-            p_basic = col1.number_input("Basic Salary (UGX)", min_value=0, step=10000)
-            p_bonus = col2.number_input("Bonus / Commission (UGX)", min_value=0, step=5000)
-            p_deduct = col3.number_input("Deductions / Advance (UGX)", min_value=0, step=5000)
-            
-            net_pay = p_basic + p_bonus - p_deduct
-            st.markdown(f"**Calculated Net Pay: UGX {net_pay:,.0f}**")
-            p_date = st.date_input("Payment Date", value=datetime.now())
-            
-            if st.form_submit_button("💳 Confirm & Process Payment", use_container_width=True):
-                if p_staff and net_pay > 0:
-                    new_payroll = {
-                        "STAFF_NAME": p_staff,
-                        "BASIC_SALARY": p_basic,
-                        "BONUS": p_bonus,
-                        "DEDUCTIONS": p_deduct,
-                        "NET_PAY": net_pay,
-                        "DATE": str(p_date)
-                    }
-                    st.session_state.local_payroll.append(new_payroll)
-                    
-                    try:
-                        # Fresh handshake to avoid AttributeError
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("Payroll")
-                        ws.append_row(list(new_payroll.values()), value_input_option='USER_ENTERED')
-                        
-                        st.success(f"✅ Salary processed for {p_staff}!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.warning(f"⚠️ Saved locally, Cloud sync pending: {e}")
-                else:
-                    st.warning("Please fill in Staff Name and Amount.")
+    local_pay_df = pd.DataFrame(st.session_state.local_payroll)
+    combined = pd.concat([payroll_df, local_pay_df], ignore_index=True)
 
-    # 5. GENERATE INDIVIDUAL PAY SLIP (Restored Logic)
-    st.write("---")
-    st.markdown("#### 🎫 Generate Individual Pay Slip")
-    
-    if not combined_payroll.empty:
-        staff_list = combined_payroll['STAFF_NAME'].unique()
-        selected_staff = st.selectbox("Select Employee", options=staff_list)
-        
-        # Get the latest payment for this staff member
-        staff_data = combined_payroll[combined_payroll['STAFF_NAME'] == selected_staff].iloc[-1]
+    if not combined.empty:
+        combined['NET_PAY'] = pd.to_numeric(combined['NET_PAY'], errors='coerce').fillna(0)
+        combined['DATE'] = pd.to_datetime(combined['DATE'], errors='coerce')
 
-        if st.button("🖨️ Prepare Digital Pay Slip", use_container_width=True):
-            def generate_payslip_pdf(name, basic, bonus, deduct, net, date, biz_name):
-                pdf = FPDF()
-                pdf.add_page()
-                
-                # Header & Branding (Navy Blue)
-                pdf.set_font("Arial", 'B', 16)
-                pdf.set_text_color(30, 58, 138)
-                pdf.cell(200, 10, biz_name, ln=True, align='C')
-                pdf.set_font("Arial", '', 10)
-                pdf.set_text_color(100, 116, 139)
-                pdf.cell(200, 10, "CONFIDENTIAL SALARY ADVICE", ln=True, align='C')
-                pdf.ln(10)
+    # --- 2. KPI DASHBOARD ---
+    if not combined.empty:
+        total = combined['NET_PAY'].sum()
+        this_month = combined[
+            combined['DATE'].dt.month == datetime.now().month
+        ]['NET_PAY'].sum()
 
-                # Employee Info Box
-                pdf.set_fill_color(248, 250, 252)
-                pdf.rect(10, 35, 190, 25, 'F')
-                pdf.set_text_color(0, 0, 0)
-                pdf.set_font("Arial", 'B', 11)
-                pdf.cell(100, 8, f"Employee: {name}", ln=True)
-                pdf.set_font("Arial", '', 10)
-                pdf.cell(100, 8, f"Payment Date: {date}", ln=True)
-                pdf.ln(10)
+        avg_salary = combined['NET_PAY'].mean()
 
-                # Salary Table Headers
-                pdf.set_fill_color(30, 58, 138)
-                pdf.set_text_color(255, 255, 255)
-                pdf.cell(130, 10, "Description", 1, 0, 'C', True)
-                pdf.cell(60, 10, "Amount (UGX)", 1, 1, 'C', True)
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Total Payroll", f"UGX {total:,.0f}")
+        k2.metric("This Month", f"UGX {this_month:,.0f}")
+        k3.metric("Avg Salary", f"UGX {avg_salary:,.0f}")
 
-                # Table Body (Earnings & Deductions)
-                pdf.set_text_color(0, 0, 0)
-                pdf.cell(130, 10, "Basic Salary", 1)
-                pdf.cell(60, 10, f"{float(basic):,.0f}", 1, 1, 'R')
-                pdf.cell(130, 10, "Performance Bonus / Commission", 1)
-                pdf.cell(60, 10, f"{float(bonus):,.0f}", 1, 1, 'R')
-                pdf.set_text_color(153, 27, 27) # Red for deductions
-                pdf.cell(130, 10, "Deductions / Salary Advance", 1)
-                pdf.cell(60, 10, f"- {float(deduct):,.0f}", 1, 1, 'R')
+    st.write("---")
 
-                # Net Total
-                pdf.ln(5)
-                pdf.set_font("Arial", 'B', 12)
-                pdf.set_fill_color(239, 246, 255) # Baby Blue
-                pdf.set_text_color(30, 58, 138)
-                pdf.cell(130, 12, " NET DISBURSEMENT", 1, 0, 'L', True)
-                pdf.cell(60, 12, f"UGX {float(net):,.0f}", 1, 1, 'R', True)
+    # --- 3. PROCESS SALARY ---
+    with st.expander("➕ Process Salary", expanded=True):
+        with st.form("payroll_form", clear_on_submit=True):
 
-                # Signatures
-                pdf.ln(20)
-                pdf.set_font("Arial", 'I', 9)
-                pdf.set_text_color(100, 116, 139)
-                pdf.cell(100, 10, "__________________________", ln=0)
-                pdf.cell(90, 10, "__________________________", ln=1, align='R')
-                pdf.cell(100, 5, "Authorized Signatory", ln=0)
-                pdf.cell(90, 5, "Employee Signature", ln=1, align='R')
-                
-                return pdf.output(dest='S').encode('latin-1')
+            staff = st.text_input("Staff Name")
 
-            # PDF Generation & Download
-            slip_bytes = generate_payslip_pdf(
-                staff_data['STAFF_NAME'], staff_data['BASIC_SALARY'], 
-                staff_data['BONUS'], staff_data['DEDUCTIONS'], 
-                staff_data['NET_PAY'], staff_data['DATE'], "ZOE CONSULTS SMC LTD"
-            )
-            b64_slip = base64.b64encode(slip_bytes).decode()
-            href_slip = f'<a href="data:application/octet-stream;base64,{b64_slip}" download="PaySlip_{selected_staff}.pdf" style="text-decoration:none;">' \
-                        f'<div style="background-color:#3b82f6; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
-                        f'📥 DOWNLOAD PAY SLIP FOR {selected_staff}</div></a>'
-            st.markdown(href_slip, unsafe_allow_html=True)
-            
-        # 6. DISBURSEMENT HISTORY TABLE
-        st.write("---")
-        st.markdown("#### 📜 Disbursement History")
-        display_pay = combined_payroll.copy().sort_values(by='DATE', ascending=False)
-        for col in ['BASIC_SALARY', 'BONUS', 'DEDUCTIONS', 'NET_PAY']:
-            if col in display_pay.columns:
-                display_pay[col] = display_pay[col].apply(lambda x: f"{float(x):,.0f}")
-        st.dataframe(display_pay, use_container_width=True, hide_index=True)
-    else:
-        st.info("Record a staff salary first to generate a pay slip.")
-# PAGE: ADD PAYMENT (Loan Collections)
+            c1, c2, c3 = st.columns(3)
+            basic = c1.number_input("Basic", min_value=0, step=10000)
+            bonus = c2.number_input("Bonus", min_value=0, step=5000)
+            deduct = c3.number_input("Deductions", min_value=0, step=5000)
+
+            net = basic + bonus - deduct
+            st.markdown(f"### 💰 Net Pay: UGX {net:,.0f}")
+
+            date = st.date_input("Payment Date", value=datetime.now())
+
+            if st.form_submit_button("💳 Process Payment", use_container_width=True):
+
+                if staff and net > 0:
+
+                    new = {
+                        "STAFF_NAME": staff,
+                        "BASIC_SALARY": basic,
+                        "BONUS": bonus,
+                        "DEDUCTIONS": deduct,
+                        "NET_PAY": net,
+                        "DATE": str(date)
+                    }
+
+                    st.session_state.local_payroll.append(new)
+
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        client = gspread.service_account_from_dict(creds_dict)
+
+                        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Payroll")
+                        ws.append_row(list(new.values()), value_input_option='USER_ENTERED')
+
+                        st.success(f"✅ Salary processed for {staff}")
+                        st.cache_data.clear()
+                        st.rerun()
+
+                    except:
+                        st.warning("Saved locally. Sync pending.")
+
+                else:
+                    st.warning("Enter valid staff + amount")
+
+    st.write("---")
+
+    # --- 4. ANALYTICS ---
+    st.markdown("### 📊 Payroll Insights")
+
+    if not combined.empty:
+        combined['MONTH'] = combined['DATE'].dt.to_period("M").astype(str)
+
+        monthly = combined.groupby('MONTH')['NET_PAY'].sum()
+
+        fig = px.line(monthly, x=monthly.index, y=monthly.values, markers=True)
+        fig.update_traces(line_color='#1e3a8a')
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Staff distribution
+        staff_dist = combined.groupby('STAFF_NAME')['NET_PAY'].sum()
+
+        fig2 = px.bar(
+            staff_dist,
+            x=staff_dist.index,
+            y=staff_dist.values,
+            color=staff_dist.values,
+            color_continuous_scale="Blues"
+        )
+
+        st.plotly_chart(fig2, use_container_width=True)
+
+    st.write("---")
+
+    # --- 5. PAYSLIP GENERATOR ---
+    st.markdown("### 🎫 Generate Pay Slip")
+
+    if not combined.empty:
+
+        staff_list = combined['STAFF_NAME'].unique()
+        selected_staff = st.selectbox("Select Staff", staff_list)
+
+        staff_records = combined[combined['STAFF_NAME'] == selected_staff]
+        latest = staff_records.sort_values(by='DATE').iloc[-1]
+
+        if st.button("📄 Generate Pay Slip"):
+
+            def generate_pdf():
+                pdf = FPDF()
+                pdf.add_page()
+
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(200, 10, "ZOE CONSULTS SMC LTD", ln=True, align='C')
+
+                pdf.ln(5)
+
+                pdf.set_font("Arial", '', 11)
+                pdf.cell(200, 8, f"Employee: {selected_staff}", ln=True)
+                pdf.cell(200, 8, f"Date: {latest['DATE'].date()}", ln=True)
+
+                pdf.ln(5)
+
+                pdf.cell(200, 8, f"Basic: {latest['BASIC_SALARY']:,.0f}", ln=True)
+                pdf.cell(200, 8, f"Bonus: {latest['BONUS']:,.0f}", ln=True)
+                pdf.cell(200, 8, f"Deductions: {latest['DEDUCTIONS']:,.0f}", ln=True)
+
+                pdf.ln(5)
+
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(200, 10, f"NET PAY: UGX {latest['NET_PAY']:,.0f}", ln=True)
+
+                return pdf.output(dest='S').encode('latin-1')
+
+            pdf_bytes = generate_pdf()
+            b64 = base64.b64encode(pdf_bytes).decode()
+
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="PaySlip_{selected_staff}.pdf">Download Pay Slip</a>'
+            st.markdown(href, unsafe_allow_html=True)
+
+    st.write("---")
+
+    # --- 6. FILTERABLE TABLE ---
+    st.markdown("### 📜 Payroll Records")
+
+    if not combined.empty:
+
+        f1, f2 = st.columns(2)
+
+        staff_filter = f1.selectbox("Filter Staff", ["All"] + combined['STAFF_NAME'].unique().tolist())
+        month_filter = f2.selectbox("Filter Month", ["All"] + combined['DATE'].dt.strftime("%Y-%m").unique().tolist())
+
+        filtered = combined.copy()
+
+        if staff_filter != "All":
+            filtered = filtered[filtered['STAFF_NAME'] == staff_filter]
+
+        if month_filter != "All":
+            filtered = filtered[filtered['DATE'].dt.strftime("%Y-%m") == month_filter]
+
+        display = filtered.copy()
+        display['NET_PAY'] = display['NET_PAY'].apply(lambda x: f"{x:,.0f}")
+
+        st.dataframe(display.sort_values(by='DATE', ascending=False), use_container_width=True, hide_index=True)
+
+        st.info(f"Filtered Total: UGX {filtered['NET_PAY'].sum():,.0f}")
+
+    else:
+        st.info("No payroll records yet.")
 elif page == "Add Payment":
-    st.markdown('<div class="main-title">📥 Post Loan Repayment</div>', unsafe_allow_html=True)
-    
-    # 1. Initialize Local Payment Memory
-    if 'local_repayments' not in st.session_state:
-        st.session_state.local_repayments = []
+    st.markdown('<div class="main-title">📥 Post Loan Repayment</div>', unsafe_allow_html=True)
 
-    # 2. SYNC DATA (Combine Cloud + Local Borrowers for the dropdown)
-    local_borrowers = pd.DataFrame(st.session_state.get('local_registry', []))
-    combined_borrowers = pd.concat([df, local_borrowers], ignore_index=True)
-    
-    if not combined_borrowers.empty:
-        # --- REPAYMENT FORM ---
-        with st.form("add_p", clear_on_submit=True):
-            borrower_list = combined_borrowers['CUSTOMER_NAME'].unique().tolist()
-            cn = st.selectbox("Select Client", options=borrower_list)
-            
-            c1, c2 = st.columns(2)
-            ap = c1.number_input("Amount Paid (UGX)", min_value=0, step=10000)
-            p_mode = c2.selectbox("Payment Mode", ["Mobile Money", "Cash", "Bank Deposit"])
-            p_note = st.text_input("Note (Optional)")
-            
-            if st.form_submit_button("🚀 Post Repayment & Update Ledger", use_container_width=True):
-                if ap > 0:
-                    today = str(datetime.now().date())
-                    # Dictionary for local memory
-                    new_pay_dict = {
-                        "CUSTOMER_NAME": cn,
-                        "AMOUNT_PAID": ap,
-                        "DATE": today,
-                        "PAYMENT_MODE": p_mode,
-                        "NOTES": p_note
-                    }
-                    
-                    # STEP A: Save locally for the table below
-                    st.session_state.local_repayments.append(new_pay_dict)
-                    
-                    try:
-                        # STEP B: Save to Google (Fresh Handshake)
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("Repayments")
-                        ws.append_row(list(new_pay_dict.values()), value_input_option='USER_ENTERED')
-                        
-                        st.balloons()
-                        st.success(f"✅ UGX {ap:,.0f} collected from {cn}!")
-                        st.cache_data.clear()
-                        # No st.rerun() here so the form stays cleared but the table below updates via session_state
-                    except Exception as e:
-                        if "200" in str(e):
-                            st.balloons(); st.cache_data.clear()
-                        else:
-                            st.warning(f"⚠️ Saved locally, Cloud Sync pending: {e}")
-                else:
-                    st.warning("Please enter a valid amount.")
+    # 1️⃣ Initialize local memory
+    if 'local_repayments' not in st.session_state:
+        st.session_state.local_repayments = []
 
-        # 3. THE COLLECTIONS TABLE (Combined Cloud + Local)
-        st.write("---")
-        st.markdown("#### 🕒 Recent Collections Ledger")
-        
-        # Merge Cloud payments with your new local payments
-        local_pay_df = pd.DataFrame(st.session_state.local_repayments)
-        combined_payments = pd.concat([pay_df, local_pay_df], ignore_index=True)
+    # 2️⃣ Merge borrowers (Cloud + Local)
+    local_borrowers = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined_borrowers = pd.concat([df, local_borrowers], ignore_index=True).drop_duplicates(subset=['NIN'], keep='last')
 
-        if not combined_payments.empty:
-            # Clean up and sort by date (newest first)
-            display_pay = combined_payments.copy().sort_index(ascending=False)
-            
-            # Format numbers with commas
-            if 'AMOUNT_PAID' in display_pay.columns:
-                display_pay['AMOUNT_PAID'] = display_pay['AMOUNT_PAID'].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
-            
-            st.dataframe(
-                display_pay, 
-                use_container_width=True, 
-                hide_index=True,
-                column_order=("DATE", "CUSTOMER_NAME", "AMOUNT_PAID", "PAYMENT_MODE", "NOTES")
-            )
-            
-            total_rev = pd.to_numeric(combined_payments['AMOUNT_PAID'], errors='coerce').sum()
-            st.info(f"📈 Total Revenue Collected: **UGX {total_rev:,.0f}**")
-        else:
-            st.info("ℹ️ No repayments recorded yet.")
-    else:
-        st.info("ℹ️ No borrowers found. Register a client first.")
+    if not combined_borrowers.empty:
+
+        # --- CLIENT SEARCH & SELECTION ---
+        search = st.text_input("🔍 Search Client by Name or NIN")
+        filtered_clients = combined_borrowers[
+            combined_borrowers['CUSTOMER_NAME'].str.contains(search, case=False, na=False) |
+            combined_borrowers['NIN'].str.contains(search, na=False)
+        ] if search else combined_borrowers
+
+        selected_client = st.selectbox("Select Client", options=filtered_clients['CUSTOMER_NAME'].tolist())
+
+        if selected_client:
+
+            client_data = combined_borrowers[combined_borrowers['CUSTOMER_NAME'] == selected_client].iloc[0]
+            loan_amount = float(client_data.get('LOAN_AMOUNT', 0))
+            
+            # Compute already paid amount
+            all_payments = pd.concat([pay_df, pd.DataFrame(st.session_state.local_repayments)], ignore_index=True)
+            paid_amount = all_payments.loc[all_payments['CUSTOMER_NAME'] == selected_client, 'AMOUNT_PAID'].sum()
+            balance = loan_amount - paid_amount
+
+            # Status Engine
+            today = datetime.now().date()
+            due_date = pd.to_datetime(client_data.get('DUE_DATE'), errors='coerce').date() if client_data.get('DUE_DATE') else None
+            status = "CLEARED" if balance <= 0 else "OVERDUE" if due_date and due_date < today else "ACTIVE"
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Loan", f"UGX {loan_amount:,.0f}")
+            c2.metric("Paid", f"UGX {paid_amount:,.0f}")
+            c3.metric("Balance", f"UGX {balance:,.0f}", delta_color="inverse")
+            c4.metric("Status", status)
+
+            st.write("---")
+
+            # --- PAYMENT FORM ---
+            with st.form("add_payment", clear_on_submit=True):
+                col1, col2 = st.columns(2)
+                ap = col1.number_input("Amount Paid (UGX)", min_value=0, max_value=balance, step=10000)
+                p_mode = col2.selectbox("Payment Mode", ["Mobile Money", "Cash", "Bank Deposit"])
+                p_note = st.text_input("Note / Receipt No (Optional)")
+
+                if st.form_submit_button("🚀 Post Repayment"):
+                    if ap > 0:
+                        today_str = str(datetime.now().date())
+                        new_payment = {
+                            "CUSTOMER_NAME": selected_client,
+                            "AMOUNT_PAID": ap,
+                            "DATE": today_str,
+                            "PAYMENT_MODE": p_mode,
+                            "NOTES": p_note
+                        }
+
+                        # Save locally
+                        st.session_state.local_repayments.append(new_payment)
+
+                        # Try syncing to Google Sheets
+                        try:
+                            creds_dict = dict(st.secrets["gcp_service_account"])
+                            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                            client_gs = gspread.service_account_from_dict(creds_dict)
+                            ws = client_gs.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Repayments")
+                            ws.append_row(list(new_payment.values()), value_input_option='USER_ENTERED')
+                            st.balloons()
+                            st.success(f"✅ UGX {ap:,.0f} collected from {selected_client}!")
+                            st.cache_data.clear()
+                        except Exception as e:
+                            st.warning(f"⚠️ Saved locally, Cloud sync pending: {e}")
+                    else:
+                        st.warning("Enter a valid amount.")
+
+            st.write("---")
+
+            # --- DISPLAY COLLECTIONS LEDGER ---
+            st.markdown("### 🕒 Recent Collections Ledger")
+            local_pay_df = pd.DataFrame(st.session_state.local_repayments)
+            combined_payments = pd.concat([pay_df, local_pay_df], ignore_index=True)
+
+            if not combined_payments.empty:
+                combined_payments['AMOUNT_PAID'] = combined_payments['AMOUNT_PAID'].apply(lambda x: f"{float(x):,.0f}")
+                st.dataframe(
+                    combined_payments.sort_values(by='DATE', ascending=False),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_order=("DATE", "CUSTOMER_NAME", "AMOUNT_PAID", "PAYMENT_MODE", "NOTES")
+                )
+                total_rev = pd.to_numeric(combined_payments['AMOUNT_PAID'].str.replace(",", ""), errors='coerce').sum()
+                st.info(f"📈 Total Revenue Collected: UGX {total_rev:,.0f}")
+                
+                # Optional: Export PDF receipt
+                if st.button("📄 Download Client Receipt"):
+                    from fpdf import FPDF
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font("Arial", 'B', 16)
+                    pdf.cell(200, 10, "Repayment Receipt", ln=True, align='C')
+                    pdf.set_font("Arial", '', 12)
+                    pdf.ln(10)
+                    pdf.cell(200, 8, f"Client: {selected_client}", ln=True)
+                    pdf.cell(200, 8, f"Date: {today}", ln=True)
+                    pdf.cell(200, 8, f"Amount Paid: UGX {ap:,.0f}", ln=True)
+                    pdf.cell(200, 8, f"Payment Mode: {p_mode}", ln=True)
+                    pdf.cell(200, 8, f"Balance Remaining: UGX {balance - ap:,.0f}", ln=True)
+                    pdf.ln(10)
+                    pdf.cell(200, 8, "Thank you for your payment!", ln=True)
+                    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                    b64 = base64.b64encode(pdf_bytes).decode()
+                    href = f'<a href="data:application/octet-stream;base64,{b64}" download="Receipt_{selected_client}.pdf">Download Receipt PDF</a>'
+                    st.markdown(href, unsafe_allow_html=True)
+            else:
+                st.info("ℹ️ No repayments recorded yet.")
+
+    else:
+        st.info("ℹ️ No borrowers found. Register a client first.")
 
 
 # PAGE: SETTINGS (Backups & Reports & Branding)
