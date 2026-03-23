@@ -534,23 +534,37 @@ elif page == "Collateral":
                         except Exception as e:
                             st.error(f"Sync error: {e}")
 
-            # DELETE SECTION
+            # DELETE SECTION (Fixed Column Count)
             with col_b.expander("🗑️ Delete Record"):
                 st.warning("Deleting will mark this as removed from active inventory.")
                 if st.button("🔥 Confirm Deletion", key="del_asset_btn"):
                     try:
+                        # 1. Fresh Cloud Handshake
                         creds_dict = dict(st.secrets["gcp_service_account"])
                         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                         fresh_client = gspread.service_account_from_dict(creds_dict)
                         ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                         
-                        ws.append_row([asset_row[b_col], asset_row[i_col], "REMOVED", 0, asset_row[dt_col], "DELETED"])
-                        st.success("Asset record removed!")
-                        st.cache_data.clear(); st.rerun()
-                    except:
-                        st.error("Delete failed. Check connection.")
-    else:
-        st.info("ℹ️ Your Collateral Inventory is currently empty.")
+                        # 2. Match exact column count of your sheet (7 columns total)
+                        # [BORROWER, ASSET_TYPE, DESCRIPTION, VALUE, STORAGE_REF, STATUS, DATE_ADDED]
+                        delete_entry = [
+                            asset_row[b_col],      # BORROWER
+                            asset_row[i_col],      # ASSET_TYPE
+                            "DELETED RECORD",      # DESCRIPTION
+                            0,                     # ESTIMATED_VALUE
+                            asset_row[dt_col],     # STORAGE_REF
+                            "DELETED",             # STATUS
+                            str(datetime.now().date()) # DATE_ADDED (Today)
+                        ]
+                        
+                        ws.append_row(delete_entry)
+                        
+                        st.success("✅ Asset record removed from Cloud!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        # Detailed error message helps us find the mismatch
+                        st.error(f"Sync failed: {e}")
 # PAGE: ACTIVITY CALENDAR
 elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
