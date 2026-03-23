@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 import os
+import plotly.express as px
 from datetime import datetime
 from fpdf import FPDF
 from streamlit_option_menu import option_menu
