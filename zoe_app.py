@@ -681,425 +681,706 @@ elif page == "Collateral":
                         st.error("Delete failed.")
 # PAGE: ACTIVITY CALENDAR
 elif page == "Calendar":
-    st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
-    
-    # 1. Create the Event List from all your data
-    # We pull from Borrowers (Issue/Due) and Collateral (Log Date)
-    events_list = []
-    
-    # Pull Borrower Dates
-    combined_borrowers = pd.concat([df, pd.DataFrame(st.session_state.get('local_registry', []))], ignore_index=True)
-    for _, row in combined_borrowers.iterrows():
-        if 'ISSUE_DATE' in row and pd.notnull(row['ISSUE_DATE']):
-            events_list.append({"date": pd.to_datetime(row['ISSUE_DATE']), "event": f"💰 Loan Issued: {row['CUSTOMER_NAME']}", "type": "Loan"})
-        if 'DUE_DATE' in row and pd.notnull(row['DUE_DATE']):
-            events_list.append({"date": pd.to_datetime(row['DUE_DATE']), "event": f"📅 Repayment Due: {row['CUSTOMER_NAME']}", "type": "Due"})
-            
-    # Pull Collateral Dates
-    combined_collat = pd.concat([collateral_df, pd.DataFrame(st.session_state.get('local_collateral', []))], ignore_index=True)
-    for _, row in combined_collat.iterrows():
-        if 'DATE' in row and pd.notnull(row['DATE']):
-            events_list.append({"date": pd.to_datetime(row['DATE']), "event": f"🛡️ Collateral Logged: {row['ITEM_NAME']} ({row['BORROWER_NAME']})", "type": "Collateral"})
+    st.markdown('<div class="main-title">📅 Zoe Consults Smart Calendar</div>', unsafe_allow_html=True)
 
-    events = pd.DataFrame(events_list)
+    import calendar
 
-    # 2. Filtering Logic (Crash-Proof)
-    c1, c2 = st.columns(2)
-    selected_year = c1.selectbox("Year", [2025, 2026, 2027], index=1)
-    selected_month_name = c2.selectbox("Month", ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"], index=datetime.now().month-1)
-    
-    month_map = {"January":1, "February":2, "March":3, "April":4, "May":5, "June":6, "July":7, "August":8, "September":9, "October":10, "November":11, "December":12}
-    selected_month = month_map[selected_month_name]
+    # --- 1. LOAD DATA ---
+    local_b = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined_borrowers = pd.concat([df, local_b], ignore_index=True)
 
-    st.write("---")
-    st.markdown(f"### Activity for {selected_month_name} {selected_year}")
+    local_c = pd.DataFrame(st.session_state.get('local_collateral', []))
+    combined_collateral = pd.concat([collateral_df, local_c], ignore_index=True)
 
-    if not events.empty:
-        # Safety filter
-        filtered_events = events[
-            (events['date'].dt.year == selected_year) & 
-            (events['date'].dt.month == selected_month)
-        ].sort_values(by='date')
+    events_list = []
 
-        if not filtered_events.empty:
-            for _, ev in filtered_events.iterrows():
-                # Color coding based on type
-                icon = "🔵" if ev['type'] == "Loan" else "🔴" if ev['type'] == "Due" else "🟢"
-                st.info(f"{icon} **{ev['date'].strftime('%d %b')}**: {ev['event']}")
-        else:
-            st.info(f"ℹ️ No scheduled activities for {selected_month_name}.")
-    else:
-        st.info("ℹ️ Add your first borrower or collateral to see dates on the calendar.")
+    # --- 2. BUILD EVENTS ---
+    if not combined_borrowers.empty:
+        for _, row in combined_borrowers.iterrows():
+            name = row.get('CUSTOMER_NAME', 'Unknown')
+
+            if row.get('ISSUE_DATE'):
+                try:
+                    events_list.append({
+                        "date": pd.to_datetime(row['ISSUE_DATE']),
+                        "event": f"Loan → {name}",
+                        "type": "Loan"
+                    })
+                except:
+                    pass
+
+            if row.get('DUE_DATE'):
+                try:
+                    events_list.append({
+                        "date": pd.to_datetime(row['DUE_DATE']),
+                        "event": f"Due → {name}",
+                        "type": "Due"
+                    })
+                except:
+                    pass
+
+    if not combined_collateral.empty:
+        for _, row in combined_collateral.iterrows():
+            borrower = row.get('BORROWER', 'Unknown')
+            asset = row.get('ASSET_TYPE', 'Asset')
+
+            if row.get('DATE_ADDED'):
+                try:
+                    events_list.append({
+                        "date": pd.to_datetime(row['DATE_ADDED']),
+                        "event": f"Asset → {asset} ({borrower})",
+                        "type": "Collateral"
+                    })
+                except:
+                    pass
+
+    events = pd.DataFrame(events_list)
+
+    # --- 3. DATE CONTROLS ---
+    c1, c2 = st.columns(2)
+
+    current_year = datetime.now().year
+    selected_year = c1.selectbox("Year", list(range(current_year - 2, current_year + 3)), index=2)
+
+    month_names = list(calendar.month_name)[1:]
+    selected_month_name = c2.selectbox("Month", month_names, index=datetime.now().month - 1)
+
+    selected_month = month_names.index(selected_month_name) + 1
+
+    # --- 4. PREP EVENTS ---
+    if not events.empty:
+        events['date'] = pd.to_datetime(events['date'], errors='coerce')
+        events = events.dropna(subset=['date'])
+        events['day'] = events['date'].dt.day
+
+        month_events = events[
+            (events['date'].dt.year == selected_year) &
+            (events['date'].dt.month == selected_month)
+        ]
+    else:
+        month_events = pd.DataFrame()
+
+    # --- 5. CALENDAR GRID ---
+    st.markdown(f"### {selected_month_name} {selected_year}")
+
+    cal = calendar.monthcalendar(selected_year, selected_month)
+
+    for week in cal:
+        cols = st.columns(7)
+        for i, day in enumerate(week):
+
+            with cols[i]:
+                if day == 0:
+                    st.write(" ")
+                else:
+                    day_events = month_events[month_events['day'] == day] if not month_events.empty else pd.DataFrame()
+
+                    # Day box
+                    st.markdown(f"**{day}**")
+
+                    if not day_events.empty:
+                        for _, ev in day_events.iterrows():
+
+                            if ev['type'] == "Loan":
+                                color = "#3b82f6"
+                            elif ev['type'] == "Due":
+                                color = "#dc2626"
+                            else:
+                                color = "#16a34a"
+
+                            st.markdown(
+                                f"<div style='background:{color}; color:white; padding:4px; margin:2px; border-radius:6px; font-size:11px;'>"
+                                f"{ev['event']}</div>",
+                                unsafe_allow_html=True
+                            )
+                    else:
+                        st.markdown("<span style='color: #94a3b8;'>No events</span>", unsafe_allow_html=True)
+
+    st.write("---")
+
+    # --- 6. CLICK DAY DETAILS ---
+    st.markdown("### 🔍 View Day Details")
+
+    selected_day = st.number_input("Select Day", min_value=1, max_value=31, step=1)
+
+    if not month_events.empty:
+        selected_events = month_events[month_events['day'] == selected_day]
+
+        if not selected_events.empty:
+            for _, ev in selected_events.iterrows():
+                st.info(f"{ev['date'].strftime('%d %b')} — {ev['event']}")
+        else:
+            st.info("No events for this day.")
+    else:
+        st.info("No data available.")
+
+    st.write("---")
+
+    # --- 7. UPCOMING ALERTS ---
+    st.markdown("### ⏳ Upcoming (Next 7 Days)")
+
+    if not events.empty:
+        today = datetime.now()
+        next_week = today + timedelta(days=7)
+
+        upcoming = events[
+            (events['date'] >= today) &
+            (events['date'] <= next_week)
+        ].sort_values(by='date')
+
+        if not upcoming.empty:
+            for _, ev in upcoming.iterrows():
+                st.warning(f"⚠️ {ev['date'].strftime('%d %b')} → {ev['event']}")
+        else:
+            st.success("No upcoming deadlines 🎉")
+    else:
+        st.info("No upcoming events.")
 
 # PAGE: LEDGER (Individual Client Statements & PDF Export)
 elif page == "Ledger":
-    st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
-    
-    # 1. SYNC DATA (Combine Cloud + Local so new clients appear here)
-    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
-    combined_borrowers = pd.concat([df, local_df], ignore_index=True)
-    
-    if not combined_borrowers.empty:
-        # 2. SEARCH & SELECT
-        search_query = st.text_input("🔍 Search Client Name", placeholder="Enter name to filter list...")
-        
-        # Ensure we have a clean list of names
-        if 'CUSTOMER_NAME' in combined_borrowers.columns:
-            combined_borrowers = combined_borrowers.drop_duplicates(subset=['NIN'], keep='last')
-            filtered_clients = combined_borrowers[combined_borrowers['CUSTOMER_NAME'].str.contains(search_query, case=False, na=False)]['CUSTOMER_NAME'].tolist()
-            
-            selected_client = st.selectbox("Select Client Profile", options=filtered_clients if filtered_clients else ["No clients found"])
+    st.markdown('<div class="main-title">📑 Client Statement Center</div>', unsafe_allow_html=True)
 
-            if selected_client and selected_client != "No clients found":
-                # Get Client Data
-                client_data = combined_borrowers[combined_borrowers['CUSTOMER_NAME'] == selected_client].iloc[0]
-                
-                # Get Repayments (Ensure local/cloud sync for payments too if applicable)
-                client_pays = pay_df[pay_df['CUSTOMER_NAME'] == selected_client].sort_values(by="DATE") if not pay_df.empty else pd.DataFrame(columns=['DATE', 'AMOUNT_PAID', 'PAYMENT_MODE'])
+    # --- 1. COMBINE DATA ---
+    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined = pd.concat([df, local_df], ignore_index=True)
 
-                # 3. MINI-DASHBOARD
-                c1, c2, c3 = st.columns(3)
-                l_amt = float(client_data.get('LOAN_AMOUNT', 0))
-                p_amt = float(client_data.get('AMOUNT_PAID', 0))
-                o_amt = float(client_data.get('OUTSTANDING_AMOUNT', 0))
+    if not combined.empty and 'CUSTOMER_NAME' in combined.columns:
 
-                c1.metric("Original Loan", f"UGX {l_amt:,.0f}")
-                c2.metric("Total Repaid", f"UGX {p_amt:,.0f}")
-                c3.metric("Current Balance", f"UGX {o_amt:,.0f}", delta_color="inverse")
+        combined = combined.drop_duplicates(subset=['NIN'], keep='last')
 
-                st.write("---")
+        # --- 2. SEARCH ---
+        search = st.text_input("🔍 Search Client")
 
-                # 4. RESTORED PDF GENERATION LOGIC
-                def generate_pdf(name, loan, paid, balance, history):
-                    pdf = FPDF()
-                    pdf.add_page()
-                    
-                    # Header & Branding
-                    pdf.set_font("Arial", 'B', 16)
-                    pdf.set_text_color(30, 58, 138) # Navy Blue
-                    pdf.cell(200, 10, "ZOE CONSULTS SMC LTD", ln=True, align='C')
-                    pdf.set_font("Arial", '', 10)
-                    pdf.set_text_color(100, 116, 139) # Slate
-                    pdf.cell(200, 10, "Official Loan Statement & Repayment Ledger", ln=True, align='C')
-                    pdf.ln(10)
+        filtered = combined[
+            combined['CUSTOMER_NAME'].str.contains(search, case=False, na=False)
+        ] if search else combined
 
-                    # Summary Box
-                    pdf.set_fill_color(248, 250, 252)
-                    pdf.rect(10, 35, 190, 40, 'F')
-                    pdf.set_text_color(0, 0, 0)
-                    pdf.set_font("Arial", 'B', 12)
-                    pdf.cell(100, 10, f"Client: {name}", ln=True)
-                    pdf.set_font("Arial", '', 11)
-                    pdf.cell(100, 8, f"Initial Capital: UGX {loan:,.0f}", ln=True)
-                    pdf.cell(100, 8, f"Total Amount Repaid: UGX {paid:,.0f}", ln=True)
-                    pdf.set_font("Arial", 'B', 11)
-                    pdf.cell(100, 8, f"OUTSTANDING BALANCE: UGX {balance:,.0f}", ln=True)
-                    pdf.ln(10)
+        selected = st.selectbox("Select Client", filtered['CUSTOMER_NAME'].tolist())
 
-                    # Table Header
-                    pdf.set_fill_color(30, 58, 138)
-                    pdf.set_text_color(255, 255, 255)
-                    pdf.cell(60, 10, "Date", 1, 0, 'C', True)
-                    pdf.cell(70, 10, "Reference / Mode", 1, 0, 'C', True)
-                    pdf.cell(60, 10, "Amount Paid (UGX)", 1, 1, 'C', True)
+        if selected:
 
-                    # Table Rows
-                    pdf.set_text_color(0, 0, 0)
-                    if not history.empty:
-                        for _, row in history.iterrows():
-                            pdf.cell(60, 10, str(row['DATE']), 1)
-                            pdf.cell(70, 10, str(row.get('PAYMENT_MODE', 'Deposit')), 1)
-                            pdf.cell(60, 10, f"{row['AMOUNT_PAID']:,.0f}", 1, 1, 'R')
-                    else:
-                        pdf.cell(190, 10, "No repayments recorded yet.", 1, 1, 'C')
+            client = combined[combined['CUSTOMER_NAME'] == selected].iloc[0]
 
-                    # Official Stamp Box
-                    pdf.ln(20)
-                    pdf.set_draw_color(30, 58, 138)
-                    pdf.cell(60, 25, "OFFICIAL STAMP", 1, 0, 'C')
-                    pdf.cell(70) # Spacer
-                    pdf.set_font("Arial", 'I', 8)
-                    pdf.cell(60, 25, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 0, 0, 'R')
-                    
-                    return pdf.output(dest='S').encode('latin-1')
+            # --- 3. PAYMENTS ---
+            local_pay = pd.DataFrame(st.session_state.get('local_repayments', []))
+            all_payments = pd.concat([pay_df, local_pay], ignore_index=True)
 
-                # 5. DOWNLOAD BUTTON & STATE
-                if st.button("🛠️ Prepare Official PDF", use_container_width=True):
-                    pdf_bytes = generate_pdf(selected_client, l_amt, p_amt, o_amt, client_pays)
-                    st.session_state.b64_str = base64.b64encode(pdf_bytes).decode()
-                    st.session_state.ready = True
-                    st.session_state.last_client = selected_client
+            client_pays = all_payments[
+                all_payments['CUSTOMER_NAME'] == selected
+            ].copy()
 
-                if st.session_state.get('ready') and st.session_state.get('last_client') == selected_client:
-                    href = f'<a href="data:application/octet-stream;base64,{st.session_state.b64_str}" download="Zoe_Statement_{selected_client}.pdf" style="text-decoration:none;">' \
-                           f'<div style="background-color:#1e3a8a; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">' \
-                           f'📥 DOWNLOAD PDF STATEMENT FOR {selected_client}</div></a>'
-                    st.markdown(href, unsafe_allow_html=True)
+            if not client_pays.empty:
+                client_pays['DATE'] = pd.to_datetime(client_pays['DATE'], errors='coerce')
+                client_pays = client_pays.sort_values(by='DATE')
 
-                # 6. TRANSACTION PREVIEW
-                st.write("---")
-                st.markdown("#### 🕒 Payment History")
-                if not client_pays.empty:
-                    st.dataframe(client_pays[['DATE', 'AMOUNT_PAID', 'PAYMENT_MODE']], use_container_width=True)
-                else:
-                    st.info("No payments recorded yet.")
-    else:
-        st.info("ℹ️ Your Ledger is empty. Register your first borrower in the Borrower Hub.")
+            # --- 4. METRICS ---
+            loan = float(client.get('LOAN_AMOUNT', 0))
+            paid = client_pays['AMOUNT_PAID'].sum() if not client_pays.empty else 0
+            balance = loan - paid
+
+            today = datetime.now().date()
+            due_date = pd.to_datetime(client.get('DUE_DATE'), errors='coerce')
+
+            # STATUS ENGINE
+            if balance <= 0:
+                status = "CLEARED"
+            elif due_date and due_date.date() < today:
+                status = "OVERDUE"
+            else:
+                status = "ACTIVE"
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Loan", f"UGX {loan:,.0f}")
+            c2.metric("Paid", f"UGX {paid:,.0f}")
+            c3.metric("Balance", f"UGX {balance:,.0f}", delta_color="inverse")
+            c4.metric("Status", status)
+
+            st.write("---")
+
+            # --- 5. RUNNING BALANCE (🔥 IMPORTANT) ---
+            st.markdown("### 📊 Running Balance")
+
+            if not client_pays.empty:
+                running = loan
+                history = []
+
+                for _, row in client_pays.iterrows():
+                    running -= float(row['AMOUNT_PAID'])
+                    history.append({
+                        "DATE": row['DATE'].strftime('%Y-%m-%d'),
+                        "PAID": row['AMOUNT_PAID'],
+                        "BALANCE": running,
+                        "MODE": row.get('PAYMENT_MODE', '')
+                    })
+
+                hist_df = pd.DataFrame(history)
+
+                st.dataframe(hist_df, use_container_width=True, hide_index=True)
+
+                # Chart
+                fig = px.line(hist_df, x='DATE', y='BALANCE', markers=True)
+                fig.update_traces(line_color='#1e3a8a')
+                st.plotly_chart(fig, use_container_width=True)
+
+            else:
+                st.info("No payments yet.")
+
+            st.write("---")
+
+            # --- 6. PAYMENT SUMMARY ---
+            st.markdown("### 📈 Payment Insights")
+
+            if not client_pays.empty:
+                total_tx = len(client_pays)
+                avg_pay = paid / total_tx if total_tx > 0 else 0
+
+                s1, s2 = st.columns(2)
+                s1.metric("Transactions", total_tx)
+                s2.metric("Avg Payment", f"UGX {avg_pay:,.0f}")
+
+            st.write("---")
+
+            # --- 7. PDF GENERATOR (UPGRADED) ---
+            def generate_pdf():
+                pdf = FPDF()
+                pdf.add_page()
+
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(200, 10, "ZOE CONSULTS SMC LTD", ln=True, align='C')
+
+                pdf.set_font("Arial", '', 10)
+                pdf.cell(200, 8, f"Client: {selected}", ln=True)
+                pdf.cell(200, 8, f"Status: {status}", ln=True)
+                pdf.cell(200, 8, f"Generated: {datetime.now().strftime('%Y-%m-%d')}", ln=True)
+
+                pdf.ln(5)
+
+                pdf.cell(200, 8, f"Loan: UGX {loan:,.0f}", ln=True)
+                pdf.cell(200, 8, f"Paid: UGX {paid:,.0f}", ln=True)
+                pdf.cell(200, 8, f"Balance: UGX {balance:,.0f}", ln=True)
+
+                pdf.ln(5)
+
+                pdf.set_font("Arial", 'B', 10)
+                pdf.cell(60, 8, "Date", 1)
+                pdf.cell(60, 8, "Paid", 1)
+                pdf.cell(60, 8, "Balance", 1, 1)
+
+                pdf.set_font("Arial", '', 10)
+
+                if not client_pays.empty:
+                    run = loan
+                    for _, r in client_pays.iterrows():
+                        run -= float(r['AMOUNT_PAID'])
+                        pdf.cell(60, 8, str(r['DATE'].date()), 1)
+                        pdf.cell(60, 8, f"{r['AMOUNT_PAID']:,.0f}", 1)
+                        pdf.cell(60, 8, f"{run:,.0f}", 1, 1)
+                else:
+                    pdf.cell(180, 8, "No payments", 1, 1)
+
+                return pdf.output(dest='S').encode('latin-1')
+
+            if st.button("📄 Generate Statement"):
+                pdf_bytes = generate_pdf()
+                b64 = base64.b64encode(pdf_bytes).decode()
+
+                href = f'<a href="data:application/octet-stream;base64,{b64}" download="Statement_{selected}.pdf">Download PDF</a>'
+                st.markdown(href, unsafe_allow_html=True)
+
+            st.write("---")
+
+            # --- 8. RAW PAYMENT TABLE ---
+            st.markdown("### 🕒 Payment History")
+
+            if not client_pays.empty:
+                display = client_pays.copy()
+                display['AMOUNT_PAID'] = display['AMOUNT_PAID'].apply(lambda x: f"{float(x):,.0f}")
+                st.dataframe(display, use_container_width=True, hide_index=True)
+            else:
+                st.info("No payment records found.")
+
+    else:
+        st.info("No clients available.")
 
 # PAGE: OVERDUE TRACKER (The Debt Collector)
 elif page == "Overdue Tracker":
-    st.markdown('<div class="main-title">🚨 Urgent Follow-up: Overdue Portfolios</div>', unsafe_allow_html=True)
-    
-    # 1. SYNC DATA (Combine Cloud + Local)
-    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
-    combined_borrowers = pd.concat([df, local_df], ignore_index=True)
-    
-    if not combined_borrowers.empty:
-        # Calculate Date Thresholds
-        today = datetime.now().date()
-        thirty_days_ago = today - timedelta(days=30)
-        
-        # 2. CALCULATE OVERDUE STATUS
-        if not pay_df.empty:
-            latest_pays = pay_df.groupby('CUSTOMER_NAME')['DATE'].max().reset_index()
-            latest_pays['DATE'] = pd.to_datetime(latest_pays['DATE']).dt.date
-            
-            # Merge with combined list
-            overdue_df = combined_borrowers.merge(latest_pays, on='CUSTOMER_NAME', how='left', suffixes=('', '_last_pay'))
-            
-            # Filter: Balance > 0 AND (Last Pay > 30 days OR No Pay Recorded)
-            overdue_list = overdue_df[
-                (overdue_df['OUTSTANDING_AMOUNT'] > 0) & 
-                ((overdue_df['DATE_last_pay'] < thirty_days_ago) | (overdue_df['DATE_last_pay'].isna()))
-            ].copy()
-        else:
-            # If no payments exist at all, everyone with a balance is potentially overdue
-            overdue_list = combined_borrowers[combined_borrowers['OUTSTANDING_AMOUNT'] > 0].copy()
-            overdue_list['DATE_last_pay'] = None
+    st.markdown('<div class="main-title">🚨 Overdue Intelligence Dashboard</div>', unsafe_allow_html=True)
 
-        # 3. THE ALERT BANNER (Restored)
-        if not overdue_list.empty:
-            st.markdown(f"""
-                <div style="background-color: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px; border-radius: 5px;">
-                    <p style="margin:0; color: #1e3a8a; font-weight: bold;">
-                        ⚠️ ATTENTION: {len(overdue_list)} clients are currently behind schedule or have no recent payments.
-                    </p>
-                </div>
-            """, unsafe_allow_html=True)
-            st.write("")
+    # --- 1. LOAD DATA ---
+    local_df = pd.DataFrame(st.session_state.get('local_registry', []))
+    combined = pd.concat([df, local_df], ignore_index=True)
 
-            # 4. THE "RED LIST" ROWS (Restored UI)
-            for _, row in overdue_list.iterrows():
-                with st.container():
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    
-                    # Column 1: Borrower Info
-                    c1.markdown(f"<span style='color: #1e3a8a; font-weight: bold; font-size: 18px;'>👤 {row['CUSTOMER_NAME']}</span>", unsafe_allow_html=True)
-                    last_pay = row['DATE_last_pay'] if pd.notna(row['DATE_last_pay']) else "No payments recorded"
-                    c1.markdown(f"<span style='color: #64748b; font-size: 13px;'>Last Payment: {last_pay}</span>", unsafe_allow_html=True)
-                    
-                    # Column 2: Money Owed
-                    bal = float(row['OUTSTANDING_AMOUNT'])
-                    c2.markdown(f"<span style='color: #3b82f6; font-weight: bold; font-size: 18px;'>UGX {bal:,.0f}</span>", unsafe_allow_html=True)
-                    c2.caption("Balance Due")
-                    
-                    # Column 3: Red WhatsApp Action Button
-                    clean_p = "".join(filter(str.isdigit, str(row.get('CONTACT', ''))))
-                    
-                    if clean_p:
-                        # Professional Chaser Message
-                        msg = f"URGENT: Hello {row['CUSTOMER_NAME']}, your Zoe Consults loan balance of UGX {bal:,.0f} is overdue. Please settle this today to avoid penalties."
-                        wa_url = f"https://wa.me/{clean_p}?text={msg.replace(' ', '%20')}"
-                        
-                        c3.markdown(f'''
-                            <a href="{wa_url}" target="_blank" style="text-decoration:none;">
-                                <div style="background-color:#dc2626; color:white; padding:12px; 
-                                            border-radius:8px; text-align:center; font-weight:bold; font-size:14px; 
-                                            box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
-                                    🚩 SEND REMINDER
-                                </div>
-                            </a>
-                        ''', unsafe_allow_html=True)
-                    else:
-                        c3.button("No Phone", disabled=True, use_container_width=True, key=f"dead_btn_{row['CUSTOMER_NAME']}")
-                    
-                    st.divider()
-        else:
-            st.balloons()
-            st.success("🎉 Excellent! All clients are up to date. No overdue payments found.")
-    else:
-        st.info("ℹ️ No borrowers registered. The tracker will wake up once you add clients.")
+    local_pay = pd.DataFrame(st.session_state.get('local_repayments', []))
+    all_payments = pd.concat([pay_df, local_pay], ignore_index=True)
+
+    if not combined.empty:
+
+        combined = combined.drop_duplicates(subset=['NIN'], keep='last')
+
+        today = datetime.now().date()
+
+        # --- 2. LAST PAYMENT TRACKING ---
+        if not all_payments.empty:
+            all_payments['DATE'] = pd.to_datetime(all_payments['DATE'], errors='coerce')
+
+            last_pay = all_payments.groupby('CUSTOMER_NAME')['DATE'].max().reset_index()
+            last_pay['DATE'] = last_pay['DATE'].dt.date
+
+            combined = combined.merge(last_pay, on='CUSTOMER_NAME', how='left')
+            combined.rename(columns={'DATE': 'LAST_PAYMENT'}, inplace=True)
+        else:
+            combined['LAST_PAYMENT'] = None
+
+        # --- 3. CALCULATE OVERDUE ---
+        combined['DUE_DATE'] = pd.to_datetime(combined['DUE_DATE'], errors='coerce').dt.date
+        combined['OUTSTANDING_AMOUNT'] = pd.to_numeric(combined['OUTSTANDING_AMOUNT'], errors='coerce').fillna(0)
+
+        overdue = combined[
+            (combined['OUTSTANDING_AMOUNT'] > 0) &
+            (combined['DUE_DATE'] < today)
+        ].copy()
+
+        if not overdue.empty:
+
+            # --- 4. DAYS OVERDUE ---
+            overdue['DAYS_OVERDUE'] = (today - overdue['DUE_DATE']).dt.days
+
+            # --- 5. RISK LEVEL ENGINE ---
+            def risk_level(days):
+                if days <= 7:
+                    return "LOW"
+                elif days <= 30:
+                    return "MEDIUM"
+                elif days <= 60:
+                    return "HIGH"
+                else:
+                    return "CRITICAL"
+
+            overdue['RISK'] = overdue['DAYS_OVERDUE'].apply(risk_level)
+
+            # --- 6. SORT WORST FIRST ---
+            overdue = overdue.sort_values(by='DAYS_OVERDUE', ascending=False)
+
+            # --- 7. SUMMARY KPIs ---
+            total_overdue = overdue['OUTSTANDING_AMOUNT'].sum()
+            avg_days = overdue['DAYS_OVERDUE'].mean()
+
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Total Overdue", f"UGX {total_overdue:,.0f}")
+            k2.metric("Clients Overdue", len(overdue))
+            k3.metric("Avg Days Late", f"{avg_days:.0f} days")
+
+            st.write("---")
+
+            # --- 8. FILTER BY RISK ---
+            risk_filter = st.selectbox("Filter by Risk Level", ["ALL", "LOW", "MEDIUM", "HIGH", "CRITICAL"])
+
+            if risk_filter != "ALL":
+                overdue = overdue[overdue['RISK'] == risk_filter]
+
+            # --- 9. DISPLAY CARDS ---
+            for _, row in overdue.iterrows():
+
+                name = row['CUSTOMER_NAME']
+                balance = float(row['OUTSTANDING_AMOUNT'])
+                days = row['DAYS_OVERDUE']
+                risk = row['RISK']
+                phone = str(row.get('CONTACT', ''))
+
+                # Color by risk
+                if risk == "LOW":
+                    color = "#3b82f6"
+                elif risk == "MEDIUM":
+                    color = "#f59e0b"
+                elif risk == "HIGH":
+                    color = "#ef4444"
+                else:
+                    color = "#7f1d1d"
+
+                with st.container():
+                    c1, c2, c3 = st.columns([2, 1, 1])
+
+                    c1.markdown(f"""
+                        <div style="border-left: 5px solid {color}; padding-left:10px;">
+                        <b>{name}</b><br>
+                        <span style='color:#64748b;'>Overdue by {days} days</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    c2.markdown(f"**UGX {balance:,.0f}**")
+                    c2.caption("Outstanding")
+
+                    # --- 10. WHATSAPP ---
+                    clean_phone = "".join(filter(str.isdigit, phone))
+
+                    if clean_phone:
+                        msg = f"Reminder: Your loan balance of UGX {balance:,.0f} is overdue by {days} days. Kindly clear it immediately to avoid further action."
+
+                        wa_link = f"https://wa.me/{clean_phone}?text={msg.replace(' ', '%20')}"
+
+                        c3.markdown(f"""
+                            <a href="{wa_link}" target="_blank">
+                                <div style="background:{color}; color:white; padding:10px;
+                                border-radius:8px; text-align:center; font-weight:bold;">
+                                Send Reminder
+                                </div>
+                            </a>
+                        """, unsafe_allow_html=True)
+                    else:
+                        c3.button("No Contact", disabled=True, key=f"btn_{name}")
+
+                    st.divider()
+
+        else:
+            st.balloons()
+            st.success("🎉 All clients are up to date!")
+
+    else:
+        st.info("No borrowers available.")
 # PAGE: OPERATING EXPENSES
 elif page == "Expenses":
-    st.markdown('<div class="main-title">📉 Operating Expenses</div>', unsafe_allow_html=True)
-    
-    # 1. Initialize Local Expense Memory (for instant feedback)
-    if 'local_expenses' not in st.session_state:
-        st.session_state.local_expenses = []
+    st.markdown('<div class="main-title">📉 Expense Intelligence Center</div>', unsafe_allow_html=True)
 
-    # 2. RECORD NEW EXPENSE
-    with st.expander("➕ Log Business Expense", expanded=True):
-        with st.form("exp_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            exp_cat = col1.selectbox("Category", ["Rent", "Salaries", "Trading License", "Utilities", "Marketing", "Other"])
-            exp_amt = col2.number_input("Amount (UGX)", min_value=0, step=5000)
-            
-            exp_date = st.date_input("Date", value=datetime.now())
-            receipt_no = st.text_input("Receipt / Invoice Number", placeholder="e.g. ZOE-2026-001")
-            exp_desc = st.text_input("Description / Payee", placeholder="Who was paid and what for?")
-            
-            if st.form_submit_button("💾 Save Expense", use_container_width=True):
-                if exp_amt > 0 and exp_desc:
-                    new_exp = {
-                        "DATE": str(exp_date),
-                        "CATEGORY": exp_cat,
-                        "DESCRIPTION": exp_desc,
-                        "AMOUNT": exp_amt,
-                        "RECEIPT_NO": receipt_no
-                    }
-                    
-                    # Save locally for instant table update
-                    st.session_state.local_expenses.append(new_exp)
-                    
-                    try:
-                        # FRESH HANDSHAKE
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("Expenses")
-                        ws.append_row(list(new_exp.values()), value_input_option='USER_ENTERED')
-                        
-                        st.success("✅ Expense recorded successfully!")
-                        st.cache_data.clear()
-                    except Exception as e:
-                        if "200" in str(e):
-                            st.success("✅ Expense recorded!")
-                            st.cache_data.clear()
-                        else:
-                            st.warning(f"⚠️ Saved locally, but Cloud Sync delayed: {e}")
-                else:
-                    st.warning("Please enter an amount and description.")
+    # --- 1. INIT LOCAL STORAGE ---
+    if 'local_expenses' not in st.session_state:
+        st.session_state.local_expenses = []
 
-    st.write("---")
+    # --- 2. COMBINE DATA ---
+    local_exp_df = pd.DataFrame(st.session_state.local_expenses)
+    combined = pd.concat([expense_df, local_exp_df], ignore_index=True)
 
-    # 3. EXPENSE LEDGER (Combined Cloud + Local)
-    st.markdown("#### 📜 Expense Ledger")
-    
-    local_exp_df = pd.DataFrame(st.session_state.local_expenses)
-    combined_expenses = pd.concat([expense_df, local_exp_df], ignore_index=True)
-    
-    if not combined_expenses.empty:
-        # Sort by Date safely
-        if 'DATE' in combined_expenses.columns:
-            combined_expenses = combined_expenses.sort_values(by='DATE', ascending=False)
-        
-        # Format for display
-        display_exp = combined_expenses.copy()
-        if 'AMOUNT' in display_exp.columns:
-            display_exp['AMOUNT'] = display_exp['AMOUNT'].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
-            
-        st.dataframe(
-            display_exp, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=("DATE", "RECEIPT_NO", "CATEGORY", "DESCRIPTION", "AMOUNT")
-        )
-        
-        # Show Total Summary
-        total_val = pd.to_numeric(combined_expenses['AMOUNT'], errors='coerce').sum()
-        st.info(f"📊 Total Operating Expenses logged: **UGX {total_val:,.0f}**")
-    else:
-        st.info("ℹ️ Your Expense Ledger is empty. Log your first business expense above.")
+    # --- 3. RECORD EXPENSE ---
+    with st.expander("➕ Log Expense", expanded=True):
+        with st.form("exp_form", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+
+            category = c1.selectbox("Category", ["Rent", "Salaries", "Utilities", "Marketing", "Transport", "Other"])
+            amount = c2.number_input("Amount (UGX)", min_value=0, step=5000)
+
+            date = st.date_input("Date", value=datetime.now())
+            receipt = st.text_input("Receipt No")
+            desc = st.text_input("Description")
+
+            if st.form_submit_button("💾 Save Expense", use_container_width=True):
+
+                if amount > 0 and desc:
+                    new_exp = {
+                        "DATE": str(date),
+                        "CATEGORY": category,
+                        "DESCRIPTION": desc,
+                        "AMOUNT": amount,
+                        "RECEIPT_NO": receipt
+                    }
+
+                    st.session_state.local_expenses.append(new_exp)
+
+                    try:
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        client = gspread.service_account_from_dict(creds_dict)
+
+                        ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Expenses")
+                        ws.append_row(list(new_exp.values()), value_input_option='USER_ENTERED')
+
+                        st.success("✅ Expense saved!")
+                        st.cache_data.clear()
+
+                    except:
+                        st.warning("Saved locally. Cloud sync pending.")
+
+                else:
+                    st.warning("Enter amount and description.")
+
+    st.write("---")
+
+    # --- 4. CLEAN DATA ---
+    if not combined.empty:
+        combined['AMOUNT'] = pd.to_numeric(combined['AMOUNT'], errors='coerce').fillna(0)
+        combined['DATE'] = pd.to_datetime(combined['DATE'], errors='coerce')
+
+    # --- 5. KPI DASHBOARD ---
+    if not combined.empty:
+
+        total = combined['AMOUNT'].sum()
+
+        this_month = combined[
+            combined['DATE'].dt.month == datetime.now().month
+        ]['AMOUNT'].sum()
+
+        avg_exp = combined['AMOUNT'].mean()
+
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Total Expenses", f"UGX {total:,.0f}")
+        k2.metric("This Month", f"UGX {this_month:,.0f}")
+        k3.metric("Avg Expense", f"UGX {avg_exp:,.0f}")
+
+    st.write("---")
+
+    # --- 6. CATEGORY ANALYSIS ---
+    st.markdown("### 📊 Category Breakdown")
+
+    if not combined.empty:
+        cat = combined.groupby('CATEGORY')['AMOUNT'].sum().sort_values(ascending=False)
+
+        fig = px.pie(
+            values=cat.values,
+            names=cat.index,
+            hole=0.5,
+            color_discrete_sequence=px.colors.sequential.Blues
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    else:
+        st.info("No expense data.")
+
+    st.write("---")
+
+    # --- 7. MONTHLY TREND ---
+    st.markdown("### 📈 Monthly Trend")
+
+    if not combined.empty:
+        combined['MONTH'] = combined['DATE'].dt.to_period("M").astype(str)
+
+        monthly = combined.groupby('MONTH')['AMOUNT'].sum()
+
+        fig2 = px.line(monthly, x=monthly.index, y=monthly.values, markers=True)
+        fig2.update_traces(line_color='#1e3a8a')
+
+        st.plotly_chart(fig2, use_container_width=True)
+
+    else:
+        st.info("No trend data.")
+
+    st.write("---")
+
+    # --- 8. FILTER + TABLE ---
+    st.markdown("### 📜 Expense Ledger")
+
+    if not combined.empty:
+
+        # Filters
+        f1, f2 = st.columns(2)
+        selected_cat = f1.selectbox("Filter Category", ["All"] + combined['CATEGORY'].dropna().unique().tolist())
+        selected_month = f2.selectbox("Filter Month", ["All"] + combined['DATE'].dt.strftime("%Y-%m").dropna().unique().tolist())
+
+        filtered = combined.copy()
+
+        if selected_cat != "All":
+            filtered = filtered[filtered['CATEGORY'] == selected_cat]
+
+        if selected_month != "All":
+            filtered = filtered[filtered['DATE'].dt.strftime("%Y-%m") == selected_month]
+
+        # Format
+        display = filtered.copy()
+        display['AMOUNT'] = display['AMOUNT'].apply(lambda x: f"{x:,.0f}")
+
+        st.dataframe(display.sort_values(by='DATE', ascending=False), use_container_width=True, hide_index=True)
+
+        st.info(f"Filtered Total: UGX {filtered['AMOUNT'].sum():,.0f}")
+
+    else:
+        st.info("No expenses recorded.")
 # PAGE: PETTY CASH
 elif page == "PettyCash":
-    st.markdown('<div class="main-title">🪙 Petty Cash Management</div>', unsafe_allow_html=True)
-    
-    # 1. Initialize Local Memory
-    if 'local_petty' not in st.session_state:
-        st.session_state.local_petty = []
+    import streamlit as st
+import pandas as pd
+from datetime import datetime
 
-    # 2. CALCULATE LIVE BALANCE (Cloud + Local)
-    local_p_df = pd.DataFrame(st.session_state.local_petty)
-    combined_petty = pd.concat([petty_df, local_p_df], ignore_index=True)
-    
-    if not combined_petty.empty:
-        # Ensure numbers are valid for math
-        combined_petty['AMOUNT'] = pd.to_numeric(combined_petty['AMOUNT'], errors='coerce').fillna(0)
-        total_in = combined_petty[combined_petty['TYPE'] == 'Float Top-up']['AMOUNT'].sum()
-        total_out = combined_petty[combined_petty['TYPE'] == 'Spend']['AMOUNT'].sum()
-        current_balance = total_in - total_out
-    else:
-        current_balance = 0
+st.title("💵 Petty Cash Management")
 
-    st.metric("Current Petty Cash Balance", f"UGX {current_balance:,.0f}")
+# Initialize session state
+if "petty_cash" not in st.session_state:
+    st.session_state.petty_cash = pd.DataFrame(columns=[
+        "Date", "Description", "Type", "Amount"
+    ])
 
-    # 3. TRANSACTION FORM
-    with st.expander("💸 Update Petty Cash (Spend or Top-up)", expanded=True):
-        with st.form("petty_form", clear_on_submit=True):
-            p_type = st.radio("Transaction Type", ["Spend", "Float Top-up"], horizontal=True)
-            c1, c2 = st.columns(2)
-            p_amt = c1.number_input("Amount (UGX)", min_value=0, step=1000)
-            p_item = c2.text_input("Item / Reason", placeholder="e.g., Office Tea, Transport")
-            
-            if st.form_submit_button("💸 Update Petty Cash", use_container_width=True):
-                if p_amt > 0 and p_item:
-                    new_p = {
-                        "DATE": str(datetime.now().date()),
-                        "TYPE": p_type,
-                        "ITEM": p_item,
-                        "AMOUNT": p_amt
-                    }
-                    
-                    # Save locally for instant view
-                    st.session_state.local_petty.append(new_p)
-                    
-                    try:
-                        # Fresh handshake for Google
-                        creds_dict = dict(st.secrets["gcp_service_account"])
-                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-                        fresh_client = gspread.service_account_from_dict(creds_dict)
-                        
-                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
-                        ws = fresh_client.open_by_key(sheet_id).worksheet("PettyCash")
-                        ws.append_row(list(new_p.values()), value_input_option='USER_ENTERED')
-                        
-                        st.success(f"✅ {p_type} recorded!")
-                        st.cache_data.clear()
-                        st.rerun() # <--- This makes the table show up immediately!
-                    except Exception as e:
-                        if "200" in str(e):
-                            st.success("✅ Recorded!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        else:
-                            st.warning(f"⚠️ Saved locally, Cloud Sync pending.")
-                else:
-                    st.warning("Please enter an amount and reason.")
+# ---- Add Entry Form ----
+st.subheader("➕ Add Petty Cash Entry")
 
-    st.write("---")
+with st.form("petty_cash_form"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        date = st.date_input("Date", datetime.today())
+        description = st.text_input("Description")
+    
+    with col2:
+        entry_type = st.selectbox("Type", ["Inflow", "Outflow"])
+        amount = st.number_input("Amount", min_value=0.0, step=1.0)
 
-    # 4. THE TRANSACTION TABLE (The Ledger)
-    st.markdown("#### 📜 Petty Cash Ledger")
-    
-    if not combined_petty.empty:
-        # Sort so the newest transaction is at the top
-        display_p = combined_petty.copy().sort_index(ascending=False)
-        
-        # Comma Formatting for the 'AMOUNT' column
-        if 'AMOUNT' in display_p.columns:
-            display_p['AMOUNT'] = display_p['AMOUNT'].apply(lambda x: f"{float(x):,.0f}")
-            
-        st.dataframe(
-            display_p, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=("DATE", "TYPE", "ITEM", "AMOUNT")
-        )
-    else:
-        st.info("ℹ️ No petty cash transactions found. Top up your float to get started!")
+    submit = st.form_submit_button("Add Entry")
 
+    if submit:
+        new_entry = pd.DataFrame([{
+            "Date": date,
+            "Description": description,
+            "Type": entry_type,
+            "Amount": amount
+        }])
+
+        st.session_state.petty_cash = pd.concat(
+            [st.session_state.petty_cash, new_entry],
+            ignore_index=True
+        )
+
+        st.success("Entry added successfully!")
+
+# ---- Data Processing ----
+df = st.session_state.petty_cash.copy()
+
+if not df.empty:
+    df["Date"] = pd.to_datetime(df["Date"])
+
+    # Calculate balance
+    df["Signed Amount"] = df.apply(
+        lambda x: x["Amount"] if x["Type"] == "Inflow" else -x["Amount"],
+        axis=1
+    )
+
+    df = df.sort_values("Date")
+    df["Balance"] = df["Signed Amount"].cumsum()
+
+# ---- Filters ----
+st.subheader("🔍 Filter Records")
+
+col1, col2 = st.columns(2)
+with col1:
+    start_date = st.date_input("From Date", value=None)
+with col2:
+    end_date = st.date_input("To Date", value=None)
+
+filtered_df = df.copy()
+
+if start_date:
+    filtered_df = filtered_df[filtered_df["Date"] >= pd.to_datetime(start_date)]
+if end_date:
+    filtered_df = filtered_df[filtered_df["Date"] <= pd.to_datetime(end_date)]
+
+# ---- Summary ----
+st.subheader("📊 Summary")
+
+if not filtered_df.empty:
+    total_in = filtered_df[filtered_df["Type"] == "Inflow"]["Amount"].sum()
+    total_out = filtered_df[filtered_df["Type"] == "Outflow"]["Amount"].sum()
+    balance = total_in - total_out
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Inflow", f"{total_in:,.2f}")
+    col2.metric("Total Outflow", f"{total_out:,.2f}")
+    col3.metric("Balance", f"{balance:,.2f}")
+else:
+    st.info("No records available")
+
+# ---- Table ----
+st.subheader("📋 Petty Cash Records")
+
+if not filtered_df.empty:
+    st.dataframe(filtered_df[[
+        "Date", "Description", "Type", "Amount", "Balance"
+    ]], use_container_width=True)
+else:
+    st.warning("No data to display")
 # PAGE: PAYROLL (Salaries & Digital Pay Slips)
 elif page == "Payroll":
     st.markdown('<div class="main-title">👔 Team Payroll Management</div>', unsafe_allow_html=True)
