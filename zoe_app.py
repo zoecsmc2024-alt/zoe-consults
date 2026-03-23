@@ -409,45 +409,47 @@ elif page == "Borrowers":
                 def edit_modal(data):
                     st.markdown("### Update Borrower Profile")
                     
-                    # Row 1: Names
+                    # 1. CLEAN DATA (Remove commas so numbers work)
+                    def clean_num(val):
+                        if isinstance(val, str):
+                            val = val.replace(',', '').replace('UGX', '').strip()
+                        return pd.to_numeric(val, errors='coerce') or 0.0
+
+                    # 2. RENDER INPUTS
                     c1, c2 = st.columns(2)
                     new_name = c1.text_input("Full Name", value=data.get('CUSTOMER_NAME', ''))
                     new_nin = c2.text_input("NIN", value=data.get('NIN', ''))
                     
-                    # Row 2: Contact & Gender
                     c3, c4 = st.columns(2)
                     new_phone = c3.text_input("Contact", value=data.get('CONTACT', ''))
                     new_gender = c4.selectbox("Gender", ["Male", "Female"], index=0 if data.get('GENDER') == "Male" else 1)
                     
-                    # Row 3: Loan Details (Financials)
                     c5, c6 = st.columns(2)
-                    new_amt = c5.number_input("Loan Amount (UGX)", value=float(data.get('LOAN_AMOUNT', 0)), step=10000.0)
-                    new_out = c6.number_input("Outstanding (UGX)", value=float(data.get('OUTSTANDING_AMOUNT', 0)), step=10000.0)
+                    # Convert to float for number_input, but we display commas in the main table
+                    new_amt = c5.number_input("Loan Amount (UGX)", value=float(clean_num(data.get('LOAN_AMOUNT'))), step=1000.0)
+                    new_out = c6.number_input("Outstanding (UGX)", value=float(clean_num(data.get('OUTSTANDING_AMOUNT'))), step=1000.0)
                     
                     new_addr = st.text_area("Address", value=data.get('ADDRESS', ''))
                     
                     st.divider()
                     if st.button("💾 Save All Changes", use_container_width=True):
                         try:
-                            # Connect
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             client = gspread.service_account_from_dict(creds_dict)
                             ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
 
-                            # Find by OLD NIN (the one from 'data' before editing)
                             cell = ws.find(data['NIN'])
                             if cell:
-                                # Update columns based on your sheet order (Update numbers if needed!)
-                                ws.update_cell(cell.row, 1, new_name.upper()) # Col 1: Name
-                                ws.update_cell(cell.row, 2, new_phone)        # Col 2: Contact
-                                ws.update_cell(cell.row, 3, new_nin)          # Col 3: NIN
-                                ws.update_cell(cell.row, 4, new_gender)       # Col 4: Gender
-                                ws.update_cell(cell.row, 5, new_addr)         # Col 5: Address
-                                ws.update_cell(cell.row, 7, new_amt)          # Col 7: Loan Amt
-                                ws.update_cell(cell.row, 11, new_out)         # Col 11: Outstanding
+                                ws.update_cell(cell.row, 1, new_name.upper())
+                                ws.update_cell(cell.row, 2, new_phone)
+                                ws.update_cell(cell.row, 3, new_nin)
+                                ws.update_cell(cell.row, 4, new_gender)
+                                ws.update_cell(cell.row, 5, new_addr)
+                                ws.update_cell(cell.row, 7, new_amt)
+                                ws.update_cell(cell.row, 11, new_out)
                                 
-                                st.success("✅ KYC Updated & Synced!")
+                                st.success("✅ KYC Updated!")
                                 st.cache_data.clear()
                                 st.rerun()
                         except Exception as e:
