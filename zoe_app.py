@@ -432,29 +432,50 @@ elif page == "Collateral":
     # 3. THE INVENTORY TABLE (Combined Cloud + Local)
     st.markdown("#### 📦 Current Inventory List")
     
-    local_collat_df = pd.DataFrame(st.session_state.get('local_collateral', []))
+    # Initialize local memory if it somehow got dropped
+    if 'local_collateral' not in st.session_state:
+        st.session_state.local_collateral = []
+
+    # Merge Cloud + Local
+    local_collat_df = pd.DataFrame(st.session_state.local_collateral)
     combined_collat = pd.concat([collateral_df, local_collat_df], ignore_index=True)
     
     if not combined_collat.empty:
-        # --- DYNAMIC HEADER MATCHING ---
-        # We look for what's actually in your sheet (from your screenshot)
+        # --- THE VISIBILITY FIX ---
+        # 1. Remove any completely empty rows
+        combined_collat = combined_collat.dropna(how='all')
+        
+        # 2. Match headers (using your specific sheet names from the screenshot)
         b_col = 'BORROWER' if 'BORROWER' in combined_collat.columns else 'BORROWER_NAME'
         i_col = 'ASSET_TYPE' if 'ASSET_TYPE' in combined_collat.columns else 'ITEM_NAME'
-        v_col = 'ESTIMATED_VALUE' if 'ESTIMATED_VALUE' in combined_collat.columns else 'VALUE'
-        s_col = 'STATUS' if 'STATUS' in combined_collat.columns else 'STATUS'
-
-        # Clean duplicates
-        combined_collat = combined_collat.drop_duplicates(subset=[b_col, i_col], keep='last')
         
-        # Search Filter
-        search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...", key="collat_search")
+        # 3. SORT: Put the absolute newest entries at the TOP
+        # We use the index to make sure the one you just added is #1
+        combined_collat = combined_collat.sort_index(ascending=False)
+        
+        # 4. Search Filter
+        search = st.text_input("🔍 Filter Inventory", placeholder="Search by name or item...", key="collat_search_main")
         display_df = combined_collat.copy()
         
         if search:
             display_df = display_df[display_df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        # Display the table
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        # 5. Currency Formatting
+        if 'ESTIMATED_VALUE' in display_df.columns:
+            display_df['ESTIMATED_VALUE'] = pd.to_numeric(display_df['ESTIMATED_VALUE'], errors='coerce').fillna(0)
+            display_df['ESTIMATED_VALUE'] = display_df['ESTIMATED_VALUE'].apply(lambda x: f"{float(x):,.0f}")
+            
+        # Display the Table
+        st.dataframe(
+            display_df, 
+            use_container_width=True, 
+            hide_index=True
+        )
+        
+        # Quick Stat
+        st.caption(f"Showing {len(display_df)} secured assets.")
+    else:
+        st.info("ℹ️ Your Collateral Inventory is currently empty. Log an item above to see it here.")
 
         # --- 4. MANAGE SELECTED ASSET (Enhanced with Description & Date) ---
     st.write("---")
