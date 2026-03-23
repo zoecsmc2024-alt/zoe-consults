@@ -469,61 +469,71 @@ elif page == "Collateral":
         # Display the table
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-        # --- 4. MANAGE SELECTED ASSET (Edit/Delete) ---
-        st.write("---")
-        st.markdown("#### 🛠️ Manage Selected Asset")
+        # --- 4. MANAGE SELECTED ASSET (The Unique Matcher) ---
+    st.write("---")
+    st.markdown("#### 🛠️ Manage Selected Asset")
+    
+    if not display_df.empty:
+        # 1. Create a truly UNIQUE ID for the dropdown
+        # We add the Value and Date to the string so the app knows EXACTLY which row is which
+        display_df['UNIQUE_ID'] = (
+            display_df[b_col].astype(str) + " | " + 
+            display_df[i_col].astype(str) + " (UGX " + 
+            display_df[v_col].astype(str) + ") - " + 
+            display_df['STORAGE_REF'].astype(str)
+        )
         
-        # Create the ID string using the CORRECT columns
-        display_df['ID_STR'] = display_df[b_col].astype(str) + " | " + display_df[i_col].astype(str)
-        options_list = display_df['ID_STR'].tolist()
-        
-        selected_asset_str = st.selectbox("Select an item to Update or Delete", options=options_list)
+        options_list = display_df['UNIQUE_ID'].tolist()
+        selected_asset_str = st.selectbox("Select specific item to Update/Delete", options=options_list)
 
         if selected_asset_str:
-            asset_row = display_df[display_df['ID_STR'] == selected_asset_str].iloc[0]
+            # 2. Match the selection back to the correct row
+            asset_row = display_df[display_df['UNIQUE_ID'] == selected_asset_str].iloc[0]
+            
+            st.info(f"📍 Managing: **{asset_row[i_col]}** for **{asset_row[b_col]}**")
             
             col_a, col_b = st.columns(2)
             
-            # EDIT SECTION (Enhanced for Data Safety)
+            # --- EDIT SECTION ---
             with col_a.expander("📝 Edit Asset Details"):
-                with st.form("edit_asset_form"):
-                    # 1. CLEAN THE DATA FIRST
-                    raw_val = str(asset_row[v_col])
-                    # Remove commas, spaces, and 'UGX' if they exist in the sheet
-                    clean_val = raw_val.replace(",", "").replace("UGX", "").replace(" ", "").strip()
-                    
+                with st.form("edit_asset_form_final"):
+                    # Clean and convert value safely
+                    raw_val = str(asset_row[v_col]).replace(",", "").replace("UGX", "").strip()
                     try:
-                        # Convert to float first (handles decimals), then to int
-                        curr_val = int(float(clean_val)) if clean_val else 0
+                        curr_val = int(float(raw_val)) if raw_val else 0
                     except:
                         curr_val = 0
                         
                     new_val = st.number_input("Update Value (UGX)", value=curr_val, step=50000)
                     
-                    # 2. STATUS SELECTOR
                     curr_status = str(asset_row[s_col])
                     status_options = ["Held", "Released", "Disposed"]
-                    default_idx = status_options.index(curr_status) if curr_status in status_options else 0
-                    
-                    new_status = st.selectbox("Update Status", options=status_options, index=default_idx)
+                    def_idx = status_options.index(curr_status) if curr_status in status_options else 0
+                    new_status = st.selectbox("Update Status", options=status_options, index=def_idx)
                     
                     if st.form_submit_button("💾 Save Changes"):
                         try:
-                            # FRESH HANDSHAKE
                             creds_dict = dict(st.secrets["gcp_service_account"])
                             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
                             fresh_client = gspread.service_account_from_dict(creds_dict)
                             ws = fresh_client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Collateral")
                             
-                            # Append the update row
-                            update_row = [asset_row[b_col], asset_row[i_col], "", new_val, str(datetime.now().date()), new_status]
+                            # Matches your sheet columns exactly: Borrower, Asset_Type, Description, Value, Storage_Ref, Status
+                            update_row = [
+                                asset_row[b_col], 
+                                asset_row[i_col], 
+                                "", # Description placeholder
+                                new_val, 
+                                asset_row['STORAGE_REF'], 
+                                new_status
+                            ]
                             ws.append_row(update_row)
                             
-                            st.success("✅ Changes saved to Cloud!")
+                            st.success("✅ Update recorded successfully!")
                             st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Sync error: {e}")
+                            st.error(f"Error: {e}")
 
             # DELETE SECTION
             with col_b.expander("🗑️ Delete Record"):
