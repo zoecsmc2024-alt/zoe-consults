@@ -282,6 +282,16 @@ if page == "Overview":
     else:
         st.info("No borrower data available.")
 elif page == "Borrowers":
+    # 1. Pull fresh data from Google Sheets
+try:
+    # Use your existing function to get data (e.g., get_data())
+    df = get_data() 
+except:
+    df = pd.DataFrame() # Fallback if cloud fails
+
+# 2. Combine with any new entries from this session
+local_df = pd.DataFrame(st.session_state.local_registry)
+combined = pd.concat([df, local_df], ignore_index=True)
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
 
     # --- 1. INIT LOCAL STORAGE ---
