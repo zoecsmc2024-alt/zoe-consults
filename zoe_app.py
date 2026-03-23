@@ -299,8 +299,12 @@ if page == "Overview":
         )
     else:
         st.info("No borrower data available.")
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+        
+        from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import pandas as pd
+from datetime import datetime, timedelta
+
+# ... (rest of your sidebar/navigation code)
 
 elif page == "Borrowers":
     st.markdown('<div class="main-title">👥 Borrower Management Hub</div>', unsafe_allow_html=True)
@@ -308,18 +312,26 @@ elif page == "Borrowers":
     if 'local_registry' not in st.session_state:
         st.session_state.local_registry = []
 
-    # Pull cloud data
+    # 1. Pull cloud data
     try:
         df_cloud = get_data()  # Your Google Sheets fetch function
     except:
         df_cloud = pd.DataFrame()
 
+    # 2. Combine Data
     local_df = pd.DataFrame(st.session_state.local_registry)
-    combined = pd.concat([df_cloud, local_df], ignore_index=True) if not df_cloud.empty else local_df
+    
+    if not df_cloud.empty and not local_df.empty:
+        combined = pd.concat([df_cloud, local_df], ignore_index=True)
+    elif not df_cloud.empty:
+        combined = df_cloud
+    else:
+        combined = local_df
 
+    # 3. Display Table if data exists
     if not combined.empty:
-        # Format money
-        for col in ['LOAN_AMOUNT','TOTAL_DUE','AMOUNT_PAID','OUTSTANDING_AMOUNT']:
+        # Format money for display
+        for col in ['LOAN_AMOUNT', 'TOTAL_DUE', 'AMOUNT_PAID', 'OUTSTANDING_AMOUNT']:
             if col in combined.columns:
                 combined[col] = pd.to_numeric(combined[col], errors='coerce').fillna(0)
                 combined[col] = combined[col].apply(lambda x: f"{x:,.0f}")
@@ -342,14 +354,22 @@ elif page == "Borrowers":
             enable_enterprise_modules=False
         )
 
-        # Check selected row
+        # 4. Handle Actions for Selected Row
+        # Note: AgGrid returns selected_rows as a list or dataframe depending on version
         selected_rows = grid_response.get('selected_rows')
-        if selected_rows:
-            row = selected_rows[0]
+        
+        if selected_rows is not None and len(selected_rows) > 0:
+            # Handle both list and DataFrame formats
+            if isinstance(selected_rows, pd.DataFrame):
+                row = selected_rows.iloc[0].to_dict()
+            else:
+                row = selected_rows[0]
+
             st.markdown(f"### Actions for {row['CUSTOMER_NAME']}")
             col1, col2, col3 = st.columns(3)
+            
             with col1:
-                if st.button("👁️ View Details"):
+                if st.button("👁️ View Details", use_container_width=True):
                     st.info(f"""
                     **Name:** {row['CUSTOMER_NAME']}
                     **NIN:** {row['NIN']}
@@ -365,17 +385,23 @@ elif page == "Borrowers":
                     """)
 
             with col2:
-                if st.button("✏️ Edit KYC"):
+                if st.button("✏️ Edit KYC", use_container_width=True):
+                    # Helper to strip commas for number inputs
+                    def clean_val(v):
+                        return int(str(v).replace(",", "")) if v else 0
+
                     with st.form("edit_form", clear_on_submit=False):
                         new_name = st.text_input("Full Name", value=row["CUSTOMER_NAME"])
                         new_nin = st.text_input("NIN", value=row["NIN"])
                         new_phone = st.text_input("Contact", value=row["CONTACT"])
-                        new_gender = st.selectbox("Gender", ["Male","Female"], index=0 if row["GENDER"]=="Male" else 1)
+                        new_gender = st.selectbox("Gender", ["Male", "Female"], 
+                                                index=0 if row["GENDER"] == "Male" else 1)
                         new_address = st.text_area("Address", value=row["ADDRESS"])
-                        new_loan = st.number_input("Loan Amount (UGX)", value=int(row["LOAN_AMOUNT"].replace(",","")))
-                        new_out = st.number_input("Outstanding (UGX)", value=int(row["OUTSTANDING_AMOUNT"].replace(",","")))
+                        new_loan = st.number_input("Loan Amount (UGX)", value=clean_val(row["LOAN_AMOUNT"]))
+                        new_out = st.number_input("Outstanding (UGX)", value=clean_val(row["OUTSTANDING_AMOUNT"]))
+                        
                         if st.form_submit_button("💾 Save Changes"):
-                            # Update local registry
+                            # Logic for updating local registry
                             for r in st.session_state.local_registry:
                                 if r["NIN"] == row["NIN"]:
                                     r.update({
@@ -388,14 +414,13 @@ elif page == "Borrowers":
                                         "OUTSTANDING_AMOUNT": new_out
                                     })
                             st.success("✅ Borrower updated locally!")
-                            st.experimental_rerun()
+                            st.rerun()
 
             with col3:
-                if st.button("🗑️ Delete"):
+                if st.button("🗑️ Delete", use_container_width=True):
                     st.session_state.local_registry = [r for r in st.session_state.local_registry if r["NIN"] != row["NIN"]]
                     st.success("✅ Borrower deleted locally!")
-                    st.experimental_rerun()
-
+                    st.rerun()
     else:
         st.info("No borrowers found. Register a client above to start.")
     
