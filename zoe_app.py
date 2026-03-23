@@ -203,7 +203,7 @@ if c2.button("🚪 Exit", use_container_width=True, key="sidebar_exit_btn"):
 t1, t2 = st.columns([1, 5])
 with t1:
     # Updated Line 205 Logic
-if 'custom_logo' in st.session_state:
+    if 'custom_logo' in st.session_state:
     # Use the logo you browsed from your PC
     st.image(st.session_state.custom_logo, width=80)
 elif os.path.exists("logo.png"):
