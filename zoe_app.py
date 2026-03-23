@@ -406,73 +406,57 @@ elif page == "Collateral":
         )
     else:
         st.info("ℹ️ Your Collateral Inventory is currently empty.")
-# PAGE: CALENDAR
+# PAGE: ACTIVITY CALENDAR
 elif page == "Calendar":
     st.markdown('<div class="main-title">📅 Zoe Consults Activity Calendar</div>', unsafe_allow_html=True)
     
-    # 1. PREPARE THE DATA
-    # Combine Loans and Repayments into one "Event" list
-    if not df.empty and not pay_df.empty:
-        loans = df[['DATE', 'CUSTOMER_NAME', 'LOAN_AMOUNT']].copy()
-        loans.columns = ['date', 'title', 'amount']
-        loans['type'] = 'Loan Issued'
-        loans['color'] = '#1e3a8a' # Navy
-        
-        pays = pay_df[['DATE', 'CUSTOMER_NAME', 'AMOUNT_PAID']].copy()
-        pays.columns = ['date', 'title', 'amount']
-        pays['type'] = 'Repayment'
-        pays['color'] = '#3b82f6' # Baby Blue
-        
-        events = pd.concat([loans, pays])
-        events['date'] = pd.to_datetime(events['date']).dt.date
-    else:
-        events = pd.DataFrame()
-
-    # 2. CALENDAR CONTROLS
-    col_y, col_m = st.columns(2)
-    selected_year = col_y.selectbox("Year", [2025, 2026, 2027], index=1)
-    selected_month = col_m.selectbox("Month", 
-        ["January", "February", "March", "April", "May", "June", 
-         "July", "August", "September", "October", "November", "December"],
-        index=datetime.now().month - 1
-    )
-
-    # 3. DISPLAY EVENTS FOR THE SELECTED MONTH
-    st.write(f"### Activity for {selected_month} {selected_year}")
+    # 1. Create the Event List from all your data
+    # We pull from Borrowers (Issue/Due) and Collateral (Log Date)
+    events_list = []
     
-    month_num = datetime.strptime(selected_month, "%B").month
-    month_events = events[
-        (events['date'].apply(lambda x: x.year) == selected_year) & 
-        (events['date'].apply(lambda x: x.month) == month_num)
-    ].sort_values(by='date')
-
-    if not month_events.empty:
-        for d in sorted(month_events['date'].unique()):
-            st.markdown(f"<div style='background-color:#f8fafc; padding:5px 15px; border-radius:5px; margin-top:10px; border-left:4px solid #1e3a8a;'><b>{d.strftime('%A, %d %B')}</b></div>", unsafe_allow_html=True)
+    # Pull Borrower Dates
+    combined_borrowers = pd.concat([df, pd.DataFrame(st.session_state.get('local_registry', []))], ignore_index=True)
+    for _, row in combined_borrowers.iterrows():
+        if 'ISSUE_DATE' in row and pd.notnull(row['ISSUE_DATE']):
+            events_list.append({"date": pd.to_datetime(row['ISSUE_DATE']), "event": f"💰 Loan Issued: {row['CUSTOMER_NAME']}", "type": "Loan"})
+        if 'DUE_DATE' in row and pd.notnull(row['DUE_DATE']):
+            events_list.append({"date": pd.to_datetime(row['DUE_DATE']), "event": f"📅 Repayment Due: {row['CUSTOMER_NAME']}", "type": "Due"})
             
-            day_data = month_events[month_events['date'] == d]
-            for _, item in day_data.iterrows():
-                icon = "📤" if item['type'] == 'Loan Issued' else "📥"
-                color = "#1e3a8a" if item['type'] == 'Loan Issued' else "#3b82f6"
-                
-                st.markdown(f"""
-                    <div style='display:flex; justify-content:space-between; padding:5px 20px;'>
-                        <span style='color:{color}; font-weight:600;'>{icon} {item['title']} ({item['type']})</span>
-                        <span style='font-family:monospace;'>UGX {item['amount']:,.0f}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.info(f"No financial activity recorded for {selected_month}.")
+    # Pull Collateral Dates
+    combined_collat = pd.concat([collateral_df, pd.DataFrame(st.session_state.get('local_collateral', []))], ignore_index=True)
+    for _, row in combined_collat.iterrows():
+        if 'DATE' in row and pd.notnull(row['DATE']):
+            events_list.append({"date": pd.to_datetime(row['DATE']), "event": f"🛡️ Collateral Logged: {row['ITEM_NAME']} ({row['BORROWER_NAME']})", "type": "Collateral"})
 
-    # 4. QUICK INSIGHT
-    st.divider()
-    if not month_events.empty:
-        total_out = month_events[month_events['type'] == 'Loan Issued']['amount'].sum()
-        total_in = month_events[month_events['type'] == 'Repayment']['amount'].sum()
-        
-        c1, c2 = st.columns(2)
-        c1.metric("Month's Total Out", f"UGX {total_out:,.0f}")
-        c2.metric("Month's Total In", f"UGX {total_in:,.0f}", delta=f"Net: {total_in - total_out:,.0f}")
+    events = pd.DataFrame(events_list)
+
+    # 2. Filtering Logic (Crash-Proof)
+    c1, c2 = st.columns(2)
+    selected_year = c1.selectbox("Year", [2025, 2026, 2027], index=1)
+    selected_month_name = c2.selectbox("Month", ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"], index=datetime.now().month-1)
+    
+    month_map = {"January":1, "February":2, "March":3, "April":4, "May":5, "June":6, "July":7, "August":8, "September":9, "October":10, "November":11, "December":12}
+    selected_month = month_map[selected_month_name]
+
+    st.write("---")
+    st.markdown(f"### Activity for {selected_month_name} {selected_year}")
+
+    if not events.empty:
+        # Safety filter
+        filtered_events = events[
+            (events['date'].dt.year == selected_year) & 
+            (events['date'].dt.month == selected_month)
+        ].sort_values(by='date')
+
+        if not filtered_events.empty:
+            for _, ev in filtered_events.iterrows():
+                # Color coding based on type
+                icon = "🔵" if ev['type'] == "Loan" else "🔴" if ev['type'] == "Due" else "🟢"
+                st.info(f"{icon} **{ev['date'].strftime('%d %b')}**: {ev['event']}")
+        else:
+            st.info(f"ℹ️ No scheduled activities for {selected_month_name}.")
+    else:
+        st.info("ℹ️ Add your first borrower or collateral to see dates on the calendar.")
 
 # PAGE: LEDGER (PDF Statements)
 elif page == "Ledger":
