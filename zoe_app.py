@@ -1713,21 +1713,19 @@ elif page == "Add Payment":
 # PAGE: SETTINGS (Backups & Reports & Branding)
 elif page == "Settings":
 st.markdown('<div class="main-title">⚙️ Business Configuration</div>', unsafe_allow_html=True)
-    
-    # 1. BUSINESS PROFILE & LOGO
-    st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>🏢 Business Identity & Branding</p>", unsafe_allow_html=True)
-    
-    # --- LOGO UPLOADER SECTION ---
-    with st.expander("🎨 Logo & Visual Branding", expanded=True):
-        uploaded_logo = st.file_uploader("Upload Company Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
-        if uploaded_logo:
-            st.session_state.custom_logo = uploaded_logo.read()
-            st.image(st.session_state.custom_logo, width=150, caption="Logo Preview")
-            st.success("✅ Logo uploaded! It will now appear in the sidebar.")
+# 1. BUSINESS PROFILE & LOGO
+st.markdown("<p style='color: #1e3a8a; font-weight: bold;'>🏢 Business Identity & Branding</p>", unsafe_allow_html=True)
+# --- LOGO UPLOADER SECTION ---
+with st.expander("🎨 Logo & Visual Branding", expanded=True):
+uploaded_logo = st.file_uploader("Upload Company Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+if uploaded_logo:
+st.session_state.custom_logo = uploaded_logo.read()
+st.image(st.session_state.custom_logo, width=150, caption="Logo Preview")
+st.success("✅ Logo uploaded! It will now appear in the sidebar.")
 
-    col1, col2 = st.columns(2)
-    biz_name = col1.text_input("Company Name", value=st.session_state.get('biz_name', "ZOE CONSULTS SMC LTD"))
-    biz_tagline = col2.text_input("Tagline", value=st.session_state.get('biz_tagline', "Official Loan Statement & Repayment Ledger"))
+col1, col2 = st.columns(2)
+biz_name = col1.text_input("Company Name", value=st.session_state.get('biz_name', "ZOE CONSULTS SMC LTD"))
+biz_tagline = col2.text_input("Tagline", value=st.session_state.get('biz_tagline', "Official Loan Statement & Repayment Ledger"))
     
     st.divider()
 
