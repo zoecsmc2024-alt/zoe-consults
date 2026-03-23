@@ -656,15 +656,14 @@ elif page == "Overdue Tracker":
             st.success("🎉 Excellent! All clients are up to date. No overdue payments found.")
     else:
         st.info("ℹ️ No borrowers registered. The tracker will wake up once you add clients.")
-# --- PAGE: OPERATING EXPENSES ---
+# PAGE: OPERATING EXPENSES
 elif page == "Expenses":
     st.markdown('<div class="main-title">📉 Operating Expenses</div>', unsafe_allow_html=True)
     
-    # 1. EXPENSE SUMMARY
-    if not expense_df.empty:
-        total_exp = expense_df['AMOUNT'].sum()
-        st.metric("Total Monthly Expenses", f"UGX {total_exp:,.0f}", delta_color="inverse")
-    
+    # 1. Initialize Local Expense Memory (for instant feedback)
+    if 'local_expenses' not in st.session_state:
+        st.session_state.local_expenses = []
+
     # 2. RECORD NEW EXPENSE
     with st.expander("➕ Log Business Expense", expanded=True):
         with st.form("exp_form", clear_on_submit=True):
@@ -673,17 +672,73 @@ elif page == "Expenses":
             exp_amt = col2.number_input("Amount (UGX)", min_value=0, step=5000)
             
             exp_date = st.date_input("Date", value=datetime.now())
-            exp_desc = st.text_input("Description / Payee")
+            receipt_no = st.text_input("Receipt / Invoice Number", placeholder="e.g. ZOE-2026-001")
+            exp_desc = st.text_input("Description / Payee", placeholder="Who was paid and what for?")
             
             if st.form_submit_button("💾 Save Expense", use_container_width=True):
-                new_exp = [str(exp_date), exp_cat, exp_desc, exp_amt]
-                g_client.open("Zoe_Consults_Database").worksheet("Expenses").append_row(new_exp)
-                st.success("Expense recorded!"); st.cache_data.clear()
+                if exp_amt > 0 and exp_desc:
+                    new_exp = {
+                        "DATE": str(exp_date),
+                        "CATEGORY": exp_cat,
+                        "DESCRIPTION": exp_desc,
+                        "AMOUNT": exp_amt,
+                        "RECEIPT_NO": receipt_no
+                    }
+                    
+                    # Save locally for instant table update
+                    st.session_state.local_expenses.append(new_exp)
+                    
+                    try:
+                        # FRESH HANDSHAKE
+                        creds_dict = dict(st.secrets["gcp_service_account"])
+                        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+                        fresh_client = gspread.service_account_from_dict(creds_dict)
+                        
+                        sheet_id = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+                        ws = fresh_client.open_by_key(sheet_id).worksheet("Expenses")
+                        ws.append_row(list(new_exp.values()), value_input_option='USER_ENTERED')
+                        
+                        st.success("✅ Expense recorded successfully!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        if "200" in str(e):
+                            st.success("✅ Expense recorded!")
+                            st.cache_data.clear()
+                        else:
+                            st.warning(f"⚠️ Saved locally, but Cloud Sync delayed: {e}")
+                else:
+                    st.warning("Please enter an amount and description.")
 
-    # 3. EXPENSE HISTORY
+    st.write("---")
+
+    # 3. EXPENSE LEDGER (Combined Cloud + Local)
     st.markdown("#### 📜 Expense Ledger")
-    st.dataframe(expense_df.sort_values(by=expense_df.columns[0], ascending=False), use_container_width=True)
-
+    
+    local_exp_df = pd.DataFrame(st.session_state.local_expenses)
+    combined_expenses = pd.concat([expense_df, local_exp_df], ignore_index=True)
+    
+    if not combined_expenses.empty:
+        # Sort by Date safely
+        if 'DATE' in combined_expenses.columns:
+            combined_expenses = combined_expenses.sort_values(by='DATE', ascending=False)
+        
+        # Format for display
+        display_exp = combined_expenses.copy()
+        if 'AMOUNT' in display_exp.columns:
+            display_exp['AMOUNT'] = display_exp['AMOUNT'].apply(lambda x: f"{float(x):,.0f}" if x != "" else "0")
+            
+        st.dataframe(
+            display_exp, 
+            use_container_width=True, 
+            hide_index=True,
+            column_order=("DATE", "RECEIPT_NO", "CATEGORY", "DESCRIPTION", "AMOUNT")
+        )
+        
+        # Show Total Summary
+        total_val = pd.to_numeric(combined_expenses['AMOUNT'], errors='coerce').sum()
+        st.info(f"📊 Total Operating Expenses logged: **UGX {total_val:,.0f}**")
+    else:
+        st.info("ℹ️ Your Expense Ledger is empty. Log your first business expense above.")
 # --- PAGE: PETTY CASH ---
 elif page == "Petty Cash":
     st.markdown('<div class="main-title">☕ Petty Cash Management</div>', unsafe_allow_html=True)
