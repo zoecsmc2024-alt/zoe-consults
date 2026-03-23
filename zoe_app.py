@@ -318,9 +318,7 @@ elif page == "Borrowers":
 
             if submitted:
                 if f_name and l_name and nin:
-
                     full_name = f"{f_name} {l_name}".upper()
-
                     new_entry = {
                         "CUSTOMER_NAME": full_name,
                         "CONTACT": phone,
@@ -347,69 +345,63 @@ elif page == "Borrowers":
 
                         client = gspread.service_account_from_dict(creds_dict)
                         ws = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg").worksheet("Clients")
-
                         ws.append_row(list(new_entry.values()), value_input_option='USER_ENTERED')
 
                         st.success(f"✅ {full_name} registered successfully!")
                         st.balloons()
-
                         st.cache_data.clear()
 
                     except Exception as e:
                         st.warning(f"Saved locally. Cloud sync pending.")
-
                 else:
                     st.warning("Please fill all required fields.")
 
     st.write("---")
 
-    # --- 3. DISPLAY TABLE ---
-st.markdown("#### 🔍 Borrower Directory")
+    # --- 3. DISPLAY TABLE (Now properly indented) ---
+    st.markdown("#### 🔍 Borrower Directory")
 
-local_df = pd.DataFrame(st.session_state.local_registry)
-combined = pd.concat([df, local_df], ignore_index=True)
+    local_df = pd.DataFrame(st.session_state.local_registry)
+    combined = pd.concat([df, local_df], ignore_index=True)
 
-if not combined.empty:
-    # Remove duplicates by NIN, keep last
-    combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
+    if not combined.empty:
+        # Remove duplicates by NIN, keep last
+        combined = combined.drop_duplicates(subset=['NIN'], keep='last').reset_index(drop=True)
 
-    # Search/filter box to pick client by name or NIN
-    client_search = st.text_input("Enter Client Name or NIN to View Details")
+        # Search/filter box
+        client_search = st.text_input("Enter Client Name or NIN to View Details")
 
-    if client_search:
-        # Filter rows containing the search string (case-insensitive)
-        filtered_client = combined[
-            combined.astype(str).apply(lambda x: x.str.contains(client_search, case=False, na=False)).any(axis=1)
-        ]
+        if client_search:
+            filtered_client = combined[
+                combined.astype(str).apply(lambda x: x.str.contains(client_search, case=False, na=False)).any(axis=1)
+            ]
 
-        if not filtered_client.empty:
-            st.markdown("### Client Information")
-            st.table(filtered_client)  # display info as table
-        else:
-            st.info("No client found matching that search.")
+            if not filtered_client.empty:
+                st.markdown("### Client Information")
+                st.table(filtered_client) 
+            else:
+                st.info("No client found matching that search.")
 
-    # Show full borrower directory below search
-    st.markdown("### Full Borrower Directory")
-    st.dataframe(
-        combined,
-        use_container_width=True,
-        hide_index=True,
-        column_order=[
-            "CUSTOMER_NAME",
-            "LOAN_AMOUNT",
-            "TOTAL_DUE",
-            "AMOUNT_PAID",
-            "OUTSTANDING_AMOUNT",
-            "DUE_DATE",
-            "LOAN_TYPE"
-        ]
-    )
-
+        # Show full borrower directory
+        st.markdown("### Full Borrower Directory")
+        st.dataframe(
+            combined,
+            use_container_width=True,
+            hide_index=True,
+            column_order=[
+                "CUSTOMER_NAME",
+                "LOAN_AMOUNT",
+                "TOTAL_DUE",
+                "AMOUNT_PAID",
+                "OUTSTANDING_AMOUNT",
+                "DUE_DATE",
+                "LOAN_TYPE"
+            ]
+        )
     else:
         st.info("No borrowers yet.")
-        
 
-# --- NOW you can start the next page ---
+# --- NEXT PAGE (Aligned with the first 'elif') ---
 elif page == "Collateral":
     st.markdown('<div class="main-title">🛡️ Collateral Inventory</div>', unsafe_allow_html=True)
     # --- 1. INIT LOCAL STORAGE ---
