@@ -661,8 +661,7 @@ risky_loans = loans_df[
     (loans_df["Borrower"] == selected_borrower) & 
     (loans_df["Status"] == "Active")
 ]
-
-    # --- ISSUE BUTTON SECTION ---
+# --- ISSUE BUTTON SECTION ---
     # These should be indented inside your 'elif page == "Borrowers":' block
     amount = st.number_input("Loan Amount", min_value=0.0)
     interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
