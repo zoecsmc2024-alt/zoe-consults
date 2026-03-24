@@ -70,6 +70,34 @@ st.markdown("""
         padding: 12px 24px !important;
         font-weight: 700 !important;
     }
+    /* 5. SIDEBAR PROFILE - Premium Branding */
+    .sidebar-brand {
+        color: #FFFFFF !important;
+        font-size: 22px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px !important;
+        margin-bottom: -5px !important;
+        text-shadow: 0px 0px 15px rgba(255, 255, 255, 0.2);
+    }
+
+    .sidebar-user {
+        color: #38BDF8 !important; /* Electric Baby Blue */
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* A small glowing "Online" indicator */
+    .online-dot {
+        height: 8px;
+        width: 8px;
+        background-color: #10B981; /* Emerald Green */
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 8px #10B981;
+    }
 </style>
 """, unsafe_allow_html=True)
 # ==============================
@@ -174,12 +202,23 @@ def login():
 # 5. SIDEBAR & NAVIGATION
 # ==============================
 def sidebar():
-    # 1. Get the role and user safely
-    # If they don't exist yet, we use "Guest" as a backup
     role = st.session_state.get("role", "Staff")
     current_user = st.session_state.get("user", "Guest")
 
-    st.sidebar.markdown("## ZOE ADMIN 💼")
+    # Brand Title
+    st.sidebar.markdown('<p class="sidebar-brand">ZOE ADMIN 💼</p>', unsafe_allow_html=True)
+    
+    # User Profile with Online Status
+    st.sidebar.markdown(
+        f'''<p class="sidebar-user">
+            <span class="online-dot"></span> 👤 {current_user} ({role})
+        </p>''', 
+        unsafe_allow_html=True
+    )
+    
+    st.sidebar.markdown("---")
+    
+    # ... (the rest of your menu loop)
     
     # 2. Use the safe variable we just created
     st.sidebar.markdown(f"👤 {current_user} ({role})")
