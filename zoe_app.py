@@ -755,16 +755,18 @@ progress = loan["Progress (%)"]
 # Progress bar (must be between 0 and 100)
 st.progress(min(max(int(progress), 0), 100))
 # Floating Metrics
-col1, col2, col3 = st.columns(3)
-col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
-col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
-col3.metric("Current Status", loan["Status"])
-
+# Ensure these metrics are indented inside the 'else' of the LOANS page
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
+        col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
+        col3.metric("Current Status", loan["Status"])
 
 # --- PAYMENTS PAGE ---
-
+# This 'elif' must line up perfectly with the 'if' at the very top of your script
 elif st.session_state.page == "Payments":
     st.title("💵 Payments Management")
+    
+    sheet = open_sheet("Zoe_Data") # Added this to ensure 'sheet' is defined
     loans_df = load_data(sheet, "Loans")
     payments_df = load_data(sheet, "Payments")
 
