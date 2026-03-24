@@ -285,7 +285,7 @@ def save_logo(sheet, image_file):
             settings = pd.concat([settings, pd.DataFrame([{"Key": "logo", "Value": encoded}])])
     save_data(sheet, "Settings", settings)
 
-                sidebar()
+
 def sidebar():
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
