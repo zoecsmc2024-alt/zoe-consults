@@ -1571,6 +1571,57 @@ elif st.session_state.page == "Ledger":
         if not df.empty:
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+            # ==============================
+# PDF GENERATOR FUNCTION
+# (Place this at the bottom of your script)
+# ==============================
+from fpdf import FPDF
+import io
+
+def generate_client_pdf(client_name, df):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # NEON SKY HEADER (Matching your sidebar)
+    pdf.set_fill_color(43, 63, 135) # Your #2B3F87 Dark Blue
+    pdf.rect(0, 0, 210, 40, 'F')
+    
+    pdf.set_font("Arial", 'B', 20)
+    pdf.set_text_color(0, 255, 204) # Your #00ffcc Neon Green
+    pdf.text(10, 25, "ZOE FINTECH HUB")
+    
+    pdf.set_font("Arial", '', 12)
+    pdf.set_text_color(255, 255, 255)
+    pdf.text(10, 33, f"Statement for: {client_name}")
+    
+    # TABLE CONTENT
+    pdf.set_y(50)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", 'B', 10)
+    
+    # Table Headers
+    pdf.cell(40, 10, "Date", 1)
+    pdf.cell(80, 10, "Description", 1)
+    pdf.cell(30, 10, "In (UGX)", 1)
+    pdf.cell(40, 10, "Balance", 1)
+    pdf.ln()
+    
+    pdf.set_font("Arial", '', 9)
+    for i, row in df.iterrows():
+        pdf.cell(40, 10, str(row['Date'].date()), 1)
+        pdf.cell(80, 10, str(row['Description']), 1)
+        pdf.cell(30, 10, f"{row['Inflow']:,.0f}", 1)
+        pdf.cell(40, 10, f"{row['Balance']:,.0f}", 1)
+        pdf.ln()
+
+    # SAVE AND EXPORT
+    output = pdf.output(dest='S').encode('latin-1')
+    st.download_button(
+        label="Click here to save PDF",
+        data=output,
+        file_name=f"Statement_{client_name}.pdf",
+        mime="application/pdf"
+    )
 
     # 2. COMBINE INTO MASTER LEDGER
     # We create a unified format: Date | Description | Type | Inflow | Outflow
@@ -1628,57 +1679,7 @@ elif st.session_state.page == "Ledger":
         if st.button("📥 Download PDF Statement"):
             generate_client_pdf(selected_client, client_data)
 
-# ==============================
-# PDF GENERATOR FUNCTION
-# (Place this at the bottom of your script)
-# ==============================
-from fpdf import FPDF
-import io
 
-def generate_client_pdf(client_name, df):
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # NEON SKY HEADER (Matching your sidebar)
-    pdf.set_fill_color(43, 63, 135) # Your #2B3F87 Dark Blue
-    pdf.rect(0, 0, 210, 40, 'F')
-    
-    pdf.set_font("Arial", 'B', 20)
-    pdf.set_text_color(0, 255, 204) # Your #00ffcc Neon Green
-    pdf.text(10, 25, "ZOE FINTECH HUB")
-    
-    pdf.set_font("Arial", '', 12)
-    pdf.set_text_color(255, 255, 255)
-    pdf.text(10, 33, f"Statement for: {client_name}")
-    
-    # TABLE CONTENT
-    pdf.set_y(50)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", 'B', 10)
-    
-    # Table Headers
-    pdf.cell(40, 10, "Date", 1)
-    pdf.cell(80, 10, "Description", 1)
-    pdf.cell(30, 10, "In (UGX)", 1)
-    pdf.cell(40, 10, "Balance", 1)
-    pdf.ln()
-    
-    pdf.set_font("Arial", '', 9)
-    for i, row in df.iterrows():
-        pdf.cell(40, 10, str(row['Date'].date()), 1)
-        pdf.cell(80, 10, str(row['Description']), 1)
-        pdf.cell(30, 10, f"{row['Inflow']:,.0f}", 1)
-        pdf.cell(40, 10, f"{row['Balance']:,.0f}", 1)
-        pdf.ln()
-
-    # SAVE AND EXPORT
-    output = pdf.output(dest='S').encode('latin-1')
-    st.download_button(
-        label="Click here to save PDF",
-        data=output,
-        file_name=f"Statement_{client_name}.pdf",
-        mime="application/pdf"
-    )
 
 # --- SETTINGS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Settings":
