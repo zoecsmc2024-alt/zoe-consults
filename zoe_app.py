@@ -280,11 +280,11 @@ def login():
         else:
             st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
             if "logged_in" not in st.session_state or st.session_state.logged_in == False:
-    login() # Show ONLY the login page
-    st.stop() # CRITICAL: This prevents the rest of the script from running
-else:
-    # 2. Only if logged in, show the Sidebar and Pages
-    sidebar()
+                login() # Show ONLY the login page
+                st.stop() # CRITICAL: This prevents the rest of the script from running
+            else:
+                # 2. Only if logged in, show the Sidebar and Pages
+sidebar()
 def sidebar():
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
