@@ -662,41 +662,36 @@ risky_loans = loans_df[
     (loans_df["Status"] == "Active")
 ]
 
-    # ==============================
-    # ISSUE BUTTON
-    # ==============================
-# All these should start at the exact same vertical line
-amount = st.number_input("Loan Amount", min_value=0.0)
-interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
+    # --- ISSUE BUTTON SECTION ---
+    amount = st.number_input("Loan Amount", min_value=0.0)
+    interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
 
-# FIX: Make sure this button is aligned with the inputs above
-if st.button("Issue Loan"):
-    # Code inside the button must be indented further
-    new_loan = {
-        "Loan_ID": len(loans_df) + 1,
-        "Borrower": selected_borrower,
-        "Amount": amount,
-        "Status": "Active"
-    }
-    # ... save logic
+    if st.button("Issue Loan"):
+        # 1. First Check: Basic Validation
         if amount <= 0 or interest_rate <= 0:
             st.error("Enter valid loan details")
 
-        elif borrower not in active_borrowers["Name"].values:
+        # 2. Second Check: Is the borrower valid?
+        # Note: 'elif' must align perfectly with the 'if' above
+        elif selected_borrower not in active_borrowers["Name"].values:
             st.error("Borrower is inactive")
 
+        # 3. Final Step: The Calculation and Save
         else:
             interest = (interest_rate / 100) * amount
             total = amount + interest
 
             start_date = datetime.now()
+            # Ensure 'duration' is defined as a variable above this line
             end_date = start_date + timedelta(days=int(duration))
 
+            # Generate new ID safely
             new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
 
-            new_loan = pd.DataFrame([{
+            # Create the record
+            new_loan_row = pd.DataFrame([{
                 "Loan_ID": new_id,
-                "Borrower": borrower,
+                "Borrower": selected_borrower, # Using the variable from your selectbox
                 "Amount": amount,
                 "Interest": interest,
                 "Total_Repayable": total,
@@ -706,13 +701,14 @@ if st.button("Issue Loan"):
                 "Status": "Active"
             }])
 
-            loans_df = pd.concat([loans_df, new_loan], ignore_index=True)
+            # Save back to Google Sheets
+            loans_df = pd.concat([loans_df, new_loan_row], ignore_index=True)
             save_data(sheet, "Loans", loans_df)
 
-            st.success(f"Loan issued ✅ Total: {total:,.0f}")
+            st.success(f"Loan issued ✅ Total: {total:,.0f} UGX")
+            st.balloons() # Added a little celebration for a successful loan!
 
     st.markdown("---")
-
     # ==============================
     # AUTO STATUS UPDATE
     # ==============================
