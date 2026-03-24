@@ -246,7 +246,7 @@ def sidebar():
     # ... (the rest of your menu loop)
 
     menu = {
-        "Overview": "📊", "Borrowers": "👥", "Loans", "Collateral": "🛡️",
+        "Overview": "📊", "Borrowers": "👥", "Loans": "💵", "Collateral": "🛡️",
         "Calendar": "📅", "Ledger": "📄", "Overdue Tracker": "⏰",
         "Payments": "💵", "Expenses": "📁", "PettyCash": "💵",
         "Payroll": "🧾", "Reports": "📊", "Settings": "⚙️"
