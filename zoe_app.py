@@ -1556,6 +1556,130 @@ elif st.session_state.page == "Reports":
                            color_discrete_map={"Income": "#00ffcc", "Expenses": "#ff4b4b"})
         st.plotly_chart(fig_compare, use_container_width=True)
 
+elif st.session_state.page == "Ledger":
+    st.title("📄 Master Ledger & Statements")
+
+    sheet = open_sheet("Zoe_Data")
+    
+    # 1. Load All Financial Data
+    loans_df = load_data(sheet, "Loans")
+    pay_df = load_data(sheet, "Payments")
+    exp_df = load_data(sheet, "Expenses")
+
+    # Ensure all dataframes have essential columns
+    for df in [loans_df, pay_df, exp_df]:
+        if not df.empty:
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+
+    # 2. COMBINE INTO MASTER LEDGER
+    # We create a unified format: Date | Description | Type | Inflow | Outflow
+    ledger_parts = []
+
+    if not loans_df.empty:
+        l_temp = loans_df[["Date", "Borrower", "Amount"]].copy()
+        l_temp["Description"] = "Loan Issued to " + l_temp["Borrower"]
+        l_temp["Type"] = "Disbursement"
+        l_temp["Inflow"] = 0
+        l_temp["Outflow"] = l_temp["Amount"]
+        ledger_parts.append(l_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
+
+    if not pay_df.empty:
+        p_temp = pay_df[["Date", "Borrower", "Amount"]].copy()
+        p_temp["Description"] = "Repayment from " + p_temp["Borrower"]
+        p_temp["Type"] = "Repayment"
+        p_temp["Inflow"] = p_temp["Amount"]
+        p_temp["Outflow"] = 0
+        ledger_parts.append(p_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
+
+    if not exp_df.empty:
+        e_temp = exp_df[["Date", "Description", "Amount"]].copy()
+        e_temp["Type"] = "Expense"
+        e_temp["Inflow"] = 0
+        e_temp["Outflow"] = e_temp["Amount"]
+        ledger_parts.append(e_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
+
+    if not ledger_parts:
+        st.info("No transactions found to build the ledger.")
+    else:
+        master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
+        
+        # 3. GLOBAL VIEW
+        st.subheader("🌐 Global Transaction History")
+        st.dataframe(master_ledger, use_container_width=True)
+
+        st.markdown("---")
+
+        # 4. CLIENT STATEMENT SECTION
+        st.subheader("👤 Generate Client Statement")
+        
+        all_clients = loans_df["Borrower"].unique()
+        selected_client = st.selectbox("Select Client", all_clients)
+
+        client_data = master_ledger[master_ledger["Description"].str.contains(selected_client, na=False)].copy()
+        client_data = client_data.sort_values(by="Date") # Oldest to Newest for Statements
+        
+        # Calculate Running Balance
+        client_data["Balance"] = (client_data["Outflow"] - client_data["Inflow"]).cumsum()
+
+        st.table(client_data[["Date", "Description", "Inflow", "Outflow", "Balance"]])
+
+        # 5. PDF DOWNLOAD BUTTON
+        if st.button("📥 Download PDF Statement"):
+            generate_client_pdf(selected_client, client_data)
+
+# ==============================
+# PDF GENERATOR FUNCTION
+# (Place this at the bottom of your script)
+# ==============================
+from fpdf import FPDF
+import io
+
+def generate_client_pdf(client_name, df):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # NEON SKY HEADER (Matching your sidebar)
+    pdf.set_fill_color(43, 63, 135) # Your #2B3F87 Dark Blue
+    pdf.rect(0, 0, 210, 40, 'F')
+    
+    pdf.set_font("Arial", 'B', 20)
+    pdf.set_text_color(0, 255, 204) # Your #00ffcc Neon Green
+    pdf.text(10, 25, "ZOE FINTECH HUB")
+    
+    pdf.set_font("Arial", '', 12)
+    pdf.set_text_color(255, 255, 255)
+    pdf.text(10, 33, f"Statement for: {client_name}")
+    
+    # TABLE CONTENT
+    pdf.set_y(50)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", 'B', 10)
+    
+    # Table Headers
+    pdf.cell(40, 10, "Date", 1)
+    pdf.cell(80, 10, "Description", 1)
+    pdf.cell(30, 10, "In (UGX)", 1)
+    pdf.cell(40, 10, "Balance", 1)
+    pdf.ln()
+    
+    pdf.set_font("Arial", '', 9)
+    for i, row in df.iterrows():
+        pdf.cell(40, 10, str(row['Date'].date()), 1)
+        pdf.cell(80, 10, str(row['Description']), 1)
+        pdf.cell(30, 10, f"{row['Inflow']:,.0f}", 1)
+        pdf.cell(40, 10, f"{row['Balance']:,.0f}", 1)
+        pdf.ln()
+
+    # SAVE AND EXPORT
+    output = pdf.output(dest='S').encode('latin-1')
+    st.download_button(
+        label="Click here to save PDF",
+        data=output,
+        file_name=f"Statement_{client_name}.pdf",
+        mime="application/pdf"
+    )
+
 # --- SETTINGS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Settings":
     # 1. Access Control
