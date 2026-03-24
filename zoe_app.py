@@ -21,48 +21,57 @@ st.set_page_config(page_title="Zoe Fintech", layout="wide")
 
 st.markdown("""
 <style>
-    /* MAIN WORKSPACE - Soft Sky Blue */
+    /* 1. MAIN WORKSPACE - Soft Sky Blue */
     .stApp {
         background-color: #F0F7FF !important;
     }
 
-    /* SIDEBAR - Stay Deep Midnight */
+    /* 2. SIDEBAR - Deep Midnight (Fixed Indentation & Colors) */
     section[data-testid="stSidebar"] {
         background-color: #020617 !important;
+        border-right: 1px solid #1E293B;
     }
 
-    /* THE FLOATING EFFECT - Metric Cards & Containers */
-    div[data-testid="stMetric"], .stAlert, [data-testid="stDataFrame"] {
-        background: rgba(255, 255, 255, 0.8) !important; /* Semi-transparent white */
-        backdrop-filter: blur(10px) !important; /* Frosted glass effect */
-        border: 1px solid rgba(255, 255, 255, 0.4) !important;
-        border-radius: 20px !important;
+    /* Reset Sidebar Buttons to be Transparent/Dark */
+    section[data-testid="stSidebar"] .stButton > button {
+        background-color: transparent !important;
+        color: #94A3B8 !important;
+        border: none !important;
+        box-shadow: none !important; /* Removes the white box */
+        transform: none !important;
+        text-align: left !important;
+        width: 100% !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        color: #38BDF8 !important;
+        background-color: rgba(56, 189, 248, 0.05) !important;
+    }
+
+    /* 3. FLOATING CONTENT - Only for Main Page Metrics & Data */
+    /* We target specific Streamlit components in the main area */
+    div[data-testid="stMetric"], .stTable, [data-testid="stDataFrame"], .stAlert {
+        background: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        border-radius: 16px !important;
         
-        /* THE SHADOW - This creates the 'Float' */
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 
-                    0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
-        
-        transition: transform 0.3s ease !important;
+        /* The Float Shadow */
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 
+                    0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+        padding: 15px !important;
     }
 
-    /* Subtle hover lift for cards */
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
-    }
-
-    /* SIDEBAR ACTIVE ITEM - Matching the glow */
+    /* 4. ACTIVE MENU ITEM - Blue Glow on Dark Sidebar */
     .active-menu-item {
-        background-color: rgba(56, 189, 248, 0.15) !important;
+        background: linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(56, 189, 248, 0) 100%) !important;
         border-left: 4px solid #38BDF8 !important;
         color: #38BDF8 !important;
         padding: 12px 24px !important;
         font-weight: 700 !important;
-        border-radius: 0 10px 10px 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
-
 # ==============================
 # 2. GOOGLE SHEETS & DATA HELPERS
 # ==============================
