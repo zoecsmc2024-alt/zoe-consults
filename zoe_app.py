@@ -601,24 +601,23 @@ elif st.session_state.page == "Borrowers":
             st.info("Borrower already inactive")
 
 elif st.session_state.page == "Loans":
-    # EVERYTHING BELOW IS PUSHED IN BY 4 SPACES
+    st.title("💵 Loans Management")
     st.subheader("➕ Issue Loan")
 
-    # 1. First, fetch the data
+    # 1. Fetch the data
     sheet = open_sheet("Zoe_Data")
     borrowers_df = load_data(sheet, "Borrowers")
 
     # 2. PLACEMENT: Safety check
     if borrowers_df.empty:
-        st.warning("⚠️ No borrowers found in the database. Please register a client first.")
+        st.warning("⚠️ No borrowers found. Please register a client first.")
         st.stop() 
 
     # 3. Filter for active borrowers
-    # Make sure 'Status' in your Google Sheet matches this capitalization
     active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
 
     if active_borrowers.empty:
-        st.info("No 'Active' borrowers found. Check your 'Status' column in the sheet.")
+        st.info("No 'Active' borrowers found.")
         st.stop()
 
     # 4. Create the selection box
@@ -627,65 +626,25 @@ elif st.session_state.page == "Loans":
         active_borrowers["Name"].unique()
     )
     
-    # --- You can continue adding loan amount/interest inputs here ---
+    # 5. Loan Inputs
+    amount = st.number_input("Loan Amount", min_value=0.0, key="loan_amt")
+    interest_rate = st.number_input("Interest Rate (%)", min_value=0.0, key="loan_int")
+    duration = st.number_input("Duration (Days)", min_value=1, value=30, key="loan_dur")
 
-    amount = st.number_input("Loan Amount", min_value=0.0)
-    interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
-    duration = st.number_input("Duration (Days)", min_value=1)
+    # 6. Load Loans for Risk Check & ID Generation
+    loans_df = load_data(sheet, "Loans")
+    if loans_df.empty:
+        loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Status", "Amount", "Total_Repayable", "Amount_Paid", "End_Date"])
 
-    # ==============================
-    # LIVE LOAN PREVIEW
-    # ==============================
-    if amount > 0 and interest_rate > 0:
-        interest = (interest_rate / 100) * amount
-        total = amount + interest
-        end_date = datetime.now() + timedelta(days=int(duration))
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Interest", f"{interest:,.0f}")
-        col2.metric("Total Repayable", f"{total:,.0f}")
-        col3.metric("End Date", end_date.strftime("%Y-%m-%d"))
-
-    # ==============================
-    # RISK CHECK
-    # ==============================
-    # 1. Load the Loans data (add this above line 652)
-loans_df = load_data(sheet, "Loans")
-
-# 2. Safety check: if Loans sheet is empty, create an empty dataframe with columns
-if loans_df.empty:
-    loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Status", "Amount"])
-
-# 3. Now line 652 will work perfectly!
-risky_loans = loans_df[
-    (loans_df["Borrower"] == selected_borrower) & 
-    (loans_df["Status"] == "Active")
-]
-# --- ISSUE BUTTON SECTION ---
-    # These should be indented inside your 'elif page == "Borrowers":' block
-amount = st.number_input("Loan Amount", min_value=0.0)
-interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
-duration = st.number_input("Duration (Days)", min_value=1, value=30) # Ensure duration exists
-
-if st.button("Issue Loan"):
-        # LEVEL 1: Inside the button click
+    # 7. Issue Loan Button
+    if st.button("Issue Loan"):
         if amount <= 0 or interest_rate <= 0:
             st.error("Enter valid loan details")
-
-        elif selected_borrower not in active_borrowers["Name"].values:
-            st.error("Borrower is inactive")
-
         else:
-            # LEVEL 2: The calculation only happens if the above checks pass
             interest = (interest_rate / 100) * amount
             total = amount + interest
-
             start_date = datetime.now()
             end_date = start_date + timedelta(days=int(duration))
-            
-            # ... rest of your save logic
-
-            # Generate ID Safely
             new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
 
             new_loan_row = pd.DataFrame([{
@@ -701,69 +660,47 @@ if st.button("Issue Loan"):
             }])
 
             try:
-                # Concatenate and push to Google Sheets
                 updated_loans = pd.concat([loans_df, new_loan_row], ignore_index=True)
                 save_data(sheet, "Loans", updated_loans)
-                
                 st.success(f"Loan issued ✅ Total Due: {total:,.0f} UGX")
                 st.balloons()
+                st.rerun() # Refresh to update the table below
             except Exception as e:
-                st.error(f"❌ Failed to save to Google Sheets: {e}")
-                
-                st.markdown("---")
-    # ==============================
-    # 2. AUTO STATUS UPDATE - Indent this exactly 4 or 8 spaces (align with 'sheet')
-        # This part ensures that overdue loans are caught every time you open the page
+                st.error(f"❌ Save failed: {e}")
+
+    st.markdown("---")
+
+    # 8. Portfolio Section (Indented to stay inside the 'Loans' page)
+    if not loans_df.empty:
+        st.subheader("📋 Loan Portfolio")
+        
+        # Auto Update Statuses
         loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
         today = pd.Timestamp.today()
+        loans_df.loc[(loans_df["End_Date"] < today) & (loans_df["Amount_Paid"] < loans_df["Total_Repayable"]), "Status"] = "Overdue"
+        
+        # Portfolio Calculations
+        loans_df["Outstanding"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
+        loans_df["Progress (%)"] = (loans_df["Amount_Paid"] / loans_df["Total_Repayable"] * 100).fillna(0)
 
-        # Mark as Overdue if date passed and not fully paid
-        loans_df.loc[
-            (loans_df["End_Date"] < today) & 
-            (loans_df["Amount_Paid"] < loans_df["Total_Repayable"]), 
-            "Status"
-        ] = "Overdue"
-
-        # 3. DISPLAY THE TABLE
-        st.subheader("📋 Active & Overdue Loans")
         st.dataframe(loans_df, use_container_width=True)
-else:
-    st.info("No loans issued yet. Go to the 'Issue Loan' section to start.")
 
-    # ==============================
-        # LOAN TABLE WITH INSIGHTS (Indented 8 spaces)
-        # ==============================
-st.subheader("📋 Loan Portfolio")
-# Calculations
-loans_df["Outstanding"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
-loans_df["Progress (%)"] = (
-    loans_df["Amount_Paid"] / loans_df["Total_Repayable"] * 100
-).fillna(0)
-# Show the floating dataframe
-st.dataframe(loans_df, use_container_width=True)
-st.markdown("---")
-
-        # ==============================
-        # LOAN PROGRESS VISUAL
-        # ==============================
-st.subheader("📊 Loan Progress")
-# Selectbox for specific loan
-selected_loan = st.selectbox("Select Loan ID to Inspect", loans_df["Loan_ID"])
-# Filter for the specific loan row
-loan = loans_df[loans_df["Loan_ID"] == selected_loan].iloc[0]
-progress = loan["Progress (%)"]
-# Progress bar (must be between 0 and 100)
-st.progress(min(max(int(progress), 0), 100))
-# 1. These metrics stay indented (pushed right) 
-        # because they belong to the LOANS page logic.
-col1, col2, col3 = st.columns(3)
-col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
-col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
-col3.metric("Current Status", loan["Status"])
-
+        # Loan Progress Visual
+        st.subheader("📊 Individual Loan Progress")
+        selected_loan_id = st.selectbox("Select Loan ID to Inspect", loans_df["Loan_ID"])
+        loan_row = loans_df[loans_df["Loan_ID"] == selected_loan_id].iloc[0]
+        
+        st.progress(min(max(int(loan_row["Progress (%)"]), 0), 100))
+        
+        m_col1, m_col2, m_col3 = st.columns(3)
+        m_col1.metric("Paid", f"{loan_row['Amount_Paid']:,.0f} UGX")
+        m_col2.metric("Outstanding", f"{loan_row['Outstanding']:,.0f} UGX")
+        m_col3.metric("Status", loan_row["Status"])
+    else:
+        st.info("No loans issued yet.")
 
 # ==============================
-# PAYMENTS PAGE
+# PAYMENTS PAGE (Level 0 - Perfectly aligned with the 'elif' above)
 # ==============================
 elif st.session_state.page == "Payments":
     st.title("💵 Payments Management")
