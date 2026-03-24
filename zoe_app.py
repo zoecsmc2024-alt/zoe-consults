@@ -731,34 +731,41 @@ if st.button("Issue Loan"):
         st.info("No loans issued yet. Go to the 'Issue Loan' section to start.")
 
     # ==============================
-    # LOAN TABLE WITH INSIGHTS
-    # ==============================
-    st.subheader("📋 Loan Portfolio")
+        # LOAN TABLE WITH INSIGHTS (Indented 8 spaces)
+        # ==============================
+        st.subheader("📋 Loan Portfolio")
 
-    loans_df["Outstanding"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
-    loans_df["Progress (%)"] = (
-        loans_df["Amount_Paid"] / loans_df["Total_Repayable"] * 100
-    ).fillna(0)
+        # Calculations
+        loans_df["Outstanding"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
+        loans_df["Progress (%)"] = (
+            loans_df["Amount_Paid"] / loans_df["Total_Repayable"] * 100
+        ).fillna(0)
 
-    st.dataframe(loans_df, use_container_width=True)
+        # Show the floating dataframe
+        st.dataframe(loans_df, use_container_width=True)
 
-    # ==============================
-    # LOAN PROGRESS VISUAL
-    # ==============================
-    st.subheader("📊 Loan Progress")
+        st.markdown("---")
 
-    selected_loan = st.selectbox("Select Loan ID", loans_df["Loan_ID"])
+        # ==============================
+        # LOAN PROGRESS VISUAL
+        # ==============================
+        st.subheader("📊 Loan Progress")
 
-    loan = loans_df[loans_df["Loan_ID"] == selected_loan].iloc[0]
+        # Selectbox for specific loan
+        selected_loan = st.selectbox("Select Loan ID to Inspect", loans_df["Loan_ID"])
 
-    progress = loan["Progress (%)"]
+        # Filter for the specific loan row
+        loan = loans_df[loans_df["Loan_ID"] == selected_loan].iloc[0]
+        progress = loan["Progress (%)"]
 
-    st.progress(min(int(progress), 100))
+        # Progress bar (must be between 0 and 100)
+        st.progress(min(max(int(progress), 0), 100))
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Paid", f"{loan['Amount_Paid']:,.0f}")
-    col2.metric("Outstanding", f"{loan['Outstanding']:,.0f}")
-    col3.metric("Status", loan["Status"])
+        # Floating Metrics
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
+        col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
+        col3.metric("Current Status", loan["Status"])
 
 
 # --- PAYMENTS PAGE ---
