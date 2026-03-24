@@ -1463,15 +1463,92 @@ elif st.session_state.page == "Payroll":
         
     
 # --- REPORTS PAGE (ADMIN ONLY) ---
+import plotly.express as px # Ensure this is at the top of your main script
+
 elif st.session_state.page == "Reports":
-    st.title("📊 Advanced Analytics")
+    st.title("📊 Advanced Analytics & Reports")
+    
+    # 1. Fetch Data
+    sheet = open_sheet("Zoe_Data")
     loans = load_data(sheet, "Loans")
     payments = load_data(sheet, "Payments")
     expenses = load_data(sheet, "Expenses")
-    
-    total_issued = pd.to_numeric(loans["Amount"]).sum()
-    total_collected = pd.to_numeric(payments["Amount"]).sum()
-    st.metric("Total Profitability", f"{(total_collected - pd.to_numeric(expenses['Amount']).sum()):,.0f}")
+
+    if loans.empty or payments.empty:
+        st.info("Insufficient data to generate analytics. Please record some loans and payments first.")
+    else:
+        # 2. CLEAN & CONVERT (Force numeric to avoid math errors)
+        loans["Amount"] = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0)
+        loans["Interest"] = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0)
+        payments["Amount"] = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0)
+        expenses["Amount"] = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0)
+
+        # 3. KPI CALCULATIONS
+        total_issued = loans["Amount"].sum()
+        total_interest = loans["Interest"].sum()
+        total_collected = payments["Amount"].sum()
+        total_expenses = expenses["Amount"].sum()
+        
+        # Net Profit = Collected Principal/Interest - Expenses
+        net_profit = total_collected - total_expenses
+
+        # 4. KPI DASHBOARD
+        st.subheader("📈 Key Performance Indicators")
+        k_col1, k_col2, k_col3, k_col4 = st.columns(4)
+        k_col1.metric("Total Issued", f"{total_issued:,.0f} UGX")
+        k_col2.metric("Total Interest", f"{total_interest:,.0f} UGX")
+        k_col3.metric("Collected", f"{total_collected:,.0f} UGX")
+        k_col4.metric("Net Profit", f"{net_profit:,.0f} UGX", delta=f"{net_profit/total_issued:.1%}" if total_issued > 0 else None)
+
+        st.markdown("---")
+
+        # 5. RISK ANALYSIS
+        st.subheader("🚨 Risk & Portfolio Health")
+        r_col1, r_col2 = st.columns(2)
+        
+        overdue_count = loans[loans["Status"] == "Overdue"].shape[0]
+        default_rate = (overdue_count / len(loans)) * 100 if len(loans) > 0 else 0
+        
+        r_col1.metric("Default Rate", f"{default_rate:.2f}%", delta="- Low Risk" if default_rate < 10 else "+ High Risk", delta_color="inverse")
+        
+        # TOP BORROWERS (By Portfolio Weight)
+        top = loans.groupby("Borrower")["Amount"].sum().reset_index()
+        top = top.sort_values(by="Amount", ascending=False).head(5)
+        r_col2.write("**Top 5 Borrowers by Volume**")
+        r_col2.dataframe(top, hide_index=True, use_container_width=True)
+
+        st.markdown("---")
+
+        # 6. CASHFLOW TREND (Monthly)
+        st.subheader("🌊 Monthly Cashflow Trend")
+        payments["Date"] = pd.to_datetime(payments["Date"], errors="coerce")
+        
+        trend = payments.groupby(payments["Date"].dt.to_period("M"))["Amount"].sum().reset_index()
+        trend["Date"] = trend["Date"].astype(str)
+
+        fig_trend = px.line(trend, x="Date", y="Amount", 
+                          title="Monthly Collections History",
+                          markers=True,
+                          line_shape="spline",
+                          color_discrete_sequence=["#00ffcc"])
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+        # 7. INCOME VS EXPENSES COMPARISON
+        st.subheader("⚖️ Income vs. Expenses")
+        expenses["Date"] = pd.to_datetime(expenses["Date"], errors="coerce")
+        
+        monthly_exp = expenses.groupby(expenses["Date"].dt.to_period("M"))["Amount"].sum().reset_index()
+        monthly_exp["Date"] = monthly_exp["Date"].astype(str)
+
+        # Merge for comparison
+        merged = pd.merge(trend, monthly_exp, on="Date", how="outer").fillna(0)
+        merged.columns = ["Month", "Income", "Expenses"]
+
+        fig_compare = px.bar(merged, x="Month", y=["Income", "Expenses"], 
+                           barmode="group",
+                           title="Monthly Financial Balance",
+                           color_discrete_map={"Income": "#00ffcc", "Expenses": "#ff4b4b"})
+        st.plotly_chart(fig_compare, use_container_width=True)
 
 # --- SETTINGS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Settings":
