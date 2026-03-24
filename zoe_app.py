@@ -19,28 +19,44 @@ from reportlab.lib.styles import getSampleStyleSheet
 # ==============================
 st.set_page_config(page_title="Zoe Fintech", layout="wide")
 
-# Custom CSS Styling
 st.markdown("""
 <style>
-    body { background-color: #0B0F19; }
-    section[data-testid="stSidebar"] { background: linear-gradient(180deg, #0B0F19, #111827); }
-    h1, h2, h3 { color: #E5E7EB; }
-    .metric-card {
-        background: linear-gradient(135deg, #1E3A8A, #2563EB);
-        padding: 18px;
-        border-radius: 12px;
-        color: white;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
+    /* MAIN BACKGROUND */
+    .stApp {
+        background-color: #0B0F19;
     }
-    .stButton>button {
-        background: linear-gradient(135deg, #2563EB, #1E40AF);
-        color: white;
-        border-radius: 10px;
-        border: none;
-        height: 42px;
-        font-weight: 600;
+
+    /* SIDEBAR MODERNIZATION */
+    section[data-testid="stSidebar"] {
+        background-color: #111827 !important;
+        border-right: 1px solid #1F2937;
     }
-    [data-testid="stDialog"] { border-radius: 12px; padding: 20px; }
+
+    /* FIXING THE HIDEOUS BUTTONS */
+    div.stButton > button {
+        background-color: transparent !important;
+        color: #9CA3AF !important;
+        border: none !important;
+        text-align: left !important;
+        padding: 10px 15px !important;
+        width: 100% !important;
+        transition: all 0.3s ease;
+    }
+
+    div.stButton > button:hover {
+        background-color: #1F2937 !important;
+        color: white !important;
+    }
+
+    /* THE "ACTIVE" PAGE HIGHLIGHT */
+    .active-menu-item {
+        background: rgba(37, 99, 235, 0.15) !important;
+        border-left: 4px solid #2563EB !important;
+        padding: 10px 15px !important;
+        color: white !important;
+        font-weight: 600 !important;
+        border-radius: 0 8px 8px 0 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -173,10 +189,12 @@ def sidebar():
     for item, icon in menu.items():
         if role != "Admin" and item in restricted:
             continue
+            
         if st.session_state.page == item:
-            st.sidebar.markdown(f'<div style="background:#2B3F87;padding:10px;border-radius:8px;color:white;">{icon} {item}</div>', unsafe_allow_html=True)
+            # Use the new sleek highlight instead of the blue box
+            st.sidebar.markdown(f'<div class="active-menu-item">{icon} {item}</div>', unsafe_allow_html=True)
         else:
-            if st.sidebar.button(f"{icon} {item}"):
+            if st.sidebar.button(f"{icon} {item}", key=f"btn_{item}"):
                 st.session_state.page = item
                 st.rerun()
 
@@ -186,7 +204,11 @@ def sidebar():
         st.rerun()
 
 sidebar()
-st.markdown(f"### Welcome {st.session_state.user} 👋")
+# Check if user exists in memory before trying to print the name
+if st.session_state.get("logged_in") and "user" in st.session_state:
+    st.markdown(f"### Welcome {st.session_state.user} 👋")
+else:
+    st.markdown("### Welcome to Zoe Fintech 👋")
 
 # ==============================
 # 6. PAGE ROUTING & CONTENT
