@@ -600,7 +600,7 @@ elif st.session_state.page == "Borrowers":
         else:
             st.info("Borrower already inactive")
 
- elif st.session_state.page == "Loans":
+elif st.session_state.page == "Loans":
     # EVERYTHING BELOW IS PUSHED IN BY 4 SPACES
     st.subheader("➕ Issue Loan")
 
