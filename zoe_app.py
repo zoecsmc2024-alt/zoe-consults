@@ -21,62 +21,44 @@ st.set_page_config(page_title="Zoe Fintech", layout="wide")
 
 st.markdown("""
 <style>
-    /* MAIN WORKSPACE - Ultra Light Baby Blue */
+    /* MAIN WORKSPACE - Soft Sky Blue */
     .stApp {
-        background-color: #F0F9FF !important; /* Very light Sky Blue */
+        background-color: #F0F7FF !important;
     }
 
-    /* SIDEBAR - Stay Deep Midnight for Contrast */
+    /* SIDEBAR - Stay Deep Midnight */
     section[data-testid="stSidebar"] {
         background-color: #020617 !important;
-        border-right: 1px solid #E0F2FE;
     }
 
-    /* MAIN CONTENT TEXT - Deep Navy for readability */
-    h1, h2, h3, p, span, label, .main-title {
-        color: #0C4A6E !important; /* Deep Navy Blue */
-        font-weight: 700 !important;
+    /* THE FLOATING EFFECT - Metric Cards & Containers */
+    div[data-testid="stMetric"], .stAlert, [data-testid="stDataFrame"] {
+        background: rgba(255, 255, 255, 0.8) !important; /* Semi-transparent white */
+        backdrop-filter: blur(10px) !important; /* Frosted glass effect */
+        border: 1px solid rgba(255, 255, 255, 0.4) !important;
+        border-radius: 20px !important;
+        
+        /* THE SHADOW - This creates the 'Float' */
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 
+                    0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+        
+        transition: transform 0.3s ease !important;
     }
 
-    /* METRIC CARDS - Bright White with Blue Glow */
-    div[data-testid="stMetric"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid #BAE6FD !important;
-        padding: 20px !important;
-        border-radius: 15px !important;
-        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1) !important;
+    /* Subtle hover lift for cards */
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
     }
 
-    /* SIDEBAR BUTTONS - Glassy on Dark */
-    div.stButton > button {
-        background-color: transparent !important;
-        color: #94A3B8 !important;
-        border: none !important;
-        text-align: left !important;
-        padding: 12px 24px !important;
-        width: 100% !important;
-    }
-
-    /* ACTIVE MENU ITEM - Baby Blue Highlight on Dark Sidebar */
+    /* SIDEBAR ACTIVE ITEM - Matching the glow */
     .active-menu-item {
-        background-color: rgba(56, 189, 248, 0.2) !important;
+        background-color: rgba(56, 189, 248, 0.15) !important;
         border-left: 4px solid #38BDF8 !important;
         color: #38BDF8 !important;
         padding: 12px 24px !important;
         font-weight: 700 !important;
-    }
-
-    /* DATA TABLES - Clean White */
-    [data-testid="stDataFrame"] {
-        background-color: white !important;
-        border-radius: 12px !important;
-    }
-    
-    /* SUCCESS/INFO BOXES - Matching Baby Blue */
-    .stAlert {
-        background-color: #E0F2FE !important;
-        color: #0369A1 !important;
-        border: 1px solid #7DD3FC !important;
+        border-radius: 0 10px 10px 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
