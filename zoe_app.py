@@ -21,56 +21,57 @@ st.set_page_config(page_title="Zoe Fintech", layout="wide")
 
 st.markdown("""
 <style>
-    /* MAIN BACKGROUND - Deep Navy */
+    /* BASE BACKGROUND - True Midnight */
     .stApp {
-        background-color: #050A18;
+        background-color: #020617 !important;
     }
 
-    /* SIDEBAR - Darker Navy with a border */
+    /* SIDEBAR - Ultra Dark Navy */
     section[data-testid="stSidebar"] {
-        background-color: #030712 !important;
-        border-right: 1px solid #1E293B;
+        background-color: #010409 !important;
+        border-right: 1px solid #1e293b;
     }
 
-    /* SIDEBAR BUTTONS - Clean Typography */
+    /* SIDEBAR BUTTONS - Glassy & Minimal */
     div.stButton > button {
         background-color: transparent !important;
-        color: #94A3B8 !important; /* Muted Navy Blue */
+        color: #64748b !important; /* Steel Blue Gray */
         border: none !important;
         text-align: left !important;
-        padding: 12px 20px !important;
+        padding: 14px 24px !important;
         width: 100% !important;
-        font-size: 15px !important;
-        transition: all 0.2s ease-in-out;
+        font-size: 16px !important;
+        border-radius: 0px !important;
+        transition: all 0.3s ease;
     }
 
     div.stButton > button:hover {
-        color: #7DD3FC !important; /* Baby Blue Text on Hover */
-        background-color: #0F172A !important;
+        color: #38bdf8 !important; /* Electric Baby Blue */
+        background-color: rgba(56, 189, 248, 0.05) !important;
     }
 
-    /* ACTIVE MENU ITEM - The "Baby Blue" Highlight */
+    /* ACTIVE STATE - Neon Cyan Glow */
     .active-menu-item {
-        background: linear-gradient(90deg, rgba(125, 211, 252, 0.15) 0%, rgba(125, 211, 252, 0) 100%) !important;
-        border-left: 3px solid #7DD3FC !important; /* Glowing Baby Blue Strip */
-        padding: 12px 20px !important;
-        color: #7DD3FC !important;
-        font-weight: 600 !important;
-        margin: 4px 0px;
+        background: linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(56, 189, 248, 0) 100%) !important;
+        border-left: 4px solid #38bdf8 !important; /* Neon sky blue strip */
+        color: #38bdf8 !important;
+        padding: 14px 24px !important;
+        font-weight: 700 !important;
+        text-shadow: 0px 0px 10px rgba(56, 189, 248, 0.5); /* Glow effect */
     }
-    
-    /* TITLES & DASHBOARD TEXT */
+
+    /* TITLES - Pure White/Sky Contrast */
     h1, h2, h3, .main-title {
-        color: #F8FAFC !important;
-        font-family: 'Inter', sans-serif;
+        color: #f0f9ff !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.5px;
     }
-    
-    /* DASHBOARD CARDS - Navy to Baby Blue Gradient */
-    .metric-card {
-        background: linear-gradient(135deg, #1E3A8A 0%, #0369A1 100%);
-        border: 1px solid #38BDF8;
-        border-radius: 12px;
-        padding: 20px;
+
+    /* INFO BOXES - Dark Navy with Blue Border */
+    .stAlert {
+        background-color: #082f49 !important;
+        color: #7dd3fc !important;
+        border: 1px solid #0c4a6e !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -206,11 +207,11 @@ def sidebar():
             continue
             
         if st.session_state.page == item:
-            # Active Page: Glowing Baby Blue effect
-            st.sidebar.markdown(f'<div class="active-menu-item">{icon} &nbsp; {item}</div>', unsafe_allow_html=True)
+            # Active Page: Neon Sky Glow
+            st.sidebar.markdown(f'<div class="active-menu-item">{icon} &nbsp;&nbsp; {item}</div>', unsafe_allow_html=True)
         else:
-            # Inactive Page: Transparent Navy
-            if st.sidebar.button(f"{icon} &nbsp; {item}", key=f"btn_{item}"):
+            # Inactive Page: Muted Gray-Blue
+            if st.sidebar.button(f"{icon} &nbsp;&nbsp; {item}", key=f"btn_{item}"):
                 st.session_state.page = item
                 st.rerun()
 
