@@ -14,6 +14,31 @@ from twilio.rest import Client
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
+# Place this right after your imports
+@st.cache_resource
+def connect_to_gsheets():
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds_dict = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(creds)
+    return client
+
+def open_sheet(sheet_name):
+    client = connect_to_gsheets()
+    # Ensure this name matches your Google Sheet exactly
+    sheet = client.open(sheet_name) 
+    return sheet
+
+# Now define your load/save helpers
+def load_data(sheet, worksheet_name):
+    worksheet = sheet.worksheet(worksheet_name)
+    return pd.DataFrame(worksheet.get_all_records())
+
+def save_data(sheet, worksheet_name, dataframe):
+    worksheet = sheet.worksheet(worksheet_name)
+    worksheet.clear()
+    worksheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+
 # ==============================
 # 1. SYSTEM CONFIGURATION
 # ==============================
