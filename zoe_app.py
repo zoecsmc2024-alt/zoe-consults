@@ -28,7 +28,7 @@ def generate_ledger_pdf(loan_data, ledger_df, filename):
     
     pdf.set_font("Arial", 'B', 22)
     pdf.set_text_color(0, 255, 204) # Neon Green
-    pdf.text(15, 25, "ZOE LENDING SERVICES")
+    pdf.text(15, 25, "ZOE CONSULTS SMC LIMITED")
     
     pdf.set_font("Arial", '', 12)
     pdf.set_text_color(255, 255, 255)
