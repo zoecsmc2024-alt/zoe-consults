@@ -8,3 +8,4 @@ google-auth
 xlsxwriter
 streamlit-aggrid
 twilio
+reportlab
