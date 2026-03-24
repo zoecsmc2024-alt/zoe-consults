@@ -762,6 +762,7 @@ col3.metric("Current Status", loan["Status"])
 
 
 # --- PAYMENTS PAGE ---
+
 elif st.session_state.page == "Payments":
     st.title("💵 Payments Management")
     loans_df = load_data(sheet, "Loans")
