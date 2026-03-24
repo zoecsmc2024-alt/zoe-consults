@@ -712,16 +712,23 @@ if st.button("Issue Loan"):
                 
                 st.markdown("---")
     # ==============================
-    # AUTO STATUS UPDATE
-    # ==============================
-    loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
-    today = pd.Timestamp.today()
+    # 2. AUTO STATUS UPDATE - Indent this exactly 4 or 8 spaces (align with 'sheet')
+        # This part ensures that overdue loans are caught every time you open the page
+        loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
+        today = pd.Timestamp.today()
 
-    loans_df.loc[
-        (loans_df["End_Date"] < today) &
-        (loans_df["Amount_Paid"] < loans_df["Total_Repayable"]),
-        "Status"
-    ] = "Overdue"
+        # Mark as Overdue if date passed and not fully paid
+        loans_df.loc[
+            (loans_df["End_Date"] < today) & 
+            (loans_df["Amount_Paid"] < loans_df["Total_Repayable"]), 
+            "Status"
+        ] = "Overdue"
+
+        # 3. DISPLAY THE TABLE
+        st.subheader("📋 Active & Overdue Loans")
+        st.dataframe(loans_df, use_container_width=True)
+    else:
+        st.info("No loans issued yet. Go to the 'Issue Loan' section to start.")
 
     # ==============================
     # LOAN TABLE WITH INSIGHTS
