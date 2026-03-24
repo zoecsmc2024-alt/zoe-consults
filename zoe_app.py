@@ -58,8 +58,7 @@ def login():
             if "logged_in" not in st.session_state or st.session_state.logged_in == False:
                 login() # Show ONLY the login page
                 st.stop() # CRITICAL: This prevents the rest of the script from running
-            else:
-                # 2. Only if logged in, show the Sidebar and Pages
+            
 
 def generate_ledger_pdf(loan_data, ledger_df, filename):
     pdf = FPDF()
