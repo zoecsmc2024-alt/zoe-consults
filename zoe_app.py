@@ -246,7 +246,7 @@ def sidebar():
     # ... (the rest of your menu loop)
 
     menu = {
-        "Overview": "📊", "Borrowers": "👥", "Collateral": "🛡️",
+        "Overview": "📊", "Borrowers": "👥", "Loans", "Collateral": "🛡️",
         "Calendar": "📅", "Ledger": "📄", "Overdue Tracker": "⏰",
         "Payments": "💵", "Expenses": "📁", "PettyCash": "💵",
         "Payroll": "🧾", "Reports": "📊", "Settings": "⚙️"
@@ -599,6 +599,129 @@ elif st.session_state.page == "Borrowers":
                 st.warning("Borrower deactivated ⚠️")
         else:
             st.info("Borrower already inactive")
+
+    # ==============================
+    # ISSUE LOAN
+    # ==============================
+
+elif st.session_state.page == "Loans":
+    st.subheader("➕ Issue Loan")
+
+    active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
+
+    borrower = st.selectbox(
+        "Select Borrower",
+        active_borrowers["Name"].unique()
+    )
+
+    amount = st.number_input("Loan Amount", min_value=0.0)
+    interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
+    duration = st.number_input("Duration (Days)", min_value=1)
+
+    # ==============================
+    # LIVE LOAN PREVIEW
+    # ==============================
+    if amount > 0 and interest_rate > 0:
+        interest = (interest_rate / 100) * amount
+        total = amount + interest
+        end_date = datetime.now() + timedelta(days=int(duration))
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Interest", f"{interest:,.0f}")
+        col2.metric("Total Repayable", f"{total:,.0f}")
+        col3.metric("End Date", end_date.strftime("%Y-%m-%d"))
+
+    # ==============================
+    # RISK CHECK
+    # ==============================
+    risky_loans = loans_df[
+        (loans_df["Borrower"] == borrower) &
+        (loans_df["Status"] == "Active")
+    ]
+
+    if not risky_loans.empty:
+        st.warning("⚠️ This borrower has an active loan!")
+
+    # ==============================
+    # ISSUE BUTTON
+    # ==============================
+    if st.button("Issue Loan"):
+
+        if amount <= 0 or interest_rate <= 0:
+            st.error("Enter valid loan details")
+
+        elif borrower not in active_borrowers["Name"].values:
+            st.error("Borrower is inactive")
+
+        else:
+            interest = (interest_rate / 100) * amount
+            total = amount + interest
+
+            start_date = datetime.now()
+            end_date = start_date + timedelta(days=int(duration))
+
+            new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
+
+            new_loan = pd.DataFrame([{
+                "Loan_ID": new_id,
+                "Borrower": borrower,
+                "Amount": amount,
+                "Interest": interest,
+                "Total_Repayable": total,
+                "Amount_Paid": 0,
+                "Start_Date": start_date.strftime("%Y-%m-%d"),
+                "End_Date": end_date.strftime("%Y-%m-%d"),
+                "Status": "Active"
+            }])
+
+            loans_df = pd.concat([loans_df, new_loan], ignore_index=True)
+            save_data(sheet, "Loans", loans_df)
+
+            st.success(f"Loan issued ✅ Total: {total:,.0f}")
+
+    st.markdown("---")
+
+    # ==============================
+    # AUTO STATUS UPDATE
+    # ==============================
+    loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
+    today = pd.Timestamp.today()
+
+    loans_df.loc[
+        (loans_df["End_Date"] < today) &
+        (loans_df["Amount_Paid"] < loans_df["Total_Repayable"]),
+        "Status"
+    ] = "Overdue"
+
+    # ==============================
+    # LOAN TABLE WITH INSIGHTS
+    # ==============================
+    st.subheader("📋 Loan Portfolio")
+
+    loans_df["Outstanding"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
+    loans_df["Progress (%)"] = (
+        loans_df["Amount_Paid"] / loans_df["Total_Repayable"] * 100
+    ).fillna(0)
+
+    st.dataframe(loans_df, use_container_width=True)
+
+    # ==============================
+    # LOAN PROGRESS VISUAL
+    # ==============================
+    st.subheader("📊 Loan Progress")
+
+    selected_loan = st.selectbox("Select Loan ID", loans_df["Loan_ID"])
+
+    loan = loans_df[loans_df["Loan_ID"] == selected_loan].iloc[0]
+
+    progress = loan["Progress (%)"]
+
+    st.progress(min(int(progress), 100))
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Paid", f"{loan['Amount_Paid']:,.0f}")
+    col2.metric("Outstanding", f"{loan['Outstanding']:,.0f}")
+    col3.metric("Status", loan["Status"])
 
 
 # --- PAYMENTS PAGE ---
