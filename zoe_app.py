@@ -146,10 +146,18 @@ def login():
 # 5. SIDEBAR & NAVIGATION
 # ==============================
 def sidebar():
+    # 1. Get the role and user safely
+    # If they don't exist yet, we use "Guest" as a backup
     role = st.session_state.get("role", "Staff")
+    current_user = st.session_state.get("user", "Guest")
+
     st.sidebar.markdown("## ZOE ADMIN 💼")
-    st.sidebar.markdown(f"👤 {st.session_state.user} ({role})")
+    
+    # 2. Use the safe variable we just created
+    st.sidebar.markdown(f"👤 {current_user} ({role})")
     st.sidebar.markdown("---")
+
+    # ... (rest of your sidebar menu code)
 
     menu = {
         "Overview": "📊", "Borrowers": "👥", "Collateral": "🛡️",
