@@ -21,41 +21,56 @@ st.set_page_config(page_title="Zoe Fintech", layout="wide")
 
 st.markdown("""
 <style>
-    /* MAIN BACKGROUND */
+    /* MAIN BACKGROUND - Deep Navy */
     .stApp {
-        background-color: #0B0F19;
+        background-color: #050A18;
     }
 
-    /* SIDEBAR MODERNIZATION */
+    /* SIDEBAR - Darker Navy with a border */
     section[data-testid="stSidebar"] {
-        background-color: #111827 !important;
-        border-right: 1px solid #1F2937;
+        background-color: #030712 !important;
+        border-right: 1px solid #1E293B;
     }
 
-    /* FIXING THE HIDEOUS BUTTONS */
+    /* SIDEBAR BUTTONS - Clean Typography */
     div.stButton > button {
         background-color: transparent !important;
-        color: #9CA3AF !important;
+        color: #94A3B8 !important; /* Muted Navy Blue */
         border: none !important;
         text-align: left !important;
-        padding: 10px 15px !important;
+        padding: 12px 20px !important;
         width: 100% !important;
-        transition: all 0.3s ease;
+        font-size: 15px !important;
+        transition: all 0.2s ease-in-out;
     }
 
     div.stButton > button:hover {
-        background-color: #1F2937 !important;
-        color: white !important;
+        color: #7DD3FC !important; /* Baby Blue Text on Hover */
+        background-color: #0F172A !important;
     }
 
-    /* THE "ACTIVE" PAGE HIGHLIGHT */
+    /* ACTIVE MENU ITEM - The "Baby Blue" Highlight */
     .active-menu-item {
-        background: rgba(37, 99, 235, 0.15) !important;
-        border-left: 4px solid #2563EB !important;
-        padding: 10px 15px !important;
-        color: white !important;
+        background: linear-gradient(90deg, rgba(125, 211, 252, 0.15) 0%, rgba(125, 211, 252, 0) 100%) !important;
+        border-left: 3px solid #7DD3FC !important; /* Glowing Baby Blue Strip */
+        padding: 12px 20px !important;
+        color: #7DD3FC !important;
         font-weight: 600 !important;
-        border-radius: 0 8px 8px 0 !important;
+        margin: 4px 0px;
+    }
+    
+    /* TITLES & DASHBOARD TEXT */
+    h1, h2, h3, .main-title {
+        color: #F8FAFC !important;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* DASHBOARD CARDS - Navy to Baby Blue Gradient */
+    .metric-card {
+        background: linear-gradient(135deg, #1E3A8A 0%, #0369A1 100%);
+        border: 1px solid #38BDF8;
+        border-radius: 12px;
+        padding: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -191,10 +206,11 @@ def sidebar():
             continue
             
         if st.session_state.page == item:
-            # Use the new sleek highlight instead of the blue box
-            st.sidebar.markdown(f'<div class="active-menu-item">{icon} {item}</div>', unsafe_allow_html=True)
+            # Active Page: Glowing Baby Blue effect
+            st.sidebar.markdown(f'<div class="active-menu-item">{icon} &nbsp; {item}</div>', unsafe_allow_html=True)
         else:
-            if st.sidebar.button(f"{icon} {item}", key=f"btn_{item}"):
+            # Inactive Page: Transparent Navy
+            if st.sidebar.button(f"{icon} &nbsp; {item}", key=f"btn_{item}"):
                 st.session_state.page = item
                 st.rerun()
 
