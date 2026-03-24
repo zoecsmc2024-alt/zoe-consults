@@ -225,64 +225,65 @@ def login():
         else:
             st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
 def sidebar():
-    # 1. Get Role and User
     role = st.session_state.get("role", "Staff")
-    current_user = st.session_state.get("user", "Guest")
+    user = st.session_state.get("user", "Guest")
 
-    # Brand & User Info
-    st.sidebar.markdown('<p style="font-size:24px; font-weight:bold; color:white; margin-bottom:0;">ZOE ADMIN 💼</p>', unsafe_allow_html=True)
-    st.sidebar.markdown(f'<p style="color:#00ffcc; font-size:14px;">● 👤 {current_user} ({role})</p>', unsafe_allow_html=True)
+    # Brand Title
+    st.sidebar.markdown('<p style="font-size:26px; font-weight:bold; color:#00ffcc; margin-bottom:0;">ZOE ADMIN 💼</p>', unsafe_allow_html=True)
+    st.sidebar.markdown(f'<p style="color:#888; font-size:14px; margin-top:0;">👤 {user} ({role})</p>', unsafe_allow_html=True)
     st.sidebar.markdown("---")
-    
-    # 2. Define the Complete Menu
-    menu_data = {
-        "Overview": "📊", 
-        "Borrowers": "👥", 
-        "Loans": "💵", 
-        "Collateral": "🛡️",
-        "Calendar": "📅", 
-        "Ledger": "📄", 
-        "Overdue Tracker": "⏰",
-        "Payments": "💰", 
-        "Expenses": "📁", 
-        "PettyCash": "💵",
-        "Payroll": "🧾", 
-        "Reports": "📈", 
-        "Settings": "⚙️"
+
+    # ALL PAGES
+    menu = {
+        "Overview": "📊", "Borrowers": "👥", "Collateral": "🛡️",
+        "Calendar": "📅", "Ledger": "📄", "Overdue Tracker": "⏰",
+        "Payments": "💵", "Expenses": "📁", "PettyCash": "💵",
+        "Payroll": "🧾", "Reports": "📈", "Settings": "⚙️"
     }
-    
-    # 3. Filter for Admin Pages
-    restricted = ["Payroll", "Reports", "Settings"]
-    
-    # If the user is NOT Admin, remove restricted pages from the list
-    if role != "Admin":
-        available_pages = [p for p in menu_data.keys() if p not in restricted]
-    else:
-        available_pages = list(menu_data.keys())
 
-    # 4. THE ORGANIZER: Use a Radio for perfectly aligned navigation
-    # This replaces the messy individual buttons
-    selected = st.sidebar.radio(
-        "Navigation",
-        options=available_pages,
-        format_func=lambda x: f"{menu_data[x]} {x}",
-        label_visibility="collapsed" # Hides the word "Navigation" for a cleaner look
-    )
+    # RESTRICTED PAGES
+    restricted = ["Settings", "Reports", "Payroll"]
 
-    # Update session state based on radio selection
-    st.session_state.page = selected
+    if "page" not in st.session_state:
+        st.session_state.page = "Overview"
 
-    # 5. Logout Button at the Bottom
+    # THE NAVIGATION LOOP
+    for item, icon in menu.items():
+        # 1. Hide restricted pages for staff
+        if role != "Admin" and item in restricted:
+            continue
+
+        # 2. ACTIVE PAGE STYLING (The "Neon Sky" Glow)
+        if st.session_state.page == item:
+            st.sidebar.markdown(
+                f"""<div style="background: linear-gradient(90deg, #2B3F87 0%, #00ffcc 100%); 
+                            padding: 8px 15px; border-radius: 10px; border-left: 5px solid #00ffcc; 
+                            color: white; font-weight: bold; margin-bottom: 5px; box-shadow: 0px 4px 15px rgba(0, 255, 204, 0.3);">
+                {icon} &nbsp; {item}
+                </div>""",
+                unsafe_allow_html=True
+            )
+        # 3. INACTIVE PAGE STYLING (Standard Buttons)
+        else:
+            # use_container_width=True fixes the "disorganized/floating" alignment issue
+            if st.sidebar.button(f"{icon} {item}", key=f"nav_{item}", use_container_width=True):
+                st.session_state.page = item
+                st.rerun()
+
     st.sidebar.markdown("---")
+
+    # LOGOUT & STATUS
     if st.sidebar.button("🚪 Logout", use_container_width=True):
+        st.session_state.logged_in = False
         st.session_state.clear()
         st.rerun()
-sidebar()
-# Check if user exists in memory before trying to print the name
-if st.session_state.get("logged_in") and "user" in st.session_state:
-    st.markdown(f"### Welcome {st.session_state.user} 👋")
-else:
-    st.markdown("### Welcome to Zoe Fintech 👋")
+
+    # Dynamic Online Status
+    status_color = "#00ffcc" # Green for online
+    st.sidebar.markdown(
+        f"<p style='color:{status_color}; font-size:12px; font-weight:bold;'>● System Online (Zoe Cloud)</p>",
+        unsafe_allow_html=True
+    )
 
 # ==============================
 # 6. PAGE ROUTING & CONTENT
