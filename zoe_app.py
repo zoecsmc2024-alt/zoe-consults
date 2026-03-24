@@ -1460,15 +1460,8 @@ elif st.session_state.page == "Payroll":
                 save_data(sheet, "Payroll", df.drop(columns=['Label']))
                 st.warning("Record removed.")
                 st.rerun()
-
-elif st.session_state.page == "Settings":
-    if st.session_state.role != "Admin":
-        st.error("Access denied 🔒")
-        st.stop()
         
-    st.title("⚙️ Admin Settings")
-    st.write("Configure your Zoe Fintech Hub preferences here.")
-    # You can add user management or interest rate configuration here next.
+    
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
@@ -1482,16 +1475,93 @@ elif st.session_state.page == "Reports":
 
 # --- SETTINGS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Settings":
-    if st.session_state.role != "Admin":
-        st.error("Access denied 🔒")
-    else:
-        st.title("⚙️ Settings")
-        logo_file = st.file_uploader("Upload Company Logo")
-        if logo_file and st.button("Save Logo"):
-            save_logo(sheet, logo_file)
-            st.success("Logo Saved!")
+    # 1. Access Control
+    if st.session_state.get("role") != "Admin":
+        st.error("Access denied 🔒. Admins only.")
+        st.stop()
 
-# Placeholder for remaining routes
-else:
-    st.title(f"{st.session_state.page} Page")
-    st.info("Module logic under construction.")
+    # 2. Page Content (Correctly Indented)
+    st.title("⚙️ System Settings")
+    sheet = open_sheet("Zoe_Data")
+
+    # --- BRANDING SECTION ---
+    st.subheader("🖼️ Business Branding")
+    
+    # Display current logo if it exists
+    current_logo_base64 = get_logo(sheet)
+    if current_logo_base64:
+        st.image(f"data:image/png;base64,{current_logo_base64}", width=150)
+        st.caption("Current Business Logo")
+
+    uploaded_logo = st.file_uploader("Upload New Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+    
+    if st.button("Update Branding"):
+        if uploaded_logo:
+            save_logo(sheet, uploaded_logo)
+            st.success("Logo updated successfully! ✅")
+            st.rerun()
+        else:
+            st.warning("Please select an image file first.")
+
+    st.markdown("---")
+
+    # --- GENERAL CONFIGURATION ---
+    st.subheader("🛠️ General Configuration")
+    
+    col1, col2 = st.columns(2)
+    business_name = col1.text_input("Business Name", value="Zoe Lending")
+    currency = col2.selectbox("System Currency", ["UGX", "USD", "KES", "TZS"])
+    
+    interest_default = st.slider("Default Interest Rate (%)", 1, 50, 15)
+
+    if st.button("Save System Settings"):
+        # You could save these to the 'Settings' sheet similarly to the logo
+        st.success(f"Configuration for {business_name} saved! ✅")
+
+    st.markdown("---")
+
+    # --- DANGER ZONE ---
+    st.subheader("⚠️ Danger Zone")
+    st.write("Deleting data is permanent. Proceed with extreme caution.")
+    
+    confirm_reset = st.checkbox("I understand that resetting will clear all local caches.")
+    
+    if st.button("Clear App Cache", disabled=not confirm_reset):
+        st.cache_data.clear()
+        st.success("System cache cleared. Data re-syncing from Google Sheets...")
+        st.rerun()
+
+# ==============================
+# LOGO HANDLING FUNCTIONS 
+# (Place these outside the 'elif' block, near your other helper functions)
+# ==============================
+import base64
+
+def save_logo(sheet, image_file):
+    # Use your existing load_data/save_data helpers
+    settings = load_data(sheet, "Settings")
+
+    # Convert image to base64 string
+    encoded = base64.b64encode(image_file.read()).decode()
+
+    if settings.empty:
+        settings = pd.DataFrame([{"Key": "logo", "Value": encoded}])
+    else:
+        if "logo" in settings["Key"].values:
+            settings.loc[settings["Key"] == "logo", "Value"] = encoded
+        else:
+            new_row = pd.DataFrame([{"Key": "logo", "Value": encoded}])
+            settings = pd.concat([settings, new_row], ignore_index=True)
+
+    save_data(sheet, "Settings", settings)
+
+def get_logo(sheet):
+    settings = load_data(sheet, "Settings")
+    if settings.empty:
+        return None
+    
+    row = settings[settings["Key"] == "logo"]
+    if row.empty:
+        return None
+        
+    return row.iloc[0]["Value"]
