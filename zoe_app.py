@@ -1604,24 +1604,29 @@ elif st.session_state.page == "Ledger":
 
         st.markdown("---")
 
-        # 4. CLIENT STATEMENT SECTION
+        # --- CLIENT STATEMENT SECTION ---
         st.subheader("👤 Generate Client Statement")
         
-        # --- INSIDE THE LEDGER PAGE ---
-all_clients = loans_df["Borrower"].unique()
-selected_client = st.selectbox("Select Client", all_clients)
+        all_clients = loans_df["Borrower"].unique()
+        selected_client = st.selectbox("Select Client", all_clients)
 
-# Only show the button if a client is selected
-if st.button("📥 Download PDF Statement"):
-    # Pass 'selected_client' into the function as 'client_name'
-    pdf_data = generate_client_pdf(selected_client, client_data)
-    
-    st.download_button(
-        label="Click here to save PDF",
-        data=pdf_data,
-        file_name=f"Statement_{selected_client}.pdf",
-        mime="application/pdf"
-    )
+        # Clean the table for display
+        client_data = master_ledger[master_ledger["Description"].str.contains(selected_client, na=False)].copy()
+        client_data["Date"] = client_data["Date"].dt.date # Removes the 00:00:00
+
+        st.table(client_data)
+
+        # THE BUTTON
+        if st.button("📥 Prepare PDF for " + selected_client):
+            # We call the function and pass 'selected_client' into it
+            pdf_bytes = generate_client_pdf(selected_client, client_data)
+            
+            st.download_button(
+                label="Click here to Save PDF ✅",
+                data=pdf_bytes,
+                file_name=f"Statement_{selected_client}.pdf",
+                mime="application/pdf"
+            )
             # PDF GENERATOR FUNCTION
 # (Place this at the bottom of your script)
 # ==============================
@@ -1702,6 +1707,7 @@ if st.button("📥 Download PDF Statement"):
         st.info("No transactions found to build the ledger.")
     else:
         master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
+        return pdf.output(dest='S').encode('latin-1')
 
 
 
