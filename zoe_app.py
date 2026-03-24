@@ -1235,35 +1235,27 @@ elif st.session_state.page == "Expenses":
     else:
         st.info("No expenses recorded yet.")
         # ==============================
-    # EDIT / DELETE EXPENSES
+    # ==============================
+    # ⚙️ MANAGE / EDIT / DELETE
     # ==============================
     st.markdown("---")
     st.subheader("⚙️ Manage Existing Expenses")
 
-    # --- Inside the 'elif st.session_state.page == "Expenses":' block ---
-
-    st.markdown("---")
-    st.subheader("⚙️ Manage Existing Expenses")
-
     if not df.empty:
-        # 1. FORCE CLEANING: Convert Expense_ID to a string, then to a float, then to an int
-        # This turns "1899-12-31" back into "1" automatically
-        temp_df = df.copy()
-        temp_df["Expense_ID"] = pd.to_numeric(temp_df["Expense_ID"], errors='coerce').fillna(0).astype(int)
-
-        # 2. Build the options using our cleaned temp_df
-        edit_options = temp_df.apply(lambda x: f"ID: {x['Expense_ID']} | {x['Category']} - {x['Description']}", axis=1)
+        # 1. CLEAN DATA IN MEMORY (Fixes the 1899 Date Bug)
+        df["Expense_ID"] = pd.to_numeric(df["Expense_ID"], errors='coerce').fillna(0).astype(int)
+        
+        # 2. SELECTION
+        edit_options = df.apply(lambda x: f"ID: {x['Expense_ID']} | {x['Category']} - {x['Description']}", axis=1)
         selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
 
-        # 3. Simple Extraction (The ID is now a clean number string)
-        try:
-            edit_id = int(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
-            edit_row = temp_df[temp_df["Expense_ID"] == edit_id].iloc[0]
-        except (ValueError, IndexError):
-            st.error("Select a valid expense from the list.")
-            st.stop()
+        # 3. EXTRACTION
+        edit_id = int(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
+        
+        # Get the specific row data for pre-filling
+        edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
 
-        # 3. UI for Editing (Ensure this is indented correctly)
+        # 4. EDITING FORM (Inside a container to keep it stable)
         with st.container():
             col_a, col_b = st.columns(2)
             
@@ -1271,25 +1263,34 @@ elif st.session_state.page == "Expenses":
                                     ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"],
                                     index=["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"].index(edit_row["Category"]))
             
-            upd_amt = col_b.number_input("Update Amount", value=float(edit_row["Amount"]))
+            upd_amt = col_b.number_input("Update Amount (UGX)", value=float(edit_row["Amount"]), step=500.0)
             upd_desc = st.text_input("Update Description", value=edit_row["Description"])
 
-            btn_col1, btn_col2 = st.columns([1, 4])
+            # Action Buttons
+            btn_upd, btn_del = st.columns([1, 4])
             
-            if btn_col1.button("Update ✅", use_container_width=True):
+            # --- THE UPDATE LOGIC ---
+            if btn_upd.button("Update ✅", use_container_width=True):
+                # Update the row in our local dataframe
                 df.loc[df["Expense_ID"] == edit_id, ["Category", "Amount", "Description"]] = [upd_cat, upd_amt, upd_desc]
+                
+                # Save to Google Sheets
                 save_data(sheet, "Expenses", df)
-                st.success("Expense updated!")
-                st.rerun()
+                st.success("Expense Updated Successfully!")
+                st.balloons()
+                st.rerun() # This forces the page to show the new data immediately
 
-            if btn_col2.button("Delete 🗑️"):
+            # --- THE DELETE LOGIC ---
+            if btn_del.button("Delete 🗑️"):
+                # Filter out the selected ID
                 df = df[df["Expense_ID"] != edit_id]
+                
+                # Save the new smaller dataframe
                 save_data(sheet, "Expenses", df)
-                st.warning("Expense deleted.")
-                st.rerun()
+                st.warning("Expense Deleted.")
+                st.rerun() # This forces the page to refresh the list
     else:
-        st.info("No expenses recorded yet.")
-
+        st.info("No expenses found to manage.")
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
