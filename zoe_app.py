@@ -600,32 +600,34 @@ elif st.session_state.page == "Borrowers":
         else:
             st.info("Borrower already inactive")
 
-    # --- ISSUE LOAN SECTION ---
+ elif st.session_state.page == "Loans":
+    # EVERYTHING BELOW IS PUSHED IN BY 4 SPACES
+    st.subheader("➕ Issue Loan")
 
-elif st.session_state.page == "Borrowers":
-st.subheader("➕ Issue Loan")
+    # 1. First, fetch the data
+    sheet = open_sheet("Zoe_Data")
+    borrowers_df = load_data(sheet, "Borrowers")
 
-# 1. First, fetch the data
-sheet = open_sheet("Zoe_Data")
-borrowers_df = load_data(sheet, "Borrowers")
+    # 2. PLACEMENT: Safety check
+    if borrowers_df.empty:
+        st.warning("⚠️ No borrowers found in the database. Please register a client first.")
+        st.stop() 
 
-# 2. PLACEMENT: Put the safety check here!
-if borrowers_df.empty:
-    st.warning("⚠️ No borrowers found in the database. Please go to the 'Borrowers' page to register a client first.")
-    st.stop() # This prevents the app from crashing below
+    # 3. Filter for active borrowers
+    # Make sure 'Status' in your Google Sheet matches this capitalization
+    active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
 
-# 3. Now it is safe to filter and create the dropdown
-active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
+    if active_borrowers.empty:
+        st.info("No 'Active' borrowers found. Check your 'Status' column in the sheet.")
+        st.stop()
 
-if active_borrowers.empty:
-    st.info("No 'Active' borrowers found. Check if your clients are marked as 'Inactive'.")
-    st.stop()
-
-# 4. Create the selection box
-selected_borrower = st.selectbox(
-    "Select Borrower", 
-    active_borrowers["Name"].unique()
-)
+    # 4. Create the selection box
+    selected_borrower = st.selectbox(
+        "Select Borrower", 
+        active_borrowers["Name"].unique()
+    )
+    
+    # --- You can continue adding loan amount/interest inputs here ---
 
     amount = st.number_input("Loan Amount", min_value=0.0)
     interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
