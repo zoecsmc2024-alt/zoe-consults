@@ -14,6 +14,10 @@ from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+from fpdf import FPDF
+import io
+
+def generate_client_pdf(client_name, df):
 
 # Place this right after your imports
 @st.cache_resource
@@ -1572,13 +1576,35 @@ elif st.session_state.page == "Ledger":
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
             # ==============================
-# PDF GENERATOR FUNCTION
+
+        
+        # 3. GLOBAL VIEW
+        st.subheader("🌐 Global Transaction History")
+        st.dataframe(master_ledger, use_container_width=True)
+
+        st.markdown("---")
+
+        # 4. CLIENT STATEMENT SECTION
+        st.subheader("👤 Generate Client Statement")
+        
+        all_clients = loans_df["Borrower"].unique()
+        selected_client = st.selectbox("Select Client", all_clients)
+
+        client_data = master_ledger[master_ledger["Description"].str.contains(selected_client, na=False)].copy()
+        client_data = client_data.sort_values(by="Date") # Oldest to Newest for Statements
+        
+        # Calculate Running Balance
+        client_data["Balance"] = (client_data["Outflow"] - client_data["Inflow"]).cumsum()
+
+        st.table(client_data[["Date", "Description", "Inflow", "Outflow", "Balance"]])
+
+        # 5. PDF DOWNLOAD BUTTON
+        if st.button("📥 Download PDF Statement"):
+            generate_client_pdf(selected_client, client_data)
+            # PDF GENERATOR FUNCTION
 # (Place this at the bottom of your script)
 # ==============================
-from fpdf import FPDF
-import io
 
-def generate_client_pdf(client_name, df):
     pdf = FPDF()
     pdf.add_page()
     
@@ -1654,30 +1680,6 @@ def generate_client_pdf(client_name, df):
         st.info("No transactions found to build the ledger.")
     else:
         master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
-        
-        # 3. GLOBAL VIEW
-        st.subheader("🌐 Global Transaction History")
-        st.dataframe(master_ledger, use_container_width=True)
-
-        st.markdown("---")
-
-        # 4. CLIENT STATEMENT SECTION
-        st.subheader("👤 Generate Client Statement")
-        
-        all_clients = loans_df["Borrower"].unique()
-        selected_client = st.selectbox("Select Client", all_clients)
-
-        client_data = master_ledger[master_ledger["Description"].str.contains(selected_client, na=False)].copy()
-        client_data = client_data.sort_values(by="Date") # Oldest to Newest for Statements
-        
-        # Calculate Running Balance
-        client_data["Balance"] = (client_data["Outflow"] - client_data["Inflow"]).cumsum()
-
-        st.table(client_data[["Date", "Description", "Inflow", "Outflow", "Balance"]])
-
-        # 5. PDF DOWNLOAD BUTTON
-        if st.button("📥 Download PDF Statement"):
-            generate_client_pdf(selected_client, client_data)
 
 
 
