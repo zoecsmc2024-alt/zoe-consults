@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.express as px # Ensure this is at the top of your main script
 import gspread
 import io
 import base64
@@ -1463,7 +1464,7 @@ elif st.session_state.page == "Payroll":
         
     
 # --- REPORTS PAGE (ADMIN ONLY) ---
-import plotly.express as px # Ensure this is at the top of your main script
+
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics & Reports")
     
