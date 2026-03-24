@@ -21,7 +21,7 @@ def generate_client_pdf(client_name, df):
 
 # Place this right after your imports
     @st.cache_resource
-def connect_to_gsheets():
+    def connect_to_gsheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds_dict = st.secrets["gcp_service_account"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
