@@ -746,23 +746,19 @@ st.markdown("---")
         # ==============================
         # LOAN PROGRESS VISUAL
         # ==============================
-        st.subheader("📊 Loan Progress")
-
-        # Selectbox for specific loan
-        selected_loan = st.selectbox("Select Loan ID to Inspect", loans_df["Loan_ID"])
-
-        # Filter for the specific loan row
-        loan = loans_df[loans_df["Loan_ID"] == selected_loan].iloc[0]
-        progress = loan["Progress (%)"]
-
-        # Progress bar (must be between 0 and 100)
-        st.progress(min(max(int(progress), 0), 100))
-
-        # Floating Metrics
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
-        col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
-        col3.metric("Current Status", loan["Status"])
+st.subheader("📊 Loan Progress")
+# Selectbox for specific loan
+selected_loan = st.selectbox("Select Loan ID to Inspect", loans_df["Loan_ID"])
+# Filter for the specific loan row
+loan = loans_df[loans_df["Loan_ID"] == selected_loan].iloc[0]
+progress = loan["Progress (%)"]
+# Progress bar (must be between 0 and 100)
+st.progress(min(max(int(progress), 0), 100))
+# Floating Metrics
+col1, col2, col3 = st.columns(3)
+col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
+col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
+col3.metric("Current Status", loan["Status"])
 
 
 # --- PAYMENTS PAGE ---
