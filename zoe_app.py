@@ -649,13 +649,18 @@ elif st.session_state.page == "Loans":
     # ==============================
     # RISK CHECK
     # ==============================
-    risky_loans = loans_df[
-        (loans_df["Borrower"] == borrower) &
-        (loans_df["Status"] == "Active")
-    ]
+    # 1. Load the Loans data (add this above line 652)
+loans_df = load_data(sheet, "Loans")
 
-    if not risky_loans.empty:
-        st.warning("⚠️ This borrower has an active loan!")
+# 2. Safety check: if Loans sheet is empty, create an empty dataframe with columns
+if loans_df.empty:
+    loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Status", "Amount"])
+
+# 3. Now line 652 will work perfectly!
+risky_loans = loans_df[
+    (loans_df["Borrower"] == selected_borrower) & 
+    (loans_df["Status"] == "Active")
+]
 
     # ==============================
     # ISSUE BUTTON
