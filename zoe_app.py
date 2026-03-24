@@ -1240,28 +1240,30 @@ elif st.session_state.page == "Expenses":
     st.markdown("---")
     st.subheader("⚙️ Manage Existing Expenses")
 
+    # --- Inside the 'elif st.session_state.page == "Expenses":' block ---
+
+    st.markdown("---")
+    st.subheader("⚙️ Manage Existing Expenses")
+
     if not df.empty:
-        # Create a searchable list of expenses to edit
         edit_options = df.apply(lambda x: f"ID: {x['Expense_ID']} | {x['Category']} - {x['Description']}", axis=1)
         selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
 
-        # Extract the ID and get the current row
-        # THE FIX: Convert to string first to handle "Date-formatted" IDs from Google Sheets
-edit_id_str = str(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
+        # 1. Clean the ID string
+        edit_id_str = str(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
 
-# Now safely convert to an integer
-try:
-    edit_id = int(float(edit_id_str)) 
-except ValueError:
-    st.error(f"Could not read ID: {edit_id_str}. Please check your Google Sheet formatting.")
-    st.stop()
-    edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
+        # 2. Try to convert and fetch the row
+        try:
+            edit_id = int(float(edit_id_str))
+            edit_row = df[df["Expense_ID"] == edit_id].iloc[0] # Move this HERE
+        except (ValueError, IndexError):
+            st.error(f"Error reading ID: {edit_id_str}. Check Google Sheet formatting.")
+            st.stop()
 
-        # UI for Editing
+        # 3. UI for Editing (Ensure this is indented correctly)
         with st.container():
             col_a, col_b = st.columns(2)
             
-            # Pre-fill the fields with current data
             upd_cat = col_a.selectbox("Update Category", 
                                     ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"],
                                     index=["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"].index(edit_row["Category"]))
@@ -1269,24 +1271,21 @@ except ValueError:
             upd_amt = col_b.number_input("Update Amount", value=float(edit_row["Amount"]))
             upd_desc = st.text_input("Update Description", value=edit_row["Description"])
 
-            # Buttons for Update and Delete
             btn_col1, btn_col2 = st.columns([1, 4])
             
-            if btn_col1.button("Update ✅"):
-                # Apply changes to the main dataframe
+            if btn_col1.button("Update ✅", use_container_width=True):
                 df.loc[df["Expense_ID"] == edit_id, ["Category", "Amount", "Description"]] = [upd_cat, upd_amt, upd_desc]
                 save_data(sheet, "Expenses", df)
                 st.success("Expense updated!")
                 st.rerun()
 
-            if btn_col2.button("Delete 🗑️", type="secondary"):
-                # Remove the row entirely
+            if btn_col2.button("Delete 🗑️"):
                 df = df[df["Expense_ID"] != edit_id]
                 save_data(sheet, "Expenses", df)
                 st.warning("Expense deleted.")
                 st.rerun()
     else:
-        st.info("No expenses available to manage.")
+        st.info("No expenses recorded yet.")
 
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
