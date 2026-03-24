@@ -733,18 +733,15 @@ else:
     # ==============================
         # LOAN TABLE WITH INSIGHTS (Indented 8 spaces)
         # ==============================
-        st.subheader("📋 Loan Portfolio")
-
-        # Calculations
-        loans_df["Outstanding"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
-        loans_df["Progress (%)"] = (
-            loans_df["Amount_Paid"] / loans_df["Total_Repayable"] * 100
-        ).fillna(0)
-
-        # Show the floating dataframe
-        st.dataframe(loans_df, use_container_width=True)
-
-        st.markdown("---")
+st.subheader("📋 Loan Portfolio")
+# Calculations
+loans_df["Outstanding"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
+loans_df["Progress (%)"] = (
+    loans_df["Amount_Paid"] / loans_df["Total_Repayable"] * 100
+).fillna(0)
+# Show the floating dataframe
+st.dataframe(loans_df, use_container_width=True)
+st.markdown("---")
 
         # ==============================
         # LOAN PROGRESS VISUAL
