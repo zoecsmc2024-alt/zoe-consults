@@ -766,11 +766,10 @@ col3.metric("Current Status", loan["Status"])
 # PAYMENTS PAGE
 # ==============================
 elif st.session_state.page == "Payments":
-
     st.title("💵 Payments Management")
-
-    sheet = open_sheet("Zoe_Data")
-
+    
+    # Don't forget to define 'sheet' here so the data can load!
+    sheet = open_sheet("Zoe_Data") 
     loans_df = load_data(sheet, "Loans")
     payments_df = load_data(sheet, "Payments")
 
