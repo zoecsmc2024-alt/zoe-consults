@@ -285,23 +285,44 @@ else:
 # 6. PAGE ROUTING & CONTENT
 # ==============================
 
+# --- Move this to the TOP of your script (outside the IF/ELIF blocks) ---
+def open_sheet(sheet_name):
+    client = connect_to_gsheets()
+    # Using your specific ID for Zoe_Data
+    sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg") 
+    return sheet
+
 # ==============================
 # UPGRADED OVERVIEW PAGE
 # ==============================
 if st.session_state.page == "Overview":
-
     st.title("📊 Financial Dashboard")
     
-    def open_sheet(sheet_name):
-    client = connect_to_gsheets()
-    # Replace the ID below with the one from your browser URL
-    sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg") 
-    return sheet
-    df = load_data(sheet, "Loans")
+    # 1. Open the sheet and load data
+    try:
+        sheet = open_sheet("Zoe_Data")
+        df = load_data(sheet, "Loans")
+    except Exception as e:
+        st.error(f"Could not connect to Google Sheets: {e}")
+        df = pd.DataFrame()
 
+    # 2. Check if data is available
     if df.empty:
-        st.warning("No data available")
+        st.warning("No data available in the 'Loans' worksheet.")
     else:
+        # ==============================
+        # CLEAN DATA
+        # ==============================
+        df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+        df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
+        df["Amount_Paid"] = pd.to_numeric(df.get("Amount_Paid", 0), errors="coerce").fillna(0)
+
+        df["Start_Date"] = pd.to_datetime(df["Start_Date"], errors="coerce")
+        df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
+
+        today = pd.Timestamp.today()
+        
+        # (Rest of your metrics and chart logic follows here, indented by 8 spaces...)
         # ==============================
         # CLEAN DATA
         # ==============================
