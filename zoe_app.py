@@ -1682,6 +1682,7 @@ def generate_client_pdf(client_name, df):
 
 
 # --- SETTINGS PAGE (ADMIN ONLY) ---
+    
 elif st.session_state.page == "Settings":
     # 1. Access Control
     if st.session_state.get("role") != "Admin":
