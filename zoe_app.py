@@ -754,19 +754,20 @@ loan = loans_df[loans_df["Loan_ID"] == selected_loan].iloc[0]
 progress = loan["Progress (%)"]
 # Progress bar (must be between 0 and 100)
 st.progress(min(max(int(progress), 0), 100))
-# Floating Metrics
-# Ensure these metrics are indented inside the 'else' of the LOANS page
+# 1. These metrics stay indented (pushed right) 
+        # because they belong to the LOANS page logic.
         col1, col2, col3 = st.columns(3)
         col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
         col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
         col3.metric("Current Status", loan["Status"])
 
-# --- PAYMENTS PAGE ---
-# This 'elif' must line up perfectly with the 'if' at the very top of your script
+# 2. THIS IS THE FIX: This 'elif' must move BACK to the left.
+# It should line up exactly with the very first 'if' at the top of your script.
 elif st.session_state.page == "Payments":
     st.title("💵 Payments Management")
     
-    sheet = open_sheet("Zoe_Data") # Added this to ensure 'sheet' is defined
+    # Don't forget to define 'sheet' here so the data can load!
+    sheet = open_sheet("Zoe_Data") 
     loans_df = load_data(sheet, "Loans")
     payments_df = load_data(sheet, "Payments")
 
