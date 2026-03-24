@@ -242,7 +242,6 @@ def save_logo(sheet, image_file):
         else:
             settings = pd.concat([settings, pd.DataFrame([{"Key": "logo", "Value": encoded}])])
     save_data(sheet, "Settings", settings)
-
 def login():
     st.title("🔐 Login")
     
