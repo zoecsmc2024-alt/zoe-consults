@@ -224,63 +224,58 @@ def login():
         else:
             st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
 def sidebar():
+    # 1. Get Role and User
     role = st.session_state.get("role", "Staff")
     current_user = st.session_state.get("user", "Guest")
 
-    # Brand Title
-    st.sidebar.markdown('<p class="sidebar-brand">ZOE ADMIN 💼</p>', unsafe_allow_html=True)
-    
-    # User Profile
-    st.sidebar.markdown(
-        f'''<p class="sidebar-user">
-            <span class="online-dot"></span> 👤 {current_user} ({role})
-        </p>''', 
-        unsafe_allow_html=True
-    )
-    
+    # Brand & User Info
+    st.sidebar.markdown('<p style="font-size:24px; font-weight:bold; color:white; margin-bottom:0;">ZOE ADMIN 💼</p>', unsafe_allow_html=True)
+    st.sidebar.markdown(f'<p style="color:#00ffcc; font-size:14px;">● 👤 {current_user} ({role})</p>', unsafe_allow_html=True)
     st.sidebar.markdown("---")
     
-    menu = {
-        "Overview": "📊", "Borrowers": "👥", "Loans": "💵", "Collateral": "🛡️",
-        "Calendar": "📅", "Ledger": "📄", "Overdue Tracker": "⏰",
-        "Payments": "💵", "Expenses": "📁", "PettyCash": "💵",
-        "Payroll": "🧾", "Reports": "📊", "Settings": "⚙️"
+    # 2. Define the Complete Menu
+    menu_data = {
+        "Overview": "📊", 
+        "Borrowers": "👥", 
+        "Loans": "💵", 
+        "Collateral": "🛡️",
+        "Calendar": "📅", 
+        "Ledger": "📄", 
+        "Overdue Tracker": "⏰",
+        "Payments": "💰", 
+        "Expenses": "📁", 
+        "PettyCash": "💵",
+        "Payroll": "🧾", 
+        "Reports": "📈", 
+        "Settings": "⚙️"
     }
     
-    restricted = ["Settings", "Reports", "Payroll"]
+    # 3. Filter for Admin Pages
+    restricted = ["Payroll", "Reports", "Settings"]
     
-    # Ensure a default page exists
-    if "page" not in st.session_state:
-        st.session_state.page = "Overview"
+    # If the user is NOT Admin, remove restricted pages from the list
+    if role != "Admin":
+        available_pages = [p for p in menu_data.keys() if p not in restricted]
+    else:
+        available_pages = list(menu_data.keys())
 
-    # --- THE FIXED LOOP ---
-    for item, icon in menu.items():
-        # 1. Skip restricted pages for non-admins
-        if role != "Admin" and item in restricted:
-            continue
-            
-        # 2. Styling Logic: Create a unique style for the ACTIVE button
-        # We use a columns trick or a simple button check
-        button_label = f"{icon}  {item}"
-        
-        # Use a container to apply your "active-menu-item" class if it's the current page
-        if st.session_state.page == item:
-            # We still show a button so it's consistent, but we wrap it in your glow effect
-            st.sidebar.markdown(f'<div class="active-menu-item">', unsafe_allow_html=True)
-            if st.sidebar.button(button_label, key=f"active_{item}", use_container_width=True):
-                pass # Already on this page
-            st.sidebar.markdown('</div>', unsafe_allow_html=True)
-        else:
-            # Regular button for inactive pages
-            if st.sidebar.button(button_label, key=f"btn_{item}", use_container_width=True):
-                st.session_state.page = item
-                st.rerun()
+    # 4. THE ORGANIZER: Use a Radio for perfectly aligned navigation
+    # This replaces the messy individual buttons
+    selected = st.sidebar.radio(
+        "Navigation",
+        options=available_pages,
+        format_func=lambda x: f"{menu_data[x]} {x}",
+        label_visibility="collapsed" # Hides the word "Navigation" for a cleaner look
+    )
 
+    # Update session state based on radio selection
+    st.session_state.page = selected
+
+    # 5. Logout Button at the Bottom
     st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout"):
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
-
 sidebar()
 # Check if user exists in memory before trying to print the name
 if st.session_state.get("logged_in") and "user" in st.session_state:
