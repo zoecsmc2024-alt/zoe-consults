@@ -284,6 +284,9 @@ def sidebar():
         f"<p style='color:{status_color}; font-size:12px; font-weight:bold;'>● System Online (Zoe Cloud)</p>",
         unsafe_allow_html=True
     )
+    else:
+    # THIS IS THE MISSING LINE:
+    sidebar()
 
 # ==============================
 # 6. PAGE ROUTING & CONTENT
