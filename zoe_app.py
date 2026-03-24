@@ -1565,29 +1565,49 @@ elif st.session_state.page == "Ledger":
 
     sheet = open_sheet("Zoe_Data")
     
-    # 1. Load All Financial Data
+    # 1. Load Data
     loans_df = load_data(sheet, "Loans")
     pay_df = load_data(sheet, "Payments")
     exp_df = load_data(sheet, "Expenses")
 
-    # DEFENSIVE CHECK: Loop through each dataframe safely
-    dfs_to_process = [
-        (loans_df, "Loans"), 
-        (pay_df, "Payments"), 
-        (exp_df, "Expenses")
-    ]
+    ledger_parts = []
 
-    for df, name in dfs_to_process:
-        if not df.empty:
-            if "Date" in df.columns:
-                df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-            else:
-                st.error(f"⚠️ Column 'Date' is missing in the '{name}' sheet. Please check your Google Sheet headers.")
-                st.stop() # Stops the crash and tells you exactly where the problem is
+    # --- PROCESS LOANS (Uses 'Start_Date') ---
+    if not loans_df.empty:
+        # Check if Start_Date exists, otherwise fallback to Date
+        date_col = "Start_Date" if "Start_Date" in loans_df.columns else "Date"
+        
+        l_temp = loans_df.copy()
+        l_temp["Date"] = pd.to_datetime(l_temp[date_col], errors="coerce")
+        l_temp["Description"] = "Loan Issued: " + l_temp["Borrower"]
+        l_temp["Inflow"] = 0
+        l_temp["Outflow"] = pd.to_numeric(l_temp["Amount"], errors="coerce").fillna(0)
+        ledger_parts.append(l_temp[["Date", "Description", "Inflow", "Outflow"]])
 
-            if "Amount" in df.columns:
-                df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+    # --- PROCESS PAYMENTS (Uses 'Date') ---
+    if not pay_df.empty:
+        p_temp = pay_df.copy()
+        p_temp["Date"] = pd.to_datetime(p_temp["Date"], errors="coerce")
+        p_temp["Description"] = "Repayment: " + p_temp["Borrower"]
+        p_temp["Inflow"] = pd.to_numeric(p_temp["Amount"], errors="coerce").fillna(0)
+        p_temp["Outflow"] = 0
+        ledger_parts.append(p_temp[["Date", "Description", "Inflow", "Outflow"]])
 
+    # --- PROCESS EXPENSES (Uses 'Date') ---
+    if not exp_df.empty:
+        e_temp = exp_df.copy()
+        e_temp["Date"] = pd.to_datetime(e_temp["Date"], errors="coerce")
+        e_temp["Description"] = "Expense: " + e_temp["Description"]
+        e_temp["Inflow"] = 0
+        e_temp["Outflow"] = pd.to_numeric(e_temp["Amount"], errors="coerce").fillna(0)
+        ledger_parts.append(e_temp[["Date", "Description", "Inflow", "Outflow"]])
+
+    # 2. COMBINE & DISPLAY
+    if not ledger_parts:
+        st.info("No transaction data found.")
+    else:
+        master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
+        st.dataframe(master_ledger, use_container_width=True)
         
         # 3. GLOBAL VIEW
         st.subheader("🌐 Global Transaction History")
