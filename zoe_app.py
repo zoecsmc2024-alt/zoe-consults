@@ -18,6 +18,84 @@ from fpdf import FPDF
 import io
 
 def generate_client_pdf(client_name, df):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # NEON SKY HEADER
+    pdf.set_fill_color(43, 63, 135) 
+    pdf.rect(0, 0, 210, 40, 'F')
+    
+    pdf.set_font("Arial", 'B', 20)
+    pdf.set_text_color(0, 255, 204) 
+    pdf.text(10, 25, "ZOE FINTECH HUB")
+    
+    pdf.set_font("Arial", '', 12)
+    pdf.set_text_color(255, 255, 255)
+    # Now this line will work because 'client_name' is defined in the header above
+    pdf.text(10, 33, f"Statement for: {client_name}")
+    
+    # TABLE CONTENT
+    pdf.set_y(50)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", 'B', 10)
+    
+    # Table Headers
+    pdf.cell(40, 10, "Date", 1)
+    pdf.cell(80, 10, "Description", 1)
+    pdf.cell(30, 10, "In (UGX)", 1)
+    pdf.cell(40, 10, "Balance", 1)
+    pdf.ln()
+    
+    pdf.set_font("Arial", '', 9)
+    for i, row in df.iterrows():
+        pdf.cell(40, 10, str(row['Date'].date()), 1)
+        pdf.cell(80, 10, str(row['Description']), 1)
+        pdf.cell(30, 10, f"{row['Inflow']:,.0f}", 1)
+        pdf.cell(40, 10, f"{row['Balance']:,.0f}", 1)
+        pdf.ln()
+
+    # SAVE AND EXPORT
+    output = pdf.output(dest='S').encode('latin-1')
+    st.download_button(
+        label="Click here to save PDF",
+        data=output,
+        file_name=f"Statement_{client_name}.pdf",
+        mime="application/pdf"
+    )
+
+    # 2. COMBINE INTO MASTER LEDGER
+    # We create a unified format: Date | Description | Type | Inflow | Outflow
+    ledger_parts = []
+
+    if not loans_df.empty:
+        l_temp = loans_df[["Date", "Borrower", "Amount"]].copy()
+        l_temp["Description"] = "Loan Issued to " + l_temp["Borrower"]
+        l_temp["Type"] = "Disbursement"
+        l_temp["Inflow"] = 0
+        l_temp["Outflow"] = l_temp["Amount"]
+        ledger_parts.append(l_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
+
+    if not pay_df.empty:
+        p_temp = pay_df[["Date", "Borrower", "Amount"]].copy()
+        p_temp["Description"] = "Repayment from " + p_temp["Borrower"]
+        p_temp["Type"] = "Repayment"
+        p_temp["Inflow"] = p_temp["Amount"]
+        p_temp["Outflow"] = 0
+        ledger_parts.append(p_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
+
+    if not exp_df.empty:
+        e_temp = exp_df[["Date", "Description", "Amount"]].copy()
+        e_temp["Type"] = "Expense"
+        e_temp["Inflow"] = 0
+        e_temp["Outflow"] = e_temp["Amount"]
+        ledger_parts.append(e_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
+
+    if not ledger_parts:
+        st.info("No transactions found to build the ledger.")
+    else:
+        master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
+        return pdf.output(dest='S').encode('latin-1')
+
 
 # Place this right after your imports
     @st.cache_resource
@@ -1562,153 +1640,34 @@ elif st.session_state.page == "Reports":
 
 elif st.session_state.page == "Ledger":
     st.title("📄 Master Ledger & Statements")
+    
+    # ... (your existing data loading and table code) ...
 
-    sheet = open_sheet("Zoe_Data")
+    st.subheader("👤 Generate Client Statement")
+    all_clients = loans_df["Borrower"].unique()
+    selected_client = st.selectbox("Select Client", all_clients)
 
-    # --- PROCESS LOANS (Uses 'Start_Date') ---
-    if not loans_df.empty:
-        # Check if Start_Date exists, otherwise fallback to Date
-        date_col = "Start_Date" if "Start_Date" in loans_df.columns else "Date"
-        
-        l_temp = loans_df.copy()
-        l_temp["Date"] = pd.to_datetime(l_temp[date_col], errors="coerce")
-        l_temp["Description"] = "Loan Issued: " + l_temp["Borrower"]
-        l_temp["Inflow"] = 0
-        l_temp["Outflow"] = pd.to_numeric(l_temp["Amount"], errors="coerce").fillna(0)
-        ledger_parts.append(l_temp[["Date", "Description", "Inflow", "Outflow"]])
-
-    # --- PROCESS PAYMENTS (Uses 'Date') ---
-    if not pay_df.empty:
-        p_temp = pay_df.copy()
-        p_temp["Date"] = pd.to_datetime(p_temp["Date"], errors="coerce")
-        p_temp["Description"] = "Repayment: " + p_temp["Borrower"]
-        p_temp["Inflow"] = pd.to_numeric(p_temp["Amount"], errors="coerce").fillna(0)
-        p_temp["Outflow"] = 0
-        ledger_parts.append(p_temp[["Date", "Description", "Inflow", "Outflow"]])
-
-    # --- PROCESS EXPENSES (Uses 'Date') ---
-    if not exp_df.empty:
-        e_temp = exp_df.copy()
-        e_temp["Date"] = pd.to_datetime(e_temp["Date"], errors="coerce")
-        e_temp["Description"] = "Expense: " + e_temp["Description"]
-        e_temp["Inflow"] = 0
-        e_temp["Outflow"] = pd.to_numeric(e_temp["Amount"], errors="coerce").fillna(0)
-        ledger_parts.append(e_temp[["Date", "Description", "Inflow", "Outflow"]])
-
-    # 2. COMBINE & DISPLAY
-    if not ledger_parts:
-        st.info("No transaction data found.")
-    else:
-        master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
-        st.dataframe(master_ledger, use_container_width=True)
-
-        st.markdown("---")
-
-        # --- CLIENT STATEMENT SECTION ---
-        st.subheader("👤 Generate Client Statement")
-        
-        all_clients = loans_df["Borrower"].unique()
-        selected_client = st.selectbox("Select Client", all_clients)
-
-        # Clean the table for display
-        client_data = master_ledger[master_ledger["Description"].str.contains(selected_client, na=False)].copy()
-        client_data["Date"] = client_data["Date"].dt.date # Removes the 00:00:00
-
-        st.table(client_data)
-
-        # THE BUTTON
-        if st.button("📥 Prepare PDF for " + selected_client):
-            # We call the function and pass 'selected_client' into it
+    # 3. THE TRIGGER BUTTON
+    # We only call the function inside this 'if' block
+    if st.button(f"Generate PDF for {selected_client}"):
+        try:
+            # We "Call" the recipe and pass the name into it
             pdf_bytes = generate_client_pdf(selected_client, client_data)
             
             st.download_button(
-                label="Click here to Save PDF ✅",
+                label="📥 Download PDF Now",
                 data=pdf_bytes,
                 file_name=f"Statement_{selected_client}.pdf",
                 mime="application/pdf"
             )
+            st.success("PDF Ready! Click the button above to save.")
+        except Exception as e:
+            st.error(f"Error generating PDF: {e}")
             # PDF GENERATOR FUNCTION
 # (Place this at the bottom of your script)
 # ==============================
 
-    pdf = FPDF()
-    pdf.add_page()
     
-    # NEON SKY HEADER
-    pdf.set_fill_color(43, 63, 135) 
-    pdf.rect(0, 0, 210, 40, 'F')
-    
-    pdf.set_font("Arial", 'B', 20)
-    pdf.set_text_color(0, 255, 204) 
-    pdf.text(10, 25, "ZOE FINTECH HUB")
-    
-    pdf.set_font("Arial", '', 12)
-    pdf.set_text_color(255, 255, 255)
-    # Now this line will work because 'client_name' is defined in the header above
-    pdf.text(10, 33, f"Statement for: {client_name}")
-    
-    # TABLE CONTENT
-    pdf.set_y(50)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", 'B', 10)
-    
-    # Table Headers
-    pdf.cell(40, 10, "Date", 1)
-    pdf.cell(80, 10, "Description", 1)
-    pdf.cell(30, 10, "In (UGX)", 1)
-    pdf.cell(40, 10, "Balance", 1)
-    pdf.ln()
-    
-    pdf.set_font("Arial", '', 9)
-    for i, row in df.iterrows():
-        pdf.cell(40, 10, str(row['Date'].date()), 1)
-        pdf.cell(80, 10, str(row['Description']), 1)
-        pdf.cell(30, 10, f"{row['Inflow']:,.0f}", 1)
-        pdf.cell(40, 10, f"{row['Balance']:,.0f}", 1)
-        pdf.ln()
-
-    # SAVE AND EXPORT
-    output = pdf.output(dest='S').encode('latin-1')
-    st.download_button(
-        label="Click here to save PDF",
-        data=output,
-        file_name=f"Statement_{client_name}.pdf",
-        mime="application/pdf"
-    )
-
-    # 2. COMBINE INTO MASTER LEDGER
-    # We create a unified format: Date | Description | Type | Inflow | Outflow
-    ledger_parts = []
-
-    if not loans_df.empty:
-        l_temp = loans_df[["Date", "Borrower", "Amount"]].copy()
-        l_temp["Description"] = "Loan Issued to " + l_temp["Borrower"]
-        l_temp["Type"] = "Disbursement"
-        l_temp["Inflow"] = 0
-        l_temp["Outflow"] = l_temp["Amount"]
-        ledger_parts.append(l_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
-
-    if not pay_df.empty:
-        p_temp = pay_df[["Date", "Borrower", "Amount"]].copy()
-        p_temp["Description"] = "Repayment from " + p_temp["Borrower"]
-        p_temp["Type"] = "Repayment"
-        p_temp["Inflow"] = p_temp["Amount"]
-        p_temp["Outflow"] = 0
-        ledger_parts.append(p_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
-
-    if not exp_df.empty:
-        e_temp = exp_df[["Date", "Description", "Amount"]].copy()
-        e_temp["Type"] = "Expense"
-        e_temp["Inflow"] = 0
-        e_temp["Outflow"] = e_temp["Amount"]
-        ledger_parts.append(e_temp[["Date", "Description", "Type", "Inflow", "Outflow"]])
-
-    if not ledger_parts:
-        st.info("No transactions found to build the ledger.")
-    else:
-        master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
-        return pdf.output(dest='S').encode('latin-1')
-
 
 
 # --- SETTINGS PAGE (ADMIN ONLY) ---
