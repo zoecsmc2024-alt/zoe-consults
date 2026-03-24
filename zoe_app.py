@@ -54,12 +54,20 @@ def generate_ledger_pdf(loan_data, ledger_df, filename):
     # --- TABLE ROWS ---
     pdf.set_font("Arial", '', 9)
     for _, row in ledger_df.iterrows():
+        # Date
         pdf.cell(30, 10, str(row['Date'].date()), 1)
+        # Description
         pdf.cell(60, 10, str(row['Description']), 1)
+        # Debit
         pdf.cell(30, 10, f"{row['Debit']:,.0f}", 1)
+        # Credit
         pdf.cell(30, 10, f"{row['Credit']:,.0f}", 1)
-        pdf.cell(40, 10, f"{row['Balance']:,.0f}", 1)
-        pdf.ln(0)
+        
+        # Balance - The '1' at the end here tells FPDF to move to the NEXT LINE
+        pdf.cell(40, 10, f"{row['Balance']:,.0f}", 1, 1) 
+        
+        # Alternatively, if the 1,1 doesn't work, add:
+        # pdf.ln(0)
 
     return pdf.output(dest='S').encode('latin-1')
 
