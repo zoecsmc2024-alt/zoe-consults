@@ -665,8 +665,20 @@ risky_loans = loans_df[
     # ==============================
     # ISSUE BUTTON
     # ==============================
-    if st.button("Issue Loan"):
+# All these should start at the exact same vertical line
+amount = st.number_input("Loan Amount", min_value=0.0)
+interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
 
+# FIX: Make sure this button is aligned with the inputs above
+if st.button("Issue Loan"):
+    # Code inside the button must be indented further
+    new_loan = {
+        "Loan_ID": len(loans_df) + 1,
+        "Borrower": selected_borrower,
+        "Amount": amount,
+        "Status": "Active"
+    }
+    # ... save logic
         if amount <= 0 or interest_rate <= 0:
             st.error("Enter valid loan details")
 
