@@ -107,30 +107,41 @@ def save_logo(sheet, image_file):
 
 def login():
     st.title("🔐 Login")
+    
+    # Load the Users sheet
     users = load_data(sheet, "Users")
 
     if users.empty:
-        st.error("No user database found. Please check the 'Users' sheet.")
+        st.error("⚠️ The 'Users' sheet is empty or not found.")
         return
 
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
+    # Create the input boxes
+    u_input = st.text_input("Username")
+    p_input = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        # We use .get() and lower case to make it safer
-        # Check if the columns exist first
-        if "Username" in users.columns and "Password" in users.columns:
-            user = users[(users["Username"] == u) & (users["Password"] == p)]
+        # We find the column names regardless of whether they are 'U' or 'Username'
+        # This looks for any column starting with 'U' and 'P'
+        u_col = next((c for c in users.columns if c.lower().startswith('u')), None)
+        p_col = next((c for c in users.columns if c.lower().startswith('p')), None)
+        r_col = next((c for c in users.columns if c.lower().startswith('r')), None) # Role
+
+        if u_col and p_col:
+            # Match the input to the sheet data
+            user_match = users[(users[u_col].astype(str) == u_input) & 
+                               (users[p_col].astype(str) == p_input)]
             
-            if not user.empty:
+            if not user_match.empty:
                 st.session_state.logged_in = True
-                st.session_state.user = u
-                st.session_state.role = user.iloc[0]["Role"]
+                st.session_state.user = u_input
+                # Set role to Admin if 'Role' column is missing
+                st.session_state.role = user_match.iloc[0][r_col] if r_col else "Admin"
+                st.success(f"Welcome back, {u_input}!")
                 st.rerun()
             else:
-                st.error("Invalid credentials")
+                st.error("❌ Invalid Username or Password")
         else:
-            st.error(f"Column mismatch! Sheet has: {list(users.columns)}. Need: 'Username' and 'Password'")
+            st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
 # ==============================
 # 5. SIDEBAR & NAVIGATION
 # ==============================
