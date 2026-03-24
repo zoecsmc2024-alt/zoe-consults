@@ -1246,7 +1246,15 @@ elif st.session_state.page == "Expenses":
         selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
 
         # Extract the ID and get the current row
-        edit_id = int(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
+        # THE FIX: Convert to string first to handle "Date-formatted" IDs from Google Sheets
+edit_id_str = str(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
+
+# Now safely convert to an integer
+try:
+    edit_id = int(float(edit_id_str)) 
+except ValueError:
+    st.error(f"Could not read ID: {edit_id_str}. Please check your Google Sheet formatting.")
+    st.stop()
         edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
 
         # UI for Editing
