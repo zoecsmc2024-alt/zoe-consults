@@ -1464,7 +1464,6 @@ elif st.session_state.page == "Payroll":
     
 # --- REPORTS PAGE (ADMIN ONLY) ---
 import plotly.express as px # Ensure this is at the top of your main script
-
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics & Reports")
     
