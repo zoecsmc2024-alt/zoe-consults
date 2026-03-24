@@ -668,20 +668,22 @@ interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
 duration = st.number_input("Duration (Days)", min_value=1, value=30) # Ensure duration exists
 
 if st.button("Issue Loan"):
-    # LEVEL 1: Inside the button click
-    if amount <= 0 or interest_rate <= 0:
-        st.error("Enter valid loan details")
+        # LEVEL 1: Inside the button click
+        if amount <= 0 or interest_rate <= 0:
+            st.error("Enter valid loan details")
 
         elif selected_borrower not in active_borrowers["Name"].values:
             st.error("Borrower is inactive")
 
         else:
-            # LEVEL 2: Inside the 'else' (The actual processing)
+            # LEVEL 2: The calculation only happens if the above checks pass
             interest = (interest_rate / 100) * amount
             total = amount + interest
 
             start_date = datetime.now()
             end_date = start_date + timedelta(days=int(duration))
+            
+            # ... rest of your save logic
 
             # Generate ID Safely
             new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
