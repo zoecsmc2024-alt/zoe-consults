@@ -709,8 +709,8 @@ if st.button("Issue Loan"):
                 st.balloons()
             except Exception as e:
                 st.error(f"❌ Failed to save to Google Sheets: {e}")
-
-    st.markdown("---")
+                
+                st.markdown("---")
     # ==============================
     # AUTO STATUS UPDATE
     # ==============================
