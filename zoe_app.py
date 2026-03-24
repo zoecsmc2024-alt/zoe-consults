@@ -1564,13 +1564,6 @@ elif st.session_state.page == "Ledger":
     st.title("📄 Master Ledger & Statements")
 
     sheet = open_sheet("Zoe_Data")
-    
-    # 1. Load Data
-    loans_df = load_data(sheet, "Loans")
-    pay_df = load_data(sheet, "Payments")
-    exp_df = load_data(sheet, "Expenses")
-
-    ledger_parts = []
 
     # --- PROCESS LOANS (Uses 'Start_Date') ---
     if not loans_df.empty:
@@ -1636,16 +1629,17 @@ if st.button("📥 Download PDF Statement"):
     pdf = FPDF()
     pdf.add_page()
     
-    # NEON SKY HEADER (Matching your sidebar)
-    pdf.set_fill_color(43, 63, 135) # Your #2B3F87 Dark Blue
+    # NEON SKY HEADER
+    pdf.set_fill_color(43, 63, 135) 
     pdf.rect(0, 0, 210, 40, 'F')
     
     pdf.set_font("Arial", 'B', 20)
-    pdf.set_text_color(0, 255, 204) # Your #00ffcc Neon Green
+    pdf.set_text_color(0, 255, 204) 
     pdf.text(10, 25, "ZOE FINTECH HUB")
     
     pdf.set_font("Arial", '', 12)
     pdf.set_text_color(255, 255, 255)
+    # Now this line will work because 'client_name' is defined in the header above
     pdf.text(10, 33, f"Statement for: {client_name}")
     
     # TABLE CONTENT
