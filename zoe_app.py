@@ -756,10 +756,10 @@ progress = loan["Progress (%)"]
 st.progress(min(max(int(progress), 0), 100))
 # 1. These metrics stay indented (pushed right) 
         # because they belong to the LOANS page logic.
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
-    col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
-    col3.metric("Current Status", loan["Status"])
+col1, col2, col3 = st.columns(3)
+col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
+col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
+col3.metric("Current Status", loan["Status"])
 
 # 2. THIS IS THE FIX: This 'elif' must move BACK to the left.
 # It should line up exactly with the very first 'if' at the top of your script.
