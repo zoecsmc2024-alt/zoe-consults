@@ -1291,6 +1291,95 @@ elif st.session_state.page == "Expenses":
                 st.rerun() # This forces the page to refresh the list
     else:
         st.info("No expenses found to manage.")
+
+elif st.session_state.page == "PettyCash":
+    st.title("💵 Petty Cash Management")
+
+    # 1. Load and Clean Data
+    sheet = open_sheet("Zoe_Data")
+    df = load_data(sheet, "PettyCash")
+
+    if df.empty:
+        df = pd.DataFrame(columns=["Transaction_ID", "Type", "Amount", "Date", "Description"])
+    else:
+        # Prevent the 1899 Date Bug by forcing ID to numeric
+        df["Transaction_ID"] = pd.to_numeric(df["Transaction_ID"], errors='coerce').fillna(0).astype(int)
+
+    # 2. BALANCE METRICS (Shows at the top)
+    inflow = df[df["Type"] == "In"]["Amount"].astype(float).sum()
+    outflow = df[df["Type"] == "Out"]["Amount"].astype(float).sum()
+    balance = inflow - outflow
+
+    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1.metric("Total In", f"{inflow:,.0f} UGX")
+    col_m2.metric("Total Out", f"{outflow:,.0f} UGX")
+    col_m3.metric("Current Balance", f"{balance:,.0f} UGX", delta=None)
+
+    st.markdown("---")
+
+    # 3. RECORD TRANSACTION
+    st.subheader("➕ Record Transaction")
+    with st.expander("New Entry", expanded=False):
+        t_col1, t_col2 = st.columns(2)
+        ttype = t_col1.selectbox("Type", ["In", "Out"], key="new_type")
+        t_amount = t_col2.number_input("Amount", min_value=0.0, step=500.0, key="new_amt")
+        desc = st.text_input("Description", key="new_desc")
+
+        if st.button("Save Entry", use_container_width=True):
+            if t_amount <= 0 or desc == "":
+                st.error("Please fill all fields")
+            else:
+                new_id = int(df["Transaction_ID"].max() + 1) if not df.empty else 1
+                new_row = pd.DataFrame([{
+                    "Transaction_ID": new_id,
+                    "Type": ttype,
+                    "Amount": t_amount,
+                    "Date": datetime.now().strftime("%Y-%m-%d"),
+                    "Description": desc
+                }])
+                updated_df = pd.concat([df, new_row], ignore_index=True)
+                save_data(sheet, "PettyCash", updated_df)
+                st.success("Recorded ✅")
+                st.rerun()
+
+    # 4. DATA TABLE
+    st.subheader("📜 History")
+    st.dataframe(df.sort_values(by="Date", ascending=False), use_container_width=True)
+
+    # 5. MANAGE TRANSACTIONS (The "Popup" Style)
+    st.markdown("---")
+    if not df.empty:
+        with st.popover("⚙️ Edit or Delete a Transaction"):
+            st.write("### Manage Entry")
+            # Create a label for the dropdown
+            df['Label'] = df.apply(lambda x: f"ID: {x['Transaction_ID']} | {x['Type']} - {x['Description']}", axis=1)
+            selected_label = st.selectbox("Select Transaction", df['Label'])
+            
+            # Extract ID and Row
+            sel_id = int(selected_label.split(" | ")[0].replace("ID: ", ""))
+            item = df[df["Transaction_ID"] == sel_id].iloc[0]
+
+            # Edit Fields
+            upd_type = st.selectbox("Update Type", ["In", "Out"], index=0 if item["Type"] == "In" else 1)
+            upd_amt = st.number_input("Update Amount", value=float(item["Amount"]))
+            upd_desc = st.text_input("Update Description", value=item["Description"])
+
+            upd_col, del_col = st.columns(2)
+            
+            if upd_col.button("Save Changes ✅", use_container_width=True):
+                df.loc[df["Transaction_ID"] == sel_id, ["Type", "Amount", "Description"]] = [upd_type, upd_amt, upd_desc]
+                # Remove the temporary label column before saving
+                save_data(sheet, "PettyCash", df.drop(columns=['Label']))
+                st.success("Updated!")
+                st.rerun()
+
+            if del_col.button("Delete Entry 🗑️", use_container_width=True):
+                df = df[df["Transaction_ID"] != sel_id]
+                save_data(sheet, "PettyCash", df.drop(columns=['Label']))
+                st.warning("Deleted!")
+                st.rerun()
+    else:
+        st.info("No transactions available to edit.")
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
