@@ -68,7 +68,7 @@ def save_data(sheet, worksheet_name, dataframe):
 
 # Initialize Connection
 client = connect_to_gsheets()
-sheet = client.open("Zoe_Data")
+sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg")
 
 # ==============================
 # 3. UTILITY FUNCTIONS (WhatsApp, PDF, Logo)
