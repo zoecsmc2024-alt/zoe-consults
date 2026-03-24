@@ -18,6 +18,49 @@ from fpdf import FPDF
 import io
 from fpdf import FPDF # Using FPDF as it's more straightforward for styling
 
+def login():
+    st.title("🔐 Login")
+    
+    # Load the Users sheet
+    users = load_data(sheet, "Users")
+
+    if users.empty:
+        st.error("⚠️ The 'Users' sheet is empty or not found.")
+        return
+
+    # Create the input boxes
+    u_input = st.text_input("Username")
+    p_input = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        # We find the column names regardless of whether they are 'U' or 'Username'
+        # This looks for any column starting with 'U' and 'P'
+        u_col = next((c for c in users.columns if c.lower().startswith('u')), None)
+        p_col = next((c for c in users.columns if c.lower().startswith('p')), None)
+        r_col = next((c for c in users.columns if c.lower().startswith('r')), None) # Role
+
+        if u_col and p_col:
+            # Match the input to the sheet data
+            user_match = users[(users[u_col].astype(str) == u_input) & 
+                               (users[p_col].astype(str) == p_input)]
+            
+            if not user_match.empty:
+                st.session_state.logged_in = True
+                st.session_state.user = u_input
+                # Set role to Admin if 'Role' column is missing
+                st.session_state.role = user_match.iloc[0][r_col] if r_col else "Admin"
+                st.success(f"Welcome back, {u_input}!")
+                st.rerun()
+            else:
+                st.error("❌ Invalid Username or Password")
+        else:
+            st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
+            if "logged_in" not in st.session_state or st.session_state.logged_in == False:
+                login() # Show ONLY the login page
+                st.stop() # CRITICAL: This prevents the rest of the script from running
+            else:
+                # 2. Only if logged in, show the Sidebar and Pages
+
 def generate_ledger_pdf(loan_data, ledger_df, filename):
     pdf = FPDF()
     pdf.add_page()
@@ -242,48 +285,7 @@ def save_logo(sheet, image_file):
         else:
             settings = pd.concat([settings, pd.DataFrame([{"Key": "logo", "Value": encoded}])])
     save_data(sheet, "Settings", settings)
-def login():
-    st.title("🔐 Login")
-    
-    # Load the Users sheet
-    users = load_data(sheet, "Users")
 
-    if users.empty:
-        st.error("⚠️ The 'Users' sheet is empty or not found.")
-        return
-
-    # Create the input boxes
-    u_input = st.text_input("Username")
-    p_input = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        # We find the column names regardless of whether they are 'U' or 'Username'
-        # This looks for any column starting with 'U' and 'P'
-        u_col = next((c for c in users.columns if c.lower().startswith('u')), None)
-        p_col = next((c for c in users.columns if c.lower().startswith('p')), None)
-        r_col = next((c for c in users.columns if c.lower().startswith('r')), None) # Role
-
-        if u_col and p_col:
-            # Match the input to the sheet data
-            user_match = users[(users[u_col].astype(str) == u_input) & 
-                               (users[p_col].astype(str) == p_input)]
-            
-            if not user_match.empty:
-                st.session_state.logged_in = True
-                st.session_state.user = u_input
-                # Set role to Admin if 'Role' column is missing
-                st.session_state.role = user_match.iloc[0][r_col] if r_col else "Admin"
-                st.success(f"Welcome back, {u_input}!")
-                st.rerun()
-            else:
-                st.error("❌ Invalid Username or Password")
-        else:
-            st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
-            if "logged_in" not in st.session_state or st.session_state.logged_in == False:
-                login() # Show ONLY the login page
-                st.stop() # CRITICAL: This prevents the rest of the script from running
-            else:
-                # 2. Only if logged in, show the Sidebar and Pages
                 sidebar()
 def sidebar():
     role = st.session_state.get("role", "Staff")
