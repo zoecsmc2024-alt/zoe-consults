@@ -105,31 +105,32 @@ def save_logo(sheet, image_file):
             settings = pd.concat([settings, pd.DataFrame([{"Key": "logo", "Value": encoded}])])
     save_data(sheet, "Settings", settings)
 
-# ==============================
-# 4. LOGIN SYSTEM
-# ==============================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
 def login():
     st.title("🔐 Login")
     users = load_data(sheet, "Users")
+
+    if users.empty:
+        st.error("No user database found. Please check the 'Users' sheet.")
+        return
+
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
+
     if st.button("Login"):
-        user = users[(users.Username == u) & (users.Password == p)]
-        if not user.empty:
-            st.session_state.logged_in = True
-            st.session_state.user = u
-            st.session_state.role = user.iloc[0]["Role"]
-            st.rerun()
+        # We use .get() and lower case to make it safer
+        # Check if the columns exist first
+        if "Username" in users.columns and "Password" in users.columns:
+            user = users[(users["Username"] == u) & (users["Password"] == p)]
+            
+            if not user.empty:
+                st.session_state.logged_in = True
+                st.session_state.user = u
+                st.session_state.role = user.iloc[0]["Role"]
+                st.rerun()
+            else:
+                st.error("Invalid credentials")
         else:
-            st.error("Invalid credentials")
-
-if not st.session_state.logged_in:
-    login()
-    st.stop()
-
+            st.error(f"Column mismatch! Sheet has: {list(users.columns)}. Need: 'Username' and 'Password'")
 # ==============================
 # 5. SIDEBAR & NAVIGATION
 # ==============================
