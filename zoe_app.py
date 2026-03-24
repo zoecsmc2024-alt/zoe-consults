@@ -727,8 +727,8 @@ if st.button("Issue Loan"):
         # 3. DISPLAY THE TABLE
         st.subheader("📋 Active & Overdue Loans")
         st.dataframe(loans_df, use_container_width=True)
-    else:
-        st.info("No loans issued yet. Go to the 'Issue Loan' section to start.")
+else:
+    st.info("No loans issued yet. Go to the 'Issue Loan' section to start.")
 
     # ==============================
         # LOAN TABLE WITH INSIGHTS (Indented 8 spaces)
