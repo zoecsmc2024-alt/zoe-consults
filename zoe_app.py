@@ -292,7 +292,11 @@ if st.session_state.page == "Overview":
 
     st.title("📊 Financial Dashboard")
 
-    sheet = open_sheet("Zoe_Data")
+    def open_sheet(sheet_name):
+    client = connect_to_gsheets()
+    # Replace the ID below with the one from your browser URL
+    sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg") 
+    return sheet
     df = load_data(sheet, "Loans")
 
     if df.empty:
