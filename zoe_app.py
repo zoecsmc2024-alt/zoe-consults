@@ -288,23 +288,162 @@ if st.session_state.page == "Overview":
 
 # --- BORROWERS PAGE ---
 elif st.session_state.page == "Borrowers":
+
     st.title("👥 Borrowers Management")
+
+    sheet = open_sheet("Zoe_Data")
     df = load_data(sheet, "Borrowers")
 
-    with st.form("add_borrower"):
-        st.subheader("➕ Add Borrower")
-        name = st.text_input("Full Name")
-        phone = st.text_input("Phone Number")
-        nid = st.text_input("National ID")
-        addr = st.text_input("Address")
-        if st.form_submit_button("Add"):
-            new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
-            new_row = pd.DataFrame([{"Borrower_ID": new_id, "Name": name, "Phone": phone, "National_ID": nid, "Address": addr, "Status": "Active", "Date_Added": datetime.now().strftime("%Y-%m-%d")}])
-            df = pd.concat([df, new_row], ignore_index=True)
-            save_data(sheet, "Borrowers", df)
-            st.success("Added!")
+    if df.empty:
+        df = pd.DataFrame(columns=[
+            "Borrower_ID", "Name", "Phone",
+            "National_ID", "Address", "Status", "Date_Added"
+        ])
 
-    st.dataframe(df, use_container_width=True)
+    # ==============================
+    # SEARCH & FILTER
+    # ==============================
+    st.subheader("🔍 Search & Filter")
+
+    col1, col2 = st.columns(2)
+
+    search = col1.text_input("Search (Name or Phone)")
+    status_filter = col2.selectbox("Filter by Status", ["All", "Active", "Inactive"])
+
+    filtered_df = df.copy()
+
+    if search:
+        filtered_df = filtered_df[
+            filtered_df["Name"].str.contains(search, case=False, na=False) |
+            filtered_df["Phone"].str.contains(search, case=False, na=False)
+        ]
+
+    if status_filter != "All":
+        filtered_df = filtered_df[filtered_df["Status"] == status_filter]
+
+    # ==============================
+    # DISPLAY BORROWERS
+    # ==============================
+    st.subheader("📋 Borrowers List")
+    st.dataframe(filtered_df, use_container_width=True)
+
+    st.markdown("---")
+
+    # ==============================
+    # ADD BORROWER
+    # ==============================
+    st.subheader("➕ Add Borrower")
+
+    with st.form("add_borrower", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+
+        name = col1.text_input("Full Name")
+        phone = col2.text_input("Phone Number")
+
+        national_id = col1.text_input("National ID")
+        address = col2.text_input("Address")
+
+        submitted = st.form_submit_button("Add Borrower")
+
+        if submitted:
+            new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
+
+            new_data = pd.DataFrame([{
+                "Borrower_ID": new_id,
+                "Name": name,
+                "Phone": phone,
+                "National_ID": national_id,
+                "Address": address,
+                "Status": "Active",
+                "Date_Added": datetime.now().strftime("%Y-%m-%d")
+            }])
+
+            df = pd.concat([df, new_data], ignore_index=True)
+            save_data(sheet, "Borrowers", df)
+
+            st.success("Borrower added ✅")
+
+    st.markdown("---")
+
+    # ==============================
+    # SELECT BORROWER (FOR ACTIONS)
+    # ==============================
+    st.subheader("⚙️ Manage Borrower")
+
+    if not df.empty:
+        selected_id = st.selectbox(
+            "Select Borrower",
+            filtered_df["Borrower_ID"]
+        )
+
+        borrower = df[df["Borrower_ID"] == selected_id].iloc[0]
+
+        # ==============================
+        # BORROWER SUMMARY
+        # ==============================
+        loans_df = load_data(sheet, "Loans")
+
+        if not loans_df.empty:
+            loans_df["Amount"] = pd.to_numeric(loans_df["Amount"], errors="coerce")
+            loans_df["Amount_Paid"] = pd.to_numeric(loans_df.get("Amount_Paid", 0), errors="coerce")
+
+            user_loans = loans_df[loans_df["Borrower"] == borrower["Name"]]
+
+            total_loans = user_loans.shape[0]
+            total_borrowed = user_loans["Amount"].sum()
+            total_paid = user_loans["Amount_Paid"].sum()
+        else:
+            total_loans, total_borrowed, total_paid = 0, 0, 0
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Loans", total_loans)
+        col2.metric("Borrowed", f"{total_borrowed:,.0f}")
+        col3.metric("Paid", f"{total_paid:,.0f}")
+
+        st.markdown("---")
+
+        # ==============================
+        # EDIT BORROWER
+        # ==============================
+        st.subheader("✏️ Edit Borrower")
+
+        col1, col2 = st.columns(2)
+
+        new_name = col1.text_input("Name", borrower["Name"])
+        new_phone = col2.text_input("Phone", borrower["Phone"])
+
+        new_nid = col1.text_input("National ID", borrower["National_ID"])
+        new_address = col2.text_input("Address", borrower["Address"])
+
+        new_status = st.selectbox(
+            "Status",
+            ["Active", "Inactive"],
+            index=0 if borrower["Status"] == "Active" else 1
+        )
+
+        if st.button("Update"):
+            df.loc[df["Borrower_ID"] == selected_id, [
+                "Name", "Phone", "National_ID", "Address", "Status"
+            ]] = [
+                new_name, new_phone, new_nid, new_address, new_status
+            ]
+
+            save_data(sheet, "Borrowers", df)
+            st.success("Updated successfully ✅")
+
+        # ==============================
+        # SAFE DELETE (DEACTIVATE)
+        # ==============================
+        st.subheader("⚠️ Deactivate Borrower")
+
+        if borrower["Status"] == "Active":
+            if st.button("Deactivate"):
+                df.loc[df["Borrower_ID"] == selected_id, "Status"] = "Inactive"
+                save_data(sheet, "Borrowers", df)
+                st.warning("Borrower deactivated ⚠️")
+        else:
+            st.info("Borrower already inactive")
+
 
 # --- PAYMENTS PAGE ---
 elif st.session_state.page == "Payments":
