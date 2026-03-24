@@ -706,8 +706,25 @@ elif st.session_state.page == "Payments":
     st.title("💵 Payments Management")
     
     # Don't forget to define 'sheet' here so the data can load!
-    sheet = open_sheet("Zoe_Data") 
+    # 1. Fetch data
+    sheet = open_sheet("Zoe_Data")
     loans_df = load_data(sheet, "Loans")
+
+    # 2. THE SAFETY GUARD (Add this here!)
+    if loans_df.empty:
+        # Create an empty dataframe with the exact columns needed
+        loans_df = pd.DataFrame(columns=[
+            "Loan_ID", "Borrower", "Status", "Total_Repayable", "Amount_Paid"
+        ])
+        st.info("No loans found in the system.")
+        st.stop() # Prevents the KeyError below
+
+    # Handle lowercase "status" if it exists in the sheet
+    if "status" in loans_df.columns and "Status" not in loans_df.columns:
+        loans_df = loans_df.rename(columns={"status": "Status"})
+
+    # 3. Now this line is safe
+    active_loans = loans_df[loans_df["Status"] != "Closed"]
     payments_df = load_data(sheet, "Payments")
 
     if payments_df.empty:
