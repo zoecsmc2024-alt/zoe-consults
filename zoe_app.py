@@ -1246,21 +1246,21 @@ elif st.session_state.page == "Expenses":
     st.subheader("⚙️ Manage Existing Expenses")
 
     if not df.empty:
-        edit_options = df.apply(lambda x: f"ID: {x['Expense_ID']} | {x['Category']} - {x['Description']}", axis=1)
+        # 1. FORCE CLEANING: Convert Expense_ID to a string, then to a float, then to an int
+        # This turns "1899-12-31" back into "1" automatically
+        temp_df = df.copy()
+        temp_df["Expense_ID"] = pd.to_numeric(temp_df["Expense_ID"], errors='coerce').fillna(0).astype(int)
+
+        # 2. Build the options using our cleaned temp_df
+        edit_options = temp_df.apply(lambda x: f"ID: {x['Expense_ID']} | {x['Category']} - {x['Description']}", axis=1)
         selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
 
-        # 1. Advanced Cleaning: Strip away dashes or any non-numeric junk
-        import re
-        edit_id_clean = re.sub(r'[^0-9.]', '', selected_to_edit.split(" | ")[0])
-
-        # 2. Try to convert
+        # 3. Simple Extraction (The ID is now a clean number string)
         try:
-            # If it's empty after cleaning, default to 1 or throw error
-            edit_id = int(float(edit_id_clean)) if edit_id_clean else 1
-            edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
+            edit_id = int(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
+            edit_row = temp_df[temp_df["Expense_ID"] == edit_id].iloc[0]
         except (ValueError, IndexError):
-            st.error(f"Spreadsheet format error. Raw ID detected as: {edit_id_clean}")
-            st.info("💡 Tip: Go to Google Sheets, highlight the Expense_ID column, and set Format -> Number -> Plain Text.")
+            st.error("Select a valid expense from the list.")
             st.stop()
 
         # 3. UI for Editing (Ensure this is indented correctly)
