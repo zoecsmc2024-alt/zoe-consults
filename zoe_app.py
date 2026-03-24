@@ -761,21 +761,120 @@ col1.metric("Paid", f"{loan['Amount_Paid']:,.0f} UGX")
 col2.metric("Outstanding", f"{loan['Outstanding']:,.0f} UGX")
 col3.metric("Current Status", loan["Status"])
 
-# 2. THIS IS THE FIX: This 'elif' must move BACK to the left.
-# It should line up exactly with the very first 'if' at the top of your script.
+
+# ==============================
+# PAYMENTS PAGE
+# ==============================
 elif st.session_state.page == "Payments":
+
     st.title("💵 Payments Management")
-    
-    # Don't forget to define 'sheet' here so the data can load!
-    sheet = open_sheet("Zoe_Data") 
+
+    sheet = open_sheet("Zoe_Data")
+
     loans_df = load_data(sheet, "Loans")
     payments_df = load_data(sheet, "Payments")
 
-    loan_id = st.selectbox("Select Loan", loans_df[loans_df["Status"] != "Closed"]["Loan_ID"])
-    amount = st.number_input("Payment Amount", min_value=0.0)
-    if st.button("Record Payment"):
-        # Process payment logic...
-        st.success("Payment Recorded!")
+    if payments_df.empty:
+        payments_df = pd.DataFrame(columns=[
+            "Payment_ID", "Loan_ID", "Borrower",
+            "Amount", "Date", "Method", "Recorded_By"
+        ])
+
+    # ==============================
+    # SELECT LOAN
+    # ==============================
+    st.subheader("➕ Record Payment")
+
+    active_loans = loans_df[loans_df["Status"] != "Closed"]
+
+    if active_loans.empty:
+        st.info("No active loans")
+    else:
+        loan_id = st.selectbox("Select Loan", active_loans["Loan_ID"])
+
+        loan = active_loans[active_loans["Loan_ID"] == loan_id].iloc[0]
+
+        outstanding = loan["Total_Repayable"] - loan["Amount_Paid"]
+
+        # ==============================
+        # LOAN DETAILS
+        # ==============================
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Borrower", loan["Borrower"])
+        col2.metric("Outstanding", f"{outstanding:,.0f}")
+        col3.metric("Status", loan["Status"])
+
+        # ==============================
+        # PAYMENT INPUT
+        # ==============================
+        amount = st.number_input("Payment Amount", min_value=0.0)
+        method = st.selectbox("Payment Method", ["Cash", "Mobile Money", "Bank"])
+        recorded_by = st.text_input("Recorded By")
+
+        # ==============================
+        # VALIDATION + SAVE
+        # ==============================
+        if st.button("Record Payment"):
+
+            if amount <= 0:
+                st.error("Enter valid amount")
+
+            elif amount > outstanding:
+                st.error("Payment exceeds outstanding balance")
+
+            else:
+                new_id = int(payments_df["Payment_ID"].max() + 1) if not payments_df.empty else 1
+
+                new_payment = pd.DataFrame([{
+                    "Payment_ID": new_id,
+                    "Loan_ID": loan_id,
+                    "Borrower": loan["Borrower"],
+                    "Amount": amount,
+                    "Date": datetime.now().strftime("%Y-%m-%d"),
+                    "Method": method,
+                    "Recorded_By": recorded_by
+                }])
+
+                payments_df = pd.concat([payments_df, new_payment], ignore_index=True)
+                save_data(sheet, "Payments", payments_df)
+
+                # ==============================
+                # UPDATE LOAN
+                # ==============================
+                idx = loans_df[loans_df["Loan_ID"] == loan_id].index[0]
+
+                loans_df.loc[idx, "Amount_Paid"] += amount
+
+                if loans_df.loc[idx, "Amount_Paid"] >= loans_df.loc[idx, "Total_Repayable"]:
+                    loans_df.loc[idx, "Status"] = "Closed"
+
+                save_data(sheet, "Loans", loans_df)
+
+                st.success("Payment recorded ✅")
+
+    st.markdown("---")
+
+    # ==============================
+    # PAYMENT HISTORY
+    # ==============================
+    st.subheader("📜 Payment History")
+
+    st.dataframe(payments_df.sort_values(by="Date", ascending=False), use_container_width=True)
+
+    st.markdown("---")
+
+    # ==============================
+    # DAILY COLLECTIONS
+    # ==============================
+    st.subheader("📊 Daily Collections")
+
+    payments_df["Date"] = pd.to_datetime(payments_df["Date"], errors="coerce")
+
+    daily = payments_df.groupby(payments_df["Date"].dt.date)["Amount"].sum().reset_index()
+
+    daily.columns = ["Date", "Total"]
+
+    st.dataframe(daily, use_container_width=True)
 
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
