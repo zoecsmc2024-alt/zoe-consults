@@ -1570,12 +1570,23 @@ elif st.session_state.page == "Ledger":
     pay_df = load_data(sheet, "Payments")
     exp_df = load_data(sheet, "Expenses")
 
-    # Ensure all dataframes have essential columns
-    for df in [loans_df, pay_df, exp_df]:
+    # DEFENSIVE CHECK: Loop through each dataframe safely
+    dfs_to_process = [
+        (loans_df, "Loans"), 
+        (pay_df, "Payments"), 
+        (exp_df, "Expenses")
+    ]
+
+    for df, name in dfs_to_process:
         if not df.empty:
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-            df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
-            # ==============================
+            if "Date" in df.columns:
+                df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            else:
+                st.error(f"⚠️ Column 'Date' is missing in the '{name}' sheet. Please check your Google Sheet headers.")
+                st.stop() # Stops the crash and tells you exactly where the problem is
+
+            if "Amount" in df.columns:
+                df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
 
         
         # 3. GLOBAL VIEW
