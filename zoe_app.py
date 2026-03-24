@@ -663,35 +663,33 @@ risky_loans = loans_df[
 ]
 
     # --- ISSUE BUTTON SECTION ---
+    # These should be indented inside your 'elif page == "Borrowers":' block
     amount = st.number_input("Loan Amount", min_value=0.0)
     interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
+    duration = st.number_input("Duration (Days)", min_value=1, value=30) # Ensure duration exists
 
     if st.button("Issue Loan"):
-        # 1. First Check: Basic Validation
+        # LEVEL 1: Inside the button click
         if amount <= 0 or interest_rate <= 0:
             st.error("Enter valid loan details")
 
-        # 2. Second Check: Is the borrower valid?
-        # Note: 'elif' must align perfectly with the 'if' above
         elif selected_borrower not in active_borrowers["Name"].values:
             st.error("Borrower is inactive")
 
-        # 3. Final Step: The Calculation and Save
         else:
+            # LEVEL 2: Inside the 'else' (The actual processing)
             interest = (interest_rate / 100) * amount
             total = amount + interest
 
             start_date = datetime.now()
-            # Ensure 'duration' is defined as a variable above this line
             end_date = start_date + timedelta(days=int(duration))
 
-            # Generate new ID safely
+            # Generate ID Safely
             new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
 
-            # Create the record
             new_loan_row = pd.DataFrame([{
                 "Loan_ID": new_id,
-                "Borrower": selected_borrower, # Using the variable from your selectbox
+                "Borrower": selected_borrower,
                 "Amount": amount,
                 "Interest": interest,
                 "Total_Repayable": total,
@@ -701,12 +699,15 @@ risky_loans = loans_df[
                 "Status": "Active"
             }])
 
-            # Save back to Google Sheets
-            loans_df = pd.concat([loans_df, new_loan_row], ignore_index=True)
-            save_data(sheet, "Loans", loans_df)
-
-            st.success(f"Loan issued ✅ Total: {total:,.0f} UGX")
-            st.balloons() # Added a little celebration for a successful loan!
+            try:
+                # Concatenate and push to Google Sheets
+                updated_loans = pd.concat([loans_df, new_loan_row], ignore_index=True)
+                save_data(sheet, "Loans", updated_loans)
+                
+                st.success(f"Loan issued ✅ Total Due: {total:,.0f} UGX")
+                st.balloons()
+            except Exception as e:
+                st.error(f"❌ Failed to save to Google Sheets: {e}")
 
     st.markdown("---")
     # ==============================
