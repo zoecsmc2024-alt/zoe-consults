@@ -1234,6 +1234,51 @@ elif st.session_state.page == "Expenses":
         m2.table(cat_summary.set_index("Category"))
     else:
         st.info("No expenses recorded yet.")
+        # ==============================
+    # EDIT / DELETE EXPENSES
+    # ==============================
+    st.markdown("---")
+    st.subheader("⚙️ Manage Existing Expenses")
+
+    if not df.empty:
+        # Create a searchable list of expenses to edit
+        edit_options = df.apply(lambda x: f"ID: {x['Expense_ID']} | {x['Category']} - {x['Description']}", axis=1)
+        selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
+
+        # Extract the ID and get the current row
+        edit_id = int(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
+        edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
+
+        # UI for Editing
+        with st.container():
+            col_a, col_b = st.columns(2)
+            
+            # Pre-fill the fields with current data
+            upd_cat = col_a.selectbox("Update Category", 
+                                    ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"],
+                                    index=["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"].index(edit_row["Category"]))
+            
+            upd_amt = col_b.number_input("Update Amount", value=float(edit_row["Amount"]))
+            upd_desc = st.text_input("Update Description", value=edit_row["Description"])
+
+            # Buttons for Update and Delete
+            btn_col1, btn_col2 = st.columns([1, 4])
+            
+            if btn_col1.button("Update ✅"):
+                # Apply changes to the main dataframe
+                df.loc[df["Expense_ID"] == edit_id, ["Category", "Amount", "Description"]] = [upd_cat, upd_amt, upd_desc]
+                save_data(sheet, "Expenses", df)
+                st.success("Expense updated!")
+                st.rerun()
+
+            if btn_col2.button("Delete 🗑️", type="secondary"):
+                # Remove the row entirely
+                df = df[df["Expense_ID"] != edit_id]
+                save_data(sheet, "Expenses", df)
+                st.warning("Expense deleted.")
+                st.rerun()
+    else:
+        st.info("No expenses available to manage.")
 
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
