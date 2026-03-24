@@ -1255,7 +1255,7 @@ try:
 except ValueError:
     st.error(f"Could not read ID: {edit_id_str}. Please check your Google Sheet formatting.")
     st.stop()
-        edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
+    edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
 
         # UI for Editing
         with st.container():
