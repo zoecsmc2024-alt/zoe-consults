@@ -291,7 +291,7 @@ elif st.session_state.page == "Borrowers":
 
     st.title("👥 Borrowers Management")
 
-    sheet = open_sheet("Zoe_Data")
+    sheet = open_sheet("ZOE_DATA")
     df = load_data(sheet, "Borrowers")
 
     if df.empty:
