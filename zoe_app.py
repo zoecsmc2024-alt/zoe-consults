@@ -847,6 +847,123 @@ elif st.session_state.page == "Payments":
 
     st.dataframe(daily, use_container_width=True)
 
+elif st.session_state.page == "Collateral":
+    st.title("🛡️ Collateral Management")
+
+    # 1. Fetch Data
+    sheet = open_sheet("Zoe_Data")
+    borrowers_df = load_data(sheet, "Borrowers")
+    loans_df = load_data(sheet, "Loans")
+    collateral_df = load_data(sheet, "Collateral")
+
+    # 2. Safety Check for empty Collateral sheet
+    if collateral_df.empty:
+        collateral_df = pd.DataFrame(columns=[
+            "Collateral_ID", "Borrower", "Loan_ID",
+            "Type", "Description", "Value",
+            "Status", "Date_Added"
+        ])
+
+    # ==============================
+    # ADD COLLATERAL
+    # ==============================
+    st.subheader("➕ Register Collateral")
+
+    # Guard against empty loans_df
+    if loans_df.empty:
+        st.warning("No loans found. You must issue a loan before adding collateral.")
+    else:
+        active_loans = loans_df[loans_df["Status"] == "Active"]
+
+        if active_loans.empty:
+            st.info("No active loans to attach collateral to.")
+        else:
+            with st.form("collateral_form", clear_on_submit=True):
+                col1, col2 = st.columns(2)
+                
+                # Selection logic
+                loan_id = col1.selectbox("Select Loan ID", active_loans["Loan_ID"])
+                
+                # Fetch borrower name safely
+                borrower_row = loans_df[loans_df["Loan_ID"] == loan_id]
+                borrower_name = borrower_row["Borrower"].values[0] if not borrower_row.empty else "Unknown"
+
+                col1.info(f"👤 **Borrower:** {borrower_name}")
+                ctype = col2.selectbox("Collateral Type", ["Car", "Land", "Electronics", "Other"])
+                description = st.text_input("Description (e.g. Toyota Prado UBA123X)")
+                value = st.number_input("Estimated Value (UGX)", min_value=0.0)
+
+                submitted = st.form_submit_button("Save Collateral")
+
+                if submitted:
+                    if value <= 0 or description == "":
+                        st.error("Please fill in all fields correctly.")
+                    else:
+                        try:
+                            new_id = int(collateral_df["Collateral_ID"].max() + 1) if not collateral_df.empty else 1
+                            new_data = pd.DataFrame([{
+                                "Collateral_ID": new_id,
+                                "Borrower": borrower_name,
+                                "Loan_ID": loan_id,
+                                "Type": ctype,
+                                "Description": description,
+                                "Value": value,
+                                "Status": "Held",
+                                "Date_Added": datetime.now().strftime("%Y-%m-%d")
+                            }])
+
+                            updated_collateral = pd.concat([collateral_df, new_data], ignore_index=True)
+                            save_data(sheet, "Collateral", updated_collateral)
+                            st.success(f"Collateral registered for {borrower_name} ✅")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error saving: {e}")
+
+    st.markdown("---")
+
+    # ==============================
+    # VIEW & MANAGE COLLATERAL
+    # ==============================
+    if not collateral_df.empty:
+        st.subheader("📋 Collateral Inventory")
+        st.dataframe(collateral_df, use_container_width=True)
+
+        st.subheader("⚙️ Update Status")
+        selected_id = st.selectbox("Select ID to Update", collateral_df["Collateral_ID"])
+        
+        # Get the specific item data
+        item_rows = collateral_df[collateral_df["Collateral_ID"] == selected_id]
+        if not item_rows.empty:
+            item = item_rows.iloc[0]
+            
+            c_col1, c_col2 = st.columns(2)
+            new_status = c_col1.selectbox("Change Status", ["Held", "Released"], 
+                                        index=0 if item["Status"] == "Held" else 1)
+            
+            if st.button("Update Status"):
+                collateral_df.loc[collateral_df["Collateral_ID"] == selected_id, "Status"] = new_status
+                save_data(sheet, "Collateral", collateral_df)
+                st.success("Status updated ✅")
+                st.rerun()
+
+        # ==============================
+        # SUMMARY METRICS
+        # ==============================
+        st.markdown("---")
+        st.subheader("📊 Collateral Summary")
+        
+        # Ensure 'Value' is numeric for calculation
+        collateral_df["Value"] = pd.to_numeric(collateral_df["Value"], errors="coerce").fillna(0)
+        
+        total_val = collateral_df["Value"].sum()
+        held_count = collateral_df[collateral_df["Status"] == "Held"].shape[0]
+        
+        m1, m2 = st.columns(2)
+        m1.metric("Total Asset Value", f"{total_val:,.0f} UGX")
+        m2.metric("Items in Possession", held_count)
+    else:
+        st.info("No collateral records found.")
+
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
