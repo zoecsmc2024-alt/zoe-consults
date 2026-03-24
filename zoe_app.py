@@ -223,9 +223,6 @@ def login():
                 st.error("❌ Invalid Username or Password")
         else:
             st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
-# ==============================
-# 5. SIDEBAR & NAVIGATION
-# ==============================
 def sidebar():
     role = st.session_state.get("role", "Staff")
     current_user = st.session_state.get("user", "Guest")
@@ -233,7 +230,7 @@ def sidebar():
     # Brand Title
     st.sidebar.markdown('<p class="sidebar-brand">ZOE ADMIN 💼</p>', unsafe_allow_html=True)
     
-    # User Profile with Online Status
+    # User Profile
     st.sidebar.markdown(
         f'''<p class="sidebar-user">
             <span class="online-dot"></span> 👤 {current_user} ({role})
@@ -243,8 +240,6 @@ def sidebar():
     
     st.sidebar.markdown("---")
     
-    # ... (the rest of your menu loop)
-
     menu = {
         "Overview": "📊", "Borrowers": "👥", "Loans": "💵", "Collateral": "🛡️",
         "Calendar": "📅", "Ledger": "📄", "Overdue Tracker": "⏰",
@@ -253,25 +248,37 @@ def sidebar():
     }
     
     restricted = ["Settings", "Reports", "Payroll"]
+    
+    # Ensure a default page exists
     if "page" not in st.session_state:
         st.session_state.page = "Overview"
 
+    # --- THE FIXED LOOP ---
     for item, icon in menu.items():
+        # 1. Skip restricted pages for non-admins
         if role != "Admin" and item in restricted:
             continue
             
+        # 2. Styling Logic: Create a unique style for the ACTIVE button
+        # We use a columns trick or a simple button check
+        button_label = f"{icon}  {item}"
+        
+        # Use a container to apply your "active-menu-item" class if it's the current page
         if st.session_state.page == item:
-            # Active Page: Neon Sky Glow
-            st.sidebar.markdown(f'<div class="active-menu-item">{icon} &nbsp;&nbsp; {item}</div>', unsafe_allow_html=True)
+            # We still show a button so it's consistent, but we wrap it in your glow effect
+            st.sidebar.markdown(f'<div class="active-menu-item">', unsafe_allow_html=True)
+            if st.sidebar.button(button_label, key=f"active_{item}", use_container_width=True):
+                pass # Already on this page
+            st.sidebar.markdown('</div>', unsafe_allow_html=True)
         else:
-            # Inactive Page: Muted Gray-Blue
-            if st.sidebar.button(f"{icon} &nbsp;&nbsp; {item}", key=f"btn_{item}"):
+            # Regular button for inactive pages
+            if st.sidebar.button(button_label, key=f"btn_{item}", use_container_width=True):
                 st.session_state.page = item
                 st.rerun()
 
     st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Logout"):
-        st.session_state.logged_in = False
+        st.session_state.clear()
         st.rerun()
 
 sidebar()
