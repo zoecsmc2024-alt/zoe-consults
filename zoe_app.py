@@ -284,7 +284,7 @@ def login():
                 st.stop() # CRITICAL: This prevents the rest of the script from running
             else:
                 # 2. Only if logged in, show the Sidebar and Pages
-sidebar()
+                sidebar()
 def sidebar():
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
