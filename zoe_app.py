@@ -1380,6 +1380,93 @@ elif st.session_state.page == "PettyCash":
                 st.rerun()
     else:
         st.info("No transactions available to edit.")
+
+elif st.session_state.page == "Payroll":
+    if st.session_state.role != "Admin":
+        st.error("Access denied 🔒")
+        st.stop()
+
+    st.title("🧾 Payroll Management")
+
+    # 1. Load and Clean Data
+    sheet = open_sheet("Zoe_Data")
+    df = load_data(sheet, "Payroll")
+
+    if df.empty:
+        df = pd.DataFrame(columns=["Payroll_ID", "Employee", "Salary", "Date", "Status"])
+    else:
+        # Fix the 1899 Date bug for IDs
+        df["Payroll_ID"] = pd.to_numeric(df["Payroll_ID"], errors='coerce').fillna(0).astype(int)
+
+    # 2. PAY EMPLOYEE
+    st.subheader("➕ Process Payment")
+    with st.expander("Record New Salary Payment"):
+        name = st.text_input("Employee Name")
+        salary = st.number_input("Salary (UGX)", min_value=0.0, step=1000.0)
+        
+        if st.button("Confirm Payment", use_container_width=True):
+            if name == "" or salary <= 0:
+                st.error("Please enter a name and valid salary amount.")
+            else:
+                new_id = int(df["Payroll_ID"].max() + 1) if not df.empty else 1
+                new_pay = pd.DataFrame([{
+                    "Payroll_ID": new_id,
+                    "Employee": name,
+                    "Salary": salary,
+                    "Date": datetime.now().strftime("%Y-%m-%d"),
+                    "Status": "Paid"
+                }])
+                updated_df = pd.concat([df, new_pay], ignore_index=True)
+                save_data(sheet, "Payroll", updated_df)
+                st.success(f"Payment for {name} recorded! ✅")
+                st.rerun()
+
+    # 3. PAYROLL HISTORY
+    st.subheader("📜 Payment History")
+    st.dataframe(df.sort_values(by="Date", ascending=False), use_container_width=True)
+
+    # 4. MANAGE PAYROLL (The Popover Popup)
+    st.markdown("---")
+    if not df.empty:
+        with st.popover("⚙️ Edit or Delete Salary Entry"):
+            st.write("### Manage Payroll Record")
+            
+            # Create selection label
+            df['Label'] = df.apply(lambda x: f"ID: {x['Payroll_ID']} | {x['Employee']} - {x['Date']}", axis=1)
+            selected_label = st.selectbox("Select Record", df['Label'])
+            
+            # Extract ID
+            sel_id = int(selected_label.split(" | ")[0].replace("ID: ", ""))
+            item = df[df["Payroll_ID"] == sel_id].iloc[0]
+
+            # Edit Fields
+            upd_name = st.text_input("Update Name", value=item["Employee"])
+            upd_salary = st.number_input("Update Salary", value=float(item["Salary"]))
+            upd_status = st.selectbox("Update Status", ["Paid", "Pending", "Cancelled"], 
+                                    index=["Paid", "Pending", "Cancelled"].index(item["Status"]))
+
+            upd_col, del_col = st.columns(2)
+            
+            if upd_col.button("Save Changes ✅", use_container_width=True):
+                df.loc[df["Payroll_ID"] == sel_id, ["Employee", "Salary", "Status"]] = [upd_name, upd_salary, upd_status]
+                save_data(sheet, "Payroll", df.drop(columns=['Label']))
+                st.success("Payroll updated!")
+                st.rerun()
+
+            if del_col.button("Delete Record 🗑️", use_container_width=True):
+                df = df[df["Payroll_ID"] != sel_id]
+                save_data(sheet, "Payroll", df.drop(columns=['Label']))
+                st.warning("Record removed.")
+                st.rerun()
+
+elif st.session_state.page == "Settings":
+    if st.session_state.role != "Admin":
+        st.error("Access denied 🔒")
+        st.stop()
+        
+    st.title("⚙️ Admin Settings")
+    st.write("Configure your Zoe Fintech Hub preferences here.")
+    # You can add user management or interest rate configuration here next.
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
