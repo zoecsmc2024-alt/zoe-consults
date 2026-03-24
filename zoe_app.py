@@ -1249,15 +1249,18 @@ elif st.session_state.page == "Expenses":
         edit_options = df.apply(lambda x: f"ID: {x['Expense_ID']} | {x['Category']} - {x['Description']}", axis=1)
         selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
 
-        # 1. Clean the ID string
-        edit_id_str = str(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
+        # 1. Advanced Cleaning: Strip away dashes or any non-numeric junk
+        import re
+        edit_id_clean = re.sub(r'[^0-9.]', '', selected_to_edit.split(" | ")[0])
 
-        # 2. Try to convert and fetch the row
+        # 2. Try to convert
         try:
-            edit_id = int(float(edit_id_str))
-            edit_row = df[df["Expense_ID"] == edit_id].iloc[0] # Move this HERE
+            # If it's empty after cleaning, default to 1 or throw error
+            edit_id = int(float(edit_id_clean)) if edit_id_clean else 1
+            edit_row = df[df["Expense_ID"] == edit_id].iloc[0]
         except (ValueError, IndexError):
-            st.error(f"Error reading ID: {edit_id_str}. Check Google Sheet formatting.")
+            st.error(f"Spreadsheet format error. Raw ID detected as: {edit_id_clean}")
+            st.info("💡 Tip: Go to Google Sheets, highlight the Expense_ID column, and set Format -> Number -> Plain Text.")
             st.stop()
 
         # 3. UI for Editing (Ensure this is indented correctly)
