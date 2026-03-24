@@ -1608,30 +1608,27 @@ elif st.session_state.page == "Ledger":
     else:
         master_ledger = pd.concat(ledger_parts).sort_values(by="Date", ascending=False)
         st.dataframe(master_ledger, use_container_width=True)
-        
-        # 3. GLOBAL VIEW
-        st.subheader("🌐 Global Transaction History")
-        st.dataframe(master_ledger, use_container_width=True)
 
         st.markdown("---")
 
         # 4. CLIENT STATEMENT SECTION
         st.subheader("👤 Generate Client Statement")
         
-        all_clients = loans_df["Borrower"].unique()
-        selected_client = st.selectbox("Select Client", all_clients)
+        # --- INSIDE THE LEDGER PAGE ---
+all_clients = loans_df["Borrower"].unique()
+selected_client = st.selectbox("Select Client", all_clients)
 
-        client_data = master_ledger[master_ledger["Description"].str.contains(selected_client, na=False)].copy()
-        client_data = client_data.sort_values(by="Date") # Oldest to Newest for Statements
-        
-        # Calculate Running Balance
-        client_data["Balance"] = (client_data["Outflow"] - client_data["Inflow"]).cumsum()
-
-        st.table(client_data[["Date", "Description", "Inflow", "Outflow", "Balance"]])
-
-        # 5. PDF DOWNLOAD BUTTON
-        if st.button("📥 Download PDF Statement"):
-            generate_client_pdf(selected_client, client_data)
+# Only show the button if a client is selected
+if st.button("📥 Download PDF Statement"):
+    # Pass 'selected_client' into the function as 'client_name'
+    pdf_data = generate_client_pdf(selected_client, client_data)
+    
+    st.download_button(
+        label="Click here to save PDF",
+        data=pdf_data,
+        file_name=f"Statement_{selected_client}.pdf",
+        mime="application/pdf"
+    )
             # PDF GENERATOR FUNCTION
 # (Place this at the bottom of your script)
 # ==============================
