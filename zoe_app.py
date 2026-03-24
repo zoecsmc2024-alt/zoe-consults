@@ -285,31 +285,137 @@ else:
 # 6. PAGE ROUTING & CONTENT
 # ==============================
 
-# --- OVERVIEW PAGE ---
+# ==============================
+# UPGRADED OVERVIEW PAGE
+# ==============================
 if st.session_state.page == "Overview":
+
     st.title("📊 Financial Dashboard")
+
+    sheet = open_sheet("Zoe_Data")
     df = load_data(sheet, "Loans")
 
     if df.empty:
         st.warning("No data available")
     else:
+        # ==============================
+        # CLEAN DATA
+        # ==============================
         df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
         df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce")
         df["Amount_Paid"] = pd.to_numeric(df.get("Amount_Paid", 0), errors="coerce")
+
         df["Start_Date"] = pd.to_datetime(df["Start_Date"], errors="coerce")
         df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
-        
+
         today = pd.Timestamp.today()
+
+        # ==============================
+        # AUTO OVERDUE DETECTION
+        # ==============================
         df["Auto_Status"] = df["Status"]
-        df.loc[(df["End_Date"] < today) & (df["Amount_Paid"] < (df["Amount"] + df["Interest"])), "Auto_Status"] = "Overdue"
+        df.loc[
+            (df["End_Date"] < today) & (df["Amount_Paid"] < df["Amount"] + df["Interest"]),
+            "Auto_Status"
+        ] = "Overdue"
 
+        # ==============================
+        # METRICS
+        # ==============================
+        total_loans = df["Amount"].sum()
+        total_interest = df["Interest"].sum()
+        total_expected = total_loans + total_interest
+
+        total_paid = df["Amount_Paid"].sum()
+
+        active_loans = df[df["Auto_Status"] == "Active"].shape[0]
+        overdue_loans = df[df["Auto_Status"] == "Overdue"].shape[0]
+
+        default_rate = (overdue_loans / len(df)) * 100 if len(df) > 0 else 0
+
+        # ==============================
+        # TODAY COLLECTIONS
+        # ==============================
+        today_collections = df[
+            df["Start_Date"].dt.date == today.date()
+        ]["Amount_Paid"].sum()
+
+        # ==============================
+        # METRIC CARDS
+        # ==============================
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("💰 Total Issued", f"{df['Amount'].sum():,.0f}")
-        col2.metric("📈 Expected Profit", f"{df['Interest'].sum():,.0f}")
-        col3.metric("💵 Collected", f"{df['Amount_Paid'].sum():,.0f}")
-        col4.metric("⚠️ Overdue Loans", len(df[df["Auto_Status"] == "Overdue"]))
 
-        st.plotly_chart(px.pie(df, names="Auto_Status", title="Loan Status Distribution"), use_container_width=True)
+        col1.metric("💰 Total Issued", f"{total_loans:,.0f}")
+        col2.metric("📈 Expected Profit", f"{total_interest:,.0f}")
+        col3.metric("💵 Collected", f"{total_paid:,.0f}")
+        col4.metric("⚠️ Overdue Loans", overdue_loans)
+
+        col5, col6 = st.columns(2)
+        col5.metric("📊 Default Rate", f"{default_rate:.1f}%")
+        col6.metric("📅 Today’s Collections", f"{today_collections:,.0f}")
+
+        st.markdown("---")
+
+        # ==============================
+        # STATUS PIE CHART
+        # ==============================
+        status_counts = df["Auto_Status"].value_counts().reset_index()
+        status_counts.columns = ["Status", "Count"]
+
+        fig = px.pie(
+            status_counts,
+            names="Status",
+            values="Count",
+            title="Loan Status Distribution"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # ==============================
+        # MONTHLY INCOME TREND
+        # ==============================
+        df["Month"] = df["Start_Date"].dt.to_period("M").astype(str)
+
+        monthly_income = df.groupby("Month")["Amount_Paid"].sum().reset_index()
+
+        fig2 = px.line(
+            monthly_income,
+            x="Month",
+            y="Amount_Paid",
+            title="Monthly Collections Trend"
+        )
+
+        st.plotly_chart(fig2, use_container_width=True)
+
+        # ==============================
+        # OVERDUE TABLE (IMPORTANT)
+        # ==============================
+        st.subheader("⚠️ Overdue Loans")
+
+        overdue_df = df[df["Auto_Status"] == "Overdue"]
+
+        if overdue_df.empty:
+            st.success("No overdue loans 🎉")
+        else:
+            st.dataframe(
+                overdue_df[[
+                    "Borrower",
+                    "Amount",
+                    "Interest",
+                    "End_Date",
+                    "Amount_Paid"
+                ]],
+                use_container_width=True
+            )
+
+        # ==============================
+        # RECENT ACTIVITY
+        # ==============================
+        st.subheader("📅 Recent Loans")
+
+        recent = df.sort_values(by="Start_Date", ascending=False).head(5)
+        st.dataframe(recent, use_container_width=True)
+
 
 # --- BORROWERS PAGE ---
 elif st.session_state.page == "Borrowers":
