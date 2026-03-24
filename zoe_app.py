@@ -21,57 +21,62 @@ st.set_page_config(page_title="Zoe Fintech", layout="wide")
 
 st.markdown("""
 <style>
-    /* BASE BACKGROUND - True Midnight */
+    /* MAIN WORKSPACE - Ultra Light Baby Blue */
     .stApp {
-        background-color: #020617 !important;
+        background-color: #F0F9FF !important; /* Very light Sky Blue */
     }
 
-    /* SIDEBAR - Ultra Dark Navy */
+    /* SIDEBAR - Stay Deep Midnight for Contrast */
     section[data-testid="stSidebar"] {
-        background-color: #010409 !important;
-        border-right: 1px solid #1e293b;
+        background-color: #020617 !important;
+        border-right: 1px solid #E0F2FE;
     }
 
-    /* SIDEBAR BUTTONS - Glassy & Minimal */
+    /* MAIN CONTENT TEXT - Deep Navy for readability */
+    h1, h2, h3, p, span, label, .main-title {
+        color: #0C4A6E !important; /* Deep Navy Blue */
+        font-weight: 700 !important;
+    }
+
+    /* METRIC CARDS - Bright White with Blue Glow */
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #BAE6FD !important;
+        padding: 20px !important;
+        border-radius: 15px !important;
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1) !important;
+    }
+
+    /* SIDEBAR BUTTONS - Glassy on Dark */
     div.stButton > button {
         background-color: transparent !important;
-        color: #64748b !important; /* Steel Blue Gray */
+        color: #94A3B8 !important;
         border: none !important;
         text-align: left !important;
-        padding: 14px 24px !important;
+        padding: 12px 24px !important;
         width: 100% !important;
-        font-size: 16px !important;
-        border-radius: 0px !important;
-        transition: all 0.3s ease;
     }
 
-    div.stButton > button:hover {
-        color: #38bdf8 !important; /* Electric Baby Blue */
-        background-color: rgba(56, 189, 248, 0.05) !important;
-    }
-
-    /* ACTIVE STATE - Neon Cyan Glow */
+    /* ACTIVE MENU ITEM - Baby Blue Highlight on Dark Sidebar */
     .active-menu-item {
-        background: linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(56, 189, 248, 0) 100%) !important;
-        border-left: 4px solid #38bdf8 !important; /* Neon sky blue strip */
-        color: #38bdf8 !important;
-        padding: 14px 24px !important;
+        background-color: rgba(56, 189, 248, 0.2) !important;
+        border-left: 4px solid #38BDF8 !important;
+        color: #38BDF8 !important;
+        padding: 12px 24px !important;
         font-weight: 700 !important;
-        text-shadow: 0px 0px 10px rgba(56, 189, 248, 0.5); /* Glow effect */
     }
 
-    /* TITLES - Pure White/Sky Contrast */
-    h1, h2, h3, .main-title {
-        color: #f0f9ff !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.5px;
+    /* DATA TABLES - Clean White */
+    [data-testid="stDataFrame"] {
+        background-color: white !important;
+        border-radius: 12px !important;
     }
-
-    /* INFO BOXES - Dark Navy with Blue Border */
+    
+    /* SUCCESS/INFO BOXES - Matching Baby Blue */
     .stAlert {
-        background-color: #082f49 !important;
-        color: #7dd3fc !important;
-        border: 1px solid #0c4a6e !important;
+        background-color: #E0F2FE !important;
+        color: #0369A1 !important;
+        border: 1px solid #7DD3FC !important;
     }
 </style>
 """, unsafe_allow_html=True)
