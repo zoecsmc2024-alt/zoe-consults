@@ -1158,6 +1158,83 @@ elif st.session_state.page == "Calendar":
 
     st.markdown("---")
 
+elif st.session_state.page == "Expenses":
+    st.title("📁 Expense Management")
+
+    # 1. Fetch Data
+    sheet = open_sheet("Zoe_Data")
+    df = load_data(sheet, "Expenses")
+
+    # 2. Safety Check for empty Expenses sheet
+    if df.empty:
+        df = pd.DataFrame(columns=["Expense_ID", "Category", "Amount", "Date", "Description"])
+
+    # ==============================
+    # ADD EXPENSE
+    # ==============================
+    st.subheader("➕ Add New Expense")
+    
+    with st.expander("Click to enter a new expense", expanded=True):
+        col1, col2 = st.columns(2)
+        category = col1.selectbox("Category", ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"])
+        amount = col2.number_input("Amount (UGX)", min_value=0.0, step=500.0)
+        desc = st.text_input("Description (e.g., Office Power Bill March)")
+
+        if st.button("Save Expense", use_container_width=True):
+            if amount <= 0 or desc == "":
+                st.error("Please provide both an amount and a description.")
+            else:
+                try:
+                    new_id = int(df["Expense_ID"].max() + 1) if not df.empty else 1
+                    
+                    new_entry = pd.DataFrame([{
+                        "Expense_ID": new_id,
+                        "Category": category,
+                        "Amount": amount,
+                        "Date": datetime.now().strftime("%Y-%m-%d"),
+                        "Description": desc
+                    }])
+
+                    updated_df = pd.concat([df, new_entry], ignore_index=True)
+                    save_data(sheet, "Expenses", updated_df)
+                    
+                    st.success(f"Expense of {amount:,.0f} recorded! ✅")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to save: {e}")
+
+    st.markdown("---")
+
+    # ==============================
+    # VIEW & ANALYZE EXPENSES
+    # ==============================
+    if not df.empty:
+        st.subheader("📋 Expense Log")
+        
+        # Ensure Amount is numeric for math
+        df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+        
+        # Display table
+        st.dataframe(df.sort_values(by="Date", ascending=False), use_container_width=True)
+
+        # Quick Summary Metrics
+        st.markdown("---")
+        st.subheader("📊 Spending Summary")
+        
+        total_spent = df["Amount"].sum()
+        
+        # Group by category to see where the money goes
+        cat_summary = df.groupby("Category")["Amount"].sum().reset_index()
+        
+        m1, m2 = st.columns([1, 2])
+        m1.metric("Total Expenses", f"{total_spent:,.0f} UGX")
+        
+        # Show a small table of spending by category
+        m2.write("**Spending by Category:**")
+        m2.table(cat_summary.set_index("Category"))
+    else:
+        st.info("No expenses recorded yet.")
+
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
