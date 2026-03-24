@@ -219,12 +219,6 @@ def sidebar():
     st.sidebar.markdown("---")
     
     # ... (the rest of your menu loop)
-    
-    # 2. Use the safe variable we just created
-    st.sidebar.markdown(f"👤 {current_user} ({role})")
-    st.sidebar.markdown("---")
-
-    # ... (rest of your sidebar menu code)
 
     menu = {
         "Overview": "📊", "Borrowers": "👥", "Collateral": "🛡️",
