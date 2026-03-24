@@ -748,32 +748,50 @@ elif st.session_state.page == "Payments":
         recorded_by = st.text_input("Recorded By")
 
         # ==============================
-        # VALIDATION + SAVE
+        # VALIDATION + ATOMIC SAVE
         # ==============================
-        if st.button("Record Payment"):
+        if st.button("Record Payment", use_container_width=True):
+            # Ensure numbers are treated as numbers
+            total_rep = pd.to_numeric(loan["Total_Repayable"])
+            already_paid = pd.to_numeric(loan["Amount_Paid"])
+            outstanding = total_rep - already_paid
 
             if amount <= 0:
-                st.error("Enter valid amount")
-
-            elif amount > outstanding:
-                st.error("Payment exceeds outstanding balance")
-
+                st.error("Please enter an amount greater than 0.")
+            elif amount > (outstanding + 0.01): # Small buffer for float math
+                st.error(f"Payment exceeds balance! Max allowed: {outstanding:,.0f} UGX")
             else:
-                new_id = int(payments_df["Payment_ID"].max() + 1) if not payments_df.empty else 1
+                try:
+                    # A. Prepare New Payment Record
+                    new_id = int(payments_df["Payment_ID"].max() + 1) if not payments_df.empty else 1
+                    new_payment = pd.DataFrame([{
+                        "Payment_ID": new_id,
+                        "Loan_ID": loan_id,
+                        "Borrower": loan["Borrower"],
+                        "Amount": amount,
+                        "Date": datetime.now().strftime("%Y-%m-%d"),
+                        "Method": method,
+                        "Recorded_By": st.session_state.get("user", "Guest")
+                    }])
 
-                new_payment = pd.DataFrame([{
-                    "Payment_ID": new_id,
-                    "Loan_ID": loan_id,
-                    "Borrower": loan["Borrower"],
-                    "Amount": amount,
-                    "Date": datetime.now().strftime("%Y-%m-%d"),
-                    "Method": method,
-                    "Recorded_By": recorded_by
-                }])
+                    # B. Update the Loans DataFrame in memory
+                    idx = loans_df[loans_df["Loan_ID"] == loan_id].index[0]
+                    loans_df.at[idx, "Amount_Paid"] = already_paid + amount
 
-                payments_df = pd.concat([payments_df, new_payment], ignore_index=True)
-                save_data(sheet, "Payments", payments_df)
+                    # C. Check if Loan is now cleared
+                    if loans_df.at[idx, "Amount_Paid"] >= total_rep:
+                        loans_df.at[idx, "Status"] = "Closed"
 
+                    # D. THE ATOMIC SAVE: Push both updates
+                    save_data(sheet, "Payments", pd.concat([payments_df, new_payment], ignore_index=True))
+                    save_data(sheet, "Loans", loans_df)
+
+                    st.success(f"Successfully recorded {amount:,.0f} UGX for {loan['Borrower']} ✅")
+                    st.balloons()
+                    st.rerun() # Refresh to update the history table and metrics
+
+                except Exception as e:
+                    st.error(f"Connection Error: Could not save to Google Sheets. {e}")
                 # ==============================
                 # UPDATE LOAN
                 # ==============================
