@@ -663,14 +663,14 @@ risky_loans = loans_df[
 ]
 # --- ISSUE BUTTON SECTION ---
     # These should be indented inside your 'elif page == "Borrowers":' block
-    amount = st.number_input("Loan Amount", min_value=0.0)
-    interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
-    duration = st.number_input("Duration (Days)", min_value=1, value=30) # Ensure duration exists
+amount = st.number_input("Loan Amount", min_value=0.0)
+interest_rate = st.number_input("Interest Rate (%)", min_value=0.0)
+duration = st.number_input("Duration (Days)", min_value=1, value=30) # Ensure duration exists
 
-    if st.button("Issue Loan"):
-        # LEVEL 1: Inside the button click
-        if amount <= 0 or interest_rate <= 0:
-            st.error("Enter valid loan details")
+if st.button("Issue Loan"):
+    # LEVEL 1: Inside the button click
+    if amount <= 0 or interest_rate <= 0:
+        st.error("Enter valid loan details")
 
         elif selected_borrower not in active_borrowers["Name"].values:
             st.error("Borrower is inactive")
