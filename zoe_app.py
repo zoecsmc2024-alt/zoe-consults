@@ -964,6 +964,113 @@ elif st.session_state.page == "Collateral":
     else:
         st.info("No collateral records found.")
 
+elif st.session_state.page == "Overdue Tracker":
+    st.title("🔴 Collections Dashboard")
+
+    sheet = open_sheet("Zoe_Data")
+    loans_df = load_data(sheet, "Loans")
+
+    if loans_df.empty:
+        st.info("No loan data available to track.")
+    else:
+        # --- DATA PREPARATION ---
+        # 1. Ensure columns for follow-up exist in the dataframe
+        for col in ["Follow_Up_Status", "Last_Contact_Date"]:
+            if col not in loans_df.columns:
+                loans_df[col] = "Pending"
+
+        # 2. Clean numeric and date data
+        loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
+        loans_df["Amount_Paid"] = pd.to_numeric(loans_df["Amount_Paid"], errors="coerce").fillna(0)
+        loans_df["Total_Repayable"] = pd.to_numeric(loans_df["Total_Repayable"], errors="coerce").fillna(0)
+        today = pd.Timestamp.today()
+
+        # --- DETECT OVERDUE ---
+        overdue_df = loans_df[
+            (loans_df["End_Date"] < today) & 
+            (loans_df["Amount_Paid"] < loans_df["Total_Repayable"])
+        ].copy()
+
+        if overdue_df.empty:
+            st.success("All collections are up to date! 🎉")
+        else:
+            # --- CALCULATIONS ---
+            overdue_df["Days_Overdue"] = (today - overdue_df["End_Date"]).dt.days
+            overdue_df["Outstanding"] = overdue_df["Total_Repayable"] - overdue_df["Amount_Paid"]
+
+            # SEVERITY LOGIC
+            def get_severity(days):
+                if days <= 7: return "Mild"
+                elif days <= 30: return "Moderate"
+                return "Critical"
+
+            overdue_df["Severity"] = overdue_df["Days_Overdue"].apply(get_severity)
+
+            # RISK SCORING
+            # Weighting: Higher outstanding and more days overdue = much higher score
+            risk_summary = overdue_df.groupby("Borrower").agg({
+                "Outstanding": "sum",
+                "Days_Overdue": "max"
+            }).reset_index()
+
+            risk_summary["Risk_Score"] = (risk_summary["Outstanding"] * 0.0001) + (risk_summary["Days_Overdue"] * 2)
+            overdue_df = overdue_df.merge(risk_summary[["Borrower", "Risk_Score"]], on="Borrower", how="left")
+
+            # --- UI: FILTERS & METRICS ---
+            st.subheader("🔍 Priority Filters")
+            f1, f2 = st.columns(2)
+            search = f1.text_input("Search Borrower Name")
+            sev_filter = f2.selectbox("Filter by Severity", ["All", "Mild", "Moderate", "Critical"])
+
+            filtered = overdue_df.copy()
+            if search:
+                filtered = filtered[filtered["Borrower"].str.contains(search, case=False)]
+            if sev_filter != "All":
+                filtered = filtered[filtered["Severity"] == sev_filter]
+
+            # Sorting by Risk Score (Highest risk first)
+            filtered = filtered.sort_values(by="Risk_Score", ascending=False)
+
+            # METRICS
+            total_at_risk = filtered["Outstanding"].sum()
+            critical_count = filtered[filtered["Severity"] == "Critical"].shape[0]
+
+            m1, m2 = st.columns(2)
+            m1.metric("💰 Total Amount At Risk", f"{total_at_risk:,.0f} UGX")
+            m2.metric("🔴 Critical Cases", critical_count)
+
+            st.dataframe(filtered[["Loan_ID", "Borrower", "Outstanding", "Days_Overdue", "Severity", "Risk_Score", "Follow_Up_Status"]], use_container_width=True)
+
+            # --- FOLLOW-UP ACTION ---
+            st.markdown("---")
+            st.subheader("📞 Follow-Up Action")
+            
+            selected_id = st.selectbox("Select Loan to Contact", filtered["Loan_ID"])
+            loan_item = filtered[filtered["Loan_ID"] == selected_id].iloc[0]
+
+            # SMART MESSAGE GENERATOR
+            if loan_item["Severity"] == "Mild":
+                msg = f"Hello {loan_item['Borrower']}, a quick reminder that your loan is {loan_item['Days_Overdue']} days overdue. Balance: {loan_item['Outstanding']:,.0f} UGX."
+            elif loan_item["Severity"] == "Moderate":
+                msg = f"Dear {loan_item['Borrower']}, your loan is {loan_item['Days_Overdue']} days past due. Please settle {loan_item['Outstanding']:,.0f} UGX immediately to avoid penalties."
+            else:
+                msg = f"URGENT: {loan_item['Borrower']}, your loan is {loan_item['Days_Overdue']} days OVERDUE. Immediate legal/recovery action may be taken if {loan_item['Outstanding']:,.0f} UGX is not paid."
+
+            st.text_area("Suggested Message", msg, height=100)
+
+            # UPDATE TRACKING
+            status_col1, status_col2 = st.columns(2)
+            new_f_status = status_col1.selectbox("Current Action", ["Pending", "Called - Promised", "Called - Ignored", "Visiting Site"])
+            
+            if status_col2.button("Log Interaction", use_container_width=True):
+                # Update original dataframe
+                loans_df.loc[loans_df["Loan_ID"] == selected_id, "Follow_Up_Status"] = new_f_status
+                loans_df.loc[loans_df["Loan_ID"] == selected_id, "Last_Contact_Date"] = datetime.now().strftime("%Y-%m-%d")
+                
+                save_data(sheet, "Loans", loans_df)
+                st.success(f"Log updated for {loan_item['Borrower']}!")
+                st.rerun()
+
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
