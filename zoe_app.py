@@ -1071,6 +1071,93 @@ elif st.session_state.page == "Overdue Tracker":
                 st.success(f"Log updated for {loan_item['Borrower']}!")
                 st.rerun()
 
+elif st.session_state.page == "Calendar":
+    st.title("📅 Activity Calendar")
+
+    sheet = open_sheet("Zoe_Data")
+    loans_df = load_data(sheet, "Loans")
+
+    if loans_df.empty:
+        st.info("No data available to display in the calendar.")
+    else:
+        # --- DATA PREPARATION ---
+        # Ensure Follow-Up column exists so the table doesn't crash
+        if "Follow_Up_Status" not in loans_df.columns:
+            loans_df["Follow_Up_Status"] = "Pending"
+            
+        # Standardize dates to just Year-Month-Day for easy comparison
+        loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
+        today = pd.Timestamp.today().normalize()
+
+        # ==============================
+        # 📌 DUE TODAY
+        # ==============================
+        # We compare .dt.date to ensure we don't miss loans due to time-of-day differences
+        due_today = loans_df[
+            (loans_df["End_Date"].dt.date == today.date()) & 
+            (loans_df["Status"] != "Closed")
+        ].copy()
+
+        st.subheader("📌 Due Today")
+        if due_today.empty:
+            st.success("No loans due today 🎉")
+        else:
+            # Add a "Collect" button hint
+            st.warning(f"You have {len(due_today)} collections to make today!")
+            st.dataframe(due_today[[
+                "Loan_ID", "Borrower", "Total_Repayable", "Status"
+            ]], use_container_width=True)
+
+        st.markdown("---")
+
+        # ==============================
+        # ⏳ UPCOMING (NEXT 7 DAYS)
+        # ==============================
+        upcoming = loans_df[
+            (loans_df["End_Date"] > today) & 
+            (loans_df["End_Date"] <= today + pd.Timedelta(days=7)) &
+            (loans_df["Status"] != "Closed")
+        ].copy()
+
+        st.subheader("⏳ Upcoming (Next 7 Days)")
+        if upcoming.empty:
+            st.info("No upcoming deadlines this week.")
+        else:
+            # Sort by soonest first
+            upcoming = upcoming.sort_values("End_Date")
+            # Format date for better reading
+            upcoming["Due_Date"] = upcoming["End_Date"].dt.strftime("%d %b ( %a )")
+            
+            st.dataframe(upcoming[[
+                "Loan_ID", "Borrower", "Due_Date", "Total_Repayable"
+            ]], use_container_width=True)
+
+        st.markdown("---")
+
+        # ==============================
+        # 🔴 NEEDS FOLLOW-UP (OVERDUE)
+        # ==============================
+        overdue = loans_df[
+            (loans_df["End_Date"] < today) & 
+            (loans_df["Status"] != "Closed")
+        ].copy()
+
+        st.subheader("🔴 Immediate Follow-Up Needed")
+        if overdue.empty:
+            st.success("No overdue loans! Everything is cleared.")
+        else:
+            # Sort by most overdue (oldest date) first
+            overdue = overdue.sort_values("End_Date")
+            
+            # Show how many days late they are
+            overdue["Days_Late"] = (today - overdue["End_Date"]).dt.days
+            
+            st.dataframe(overdue[[
+                "Loan_ID", "Borrower", "Days_Late", "Follow_Up_Status"
+            ]], use_container_width=True)
+
+    st.markdown("---")
+
 # --- REPORTS PAGE (ADMIN ONLY) ---
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics")
