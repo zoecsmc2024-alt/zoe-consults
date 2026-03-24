@@ -286,7 +286,7 @@ def sidebar():
     )
     
     # THIS IS THE MISSING LINE:
-    sidebar()
+
 
 # ==============================
 # 6. PAGE ROUTING & CONTENT
@@ -298,6 +298,8 @@ def open_sheet(sheet_name):
     # Using your specific ID for Zoe_Data
     sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg") 
     return sheet
+
+sidebar()
 
 # ==============================
 # UPGRADED OVERVIEW PAGE
