@@ -291,7 +291,7 @@ else:
 if st.session_state.page == "Overview":
 
     st.title("📊 Financial Dashboard")
-
+    
     def open_sheet(sheet_name):
     client = connect_to_gsheets()
     # Replace the ID below with the one from your browser URL
