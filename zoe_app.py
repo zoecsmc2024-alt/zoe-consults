@@ -148,6 +148,7 @@ def login():
         # --- REGULAR LOGIN (If you want to keep it as backup) ---
         else:
             st.error("Invalid Username or Password. Use the Emergency Key!")
+            sidebar()
 # ==============================
 # 4. THE AUTH GATEKEEPER (Main Script)
 # ==============================
@@ -157,7 +158,7 @@ if "logged_in" not in st.session_state or not st.session_state.logged_in:
 else:
     # If we made it here, they ARE logged in.
     check_session_timeout() # Check if they've been idle
-    sidebar() # Show the Neon Sidebar
+    () # Show the Neon Sidebar
     
     # --- PAGE ROUTING ---
     if st.session_state.page == "Overview":
