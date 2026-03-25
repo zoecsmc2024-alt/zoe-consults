@@ -385,12 +385,7 @@ def sidebar():
         "Payments": "💵", "Expenses": "📁", "PettyCash": "💵",
         "Payroll": "🧾", "Reports": "📈", "Settings": "⚙️"
     }
-        # ==============================
-# LOGOUT BUTTON
-# ==============================
-if st.sidebar.button("🚪 Logout"):
-    st.session_state.clear()
-    st.rerun()
+        
 
     # RESTRICTED PAGES
     restricted = ["Settings", "Reports", "Payroll"]
