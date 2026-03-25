@@ -1625,6 +1625,15 @@ elif st.session_state.page == "Reports":
     loans = load_data(sheet, "Loans")
     payments = load_data(sheet, "Payments")
     expenses = load_data(sheet, "Expenses")
+    # --- SAFE DATA CLEANING ---
+    if not expenses.empty:
+    # Check if 'Amount' actually exists in the sheet
+    if "Amount" in expenses.columns:
+        expenses["Amount"] = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0)
+    else:
+        # If missing, we create it so the rest of the code doesn't break
+        st.warning("⚠️ 'Amount' column not found in Expenses sheet. Using 0.")
+        expenses["Amount"] = 0
 
     if loans.empty or payments.empty:
         st.info("Insufficient data to generate analytics. Please record some loans and payments first.")
