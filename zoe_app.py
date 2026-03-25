@@ -368,7 +368,7 @@ def save_logo(sheet, image_file):
 
 
 def sidebar():
-    st.sidebar.title("🌈 Zoe Hub")
+    st.sidebar.title("")
     
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
@@ -417,21 +417,19 @@ def sidebar():
 
     st.sidebar.markdown("---")
 
-    # ==============================
-# LOGOUT BUTTON
-# ==============================
-if st.sidebar.button("🚪 Logout"):
-    st.session_state.clear()
-    st.rerun()
-
     # Dynamic Online Status
     status_color = "#00ffcc" # Green for online
     st.sidebar.markdown(
         f"<p style='color:{status_color}; font-size:12px; font-weight:bold;'>● System Online (Zoe Cloud)</p>",
         unsafe_allow_html=True
     )
-    
-    # THIS IS THE MISSING LINE:
+
+    # ==============================
+# LOGOUT BUTTON
+# ==============================
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.clear()
+    st.rerun()
 
 
 # ==============================
@@ -446,6 +444,7 @@ def open_sheet(sheet_name):
     return sheet
 
 sidebar()
+
 
 # ==============================
 # UPGRADED OVERVIEW PAGE
