@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import plotly.express as px # Ensure this is at the top of your main script
 import gspread
 import io
+import plotly.express as px
 import base64
 import json
 import bcrypt
@@ -1615,7 +1616,7 @@ elif st.session_state.page == "Payroll":
                 st.rerun()
         
     
-import plotly.express as px # Ensure this is at the top of your main script
+ 
 
 elif st.session_state.page == "Reports":
     st.title("📊 Advanced Analytics & Reports")
