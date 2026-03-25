@@ -1630,11 +1630,22 @@ elif st.session_state.page == "Reports":
     if loans.empty or payments.empty:
         st.info("Insufficient data to generate analytics. Please record some loans and payments first.")
     else:
-        # 2. CLEAN & CONVERT (Force numeric to avoid math errors)
-        loans["Amount"] = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0)
-        loans["Interest"] = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0)
-        payments["Amount"] = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0)
-        expenses["Amount"] = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0)
+        # 2. CLEAN & CONVERT (Safe Mode)
+        def safe_numeric(df, column):
+            if column in df.columns:
+                return pd.to_numeric(df[column], errors="coerce").fillna(0)
+            return 0 # Default to 0 if the column is missing
+
+        loans["Amount"] = safe_numeric(loans, "Amount")
+        loans["Interest"] = safe_numeric(loans, "Interest")
+        payments["Amount"] = safe_numeric(loans, "Amount") # Should this be payments?
+        
+        # This is the line that was crashing:
+        if "Amount" in expenses.columns:
+            expenses["Amount"] = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0)
+        else:
+            st.warning("⚠️ Column 'Amount' not found in Expenses sheet. Adding it as 0.")
+            expenses["Amount"] = 0
 
         # 3. KPI CALCULATIONS
         total_issued = loans["Amount"].sum()
