@@ -1023,9 +1023,9 @@ except Exception as e:
 
     st.dataframe(daily, use_container_width=True)
     
+# <--- Ensure there is NO extra space/indent here
 elif st.session_state.page == "Collateral":
     st.title("🛡️ Collateral Management")
-
     # 1. Fetch Data
     sheet = open_sheet("Zoe_Data")
     borrowers_df = load_data(sheet, "Borrowers")
