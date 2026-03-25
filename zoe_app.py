@@ -884,8 +884,7 @@ try:
 except Exception as e:
     st.error("🔄 Google connection is busy. Please refresh the page in a moment.")
     st.stop()
-    loans_df = load_data(sheet, "Loans")
-
+    loans_df = load_data(sheet, "Loans") # <--- THIS LINE IS OUTSIDE THE TRY/EXCEPT!
     # 2. THE SAFETY GUARD (Add this here!)
     if loans_df.empty:
         # Create an empty dataframe with the exact columns needed
