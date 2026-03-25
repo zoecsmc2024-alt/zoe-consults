@@ -330,8 +330,11 @@ def save_data(sheet, worksheet_name, dataframe):
 
 # Initialize Connection
 client = connect_to_gsheets()
-sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg")
-
+try:
+    sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg")
+except Exception as e:
+    st.error("⏳ Google is currently busy. Please wait a few seconds and refresh!")
+    st.stop()
 # ==============================
 # 3. UTILITY FUNCTIONS (WhatsApp, PDF, Logo)
 # ==============================
