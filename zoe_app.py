@@ -369,26 +369,38 @@ def save_logo(sheet, image_file):
 
 
 def sidebar():
-    # 1. AUTH DATA
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
-    # 2. LOGO SECTION (Always at the top)
-    # We use a placeholder container so the logo loads first
-    logo_container = st.sidebar.container()
-    
+    # 1. THE LOGO LOADER (Enhanced)
     try:
         sheet = open_sheet("Zoe_Data")
-        logo_base64 = get_logo(sheet)
+        # Try to get the Settings worksheet
+        settings_ws = sheet.worksheet("Settings")
+        records = settings_ws.get_all_records()
+        
+        # Find the Logo string
+        logo_base64 = next((row['Value'] for row in records if str(row['Key']).lower() == 'logo'), None)
+        
         if logo_base64:
-            import base64
-            logo_container.image(f"data:image/png;base64,{logo_base64}", use_container_width=True)
-    except:
-        pass # Skip if sheet isn't ready yet
+            # Display Logo at the very top
+            st.sidebar.image(f"data:image/png;base64,{logo_base64}", use_container_width=True)
+        else:
+            st.sidebar.warning("⚠️ Logo 'Key' not found in Settings.")
+    except Exception as e:
+        # This will show you the exact error if the sheet is missing
+        st.sidebar.error(f"Logo Error: {e}")
 
-    st.sidebar.markdown(f"<h2 style='color:#00ffcc; margin:0;'>ZOE CONSULTS</h2>", unsafe_allow_html=True)
-    st.sidebar.caption(f"👤 {user} ({role})")
-    st.sidebar.markdown("---")
+    # 2. BRIGHT NEON TEXT (No more fading!)
+    st.sidebar.markdown(f"""
+        <h2 style='color:#00ffcc; margin-bottom:0;'>ZOE CONSULTS</h2>
+        <p style='color:#ffffff; font-size:16px; margin-top:0; font-weight:bold;'>
+            👤 {user} <span style='color:#00ffcc;'>({role})</span>
+        </p>
+        <hr style='border-top: 2px solid #2B3F87; margin-top:5px;'>
+    """, unsafe_allow_html=True)
+
+    # ... (Rest of your Navigation Loop) ...
 
     # 3. NAVIGATION MENU
     menu = {
