@@ -396,7 +396,7 @@ if st.sidebar.checkbox("Open Reset Tool"):
     st.write("### 🔑 Password Hasher")
     
     # 1. Type the password you WANT to use here (e.g., ZoeMaster2026)
-    new_pass = st.text_input("ZoeMaster2026", type="password")
+    new_pass = st.text_input("ZoeMaster2026", type="ZoeMaster2026")
     
     if st.button("Generate Secure Hash"):
         if new_pass:
