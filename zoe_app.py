@@ -1887,20 +1887,4 @@ def get_logo(sheet):
     return row.iloc[0]["Value"]
 
 
-# ... (all your other code for pages above) ...
 
-# ==========================================
-# 🚨 PASTE THE TOOL HERE (THE VERY END)
-# ==========================================
-
-st.sidebar.markdown("---")
-if st.sidebar.checkbox("🛠️ Unlock Password Hasher"):
-    st.sidebar.write("### 🔑 Create Secure Code")
-    user_typing = st.sidebar.text_input("Type Password")
-
-    if st.sidebar.button("GENERATE HASH"):
-        if user_typing:
-            import bcrypt
-            hashed = bcrypt.hashpw(user_typing.encode(), bcrypt.gensalt()).decode()
-            st.sidebar.code(hashed) # The code will appear in the sidebar!
-            st.sidebar.success("Copy the code above!")
