@@ -384,7 +384,7 @@ def sidebar():
         
         if logo_base64:
             # Display Logo at the very top
-            st.sidebar.image(f"data:image/png;base64,{logo_base64}", use_container_width=True)
+            st.sidebar.image(f"data:image/png;base64,{logo_base64}", use_container_width=50)
         else:
             st.sidebar.warning("⚠️ Logo 'Key' not found in Settings.")
     except Exception as e:
@@ -395,7 +395,7 @@ def sidebar():
     st.sidebar.markdown(f"""
         <h2 style='color:#00ffcc; margin-bottom:0;'>ZOE CONSULTS</h2>
         <p style='color:#ffffff; font-size:16px; margin-top:0; font-weight:bold;'>
-            👤 {user} <span style='color:#00ffcc;'>({role})</span>
+            👤 <span style='color:#00ffcc;'>({role})</span>
         </p>
         <hr style='border-top: 2px solid #2B3F87; margin-top:5px;'>
     """, unsafe_allow_html=True)
