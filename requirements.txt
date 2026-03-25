@@ -3,6 +3,7 @@ pandas
 plotly
 gspread
 fpdf
+bcrypt
 streamlit-option-menu
 google-auth
 xlsxwriter
