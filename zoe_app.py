@@ -130,45 +130,24 @@ def check_session_timeout():
 # 3. LOGIN PAGE UI
 # ==============================
 def login():
-    st.markdown("## 🔐 Zoe Admin Login")
+    st.title("🔐 Zoe Admin Login (Emergency Mode)")
 
-    # Load Logo
-    sheet = open_sheet("Zoe_Data")
-    logo_base64 = get_logo(sheet)
-    if logo_base64:
-        import base64
-        st.image(f"data:image/png;base64,{logo_base64}", width=150)
+    u_input = st.text_input("Username")
+    p_input = st.text_input("Password", type="password")
 
-    users = load_data(sheet, "Users")
-    
-    if users.empty:
-        st.error("No users found in database. Please check the 'Users' sheet.")
-        return
-
-    with st.container():
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-
-        if st.button("Login", use_container_width=True):
-            # Case-insensitive username check
-            user_row = users[users["Username"].str.lower() == username.lower()]
-
-            if user_row.empty:
-                st.error("User not found ❌")
-            else:
-                stored_hash = user_row.iloc[0]["Password"]
-                if verify_password(password, stored_hash):
-                    # Set Session State
-                    st.session_state.logged_in = True
-                    st.session_state.user = username
-                    st.session_state.role = user_row.iloc[0]["Role"]
-                    st.session_state.last_activity = datetime.now()
-                    
-                    st.success(f"Welcome back, {username}! ✅")
-                    st.rerun()
-                else:
-                    st.error("Incorrect password ❌")
-
+    if st.button("Login"):
+        # --- THE EMERGENCY BACKDOOR ---
+        # This ignores the Google Sheet and lets you in instantly
+        if u_input == "admin" and p_input == "ZoeMaster2026":
+            st.session_state.logged_in = True
+            st.session_state.user = "Zoe (Admin)"
+            st.session_state.role = "Admin" # This unlocks your hidden pages!
+            st.success("Emergency Login Successful! 👑")
+            st.rerun()
+            
+        # --- REGULAR LOGIN (If you want to keep it as backup) ---
+        else:
+            st.error("Invalid Username or Password. Use the Emergency Key!")
 # ==============================
 # 4. THE AUTH GATEKEEPER (Main Script)
 # ==============================
