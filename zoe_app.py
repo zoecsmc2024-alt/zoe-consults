@@ -878,7 +878,12 @@ elif st.session_state.page == "Payments":
     
     # Don't forget to define 'sheet' here so the data can load!
     # 1. Fetch data
+    # Update line 881 to this:
+try:
     sheet = open_sheet("Zoe_Data")
+except Exception as e:
+    st.error("🔄 Google connection is busy. Please refresh the page in a moment.")
+    st.stop()
     loans_df = load_data(sheet, "Loans")
 
     # 2. THE SAFETY GUARD (Add this here!)
