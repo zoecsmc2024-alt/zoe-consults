@@ -18,46 +18,103 @@ from fpdf import FPDF
 import io
 from fpdf import FPDF # Using FPDF as it's more straightforward for styling
 
-def login():
-    st.title("🔐 Login")
-    
-    # Load the Users sheet
-    users = load_data(sheet, "Users")
+# ==============================
+# 1. SECURITY UTILITIES (Top of File)
+# ==============================
+import bcrypt
+from datetime import datetime, timedelta
 
-    if users.empty:
-        st.error("⚠️ The 'Users' sheet is empty or not found.")
+SESSION_TIMEOUT = 15  # Minutes of inactivity before logout
+
+def hash_password(password):
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+def verify_password(input_password, stored_hash):
+    try:
+        return bcrypt.checkpw(input_password.encode(), stored_hash.encode())
+    except:
+        return False
+
+# ==============================
+# 2. SESSION TIMEOUT LOGIC
+# ==============================
+def check_session_timeout():
+    if "last_activity" not in st.session_state:
+        st.session_state.last_activity = datetime.now()
         return
 
-    # Create the input boxes
-    u_input = st.text_input("Username")
-    p_input = st.text_input("Password", type="password")
+    now = datetime.now()
+    elapsed = now - st.session_state.last_activity
 
-    if st.button("Login"):
-        # We find the column names regardless of whether they are 'U' or 'Username'
-        # This looks for any column starting with 'U' and 'P'
-        u_col = next((c for c in users.columns if c.lower().startswith('u')), None)
-        p_col = next((c for c in users.columns if c.lower().startswith('p')), None)
-        r_col = next((c for c in users.columns if c.lower().startswith('r')), None) # Role
+    if elapsed > timedelta(minutes=SESSION_TIMEOUT):
+        # Clear session and force return to login
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.session_state.logged_in = False
+        st.warning("⏳ Session expired for security. Please login again.")
+        st.rerun()
+    
+    # Update timestamp if still active
+    st.session_state.last_activity = now
 
-        if u_col and p_col:
-            # Match the input to the sheet data
-            user_match = users[(users[u_col].astype(str) == u_input) & 
-                               (users[p_col].astype(str) == p_input)]
-            
-            if not user_match.empty:
-                st.session_state.logged_in = True
-                st.session_state.user = u_input
-                # Set role to Admin if 'Role' column is missing
-                st.session_state.role = user_match.iloc[0][r_col] if r_col else "Admin"
-                st.success(f"Welcome back, {u_input}!")
-                st.rerun()
+# ==============================
+# 3. LOGIN PAGE UI
+# ==============================
+def login():
+    st.markdown("## 🔐 Zoe Admin Login")
+
+    # Load Logo
+    sheet = open_sheet("Zoe_Data")
+    logo_base64 = get_logo(sheet)
+    if logo_base64:
+        import base64
+        st.image(f"data:image/png;base64,{logo_base64}", width=150)
+
+    users = load_data(sheet, "Users")
+    
+    if users.empty:
+        st.error("No users found in database. Please check the 'Users' sheet.")
+        return
+
+    with st.container():
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        if st.button("Login", use_container_width=True):
+            # Case-insensitive username check
+            user_row = users[users["Username"].str.lower() == username.lower()]
+
+            if user_row.empty:
+                st.error("User not found ❌")
             else:
-                st.error("❌ Invalid Username or Password")
-        else:
-            st.error(f"Could not find Login columns. Your sheet has: {list(users.columns)}")
-            if "logged_in" not in st.session_state or st.session_state.logged_in == False:
-                login() # Show ONLY the login page
-                st.stop() # CRITICAL: This prevents the rest of the script from running
+                stored_hash = user_row.iloc[0]["Password"]
+                if verify_password(password, stored_hash):
+                    # Set Session State
+                    st.session_state.logged_in = True
+                    st.session_state.user = username
+                    st.session_state.role = user_row.iloc[0]["Role"]
+                    st.session_state.last_activity = datetime.now()
+                    
+                    st.success(f"Welcome back, {username}! ✅")
+                    st.rerun()
+                else:
+                    st.error("Incorrect password ❌")
+
+# ==============================
+# 4. THE AUTH GATEKEEPER (Main Script)
+# ==============================
+if "logged_in" not in st.session_state or not st.session_state.logged_in:
+    login()
+    st.stop() # Prevents sidebar and pages from loading
+else:
+    # If we made it here, they ARE logged in.
+    check_session_timeout() # Check if they've been idle
+    sidebar() # Show the Neon Sidebar
+    
+    # --- PAGE ROUTING ---
+    if st.session_state.page == "Overview":
+        overview_page()
+    # ... rest of your elif blocks ...
             
 
 def generate_ledger_pdf(loan_data, ledger_df, filename):
@@ -334,11 +391,12 @@ def sidebar():
 
     st.sidebar.markdown("---")
 
-    # LOGOUT & STATUS
-    if st.sidebar.button("🚪 Logout", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.clear()
-        st.rerun()
+    # ==============================
+# LOGOUT BUTTON
+# ==============================
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.clear()
+    st.rerun()
 
     # Dynamic Online Status
     status_color = "#00ffcc" # Green for online
