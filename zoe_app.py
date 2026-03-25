@@ -20,6 +20,17 @@ from fpdf import FPDF
 import io
 from fpdf import FPDF # Using FPDF as it's more straightforward for styling
 
+# 1. THE GLOBAL SETTINGS (Put this near your imports)
+SHEET_ID = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
+
+# 2. THE CACHED DATA FUNCTION (Ensure this is also defined)
+@st.cache_data(ttl=300)
+def get_cached_data(sheet_id, worksheet_name):
+    client = connect_to_gsheets()
+    sheet = client.open_by_key(sheet_id)
+    data = sheet.worksheet(worksheet_name).get_all_records()
+    return pd.DataFrame(data)
+
 # ==============================
 # 1. DATABASE CONNECTION
 # ==============================
