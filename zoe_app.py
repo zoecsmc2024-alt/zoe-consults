@@ -390,24 +390,26 @@ def save_logo(sheet, image_file):
 
 
 def sidebar():
-    # --- TEMPORARY RESET TOOL ---
+    # ==============================
+# 🛠️ THE EMERGENCY HASHER
+# ==============================
 st.sidebar.markdown("---")
-if st.sidebar.checkbox("Open Reset Tool"):
-    st.write("### 🔑 Password Hasher")
+if st.sidebar.checkbox("🔓 Open Emergency Hasher"):
+    st.write("### 🔑 Create Secure Password")
     
-    # 1. 'value' is what is inside the box. 'type' MUST be "password" or "default"
-    new_pass = st.text_input("Confirm Password to Hash", value="ZoeMaster2026")
+    # Simple input: No 'type' or 'value' to cause errors
+    input_text = st.text_input("Enter your desired password below:")
     
-    if st.button("Generate Secure Hash"):
-        if new_pass:
-            # 2. This creates the $2b$12... string
-            hashed_code = hash_password(new_pass)
+    if st.button("Generate Secure Code"):
+        if input_text:
+            # This calls your bcrypt function
+            new_hash = hash_password(input_text)
             
-            st.success("Hash Generated! ✅")
-            st.code(hashed_code) # THIS IS THE CODE YOU COPY
-            st.info("Paste the code above into Column B of your 'Users' Google Sheet.")
+            st.success("✅ Hash Generated! Copy the code in the gray box:")
+            st.code(new_hash) # THIS IS THE $2b$12... CODE
+            st.info("Paste that long code into Column B of your 'Users' sheet.")
         else:
-            st.warning("The box is empty! Type something first.")
+            st.warning("⚠️ Please type a password in the box first!")
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
