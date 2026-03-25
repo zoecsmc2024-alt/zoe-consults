@@ -71,6 +71,22 @@ def save_data(sheet, worksheet_name, dataframe):
         st.error(f"Error saving to {worksheet_name}: {e}")
         return False
 
+def get_logo(sheet):
+    """Retrieves the base64 logo string from the 'Settings' worksheet."""
+    try:
+        # 1. Access the Settings sheet
+        settings_ws = sheet.worksheet("Settings")
+        settings_data = settings_ws.get_all_records()
+        
+        # 2. Look for the 'Logo' key
+        for row in settings_data:
+            if row.get("Key") == "Logo" or row.get("key") == "Logo":
+                return row.get("Value")
+        return None
+    except Exception:
+        # If the sheet doesn't exist yet, we just return None so the app doesn't crash
+        return None
+
 # ==============================
 # 1. SECURITY UTILITIES (Top of File)
 # ==============================
