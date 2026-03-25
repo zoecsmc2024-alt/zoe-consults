@@ -395,19 +395,19 @@ st.sidebar.markdown("---")
 if st.sidebar.checkbox("Open Reset Tool"):
     st.write("### 🔑 Password Hasher")
     
-    # 1. Type the password you WANT to use here (e.g., ZoeMaster2026)
-    new_pass = st.text_input("ZoeMaster2026", type="ZoeMaster2026")
+    # 1. 'value' is what is inside the box. 'type' MUST be "password" or "default"
+    new_pass = st.text_input("Confirm Password to Hash", value="ZoeMaster2026")
     
     if st.button("Generate Secure Hash"):
         if new_pass:
-            # 2. This calls the function to create the $2b$12... string
+            # 2. This creates the $2b$12... string
             hashed_code = hash_password(new_pass)
             
-            st.success("Hash Generated! Copy the code below:")
-            st.code(hashed_code)
-            st.info("Paste this long code into Column B of your 'Users' Google Sheet.")
+            st.success("Hash Generated! ✅")
+            st.code(hashed_code) # THIS IS THE CODE YOU COPY
+            st.info("Paste the code above into Column B of your 'Users' Google Sheet.")
         else:
-            st.warning("Please type a password first!")
+            st.warning("The box is empty! Type something first.")
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
