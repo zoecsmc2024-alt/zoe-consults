@@ -8,6 +8,7 @@ import gspread
 import io
 import base64
 import json
+import bcrypt
 import os
 from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
