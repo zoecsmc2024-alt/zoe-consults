@@ -397,16 +397,14 @@ import string
 
 st.title("🔐 Password Generator")
 
-# User input for length
-length = st.slider("Select password length", 6, 32, 12)
+length = st.slider("Password length", 6, 32, 12)
 
 def generate_password(length):
     characters = string.ascii_letters + string.digits + string.punctuation
     return ''.join(secrets.choice(characters) for _ in range(length))
 
-if st.button("Generate Password"):
-    password = generate_password(length)
-    st.success(f"Your password: {password}")
+if st.button("Generate"):
+    st.success(generate_password(length))
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
