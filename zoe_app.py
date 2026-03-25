@@ -1885,3 +1885,29 @@ def get_logo(sheet):
         return None
         
     return row.iloc[0]["Value"]
+
+
+# ==============================
+# 🚨 EMERGENCY OVERRIDE TOOL
+# ==============================
+st.sidebar.markdown("---")
+if st.sidebar.checkbox("🛠️ Unlock Password Hasher"):
+    st.write("### 🔑 Create Secure Code")
+    
+    user_typing = st.text_input("Type your password here (e.g. ZoeMaster2026)")
+
+    if st.button("CLICK TO GENERATE HASH"):
+        if user_typing:
+            try:
+                # We define the function right here to be 100% sure it exists
+                import bcrypt
+                salt = bcrypt.gensalt()
+                hashed = bcrypt.hashpw(user_typing.encode(), salt).decode()
+                
+                st.success("✅ SUCCESS! Copy the code below:")
+                st.code(hashed) # <--- THIS IS THE $2b$12... STRING
+                st.info("Paste this into your Google Sheet, then refresh the app.")
+            except Exception as e:
+                st.error(f"Error: {e}. Make sure 'bcrypt' is in your requirements.txt!")
+        else:
+            st.warning("⚠️ The box is empty. Type a password first!")
