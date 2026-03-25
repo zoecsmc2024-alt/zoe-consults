@@ -384,7 +384,7 @@ def sidebar():
         
         if logo_base64:
             # Display Logo at the very top
-            st.sidebar.image(f"data:image/png;base64,{logo_base64}", use_container_width=50)
+            st.sidebar.image(f"data:image/png;base64,{logo_base64}", use_container_width=10)
         else:
             st.sidebar.warning("⚠️ Logo 'Key' not found in Settings.")
     except Exception as e:
