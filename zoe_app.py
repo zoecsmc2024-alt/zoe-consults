@@ -72,21 +72,18 @@ def save_data(sheet, worksheet_name, dataframe):
         st.error(f"Error saving to {worksheet_name}: {e}")
         return False
 
-@st.cache_data(ttl=600) # 👈 This is the "Memory Shield" (600 seconds = 10 mins)
-def get_logo(sheet_id): # We pass the ID instead of the 'sheet' object for better caching
-    """Retrieves and caches the base64 logo string."""
+@st.cache_data(ttl=600)
+def get_logo(sheet_id): # 👈 Notice we pass a string ID, NOT the 'sheet' object
     try:
-        # Connect fresh only when the cache expires
+        # We establish the connection INSIDE the cached function
         client = connect_to_gsheets()
         sheet = client.open_by_key(sheet_id)
-        settings_ws = sheet.worksheet("Settings")
-        settings_data = settings_ws.get_all_records()
         
-        for row in settings_data:
-            # Case-insensitive check for the 'Logo' key
-            if str(row.get("Key", "")).strip().lower() == "logo":
-                return row.get("Value")
-        return None
+        settings_ws = sheet.worksheet("Settings")
+        records = settings_ws.get_all_records()
+        
+        logo_base64 = next((row['Value'] for row in records if str(row['Key']).lower() == 'logo'), None)
+        return logo_base64
     except Exception:
         return None
 
