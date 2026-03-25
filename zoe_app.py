@@ -390,16 +390,24 @@ def save_logo(sheet, image_file):
 
 
 def sidebar():
-    # --- TEMPORARY RESET TOOL (Delete this after you use it) ---
+    # --- TEMPORARY RESET TOOL ---
 st.sidebar.markdown("---")
-if st.sidebar.checkbox("Reset Passwords"):
+if st.sidebar.checkbox("Open Reset Tool"):
     st.write("### 🔑 Password Hasher")
-    new_pass = st.text_input("ZoeMaster2026")
-    if st.button("Generate Hash"):
-        # This creates the $2b$12... code for you
-        hashed = hash_password(ZoeMaster2026)
-        st.code(hashed) # Copy this code
-        st.info("Copy the code above and paste it into Column B of your Google Sheet.")
+    
+    # 1. Type the password you WANT to use here (e.g., ZoeMaster2026)
+    new_pass = st.text_input("ZoeMaster2026", type="password")
+    
+    if st.button("Generate Secure Hash"):
+        if new_pass:
+            # 2. This calls the function to create the $2b$12... string
+            hashed_code = hash_password(new_pass)
+            
+            st.success("Hash Generated! Copy the code below:")
+            st.code(hashed_code)
+            st.info("Paste this long code into Column B of your 'Users' Google Sheet.")
+        else:
+            st.warning("Please type a password first!")
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
