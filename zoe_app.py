@@ -1022,7 +1022,7 @@ except Exception as e:
     daily.columns = ["Date", "Total"]
 
     st.dataframe(daily, use_container_width=True)
-
+    
 elif st.session_state.page == "Collateral":
     st.title("🛡️ Collateral Management")
 
