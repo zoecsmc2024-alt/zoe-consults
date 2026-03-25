@@ -397,7 +397,7 @@ if st.sidebar.checkbox("Reset Passwords"):
     new_pass = st.text_input("ZoeMaster2026")
     if st.button("Generate Hash"):
         # This creates the $2b$12... code for you
-        hashed = hash_password(new_pass)
+        hashed = hash_password(ZoeMaster2026)
         st.code(hashed) # Copy this code
         st.info("Copy the code above and paste it into Column B of your Google Sheet.")
     role = st.session_state.get("role", "Staff")
