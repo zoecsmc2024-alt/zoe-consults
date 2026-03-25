@@ -375,7 +375,7 @@ def sidebar():
 
     # Brand Title
     st.sidebar.markdown('<p style="font-size:26px; font-weight:bold; color:#00ffcc; margin-bottom:0;">ZOE CONSULTS</p>', unsafe_allow_html=True)
-    st.sidebar.markdown(f'<p style="color:#888; font-size:14px; margin-top:0;">👤 {user} ({role})</p>', unsafe_allow_html=True)
+    st.sidebar.markdown(f'<p style="color:#888; font-size:14px; margin-top:0;">👤 {user} </p>', unsafe_allow_html=True)
     st.sidebar.markdown("---")
 
     # ALL PAGES
