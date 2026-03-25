@@ -19,30 +19,57 @@ from fpdf import FPDF
 import io
 from fpdf import FPDF # Using FPDF as it's more straightforward for styling
 
-# Place this right after your imports
-    @st.cache_resource
-    def connect_to_gsheets():
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        return client
+# ==============================
+# 1. DATABASE CONNECTION
+# ==============================
 
-def open_sheet(sheet_name):
+@st.cache_resource
+def connect_to_gsheets():
+    """Establishes a cached connection to the Google Sheets API."""
+    import gspread
+    from google.oauth2.service_account import Credentials
+    
+    scope = [
+        "https://www.googleapis.com/auth/spreadsheets", 
+        "https://www.googleapis.com/auth/drive"
+    ]
+    
+    # Ensure 'gcp_service_account' is set up in your Streamlit Secrets
+    creds_dict = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(creds)
+    return client
+
+def open_sheet(sheet_name="Zoe_Data"):
+    """Opens the specific Google Sheet by its display name."""
     client = connect_to_gsheets()
-    # Ensure this name matches your Google Sheet exactly
-    sheet = client.open(sheet_name) 
-    return sheet
+    return client.open(sheet_name) 
 
-# Now define your load/save helpers
+# ==============================
+# 2. DATA HELPERS (Load & Save)
+# ==============================
+
 def load_data(sheet, worksheet_name):
-    worksheet = sheet.worksheet(worksheet_name)
-    return pd.DataFrame(worksheet.get_all_records())
+    """Fetches a worksheet and returns it as a clean Pandas DataFrame."""
+    try:
+        worksheet = sheet.worksheet(worksheet_name)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"Error loading {worksheet_name}: {e}")
+        return pd.DataFrame()
 
 def save_data(sheet, worksheet_name, dataframe):
-    worksheet = sheet.worksheet(worksheet_name)
-    worksheet.clear()
-    worksheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+    """Overwrites a worksheet with the updated DataFrame."""
+    try:
+        worksheet = sheet.worksheet(worksheet_name)
+        worksheet.clear()
+        # Updates headers + data in one go
+        worksheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+        return True
+    except Exception as e:
+        st.error(f"Error saving to {worksheet_name}: {e}")
+        return False
 
 # ==============================
 # 1. SECURITY UTILITIES (Top of File)
