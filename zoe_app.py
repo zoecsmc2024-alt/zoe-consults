@@ -369,82 +369,71 @@ def save_logo(sheet, image_file):
 
 
 def sidebar():
-    st.sidebar.title("")
-    
+    # 1. AUTH DATA
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
-    # Brand Title
-    st.sidebar.markdown('<p style="font-size:26px; font-weight:bold; color:#00ffcc; margin-bottom:0;">ZOE CONSULTS</p>', unsafe_allow_html=True)
-    st.sidebar.markdown(f'<p style="color:#888; font-size:14px; margin-top:0;">👤 {user} </p>', unsafe_allow_html=True)
+    # 2. LOGO SECTION (Always at the top)
+    # We use a placeholder container so the logo loads first
+    logo_container = st.sidebar.container()
+    
+    try:
+        sheet = open_sheet("Zoe_Data")
+        logo_base64 = get_logo(sheet)
+        if logo_base64:
+            import base64
+            logo_container.image(f"data:image/png;base64,{logo_base64}", use_container_width=True)
+    except:
+        pass # Skip if sheet isn't ready yet
+
+    st.sidebar.markdown(f"<h2 style='color:#00ffcc; margin:0;'>ZOE CONSULTS</h2>", unsafe_allow_html=True)
+    st.sidebar.caption(f"👤 {user} ({role})")
     st.sidebar.markdown("---")
 
-    # ALL PAGES
+    # 3. NAVIGATION MENU
     menu = {
         "Overview": "📊", "Borrowers": "👥", "Collateral": "🛡️",
         "Calendar": "📅", "Ledger": "📄", "Overdue Tracker": "⏰",
         "Payments": "💵", "Expenses": "📁", "PettyCash": "💵",
         "Payroll": "🧾", "Reports": "📈", "Settings": "⚙️"
     }
-        
-
-    # RESTRICTED PAGES
     restricted = ["Settings", "Reports", "Payroll"]
 
-    if "page" not in st.session_state:
-        st.session_state.page = "Overview"
-
-    # THE NAVIGATION LOOP
     for item, icon in menu.items():
-        # 1. Hide restricted pages for staff
         if role != "Admin" and item in restricted:
             continue
 
-        # 2. ACTIVE PAGE STYLING (The "Neon Sky" Glow)
-        if st.session_state.page == item:
+        if st.session_state.get("page") == item:
+            # Active Neon Style
             st.sidebar.markdown(
                 f"""<div style="background: linear-gradient(90deg, #2B3F87 0%, #00ffcc 100%); 
-                            padding: 8px 15px; border-radius: 10px; border-left: 5px solid #00ffcc; 
-                            color: white; font-weight: bold; margin-bottom: 5px; box-shadow: 0px 4px 15px rgba(0, 255, 204, 0.3);">
+                            padding: 10px 15px; border-radius: 10px; border-left: 5px solid #00ffcc; 
+                            color: white; font-weight: bold; margin-bottom: 8px; box-shadow: 0px 4px 15px rgba(0, 255, 204, 0.3);">
                 {icon} &nbsp; {item}
                 </div>""",
                 unsafe_allow_html=True
             )
-        # 3. INACTIVE PAGE STYLING (Standard Buttons)
         else:
-            # use_container_width=True fixes the "disorganized/floating" alignment issue
+            # Inactive Button
             if st.sidebar.button(f"{icon} {item}", key=f"nav_{item}", use_container_width=True):
                 st.session_state.page = item
                 st.rerun()
 
+    # 4. BOTTOM SECTION (Status + Logout)
     st.sidebar.markdown("---")
-
-    # Dynamic Online Status
-    status_color = "#00ffcc" # Green for online
+    
+    # Status Indicator
     st.sidebar.markdown(
-        f"<p style='color:{status_color}; font-size:12px; font-weight:bold;'>● System Online (Zoe Cloud)</p>",
+        "<p style='color:#00ffcc; font-size:12px; font-weight:bold;'>● System Online (Zoe Cloud)</p>",
         unsafe_allow_html=True
     )
 
-    # ==============================
-# LOGOUT BUTTON
-# ==============================
-if st.sidebar.button("🚪 Logout"):
-    st.session_state.clear()
-    st.rerun()
+    # Logout Button at the absolute bottom
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 
-
-# ==============================
-# 6. PAGE ROUTING & CONTENT
-# ==============================
-
-# --- Move this to the TOP of your script (outside the IF/ELIF blocks) ---
-def open_sheet(sheet_name):
-    client = connect_to_gsheets()
-    # Using your specific ID for Zoe_Data
-    sheet = client.open_by_key("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg") 
-    return sheet
-
+# --- CALL THE FUNCTION ---
 sidebar()
 
 
