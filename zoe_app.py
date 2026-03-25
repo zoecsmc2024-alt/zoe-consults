@@ -1628,7 +1628,7 @@ elif st.session_state.page == "Reports":
     # --- SAFE DATA CLEANING ---
     if not expenses.empty:
     # Check if 'Amount' actually exists in the sheet
-    if "Amount" in expenses.columns:
+        if "Amount" in expenses.columns:
         expenses["Amount"] = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0)
     else:
         # If missing, we create it so the rest of the code doesn't break
