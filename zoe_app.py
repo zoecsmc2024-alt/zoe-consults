@@ -391,7 +391,15 @@ def save_logo(sheet, image_file):
 
 def sidebar():
     # ==============================
-print(hash_password("1234"))
+import secrets
+import string
+
+def generate_secure_password(length=16):
+    characters = string.ascii_letters + string.digits + string.punctuation
+    password = ''.join(secrets.choice(characters) for _ in range(length))
+    return password
+
+print("Secure Password:", generate_secure_password())
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
