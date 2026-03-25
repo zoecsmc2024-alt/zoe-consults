@@ -1887,27 +1887,20 @@ def get_logo(sheet):
     return row.iloc[0]["Value"]
 
 
-# ==============================
-# 🚨 EMERGENCY OVERRIDE TOOL
-# ==============================
+# ... (all your other code for pages above) ...
+
+# ==========================================
+# 🚨 PASTE THE TOOL HERE (THE VERY END)
+# ==========================================
+
 st.sidebar.markdown("---")
 if st.sidebar.checkbox("🛠️ Unlock Password Hasher"):
-    st.write("### 🔑 Create Secure Code")
-    
-    user_typing = st.text_input("Type your password here (e.g. ZoeMaster2026)")
+    st.sidebar.write("### 🔑 Create Secure Code")
+    user_typing = st.sidebar.text_input("Type Password")
 
-    if st.button("CLICK TO GENERATE HASH"):
+    if st.sidebar.button("GENERATE HASH"):
         if user_typing:
-            try:
-                # We define the function right here to be 100% sure it exists
-                import bcrypt
-                salt = bcrypt.gensalt()
-                hashed = bcrypt.hashpw(user_typing.encode(), salt).decode()
-                
-                st.success("✅ SUCCESS! Copy the code below:")
-                st.code(hashed) # <--- THIS IS THE $2b$12... STRING
-                st.info("Paste this into your Google Sheet, then refresh the app.")
-            except Exception as e:
-                st.error(f"Error: {e}. Make sure 'bcrypt' is in your requirements.txt!")
-        else:
-            st.warning("⚠️ The box is empty. Type a password first!")
+            import bcrypt
+            hashed = bcrypt.hashpw(user_typing.encode(), bcrypt.gensalt()).decode()
+            st.sidebar.code(hashed) # The code will appear in the sidebar!
+            st.sidebar.success("Copy the code above!")
