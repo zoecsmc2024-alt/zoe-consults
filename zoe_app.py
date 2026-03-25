@@ -99,12 +99,12 @@ def save_data(sheet, worksheet_name, dataframe):
         st.error(f"Error saving to {worksheet_name}: {e}")
         return False
 
-@st.cache_data(ttl=600)
-def get_logo(sheet_id): # 👈 Notice we pass a string ID, NOT the 'sheet' object
+@st.cache_data(ttl=3600)
+def get_logo(sheet_id): # <-- Make sure this says sheet_id
     try:
-        # We establish the connection INSIDE the cached function
-        client = connect_to_gsheets()
+        client = connect_to_gsheets() # Establish connection INSIDE the cache
         sheet = client.open_by_key(sheet_id)
+        # ... rest of your code to get the logo ...
         
         settings_ws = sheet.worksheet("Settings")
         records = settings_ws.get_all_records()
@@ -1846,7 +1846,7 @@ elif st.session_state.page == "Settings":
     st.subheader("🖼️ Business Branding")
     
     # Display current logo if it exists
-    current_logo_base64 = get_logo(sheet)
+    current_logo_base64 = get_logo("1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg")
     if current_logo_base64:
         st.image(f"data:image/png;base64,{current_logo_base64}", width=150)
         st.caption("Current Business Logo")
