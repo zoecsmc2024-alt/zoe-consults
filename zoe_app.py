@@ -372,10 +372,9 @@ def sidebar():
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
-    # 1. THE LOGO LOADER (Enhanced)
+    # 1. THE LOGO LOADER (Enhanced & Made Circular)
     try:
         sheet = open_sheet("Zoe_Data")
-        # Try to get the Settings worksheet
         settings_ws = sheet.worksheet("Settings")
         records = settings_ws.get_all_records()
         
@@ -383,14 +382,29 @@ def sidebar():
         logo_base64 = next((row['Value'] for row in records if str(row['Key']).lower() == 'logo'), None)
         
         if logo_base64:
-            # Display Logo at the very top
-            st.sidebar.image(f"data:image/png;base64,{logo_base64}", use_container_width=10)
+            # We construct the image source
+            img_src = f"data:image/png;base64,{logo_base64}"
+            
+            # This CSS creates the circular mask
+            st.sidebar.markdown(f"""
+                <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+                    <div style="
+                        width: 80px; 
+                        height: 80px; 
+                        border-radius: 50%; 
+                        overflow: hidden; 
+                        border: 3px solid #00ffcc; 
+                        box-shadow: 0px 4px 15px rgba(0, 255, 204, 0.4);">
+                        <img src="{img_src}" style="width: 100%; height: auto;">
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
         else:
             st.sidebar.warning("⚠️ Logo 'Key' not found in Settings.")
     except Exception as e:
-        # This will show you the exact error if the sheet is missing
-        st.sidebar.error(f"Logo Error: {e}")
-
+        # Don't show this error to staff, only to Admin if you want to debug
+        if role == "Admin":
+            st.sidebar.error(f"Logo Error: {e}")
     # 2. BRIGHT NEON TEXT (No more fading!)
     st.sidebar.markdown(f"""
         <h2 style='color:#00ffcc; margin-bottom:0;'>ZOE CONSULTS</h2>
