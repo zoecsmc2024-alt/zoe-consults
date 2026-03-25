@@ -1757,4 +1757,55 @@ def show_settings():
             st.rerun()
 
 
+# ==============================
+# THE MASTER MAIN LOOP
+# ==============================
+
+def main():
+    # 1. First, check if the user is even logged in
+    if "logged_in" not in st.session_state or not st.session_state.logged_in:
+        login_page()  # Show ONLY the login page
+        st.stop()     # Stop right here so the sidebar doesn't try to load
+    
+    # 2. If they ARE logged in, check for inactivity
+    check_session_timeout()
+
+    # 3. NOW, call the Sidebar (This makes it reappear!)
+    sidebar()
+
+    # 4. ROUTING: Show the page based on the sidebar selection
+    page = st.session_state.get("page", "Overview")
+
+    if page == "Overview":
+        show_overview()
+    elif page == "Borrowers":
+        show_borrowers()
+    elif page == "Loans":
+        show_loans()
+    elif page == "Payments":
+        show_payments()
+    elif page == "Collateral":
+        show_collateral()
+    elif page == "Ledger":
+        show_ledger()
+    elif page == "Calendar":
+        show_calendar()
+    elif page == "Overdue Tracker":
+        show_overdue_tracker()
+    elif page == "Expenses":
+        show_expenses()
+    elif page == "PettyCash":
+        show_petty_cash()
+    elif page == "Payroll":
+        show_payroll()
+    elif page == "Reports":
+        show_reports()
+    elif page == "Settings":
+        show_settings()
+
+# This is the "Ignition Switch" that starts the app
+if __name__ == "__main__":
+    main()
+
+
 
