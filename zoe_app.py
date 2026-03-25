@@ -368,7 +368,7 @@ def make_receipt(data, file):
     doc = SimpleDocTemplate(file)
     styles = getSampleStyleSheet()
     content = [
-        Paragraph("ZOE LENDING SERVICES", styles['Title']),
+        Paragraph("ZOE CONSULTS SMC LIMITED", styles['Title']),
         Spacer(1, 10),
         Paragraph(f"Borrower: {data['b']}", styles['Normal']),
         Paragraph(f"Amount: {data['a']}", styles['Normal']),
@@ -390,6 +390,16 @@ def save_logo(sheet, image_file):
 
 
 def sidebar():
+    # --- TEMPORARY RESET TOOL (Delete this after you use it) ---
+st.sidebar.markdown("---")
+if st.sidebar.checkbox("Reset Passwords"):
+    st.write("### 🔑 Password Hasher")
+    new_pass = st.text_input("ZoeMaster2026")
+    if st.button("Generate Hash"):
+        # This creates the $2b$12... code for you
+        hashed = hash_password(new_pass)
+        st.code(hashed) # Copy this code
+        st.info("Copy the code above and paste it into Column B of your Google Sheet.")
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
