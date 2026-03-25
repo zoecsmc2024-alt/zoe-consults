@@ -130,7 +130,7 @@ def check_session_timeout():
 # 3. LOGIN PAGE UI
 # ==============================
 def login():
-    st.title("🔐 Zoe Admin Login (Emergency Mode)")
+    st.title("🔐 Login")
 
     u_input = st.text_input("Username")
     p_input = st.text_input("Password", type="password")
