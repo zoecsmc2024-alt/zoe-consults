@@ -369,12 +369,13 @@ def save_logo(sheet, image_file):
 
 
 def sidebar():
+    st.sidebar.title("🌈 Zoe Hub")
     
     role = st.session_state.get("role", "Staff")
     user = st.session_state.get("user", "Guest")
 
     # Brand Title
-    st.sidebar.markdown('<p style="font-size:26px; font-weight:bold; color:#00ffcc; margin-bottom:0;">ZOE ADMIN 💼</p>', unsafe_allow_html=True)
+    st.sidebar.markdown('<p style="font-size:26px; font-weight:bold; color:#00ffcc; margin-bottom:0;">ZOE CONSULTS</p>', unsafe_allow_html=True)
     st.sidebar.markdown(f'<p style="color:#888; font-size:14px; margin-top:0;">👤 {user} ({role})</p>', unsafe_allow_html=True)
     st.sidebar.markdown("---")
 
