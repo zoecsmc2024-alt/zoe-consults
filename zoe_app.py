@@ -647,7 +647,7 @@ elif st.session_state.page == "Borrowers":
 
     st.title("👥 Borrowers Management")
 
-    sheet = open_sheet("Zoe_Data")
+    borrowers_df = get_cached_data(SHEET_ID, "Borrowers")
     df = load_data(sheet, "Borrowers")
 
     if df.empty:
@@ -805,7 +805,7 @@ elif st.session_state.page == "Loans":
     st.subheader("➕ Issue Loan")
 
     # 1. Fetch the data
-    sheet = open_sheet("Zoe_Data")
+    loans_df = get_cached_data(SHEET_ID, "Loans")
     borrowers_df = load_data(sheet, "Borrowers")
 
     # 2. PLACEMENT: Safety check
