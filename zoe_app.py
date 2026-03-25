@@ -469,7 +469,7 @@ def sidebar():
 
     # 3. NAVIGATION MENU
     menu = {
-        "Overview": "📊", "Borrowers": "👥", "Collateral": "🛡️",
+        "Overview": "📊", "Loans": "💵", "Borrowers": "👥", "Collateral": "🛡️",
         "Calendar": "📅", "Ledger": "📄", "Overdue Tracker": "⏰",
         "Payments": "💵", "Expenses": "📁", "PettyCash": "💵",
         "Payroll": "🧾", "Reports": "📈", "Settings": "⚙️"
