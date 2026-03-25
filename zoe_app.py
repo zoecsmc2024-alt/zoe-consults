@@ -49,6 +49,33 @@ def open_sheet(sheet_name="Zoe_Data"):
 # ==============================
 # 2. DATA HELPERS (Load & Save)
 # ==============================
+# 1. THE DATA LOADER (Cached for 5 minutes)
+@st.cache_data(ttl=300)
+def get_cached_data(sheet_id, worksheet_name):
+    """Fetches and caches a specific worksheet by name."""
+    try:
+        client = connect_to_gsheets()
+        sheet = client.open_by_key(sheet_id)
+        worksheet = sheet.worksheet(worksheet_name)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
+        # Return an empty dataframe so the app doesn't crash if Google is down
+        return pd.DataFrame()
+
+# 2. THE LOGO LOADER (Cached for 1 hour)
+@st.cache_data(ttl=3600)
+def get_cached_logo(sheet_id):
+    """Fetches and caches the logo base64 string."""
+    try:
+        client = connect_to_gsheets()
+        sheet = client.open_by_key(sheet_id)
+        settings_ws = sheet.worksheet("Settings")
+        records = settings_ws.get_all_records()
+        logo_base64 = next((row['Value'] for row in records if str(row['Key']).lower() == 'logo'), None)
+        return logo_base64
+    except:
+        return None
 
 def load_data(sheet, worksheet_name):
     """Fetches a worksheet and returns it as a clean Pandas DataFrame."""
