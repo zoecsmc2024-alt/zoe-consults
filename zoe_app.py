@@ -160,11 +160,9 @@ else:
     check_session_timeout() # Check if they've been idle
     () # Show the Neon Sidebar
     
-    # --- PAGE ROUTING ---
-    if st.session_state.page == "Overview":
-        overview_page()
-    # ... rest of your elif blocks ...
-            
+    # --- INITIALIZE SESSION STATE ---
+if "page" not in st.session_state:
+    st.session_state.page = "Overview"  # This sets your default landing page
 
 def generate_ledger_pdf(loan_data, ledger_df, filename):
     pdf = FPDF()
