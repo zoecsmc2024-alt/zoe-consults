@@ -1203,7 +1203,7 @@ def show_collateral():
                 manage_list = col_df.apply(lambda x: f"ID: {x['Collateral_ID']} | {x['Borrower']} - {x['Description']}", axis=1).tolist()
                 selected_col = st.selectbox("Select Asset to Modify", manage_list)
                 
-                # Extract the actual ID (handling potential date-strings)
+                # Extract the actual ID
                 c_id = selected_col.split(" | ")[0].replace("ID: ", "")
                 c_row = col_df[col_df["Collateral_ID"].astype(str) == c_id].iloc[0]
 
@@ -1211,22 +1211,35 @@ def show_collateral():
                 upd_desc = ce1.text_input("Edit Description", value=c_row["Description"])
                 upd_val = ce1.number_input("Edit Value (UGX)", value=float(c_row["Value"]), step=100000.0)
                 
-                upd_stat = ce2.selectbox("Update Status", ["In Custody", "Released", "Disposed"], 
-                                        index=["In Custody", "Released", "Disposed"].index(c_row["Status"]))
-
+                collateral_options = ["In Custody", "Released", "Disposed", "Held"]
+                
+                # Get current status, default to "In Custody" if empty
+                current_c_status = str(c_row.get("Status", "In Custody"))
+                
+                # Safety check for the selectbox index
+                if current_c_status not in collateral_options:
+                    current_c_status = "Held"
+                
+                upd_stat = ce2.selectbox("Update Status", collateral_options, 
+                                        index=collateral_options.index(current_c_status))
+                
+                # Action Buttons
                 btn_upd, btn_del = st.columns(2)
 
                 if btn_upd.button("💾 Save Asset Changes", use_container_width=True):
                     col_df.loc[col_df["Collateral_ID"].astype(str) == c_id, ["Description", "Value", "Status"]] = [upd_desc, upd_val, upd_stat]
                     if save_data("Collateral", col_df):
-                        st.success("Asset updated!"); st.rerun()
+                        st.success("✅ Asset updated!")
+                        st.rerun()
 
                 if btn_del.button("🗑️ Delete Asset Record", use_container_width=True):
                     new_col_df = col_df[col_df["Collateral_ID"].astype(str) != c_id]
                     if save_data("Collateral", new_col_df):
-                        st.warning("Asset record deleted!"); st.rerun()
+                        st.warning("⚠️ Asset record deleted!")
+                        st.rerun()
         else:
-            st.info("No collateral registered yet.")
+            # This 'else' now correctly matches the 'if not col_df.empty'
+            st.info("💡 No collateral registered yet.")
 
 # ==============================
 # 16. COLLECTIONS & OVERDUE TRACKER
