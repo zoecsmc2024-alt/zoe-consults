@@ -1897,25 +1897,96 @@ def show_ledger():
     st.markdown("---")
     st.markdown("### 🚀 Generate Client Statement")
     
-    # --- PDF GENERATION LOGIC ---
-    if st.button("✨ Prepare Neon PDF Statement", use_container_width=True):
-        st.write("Constructing PDF...")
+    if st.button("✨ Preview Official Statement", use_container_width=True):
+        # 1. Define the Boss's Colors
+        navy_blue = "#000080"
+        baby_blue = "#E1F5FE" # A soft, professional baby blue for rows
         
-        # This part assumes you have a function to generate the bytes
-        # If not yet built, the download button below will wait for it
-        try:
-            # Placeholder for the actual PDF generation logic
-            # pdf_bytes = generate_pdf(ledger_df, loan_info) 
+        # 2. Build the HTML (Navy & Baby Blue Theme)
+        html_statement = f"""
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; border: 1px solid #ddd; border-radius: 8px; max-width: 850px; margin: auto; background-color: white;">
+            
+            <div style="background-color: {navy_blue}; color: white; padding: 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="margin:0; letter-spacing: 2px;">ZOE CONSULTS SMC LTD</h1>
+                    <p style="margin:5px 0 0 0; opacity: 0.9;">Professional Financial Statement</p>
+                </div>
+                <div style="text-align: right;">
+                    <p style="margin:0; font-weight: bold;">LOAN ID: {l_id}</p>
+                    <p style="margin:0; font-size: 12px;">Issued: {loan_info['Start_Date']}</p>
+                </div>
+            </div>
+            
+            <div style="padding: 20px; border: 1px solid #ddd; border-top: none;">
+                <table style="width: 100%; margin-bottom: 20px;">
+                    <tr>
+                        <td style="width: 50%;">
+                            <p style="color: #666; font-size: 12px; margin-bottom: 5px;">BORROWER DETAILS</p>
+                            <h3 style="margin:0; color: {navy_blue};">{loan_info['Borrower']}</h3>
+                        </td>
+                        <td style="text-align: right;">
+                            <p style="color: #666; font-size: 12px; margin-bottom: 5px;">TOTAL REPAYABLE</p>
+                            <h3 style="margin:0; color: {navy_blue};">{loan_info['Total_Repayable']:,.0f} UGX</h3>
+                        </td>
+                    </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: {navy_blue}; color: white;">
+                            <th style="padding: 12px; text-align: left; border: 1px solid {navy_blue};">Date</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid {navy_blue};">Description</th>
+                            <th style="padding: 12px; text-align: right; border: 1px solid {navy_blue};">Debit</th>
+                            <th style="padding: 12px; text-align: right; border: 1px solid {navy_blue};">Credit</th>
+                            <th style="padding: 12px; text-align: right; border: 1px solid {navy_blue};">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        """
+
+        # 3. Loop through rows with Baby Blue alternating colors
+        for i, row in ledger_df.iterrows():
+            bg_color = baby_blue if i % 2 == 0 else "white"
+            html_statement += f"""
+                        <tr style="background-color: {bg_color};">
+                            <td style="padding: 10px; border: 1px solid #eee;">{row['Date']}</td>
+                            <td style="padding: 10px; border: 1px solid #eee;">{row['Description']}</td>
+                            <td style="padding: 10px; border: 1px solid #eee; text-align: right;">{row['Debit']:,.0f}</td>
+                            <td style="padding: 10px; border: 1px solid #eee; text-align: right;">{row['Credit']:,.0f}</td>
+                            <td style="padding: 10px; border: 1px solid #eee; text-align: right; font-weight: bold; color: {navy_blue};">{row['Balance']:,.0f}</td>
+                        </tr>
+            """
+
+        html_statement += f"""
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid {navy_blue}; text-align: right;">
+                    <p style="margin:0; font-size: 14px;"><strong>Final Outstanding: {current_balance:,.0f} UGX</strong></p>
+                </div>
+                
+                <div style="margin-top: 40px; text-align: center; font-size: 10px; color: #999;">
+                    <p>Zoe Consults SMC Limited | Kampala, Uganda</p>
+                    <p>This is an official document. Please contact us for any discrepancies.</p>
+                </div>
+            </div>
+        </div>
+        """
+
+        # 4. Render the Preview
+        st.components.v1.html(html_statement, height=700, scrolling=True)
+        st.info("💡 **Boss's Tip:** To save this as a PDF, right-click the statement above, select **Print**, and set the destination to **Save as PDF**.")
             
             st.download_button(
                 label="📥 Download & Send to Client",
-                data=b"PDF Content Placeholder", # Replace with your pdf_bytes variable
-                file_name=f"Zoe_Statement_{loan_info['Borrower']}_{l_id}.pdf",
+                data=pdf_output, # <--- Now sending real PDF data!
+                file_name=f"Zoe_Statement_{loan_info['Borrower']}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
+            st.success("PDF Ready!")
         except Exception as e:
-            st.error(f"Could not generate PDF: {e}")
+            st.error(f"Error: {e}")
 
     
 
