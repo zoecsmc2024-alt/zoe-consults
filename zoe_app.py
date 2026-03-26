@@ -1866,54 +1866,45 @@ def show_payroll():
 def show_reports():
     st.markdown("<h2 style='color: #2B3F87;'>📊 Advanced Analytics & Reports</h2>", unsafe_allow_html=True)
     
-    # 1. FETCH ALL DATA (Memory Shield)
+    # 1. FETCH ALL DATA
     loans = get_cached_data("Loans")
     payments = get_cached_data("Payments")
     expenses = get_cached_data("Expenses")
     payroll = get_cached_data("Payroll")
-    
-    # 2. SAFETY CHECK & CALCULATION
-    if not payroll.empty:
-        # Check if the old 'Salary' column is still there, otherwise use 'Gross_Salary'
-        # We use .get() to avoid crashing if one is missing
-        if "Gross_Salary" in payroll.columns:
-            pay_amt = pd.to_numeric(payroll["Gross_Salary"], errors="coerce").fillna(0).sum()
-        elif "Salary" in payroll.columns:
-            pay_amt = pd.to_numeric(payroll["Salary"], errors="coerce").fillna(0).sum()
-        else:
-            pay_amt = 0
-            
-        # Optional: If you want to track Net Pay specifically in reports
-        net_pay_total = pd.to_numeric(payroll.get("Net_Pay", 0), errors="coerce").fillna(0).sum()
-    else:
-        pay_amt = 0
-        net_pay_total = 0
-
-    # 3. UPDATE YOUR METRICS / CHARTS
-    # (Update your existing metric call to include commas)
-    st.metric("Total Payroll Outflow", f"{pay_amt:,.0f} UGX")
     petty = get_cached_data("PettyCash")
 
     if loans.empty or payments.empty:
         st.info("📈 Not enough data yet. Once you record more loans and payments, your P&L will appear here.")
         return
 
-    # 2. DATA CLEANING & CONVERSION (Atomic Mode)
-    # We ensure everything is a float so math doesn't crash
+    # 2. SAFETY PAYROLL CALCULATION (Fixes the KeyError)
+    if not payroll.empty:
+        # Check which column name is actually in your Google Sheet
+        p_col = "Gross_Salary" if "Gross_Salary" in payroll.columns else "Salary"
+        pay_amt = pd.to_numeric(payroll[p_col], errors="coerce").fillna(0).sum()
+        # Track NSSF/PAYE for the Tax Obligation metric
+        nssf_total = pd.to_numeric(payroll.get("NSSF", 0), errors="coerce").fillna(0).sum()
+        paye_total = pd.to_numeric(payroll.get("PAYE", 0), errors="coerce").fillna(0).sum()
+    else:
+        pay_amt = 0
+        nssf_total = 0
+        paye_total = 0
+
+    # 3. DATA CLEANING & CONVERSION (Atomic Mode)
     l_amt = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0).sum()
     l_int = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0).sum()
-    
     p_amt = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0).sum()
-    
-    # Combined Outflows
     exp_amt = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0).sum()
-    pay_amt = pd.to_numeric(payroll["Salary"], errors="coerce").fillna(0).sum()
-    petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
     
-    total_outflow = exp_amt + pay_amt + petty_out
+    petty_out = 0
+    if not petty.empty:
+        petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
+    
+    # Total Outflow and Net Profit math
+    total_outflow = exp_amt + pay_amt + petty_out + nssf_total + paye_total
     net_profit = p_amt - total_outflow
 
-    # 3. KPI DASHBOARD
+    # 4. KPI DASHBOARD (With Commas and Neon Styling)
     st.subheader("🚀 Financial Performance")
     k1, k2, k3, k4 = st.columns(4)
     
@@ -1928,12 +1919,12 @@ def show_reports():
 
     st.markdown("---")
 
-    # 4. VISUAL ANALYTICS
+    # 5. VISUAL ANALYTICS
     col_left, col_right = st.columns(2)
 
     with col_left:
         st.write("**💰 Income vs. Expenses (Monthly)**")
-        # Prepare Monthly Data
+        # Ensure dates are correct for merging
         payments["Date"] = pd.to_datetime(payments["Date"])
         expenses["Date"] = pd.to_datetime(expenses["Date"])
         
@@ -1956,7 +1947,7 @@ def show_reports():
                          color_discrete_sequence=px.colors.sequential.GnBu_r)
         st.plotly_chart(fig_pie, use_container_width=True)
 
-    # 5. RISK INDICATOR
+    # 6. RISK INDICATOR
     st.markdown("---")
     st.subheader("🚨 Risk Assessment")
     
