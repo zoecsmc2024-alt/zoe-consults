@@ -1372,24 +1372,21 @@ def show_overdue_tracker():
 def show_calendar():
     st.markdown("<h2 style='color: #2B3F87;'>📅 Activity Calendar</h2>", unsafe_allow_html=True)
 
-    # 1. FETCH DATA (Memory Shield)
+    # 1. FETCH DATA
     loans_df = get_cached_data("Loans")
 
     if loans_df.empty:
         st.info("📅 Calendar is clear! No active loans to track.")
         return
 
-    # 2. DATA PREPARATION (Standardizing)
+    # 2. DATA PREPARATION
     loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
     loans_df["Total_Repayable"] = pd.to_numeric(loans_df["Total_Repayable"], errors="coerce").fillna(0)
     today = pd.Timestamp.today().normalize()
     
-    # Filter out Closed loans for the calendar
     active_loans = loans_df[loans_df["Status"] != "Closed"].copy()
 
-    # ==============================
-    # 🚀 DAILY WORKLOAD METRICS
-    # ==============================
+    # 3. DAILY WORKLOAD METRICS (Styled Cards)
     due_today_df = active_loans[active_loans["End_Date"].dt.date == today.date()]
     upcoming_df = active_loans[
         (active_loans["End_Date"] > today) & 
@@ -1398,11 +1395,32 @@ def show_calendar():
     overdue_count = active_loans[active_loans["End_Date"] < today].shape[0]
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("📌 Due Today", len(due_today_df))
-    m2.metric("⏳ Next 7 Days", len(upcoming_df))
-    m3.metric("🔴 Overdue Cases", overdue_count)
+    
+    # Due Today Card (Navy)
+    m1.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">📌 DUE TODAY</p>
+            <h3 style="margin:0; color:#2B3F87;">{len(due_today_df)} <span style="font-size:14px;">TASKS</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    # Upcoming Card (Baby Blue)
+    m2.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #89CFF0; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">⏳ NEXT 7 DAYS</p>
+            <h3 style="margin:0; color:#2B3F87;">{len(upcoming_df)} <span style="font-size:14px;">PENDING</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Overdue Card (Red)
+    m3.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">🔴 OVERDUE CASES</p>
+            <h3 style="margin:0; color:#FF4B4B;">{overdue_count} <span style="font-size:14px;">URGENT</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # ==============================
     # 📌 SECTION: DUE TODAY
@@ -1411,10 +1429,11 @@ def show_calendar():
     if due_today_df.empty:
         st.success("No deadlines for today. Focus on follow-ups! ✨")
     else:
-        # Display with Neon Styling
         st.warning(f"⚠️ You have {len(due_today_df)} collection(s) to finalize today.")
         st.dataframe(
-            due_today_df[["Loan_ID", "Borrower", "Total_Repayable"]].assign(Action="💰 COLLECT NOW"),
+            due_today_df[["Loan_ID", "Borrower", "Total_Repayable"]]
+            .assign(Action="💰 COLLECT NOW")
+            .style.format({"Total_Repayable": "{:,.0f}"}), # Commas added
             use_container_width=True, hide_index=True
         )
 
@@ -1429,7 +1448,8 @@ def show_calendar():
         upcoming_display["Due_Date"] = upcoming_display["End_Date"].dt.strftime("%d %b (%a)")
         
         st.dataframe(
-            upcoming_display[["Due_Date", "Borrower", "Total_Repayable", "Loan_ID"]],
+            upcoming_display[["Due_Date", "Borrower", "Total_Repayable", "Loan_ID"]]
+            .style.format({"Total_Repayable": "{:,.0f}"}), # Commas added
             use_container_width=True, hide_index=True
         )
 
@@ -1445,12 +1465,12 @@ def show_calendar():
         overdue_df["Days_Late"] = (today - overdue_df["End_Date"]).dt.days
         overdue_df = overdue_df.sort_values("Days_Late", ascending=False)
         
-        # Color coding for gravity
         def color_late(val):
             return 'color: #FF4B4B; font-weight: bold;' if val > 7 else 'color: #FFA500;'
             
         st.dataframe(
-            overdue_df[["Loan_ID", "Borrower", "Days_Late", "Status"]].style.applymap(color_late, subset=['Days_Late']),
+            overdue_df[["Loan_ID", "Borrower", "Days_Late", "Status"]]
+            .style.applymap(color_late, subset=['Days_Late']),
             use_container_width=True, hide_index=True
         )
 # ==============================
