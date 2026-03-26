@@ -1003,22 +1003,32 @@ def show_payments():
             st.markdown("<br>", unsafe_allow_html=True)
 
             with st.form("payment_form", clear_on_submit=True):
-                col_a, col_b = st.columns(2)
+                col_a, col_b, col_c = st.columns(3) # Changed to 3 columns for better fit
+                
                 pay_amount = col_a.number_input("Amount Received (UGX)", min_value=0, step=10000)
                 pay_method = col_b.selectbox("Method", ["Mobile Money", "Cash", "Bank Transfer"])
                 
+                # --- NEW: MANUAL DATE INPUT ---
+                # Default to today, but you can now pick any date in the past
+                pay_date = col_c.date_input("Payment Date", value=datetime.now())
+                
                 if st.form_submit_button("✅ Post Payment", use_container_width=True):
-                    if 0 < pay_amount <= (outstanding + 100): # Allowed small margin for rounding
+                    if 0 < pay_amount <= (outstanding + 100):
                         try:
                             # Create Payment Record
                             new_p_id = int(payments_df["Payment_ID"].max() + 1) if not payments_df.empty else 1
                             new_payment = pd.DataFrame([{
-                                "Payment_ID": new_p_id, "Loan_ID": selected_id, "Borrower": loan["Borrower"],
-                                "Amount": pay_amount, "Date": datetime.now().strftime("%Y-%m-%d"),
-                                "Method": pay_method, "Recorded_By": st.session_state.get("user", "Admin")
+                                "Payment_ID": new_p_id, 
+                                "Loan_ID": selected_id, 
+                                "Borrower": loan["Borrower"],
+                                "Amount": pay_amount, 
+                                # Use the manually picked date instead of 'now'
+                                "Date": pay_date.strftime("%Y-%m-%d"), 
+                                "Method": pay_method, 
+                                "Recorded_By": st.session_state.get("user", "Zoe (Admin)")
                             }])
 
-                            # Update Loan Balance
+                            # Update Loan Balance logic
                             idx = loans_df[loans_df["Loan_ID"] == selected_id].index[0]
                             loans_df.at[idx, "Amount_Paid"] = paid_so_far + pay_amount
                             
@@ -1027,7 +1037,7 @@ def show_payments():
                                 loans_df.at[idx, "Status"] = "Closed"
 
                             if save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True)) and save_data("Loans", loans_df):
-                                st.success("Payment Recorded!")
+                                st.success(f"Payment for {pay_date.strftime('%d %b')} recorded!")
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
