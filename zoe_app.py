@@ -1877,20 +1877,16 @@ def show_reports():
         st.info("📈 Not enough data yet. Once you record more loans and payments, your P&L will appear here.")
         return
 
-    # 2. SAFETY PAYROLL CALCULATION (Fixes the KeyError)
+    # 2. SAFETY PAYROLL CALCULATION
     if not payroll.empty:
-        # Check which column name is actually in your Google Sheet
         p_col = "Gross_Salary" if "Gross_Salary" in payroll.columns else "Salary"
         pay_amt = pd.to_numeric(payroll[p_col], errors="coerce").fillna(0).sum()
-        # Track NSSF/PAYE for the Tax Obligation metric
         nssf_total = pd.to_numeric(payroll.get("NSSF", 0), errors="coerce").fillna(0).sum()
         paye_total = pd.to_numeric(payroll.get("PAYE", 0), errors="coerce").fillna(0).sum()
     else:
-        pay_amt = 0
-        nssf_total = 0
-        paye_total = 0
+        pay_amt, nssf_total, paye_total = 0, 0, 0
 
-    # 3. DATA CLEANING & CONVERSION (Atomic Mode)
+    # 3. DATA CLEANING & CONVERSION
     l_amt = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0).sum()
     l_int = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0).sum()
     p_amt = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0).sum()
@@ -1900,44 +1896,61 @@ def show_reports():
     if not petty.empty:
         petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
     
-    # Total Outflow and Net Profit math
     total_outflow = exp_amt + pay_amt + petty_out + nssf_total + paye_total
     net_profit = p_amt - total_outflow
 
-    # 4. KPI DASHBOARD (With Commas and Neon Styling)
+    # 4. KPI DASHBOARD WITH STYLED CARDS
     st.subheader("🚀 Financial Performance")
     k1, k2, k3, k4 = st.columns(4)
     
-    k1.metric("Capital Issued", f"{l_amt:,.0f} UGX")
-    k2.metric("Interest Accrued", f"{l_int:,.0f} UGX")
-    k3.metric("Total Collections", f"{p_amt:,.0f} UGX")
-    
-    # Profit metric turns red if negative
-    k4.metric("Net Profit (Actual)", f"{net_profit:,.0f} UGX", 
-              delta=f"{(net_profit/l_amt)*100:.1f}% Yield" if l_amt > 0 else None,
-              delta_color="normal" if net_profit > 0 else "inverse")
+    # Capital Issued (Navy)
+    k1.markdown(f"""
+        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">CAPITAL ISSUED</p>
+            <h4 style="margin:0; color:#2B3F87;">{l_amt:,.0f}</h4>
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    # Interest Accrued (Baby Blue)
+    k2.markdown(f"""
+        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #89CFF0; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">INTEREST ACCRUED</p>
+            <h4 style="margin:0; color:#2B3F87;">{l_int:,.0f}</h4>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Total Collections (Green)
+    k3.markdown(f"""
+        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #00ffcc; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">COLLECTIONS</p>
+            <h4 style="margin:0; color:#2B3F87;">{p_amt:,.0f}</h4>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Profit Card (Dynamic Color)
+    p_color = "#00ffcc" if net_profit > 0 else "#FF4B4B"
+    k4.markdown(f"""
+        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid {p_color}; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">NET PROFIT</p>
+            <h4 style="margin:0; color:{p_color};">{net_profit:,.0f}</h4>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # 5. VISUAL ANALYTICS
     col_left, col_right = st.columns(2)
 
     with col_left:
         st.write("**💰 Income vs. Expenses (Monthly)**")
-        # Ensure dates are correct for merging
         payments["Date"] = pd.to_datetime(payments["Date"])
         expenses["Date"] = pd.to_datetime(expenses["Date"])
-        
         inc_trend = payments.groupby(payments["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
         exp_trend = expenses.groupby(expenses["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
-        
         merged = pd.merge(inc_trend, exp_trend, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
         merged.columns = ["Month", "Income", "Expenses"]
-        
-        fig_bar = px.bar(merged, x="Month", y=["Income", "Expenses"], 
-                         barmode="group",
+        fig_bar = px.bar(merged, x="Month", y=["Income", "Expenses"], barmode="group",
                          color_discrete_map={"Income": "#00ffcc", "Expenses": "#FF4B4B"})
-        fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with col_right:
@@ -1950,20 +1963,14 @@ def show_reports():
     # 6. RISK INDICATOR
     st.markdown("---")
     st.subheader("🚨 Risk Assessment")
-    
     overdue_val = loans[loans["Status"] == "Overdue"].Amount.sum()
     risk_percent = (overdue_val / l_amt * 100) if l_amt > 0 else 0
-    
     r1, r2 = st.columns([2, 1])
     r1.write(f"Your Portfolio at Risk (PAR) is **{risk_percent:.1f}%**.")
     r1.progress(min(risk_percent / 100, 1.0))
-    
-    if risk_percent < 10:
-        r2.success("✅ Healthy Portfolio")
-    elif risk_percent < 25:
-        r2.warning("⚠️ Moderate Risk")
-    else:
-        r2.error("🆘 Critical Risk Level")
+    if risk_percent < 10: r2.success("✅ Healthy Portfolio")
+    elif risk_percent < 25: r2.warning("⚠️ Moderate Risk")
+    else: r2.error("🆘 Critical Risk Level")
 
 # ==============================
 # 22. MASTER LEDGER & STATEMENTS
