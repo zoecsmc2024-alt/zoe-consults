@@ -773,7 +773,7 @@ def show_loans():
     def show_loans():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA
+    # 1. LOAD DATA (Make sure all these are indented 4 spaces!)
     borrowers_df = get_cached_data("Borrowers")
     loans_df = get_cached_data("Loans")
 
