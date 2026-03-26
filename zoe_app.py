@@ -121,19 +121,18 @@ def get_logo():
 # 3. THE DATA SAVER (With Cache Clearing)
 def save_data(worksheet_name, dataframe):
     """
-    Overwrites a worksheet and FORCES the app to refresh its memory.
+    Overwrites a worksheet and FORCES the app to refresh.
     """
     try:
         sheet = open_main_sheet()
         worksheet = sheet.worksheet(worksheet_name)
         worksheet.clear()
         
-        # Prepare data for Google (Headers + Values)
         data_to_upload = [dataframe.columns.values.tolist()] + dataframe.values.tolist()
         worksheet.update(data_to_upload)
         
-        # 🔥 IMPORTANT: Clear the cache for THIS worksheet so the app sees the update!
-        st.cache_data.clear(key=f"get_cached_data_{worksheet_name}")
+        # 🔥 THE FIX: Use clear() without any arguments inside
+        st.cache_data.clear() 
         return True
     except Exception as e:
         st.error(f"❌ Error saving to {worksheet_name}: {e}")
@@ -780,115 +779,155 @@ def show_loans():
         with st.expander("📄 View Full Raw Portfolio"):
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 # ==============================
-# 14. PAYMENTS & COLLECTIONS PAGE
+# 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
 
 def show_payments():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Payments Management</h2>", unsafe_allow_html=True)
     
-    # 1. FETCH DATA (Using our High-Speed Cache)
+    # 1. FETCH DATA
     loans_df = get_cached_data("Loans")
     payments_df = get_cached_data("Payments")
 
     if loans_df.empty:
-        st.info("ℹ️ No loans found in the system. Issue a loan first!")
+        st.info("ℹ️ No loans found in the system.")
         return
 
     # Ensure column naming consistency
     if "status" in loans_df.columns:
         loans_df = loans_df.rename(columns={"status": "Status"})
 
-    # 2. SELECT ACTIVE LOANS
-    active_loans = loans_df[loans_df["Status"] != "Closed"]
+    # TABS FOR CLEAN UI
+    tab_new, tab_history, tab_manage = st.tabs(["➕ Record Payment", "📜 History & Trends", "⚙️ Edit/Delete"])
 
-    if active_loans.empty:
-        st.success("🎉 All loans are currently cleared! No active balances.")
-    else:
-        st.subheader("➕ Record New Payment")
-        
-        # Create a searchable label: "ID: 101 - John Doe"
-        loan_options = active_loans.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
-        selected_option = st.selectbox("Select Loan to Credit", loan_options)
-        
-        # Extract ID from the string
-        selected_id = int(selected_option.split(" - ")[0].replace("ID: ", ""))
-        loan = active_loans[active_loans["Loan_ID"] == selected_id].iloc[0]
+    # ==============================
+    # TAB 1: RECORD NEW PAYMENT
+    # ==============================
+    with tab_new:
+        active_loans = loans_df[loans_df["Status"] != "Closed"]
+        if active_loans.empty:
+            st.success("🎉 All loans are currently cleared!")
+        else:
+            loan_options = active_loans.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
+            selected_option = st.selectbox("Select Loan to Credit", loan_options)
+            selected_id = int(selected_option.split(" - ")[0].replace("ID: ", ""))
+            loan = active_loans[active_loans["Loan_ID"] == selected_id].iloc[0]
 
-        # Calculate Real-Time Balance
-        total_rep = pd.to_numeric(loan["Total_Repayable"], errors='coerce')
-        paid_so_far = pd.to_numeric(loan["Amount_Paid"], errors='coerce')
-        outstanding = total_rep - paid_so_far
+            # Calculation
+            total_rep = pd.to_numeric(loan["Total_Repayable"], errors='coerce')
+            paid_so_far = pd.to_numeric(loan["Amount_Paid"], errors='coerce')
+            outstanding = total_rep - paid_so_far
 
-        # DISPLAY LOAN SNAPSHOT
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Client", loan["Borrower"])
-        c2.metric("Balance Due", f"{outstanding:,.0f} UGX")
-        c3.metric("Current Status", loan["Status"])
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Client", loan["Borrower"])
+            c2.metric("Balance Due", f"{outstanding:,.0f} UGX")
+            c3.metric("Current Status", loan["Status"])
 
-        # PAYMENT INPUTS
-        with st.form("payment_form", clear_on_submit=True):
-            col_a, col_b = st.columns(2)
-            pay_amount = col_a.number_input("Amount Received (UGX)", min_value=0, step=10000)
-            pay_method = col_b.selectbox("Method", ["Mobile Money", "Cash", "Bank Transfer"])
-            
-            submit_payment = st.form_submit_button("✅ Post Payment to Ledger", use_container_width=True)
+            with st.form("payment_form", clear_on_submit=True):
+                col_a, col_b = st.columns(2)
+                pay_amount = col_a.number_input("Amount Received (UGX)", min_value=0, step=10000)
+                pay_method = col_b.selectbox("Method", ["Mobile Money", "Cash", "Bank Transfer"])
+                
+                if st.form_submit_button("✅ Post Payment", use_container_width=True):
+                    if 0 < pay_amount <= (outstanding + 1):
+                        try:
+                            # Create Payment Record
+                            new_p_id = int(payments_df["Payment_ID"].max() + 1) if not payments_df.empty else 1
+                            new_payment = pd.DataFrame([{
+                                "Payment_ID": new_p_id, "Loan_ID": selected_id, "Borrower": loan["Borrower"],
+                                "Amount": pay_amount, "Date": datetime.now().strftime("%Y-%m-%d"),
+                                "Method": pay_method, "Recorded_By": st.session_state.get("user", "Admin")
+                            }])
 
-            if submit_payment:
-                if pay_amount <= 0:
-                    st.error("Please enter a valid payment amount.")
-                elif pay_amount > (outstanding + 1): # +1 buffer for rounding
-                    st.error(f"Overpayment detected! Balance is only {outstanding:,.0f} UGX.")
-                else:
-                    try:
-                        # A. Create Payment Entry
-                        new_p_id = int(payments_df["Payment_ID"].max() + 1) if not payments_df.empty else 1
-                        new_payment = pd.DataFrame([{
-                            "Payment_ID": new_p_id,
-                            "Loan_ID": selected_id,
-                            "Borrower": loan["Borrower"],
-                            "Amount": pay_amount,
-                            "Date": datetime.now().strftime("%Y-%m-%d"),
-                            "Method": pay_method,
-                            "Recorded_By": st.session_state.get("user", "Admin")
-                        }])
+                            # Update Loan Balance
+                            idx = loans_df[loans_df["Loan_ID"] == selected_id].index[0]
+                            loans_df.at[idx, "Amount_Paid"] = paid_so_far + pay_amount
+                            if loans_df.at[idx, "Amount_Paid"] >= (total_rep - 1):
+                                loans_df.at[idx, "Status"] = "Closed"
 
-                        # B. Update Loan Balance in memory
-                        idx = loans_df[loans_df["Loan_ID"] == selected_id].index[0]
-                        new_total_paid = paid_so_far + pay_amount
-                        loans_df.at[idx, "Amount_Paid"] = new_total_paid
-                        
-                        # C. Auto-Close Loan if fully paid
-                        if new_total_paid >= (total_rep - 1):
-                            loans_df.at[idx, "Status"] = "Closed"
+                            save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True))
+                            save_data("Loans", loans_df)
+                            st.success("Payment Recorded!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    else:
+                        st.error("Invalid amount.")
 
-                        # D. ATOMIC SAVE (Sync both sheets)
-                        save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True))
-                        save_data("Loans", loans_df)
-
-                        st.success(f"Payment of {pay_amount:,.0f} UGX recorded for {loan['Borrower']}!")
-                        st.balloons()
-                        st.rerun()
-
-                    except Exception as e:
-                        st.error(f"Transaction failed: {e}")
-
-    # 3. HISTORY & TRENDS
-    st.markdown("---")
-    t1, t2 = st.tabs(["📜 Recent Payments", "📈 Daily Collection Log"])
-    
-    with t1:
+    # ==============================
+    # TAB 2: HISTORY
+    # ==============================
+    with tab_history:
         if not payments_df.empty:
             st.dataframe(payments_df.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
         else:
-            st.info("No payment history yet.")
+            st.info("No records.")
 
-    with t2:
-        if not payments_df.empty:
-            # Grouping by date for a simple summary
-            payments_df["Date"] = pd.to_datetime(payments_df["Date"])
-            daily = payments_df.groupby(payments_df["Date"].dt.date)["Amount"].sum().reset_index()
-            daily.columns = ["Collection Date", "Total UGX"]
-            st.dataframe(daily.sort_values("Collection Date", ascending=False), use_container_width=True)
+    # ==============================
+    # TAB 3: EDIT / DELETE (Safety First)
+    # ==============================
+    with tab_manage:
+        if payments_df.empty:
+            st.info("No payments to manage.")
+        else:
+            st.subheader("⚠️ Adjust Previous Payments")
+            pay_list = payments_df.apply(lambda x: f"PayID: {x['Payment_ID']} | {x['Borrower']} - {x['Amount']:,.0f} UGX", axis=1).tolist()
+            selected_pay = st.selectbox("Select Payment Record", pay_list)
+            
+            p_id = int(selected_pay.split(" | ")[0].replace("PayID: ", ""))
+            p_row = payments_df[payments_df["Payment_ID"] == p_id].iloc[0]
+            target_loan_id = p_row["Loan_ID"]
+
+            # Edit Form
+            with st.container():
+                new_amt = st.number_input("Modify Amount", value=float(p_row["Amount"]), step=5000.0)
+                new_met = st.selectbox("Modify Method", ["Mobile Money", "Cash", "Bank Transfer"], 
+                                      index=["Mobile Money", "Cash", "Bank Transfer"].index(p_row["Method"]))
+                
+                col_upd, col_del = st.columns(2)
+
+                # UPDATE LOGIC
+                if col_upd.button("🔄 Update Payment", use_container_width=True):
+                    # 1. Update Payment Sheet
+                    payments_df.loc[payments_df["Payment_ID"] == p_id, ["Amount", "Method"]] = [new_amt, new_met]
+                    
+                    # 2. Recalculate Loan Balance (Crucial!)
+                    loan_payments = payments_df[payments_df["Loan_ID"] == target_loan_id]
+                    total_collected = loan_payments["Amount"].sum()
+                    
+                    l_idx = loans_df[loans_df["Loan_ID"] == target_loan_id].index[0]
+                    loans_df.at[l_idx, "Amount_Paid"] = total_collected
+                    
+                    # Check Status
+                    total_req = loans_df.at[l_idx, "Total_Repayable"]
+                    loans_df.at[l_idx, "Status"] = "Closed" if total_collected >= (total_req - 1) else "Active"
+
+                    save_data("Payments", payments_df)
+                    save_data("Loans", loans_df)
+                    st.success("Payment and Loan Balance Updated!")
+                    st.rerun()
+
+                # DELETE LOGIC
+                if col_del.button("🗑️ Delete Payment", use_container_width=True):
+                    # 1. Remove from Payments
+                    payments_df = payments_df[payments_df["Payment_ID"] != p_id]
+                    
+                    # 2. Recalculate Loan Balance
+                    loan_payments = payments_df[payments_df["Loan_ID"] == target_loan_id]
+                    total_collected = loan_payments["Amount"].sum() if not loan_payments.empty else 0
+                    
+                    l_idx = loans_df[loans_df["Loan_ID"] == target_loan_id].index[0]
+                    loans_df.at[l_idx, "Amount_Paid"] = total_collected
+                    
+                    # Re-open loan if it was closed
+                    total_req = loans_df.at[l_idx, "Total_Repayable"]
+                    if total_collected < (total_req - 1):
+                        loans_df.at[l_idx, "Status"] = "Active"
+
+                    save_data("Payments", payments_df)
+                    save_data("Loans", loans_df)
+                    st.warning("Payment Deleted. Loan balance adjusted.")
+                    st.rerun()
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
