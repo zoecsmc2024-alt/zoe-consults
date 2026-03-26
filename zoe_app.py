@@ -1802,21 +1802,26 @@ def show_payroll():
     # --- TAB 2: LOGS ---
     with tab_logs:
         if not df.empty:
-            # 1. CLEAN UP: If 'Gross_Salary' is 0 but 'Salary' has a value, fix it automatically
+            # 1. REPAIR & CONVERT (Force numbers to be numbers)
+            numeric_cols = ["Gross_Salary", "NSSF", "PAYE", "Net_Pay"]
+            
+            # If the old 'Salary' column exists, move data to Gross_Salary first
             if 'Salary' in df.columns:
                 df['Gross_Salary'] = df.apply(
-                    lambda x: x['Salary'] if (x['Gross_Salary'] == 0 or pd.isna(x['Gross_Salary'])) else x['Gross_Salary'], 
+                    lambda x: x['Salary'] if (pd.to_numeric(x.get('Gross_Salary', 0), errors='coerce') == 0 or pd.isna(x.get('Gross_Salary'))) else x['Gross_Salary'], 
                     axis=1
                 )
 
-            # 2. SELECT & REARRANGE: We exclude the old "Salary" column
-            # Logical Order: ID -> Date -> Name -> Gross -> NSSF -> PAYE -> Net -> Status
+            # Force all money columns to be actual numbers so commas don't crash
+            for col in numeric_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+            # 2. SELECT & REARRANGE
             display_cols = ["Payroll_ID", "Date", "Employee", "Gross_Salary", "NSSF", "PAYE", "Net_Pay", "Status"]
-            
-            # Filter to only show columns that actually exist in the dataframe
             final_cols = [c for c in display_cols if c in df.columns]
             
-            # 3. DISPLAY: With Comma Formatting
+            # 3. DISPLAY with Comma Formatting
             st.dataframe(
                 df[final_cols].sort_values("Date", ascending=False)
                 .style.format({
