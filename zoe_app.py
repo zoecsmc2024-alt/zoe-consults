@@ -708,7 +708,7 @@ def show_loans():
     tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
 
     # ==============================
-    # TAB 1: ISSUE LOAN
+    # TAB 1: ISSUE LOAN (With Historical Dating)
     # ==============================
     with tab_issue:
         if active_borrowers.empty:
@@ -718,8 +718,14 @@ def show_loans():
                 col1, col2 = st.columns(2)
                 selected_borrower = col1.selectbox("Select Borrower", active_borrowers["Name"].unique())
                 amount = col1.number_input("Principal Amount (UGX)", min_value=0, step=50000)
+                
+                # --- NEW DATE INPUTS ---
+                # Defaulting to 'today', but allowing you to pick January dates
+                date_issued = col1.date_input("Date Issued", value=datetime.now())
+                
                 interest_rate = col2.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
-                duration = col2.number_input("Duration (Days)", min_value=1, value=30)
+                # Instead of just 'Duration', we now pick the exact Due Date
+                date_due = col2.date_input("Due Date", value=date_issued + timedelta(days=30))
 
                 interest = (interest_rate / 100) * amount
                 total_due = amount + interest
@@ -730,17 +736,20 @@ def show_loans():
                     if amount > 0:
                         new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
                         new_loan = pd.DataFrame([{
-                            "Loan_ID": new_id, "Borrower": selected_borrower,
-                            "Amount": amount, "Interest": interest,
-                            "Total_Repayable": total_due, "Amount_Paid": 0,
-                            "Start_Date": datetime.now().strftime("%Y-%m-%d"),
-                            "End_Date": (datetime.now() + timedelta(days=int(duration))).strftime("%Y-%m-%d"),
+                            "Loan_ID": new_id, 
+                            "Borrower": selected_borrower,
+                            "Amount": amount, 
+                            "Interest": interest,
+                            "Total_Repayable": total_due, 
+                            "Amount_Paid": 0,
+                            # Save the dates you actually picked in the form
+                            "Start_Date": date_issued.strftime("%Y-%m-%d"),
+                            "End_Date": date_due.strftime("%Y-%m-%d"),
                             "Status": "Active"
                         }])
                         if save_data("Loans", pd.concat([loans_df, new_loan], ignore_index=True)):
-                            st.success(f"Loan #{new_id} Issued!")
+                            st.success(f"Loan #{new_id} Issued for {date_issued.strftime('%d %b')}!")
                             st.rerun()
-
     # ==============================
     # TAB 2: PORTFOLIO INSPECTOR
     # ==============================
