@@ -1117,33 +1117,68 @@ def show_collateral():
 
     # --- TAB 2: VIEW & UPDATE ---
     with tab_view:
-        if not collateral_df.empty:
-            # Quick Stats
-            val_col = pd.to_numeric(collateral_df["Value"], errors="coerce").fillna(0)
-            total_val = val_col.sum()
-            held_count = collateral_df[collateral_df["Status"] == "Held"].shape[0]
-
-            m1, m2 = st.columns(2)
-            m1.metric("Total Asset Value (Est)", f"{total_val:,.0f} UGX")
-            m2.metric("Assets in Custody", held_count)
-
-            st.markdown("---")
+        if not col_df.empty:
+            # 1. CLEANING & REPAIR
+            col_df["Value"] = pd.to_numeric(col_df["Value"], errors='coerce').fillna(0)
             
-            # Inventory Table
-            st.dataframe(collateral_df, use_container_width=True, hide_index=True)
+            # 2. COLORED METRIC CARDS
+            total_val = col_df["Value"].sum()
+            in_custody = col_df[col_df["Status"] == "In Custody"].shape[0]
+            
+            m1, m2 = st.columns(2)
+            # Total Value Card (Blue)
+            m1.markdown(f"""
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL ASSET VALUE (EST)</p>
+                    <h2 style="margin:0; color:#2B3F87;">{total_val:,.0f} <span style="font-size:14px;">UGX</span></h2>
+                </div>
+            """, unsafe_allow_html=True)
 
-            # Update Logic
-            with st.expander("⚙️ Release or Update Asset Status"):
-                sel_up_id = st.selectbox("Select Collateral ID", collateral_df["Collateral_ID"].unique())
-                new_stat = st.selectbox("New Status", ["Held", "Released", "Liquidated"])
+            # Assets in Custody Card (Cyan)
+            m2.markdown(f"""
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00D1FF; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">ASSETS IN CUSTODY</p>
+                    <h2 style="margin:0; color:#00D1FF;">{in_custody}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 3. FORMATTED TABLE
+            st.dataframe(
+                col_df.style.format({"Value": "{:,.0f}"}),
+                use_container_width=True, hide_index=True
+            )
+
+            # 4. DELETE & EDIT SECTION
+            with st.expander("⚙️ Manage Collateral Records (Edit/Delete)"):
+                manage_list = col_df.apply(lambda x: f"ID: {x['Collateral_ID']} | {x['Borrower']} - {x['Description']}", axis=1).tolist()
+                selected_col = st.selectbox("Select Asset to Modify", manage_list)
                 
-                if st.button("Update Inventory"):
-                    collateral_df.loc[collateral_df["Collateral_ID"] == sel_up_id, "Status"] = new_stat
-                    if save_data("Collateral", collateral_df):
-                        st.success(f"Asset #{sel_up_id} status updated to {new_stat}!")
-                        st.rerun()
+                # Extract the actual ID (handling potential date-strings)
+                c_id = selected_col.split(" | ")[0].replace("ID: ", "")
+                c_row = col_df[col_df["Collateral_ID"].astype(str) == c_id].iloc[0]
+
+                ce1, ce2 = st.columns(2)
+                upd_desc = ce1.text_input("Edit Description", value=c_row["Description"])
+                upd_val = ce1.number_input("Edit Value (UGX)", value=float(c_row["Value"]), step=100000.0)
+                
+                upd_stat = ce2.selectbox("Update Status", ["In Custody", "Released", "Disposed"], 
+                                        index=["In Custody", "Released", "Disposed"].index(c_row["Status"]))
+
+                btn_upd, btn_del = st.columns(2)
+
+                if btn_upd.button("💾 Save Asset Changes", use_container_width=True):
+                    col_df.loc[col_df["Collateral_ID"].astype(str) == c_id, ["Description", "Value", "Status"]] = [upd_desc, upd_val, upd_stat]
+                    if save_data("Collateral", col_df):
+                        st.success("Asset updated!"); st.rerun()
+
+                if btn_del.button("🗑️ Delete Asset Record", use_container_width=True):
+                    new_col_df = col_df[col_df["Collateral_ID"].astype(str) != c_id]
+                    if save_data("Collateral", new_col_df):
+                        st.warning("Asset record deleted!"); st.rerun()
         else:
-            st.info("Inventory is currently empty.")
+            st.info("No collateral registered yet.")
 
 # ==============================
 # 16. COLLECTIONS & OVERDUE TRACKER
