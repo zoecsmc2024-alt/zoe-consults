@@ -687,97 +687,116 @@ def show_borrowers():
 def show_loans():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA (One-time fetch for speed)
+    # 1. LOAD DATA
     borrowers_df = get_cached_data("Borrowers")
     loans_df = get_cached_data("Loans")
 
-    # 2. SAFETY CHECK: Must have active borrowers
     if borrowers_df.empty:
         st.warning("⚠️ No borrowers found. Register a client first!")
         return
         
     active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
-    if active_borrowers.empty:
-        st.info("💡 Tip: All current borrowers are marked 'Inactive'. Reactivate one to issue a loan.")
-        return
 
-    # 3. LOAN ISSUANCE FORM
-    with st.expander("➕ Issue New Loan", expanded=True):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            selected_borrower = st.selectbox("Select Borrower", active_borrowers["Name"].unique())
-            amount = st.number_input("Principal Amount (UGX)", min_value=0, step=50000, key="loan_amt")
-            
-        with col2:
-            interest_rate = st.number_input("Interest Rate (%)", min_value=0.0, step=0.5, key="loan_int")
-            duration = st.number_input("Duration (Days)", min_value=1, value=30, key="loan_dur")
+    # --- TABBED INTERFACE ---
+    tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
 
-        # CALCULATIONS
-        interest = (interest_rate / 100) * amount
-        total_due = amount + interest
-        due_date = datetime.now() + timedelta(days=int(duration))
+    # ==============================
+    # TAB 1: ISSUE LOAN
+    # ==============================
+    with tab_issue:
+        if active_borrowers.empty:
+            st.info("💡 Tip: Activate a borrower to issue a loan.")
+        else:
+            with st.form("loan_issue_form"):
+                col1, col2 = st.columns(2)
+                selected_borrower = col1.selectbox("Select Borrower", active_borrowers["Name"].unique())
+                amount = col1.number_input("Principal Amount (UGX)", min_value=0, step=50000)
+                interest_rate = col2.number_input("Interest Rate (%)", min_value=0.0, step=0.5)
+                duration = col2.number_input("Duration (Days)", min_value=1, value=30)
 
-        # NEON PREVIEW CARD
-        st.markdown(f"""
-            <div style="background-color: rgba(0, 255, 204, 0.05); padding: 15px; border-radius: 10px; border: 1px dashed #00ffcc; margin: 10px 0;">
-                <p style="margin:0; color:#2B3F87; font-weight:bold;">PREVIEW</p>
-                <p style="margin:0; font-size: 18px;">Total Repayable: <b>{total_due:,.0f} UGX</b></p>
-                <p style="margin:0; font-size: 14px; color:#666;">Due Date: {due_date.strftime('%d %b, %Y')}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("🚀 Confirm & Issue Loan", use_container_width=True):
-            if amount > 0:
-                new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
-                new_loan = pd.DataFrame([{
-                    "Loan_ID": new_id,
-                    "Borrower": selected_borrower,
-                    "Amount": amount,
-                    "Interest": interest,
-                    "Total_Repayable": total_due,
-                    "Amount_Paid": 0,
-                    "Start_Date": datetime.now().strftime("%Y-%m-%d"),
-                    "End_Date": due_date.strftime("%Y-%m-%d"),
-                    "Status": "Active"
-                }])
+                interest = (interest_rate / 100) * amount
+                total_due = amount + interest
                 
-                # SAVE & SYNC
-                updated_loans = pd.concat([loans_df, new_loan], ignore_index=True)
-                if save_data("Loans", updated_loans):
-                    st.success(f"Success! Loan #{new_id} created for {selected_borrower}.")
-                    st.balloons()
-                    st.rerun()
-            else:
-                st.error("Please enter a valid amount.")
+                st.write(f"**Preview:** Total Repayable: {total_due:,.0f} UGX")
 
-    st.markdown("---")
+                if st.form_submit_button("🚀 Confirm & Issue Loan"):
+                    if amount > 0:
+                        new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
+                        new_loan = pd.DataFrame([{
+                            "Loan_ID": new_id, "Borrower": selected_borrower,
+                            "Amount": amount, "Interest": interest,
+                            "Total_Repayable": total_due, "Amount_Paid": 0,
+                            "Start_Date": datetime.now().strftime("%Y-%m-%d"),
+                            "End_Date": (datetime.now() + timedelta(days=int(duration))).strftime("%Y-%m-%d"),
+                            "Status": "Active"
+                        }])
+                        if save_data("Loans", pd.concat([loans_df, new_loan], ignore_index=True)):
+                            st.success(f"Loan #{new_id} Issued!")
+                            st.rerun()
 
-    # 4. PORTFOLIO & PROGRESS
-    if not loans_df.empty:
-        st.subheader("📊 Portfolio Inspector")
-        
-        # Formatting data for display
-        display_df = loans_df.copy()
-        display_df["Outstanding"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
-        
-        # Use columns for a detailed view of a specific loan
-        sel_loan_id = st.selectbox("🔍 Inspect Loan ID", display_df["Loan_ID"].unique(), index=len(display_df)-1)
-        loan_info = display_df[display_df["Loan_ID"] == sel_loan_id].iloc[0]
-        
-        # Progress Calculation
-        progress = (loan_info['Amount_Paid'] / loan_info['Total_Repayable'])
-        
-        p1, p2, p3 = st.columns(3)
-        p1.metric("Paid", f"{loan_info['Amount_Paid']:,.0f} UGX")
-        p2.metric("Outstanding", f"{loan_info['Outstanding']:,.0f} UGX", delta_color="inverse")
-        p3.metric("Status", loan_info['Status'])
-        
-        st.write(f"Collection Progress: {progress*100:.1f}%")
-        st.progress(min(max(progress, 0.0), 1.0))
-        
-        with st.expander("📄 View Full Raw Portfolio"):
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+    # ==============================
+    # TAB 2: PORTFOLIO INSPECTOR
+    # ==============================
+    with tab_view:
+        if not loans_df.empty:
+            display_df = loans_df.copy()
+            display_df["Outstanding"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
+            
+            sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
+            loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
+            
+            p1, p2, p3 = st.columns(3)
+            p1.metric("Paid", f"{loan_info['Amount_Paid']:,.0f} UGX")
+            p2.metric("Outstanding", f"{loan_info['Outstanding']:,.0f} UGX")
+            p3.metric("Status", loan_info['Status'])
+            
+            st.progress(min(max(loan_info['Amount_Paid'] / loan_info['Total_Repayable'], 0.0), 1.0))
+            st.dataframe(display_df, use_container_width=True)
+
+    # ==============================
+    # TAB 3: MANAGE (EDIT/DELETE)
+    # ==============================
+    with tab_manage:
+        if loans_df.empty:
+            st.info("No loans to manage.")
+        else:
+            st.subheader("🛠️ Edit or Remove Loan Records")
+            manage_list = loans_df.apply(lambda x: f"ID: {x['Loan_ID']} | {x['Borrower']} - {x['Amount']:,.0f} UGX", axis=1).tolist()
+            selected_manage = st.selectbox("Select Loan to Modify", manage_list)
+            
+            m_id = int(selected_manage.split(" | ")[0].replace("ID: ", ""))
+            m_row = loans_df[loans_df["Loan_ID"] == m_id].iloc[0]
+
+            with st.container():
+                col_e1, col_e2 = st.columns(2)
+                upd_amt = col_e1.number_input("Edit Principal", value=float(m_row["Amount"]), step=10000.0)
+                upd_stat = col_e2.selectbox("Edit Status", ["Active", "Overdue", "Closed"], 
+                                           index=["Active", "Overdue", "Closed"].index(m_row["Status"]))
+                
+                upd_paid = col_e1.number_input("Manual Paid Adjust", value=float(m_row["Amount_Paid"]))
+                upd_date = col_e2.text_input("Edit End Date (YYYY-MM-DD)", value=m_row["End_Date"])
+
+                btn_upd, btn_del = st.columns(2)
+
+                if btn_upd.button("💾 Save Changes", use_container_width=True):
+                    # Simple math update for interest if principal changed
+                    orig_rate = m_row["Interest"] / m_row["Amount"] if m_row["Amount"] > 0 else 0
+                    new_interest = upd_amt * orig_rate
+                    
+                    loans_df.loc[loans_df["Loan_ID"] == m_id, 
+                                 ["Amount", "Amount_Paid", "Status", "End_Date", "Interest", "Total_Repayable"]] = \
+                                 [upd_amt, upd_paid, upd_stat, upd_date, new_interest, (upd_amt + new_interest)]
+                    
+                    if save_data("Loans", loans_df):
+                        st.success("Loan updated!")
+                        st.rerun()
+
+                if btn_del.button("🗑️ Delete Loan Permanently", use_container_width=True):
+                    # Security: This removes it from the sheet
+                    new_loans_df = loans_df[loans_df["Loan_ID"] != m_id]
+                    if save_data("Loans", new_loans_df):
+                        st.warning(f"Loan #{m_id} has been deleted.")
+                        st.rerun()
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
