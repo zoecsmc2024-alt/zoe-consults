@@ -920,9 +920,20 @@ def show_loans():
                 upd_rate = col_e1.number_input("Edit Interest Rate (%)", value=float(curr_rate), step=0.5)
                 upd_paid = col_e1.number_input("Manual Paid Adjust", value=float(m_row["Amount_Paid"]))
 
-                upd_stat = col_e2.selectbox("Edit Status", ["Active", "Overdue", "Closed"], index=["Active", "Overdue", "Closed"].index(m_row["Status"]))
-                # NEW: Added Loan Type to management
-                upd_type = col_e2.selectbox("Edit Type", ["Business", "Personal", "Emergency", "Other"], index=["Business", "Personal", "Emergency", "Other"].index(m_row.get("Type", "Business")))
+                # --- RIGHT COLUMN (Status & Dates) ---
+                upd_stat = col_e2.selectbox("Edit Status", ["Active", "Overdue", "Closed"], 
+                                           index=["Active", "Overdue", "Closed"].index(m_row["Status"]))
+                
+                # SAFETY FIX: Handle missing 'Type' for older loans
+                loan_types = ["Business", "Personal", "Emergency", "Other"]
+                current_type = str(m_row.get("Type", "Business")) # Default to Business if empty
+                
+                # If the type in the sheet isn't in our list, use 'Business'
+                if current_type not in loan_types:
+                    current_type = "Business"
+                
+                upd_type = col_e2.selectbox("Edit Type", loan_types, 
+                                           index=loan_types.index(current_type))
                 
                 try:
                     s_val, e_val = datetime.strptime(str(m_row["Start_Date"]), "%Y-%m-%d"), datetime.strptime(str(m_row["End_Date"]), "%Y-%m-%d")
