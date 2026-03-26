@@ -2118,19 +2118,44 @@ def show_ledger():
         for index, l_row in client_loans.iterrows():
             l_id = l_row['Loan_ID']
             
-            # Build Ledger for THIS specific loan
+            # BUILD LEDGER SAFELY
             l_ledger = []
-            l_ledger.append({"Date": l_row['Date'], "Description": "Principal + Interest", "Debit": l_row['Total_Repayable'], "Credit": 0})
             
+            # Find the date and amount using .get() to avoid KeyErrors
+            orig_date = l_row.get('Date') if 'Date' in l_row else l_row.get('date', 'N/A')
+            orig_repay = pd.to_numeric(l_row.get('Total_Repayable', 0), errors='coerce')
+            
+            l_ledger.append({
+                "Date": orig_date, 
+                "Description": "Principal + Interest", 
+                "Debit": orig_repay, 
+                "Credit": 0
+            })
+            
+            # Fetch payments for this specific loan
             l_payments = all_payments_df[all_payments_df["Loan_ID"] == l_id]
             for _, p in l_payments.iterrows():
-                l_ledger.append({"Date": p['Date'], "Description": f"Payment (Rec: {p.get('Receipt_No', 'N/A')})", "Debit": 0, "Credit": p['Amount']})
+                # Safety check for payment columns too
+                p_date = p.get('Date') if 'Date' in p else p.get('date', 'N/A')
+                p_amt = pd.to_numeric(p.get('Amount', 0), errors='coerce')
+                
+                l_ledger.append({
+                    "Date": p_date, 
+                    "Description": f"Payment (Rec: {p.get('Receipt_No', 'N/A')})", 
+                    "Debit": 0, 
+                    "Credit": p_amt
+                })
             
-            # Calculate Balance for this loan
+            # Convert to DataFrame for Balance Calculation
             temp_df = pd.DataFrame(l_ledger)
-            temp_df['Balance'] = temp_df['Debit'].cumsum() - temp_df['Credit'].cumsum()
-            current_l_balance = temp_df.iloc[-1]['Balance']
-            grand_total_balance += current_l_balance
+            if not temp_df.empty:
+                temp_df['Balance'] = temp_df['Debit'].cumsum() - temp_df['Credit'].cumsum()
+                current_l_balance = temp_df.iloc[-1]['Balance']
+                grand_total_balance += current_l_balance
+            else:
+                current_l_balance = 0
+
+            # --- REMAINDER OF YOUR HTML CODE ---
 
             # Add Loan Header and Table to HTML
             html_statement += f"""
