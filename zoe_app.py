@@ -1898,9 +1898,9 @@ def show_ledger():
     st.markdown("### 🚀 Generate Client Statement")
     
     if st.button("✨ Preview Official Statement", use_container_width=True):
-        # 1. Define the Boss's Colors
+        # 1. Define the Colors
         navy_blue = "#000080"
-        baby_blue = "#E1F5FE" # A soft, professional baby blue for rows
+        baby_blue = "#E1F5FE" 
         
         # 2. Build the HTML (Navy & Baby Blue Theme)
         html_statement = f"""
@@ -1944,7 +1944,7 @@ def show_ledger():
                     <tbody>
         """
 
-        # 3. Loop through rows with Baby Blue alternating colors
+        # 3. Build the table rows inside the loop
         for i, row in ledger_df.iterrows():
             bg_color = baby_blue if i % 2 == 0 else "white"
             html_statement += f"""
@@ -1957,6 +1957,7 @@ def show_ledger():
                         </tr>
             """
 
+        # 4. Finalize the HTML string
         html_statement += f"""
                     </tbody>
                 </table>
@@ -1973,20 +1974,9 @@ def show_ledger():
         </div>
         """
 
-        # 4. Render the Preview
+        # 5. Render the Preview (This replaces the download button)
         st.components.v1.html(html_statement, height=700, scrolling=True)
-        st.info("💡 **Boss's Tip:** To save this as a PDF, right-click the statement above, select **Print**, and set the destination to **Save as PDF**.")
-            
-            st.download_button(
-                label="📥 Download & Send to Client",
-                data=pdf_output, # <--- Now sending real PDF data!
-                file_name=f"Zoe_Statement_{loan_info['Borrower']}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-            st.success("PDF Ready!")
-        except Exception as e:
-            st.error(f"Error: {e}")
+        st.info("💡 **Boss's Tip:** To save as PDF, right-click the statement above, select **Print**, and set the destination to **Save as PDF**.")
 
     
 
