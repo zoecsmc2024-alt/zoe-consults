@@ -770,21 +770,7 @@ def show_loans():
     # --- TABBED INTERFACE ---
     tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
 
-    def show_loans():
-        st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
-    # ^ There must be 4 spaces here!
-    
-    # 1. LOAD DATA
-    borrowers_df = get_cached_data("Borrowers")
-    loans_df = get_cached_data("Loans")
-
-    if borrowers_df.empty:
-        st.warning("⚠️ No borrowers found. Register a client first!")
-        return
-        
-    active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
-    tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
-
+    # Now continue with the rest of your TAB 1, TAB 2, etc. logic here...
     # ==============================
     # TAB 1: ISSUE LOAN
     # ==============================
