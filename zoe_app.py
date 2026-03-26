@@ -559,7 +559,7 @@ def show_overview():
             color_discrete_sequence=["#00ffcc", "#2B3F87", "#FF4B4B"]
         )
         fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, use_container_width=True, key="overview_pie_chart")
 
     with c2:
         # Collection Trend
@@ -570,7 +570,7 @@ def show_overview():
             markers=True
         )
         fig_line.update_traces(line_color='#00ffcc', marker=dict(size=10, color='#2B3F87'))
-        st.plotly_chart(fig_line, use_container_width=True)
+        st.plotly_chart(fig_bar, use_container_width=True, key="overview_bar_chart")
 
     # ==============================
     # DATA TABLES
