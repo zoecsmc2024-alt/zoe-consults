@@ -545,12 +545,13 @@ def show_overview():
     st.markdown("---")
 
     # ==============================
+    # ==============================
     # VISUALS (Neon Styled)
     # ==============================
     c1, c2 = st.columns(2)
 
     with c1:
-        # Styled Pie Chart
+        # 1. Styled Pie Chart
         status_df = df["Auto_Status"].value_counts().reset_index()
         status_df.columns = ["Status", "Count"]
         fig_pie = px.pie(
@@ -562,16 +563,23 @@ def show_overview():
         st.plotly_chart(fig_pie, use_container_width=True, key="overview_pie_chart")
 
     with c2:
-        # Collection Trend
-        df["Month"] = df["Start_Date"].dt.strftime('%b %Y')
-        trend = df.groupby("Month")["Amount_Paid"].sum().reset_index()
-        fig_line = px.line(
-            trend, x="Month", y="Amount_Paid", title="Collection Trends",
-            markers=True
-        )
-        fig_line.update_traces(line_color='#00ffcc', marker=dict(size=10, color='#2B3F87'))
-        st.plotly_chart(fig_bar, use_container_width=True, key="overview_bar_chart")
-
+        # 2. Create the Bar Chart (Ensure merged_df is defined before this!)
+        # Check if merged_df exists to prevent a crash
+        if 'merged_df' in locals() or 'merged_df' in globals():
+            fig_bar = px.bar(
+                merged_df, 
+                x="Month", 
+                y=["Income", "Expenses"], 
+                barmode="group",
+                title="Monthly Cashflow",
+                color_discrete_map={"Income": "#00ffcc", "Expenses": "#FF4B4B"}
+            )
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            
+            # 3. NOW display it using the unique key
+            st.plotly_chart(fig_bar, use_container_width=True, key="overview_bar_chart")
+        else:
+            st.info("📊 Monthly cashflow data is being prepared...")
     # ==============================
     # DATA TABLES
     # ==============================
