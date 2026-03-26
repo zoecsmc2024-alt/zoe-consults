@@ -878,28 +878,26 @@ def show_payments():
             p_row = payments_df[payments_df["Payment_ID"] == p_id].iloc[0]
             target_loan_id = p_row["Loan_ID"]
 
-            # Edit Form
-        with st.container():
-            # 1. Prepare the safety logic for the dropdown
-            methods_list = ["Mobile Money", "Cash", "Bank Transfer"]
-            current_method = p_row["Method"]
-            
-            # This prevents the "ValueError" crash if the data is messy
-            default_idx = methods_list.index(current_method) if current_method in methods_list else 1
+            # Edit Form Container
+            with st.container():
+                # 1. Prepare safety logic for dropdown
+                methods_list = ["Mobile Money", "Cash", "Bank Transfer"]
+                current_method = p_row["Method"]
+                default_idx = methods_list.index(current_method) if current_method in methods_list else 1
 
-            # 2. Draw the inputs (Carefully indented under st.container)
-            new_amt = st.number_input("Modify Amount", value=float(p_row["Amount"]), step=5000.0)
-            new_met = st.selectbox("Modify Method", methods_list, index=default_idx)
-            
-            # 3. Create the Action Buttons
-            col_upd, col_del = st.columns(2)
+                # 2. Draw Inputs
+                new_amt = st.number_input("Modify Amount", value=float(p_row["Amount"]), step=5000.0)
+                new_met = st.selectbox("Modify Method", methods_list, index=default_idx)
+                
+                # 3. Create Action Buttons
+                col_upd, col_del = st.columns(2)
 
-                # UPDATE LOGIC
+                # --- UPDATE LOGIC ---
                 if col_upd.button("🔄 Update Payment", use_container_width=True):
                     # 1. Update Payment Sheet
                     payments_df.loc[payments_df["Payment_ID"] == p_id, ["Amount", "Method"]] = [new_amt, new_met]
                     
-                    # 2. Recalculate Loan Balance (Crucial!)
+                    # 2. Recalculate Loan Balance
                     loan_payments = payments_df[payments_df["Loan_ID"] == target_loan_id]
                     total_collected = loan_payments["Amount"].sum()
                     
@@ -915,7 +913,7 @@ def show_payments():
                     st.success("Payment and Loan Balance Updated!")
                     st.rerun()
 
-                # DELETE LOGIC
+                # --- DELETE LOGIC ---
                 if col_del.button("🗑️ Delete Payment", use_container_width=True):
                     # 1. Remove from Payments
                     payments_df = payments_df[payments_df["Payment_ID"] != p_id]
