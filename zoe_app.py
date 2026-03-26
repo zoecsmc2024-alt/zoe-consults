@@ -1829,72 +1829,77 @@ def show_reports():
 
 def show_ledger():
     st.markdown("<h2 style='color: #2B3F87;'>📘 Master Ledger</h2>", unsafe_allow_html=True)
+    
+    loans_df = get_cached_data("Loans")
+    payments_df = get_cached_data("Payments")
 
-    # 1. FETCH DATA (Memory Shield)
-    loans = get_cached_data("Loans")
-    payments = get_cached_data("Payments")
-
-    if loans.empty:
+    if loans_df.empty:
         st.info("No loan records found to generate a ledger.")
         return
 
-    # 2. SELECT LOAN
-    # Create a nice searchable list for the admin
-    loan_options = loans.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
-    selected_option = st.selectbox("Select Loan to View Full Statement", loan_options)
+    # 1. Selection
+    loan_options = loans_df.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
+    selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options)
+    l_id = int(selected_loan.split(" - ")[0].replace("ID: ", ""))
     
-    sel_id = int(selected_option.split(" - ")[0].replace("ID: ", ""))
-    loan_data = loans[loans["Loan_ID"] == sel_id].iloc[0]
-
-    # 3. BUILD THE LEDGER TABLE (Optimized)
-    # Start with the Initial Disbursement
-    entries = [{
-        "Date": pd.to_datetime(loan_data.get("Start_Date", datetime.now())),
-        "Description": "Initial Loan Disbursement",
-        "Debit": pd.to_numeric(loan_data["Amount"], errors='coerce') or 0,
-        "Credit": 0
-    }]
-
-    # Add Repayments
-    loan_payments = payments[payments["Loan_ID"] == sel_id]
-    if not loan_payments.empty:
-        for _, p in loan_payments.iterrows():
-            entries.append({
-                "Date": pd.to_datetime(p["Date"]),
-                "Description": f"Repayment ({p.get('Method', 'Cash')})",
-                "Debit": 0,
-                "Credit": pd.to_numeric(p["Amount"], errors='coerce') or 0
-            })
-
-    # Create DataFrame and Sort by Date
-    ledger_df = pd.DataFrame(entries).sort_values("Date")
+    # Get specific loan info
+    loan_info = loans_df[loans_df["Loan_ID"] == l_id].iloc[0]
     
-    # 4. FAST RUNNING BALANCE (Using .cumsum)
-    # Principal Balance = (Sum of Debits) - (Sum of Credits)
-    ledger_df["Balance"] = (ledger_df["Debit"] - ledger_df["Credit"]).cumsum()
+    # --- STYLED BALANCE CARD ---
+    # We calculate current balance on the fly for accuracy
+    current_balance = float(loan_info["Total_Repayable"]) - float(loan_info["Amount_Paid"])
+    
+    st.markdown(f"""
+        <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;">
+            <p style="margin:0; font-size:14px; color:#666; font-weight:bold;">CURRENT OUTSTANDING BALANCE (INC. INTEREST)</p>
+            <h1 style="margin:0; color:#2B3F87;">{current_balance:,.0f} <span style="font-size:18px;">UGX</span></h1>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # 5. DISPLAY UI
-    current_bal = ledger_df["Balance"].iloc[-1]
+    # 2. BUILD THE LEDGER TABLE
+    ledger_data = []
+
+    # --- ROW 1: THE DISBURSEMENT (Fixed to include Interest) ---
+    ledger_data.append({
+        "Date": loan_info["Start_Date"],
+        "Description": f"Initial Loan Disbursement (Principal + Interest)",
+        "Debit": float(loan_info["Total_Repayable"]), # Using Total_Repayable instead of Amount
+        "Credit": 0,
+        "Balance": float(loan_info["Total_Repayable"])
+    })
+
+    # --- SUBSEQUENT ROWS: PAYMENTS ---
+    relevant_payments = payments_df[payments_df["Loan_ID"] == l_id].sort_values("Date")
     
-    m_col1, m_col2 = st.columns([2, 1])
-    m_col1.metric("Current Outstanding Balance", f"{current_bal:,.0f} UGX")
+    running_balance = float(loan_info["Total_Repayable"])
     
-    # Styled Ledger Table
+    for _, pay in relevant_payments.iterrows():
+        running_balance -= float(pay["Amount"])
+        ledger_data.append({
+            "Date": pay["Date"],
+            "Description": f"Repayment ({pay['Method']})",
+            "Debit": 0,
+            "Credit": float(pay["Amount"]),
+            "Balance": running_balance
+        })
+
+    ledger_df = pd.DataFrame(ledger_data)
+
+    # 3. DISPLAY FORMATTED TABLE
     st.dataframe(
         ledger_df.style.format({
-            "Debit": "{:,.0f}", "Credit": "{:,.0f}", "Balance": "{:,.0f}"
+            "Debit": "{:,.0f}",
+            "Credit": "{:,.0f}",
+            "Balance": "{:,.0f}"
         }),
-        use_container_width=True, hide_index=True
+        use_container_width=True,
+        hide_index=True
     )
 
-    # 6. DOWNLOAD SECTION (One-Click PDF)
     st.markdown("---")
-    st.subheader("🚀 Generate Client Statement")
-    
+    st.markdown("### 🚀 Generate Client Statement")
     if st.button("✨ Prepare Neon PDF Statement", use_container_width=True):
-        with st.spinner("Styling your PDF..."):
-            # Call our high-speed PDF function from Piece 5
-            pdf_bytes = generate_ledger_pdf(loan_data, ledger_df)
+        st.write("Constructing PDF... (Feature integration coming next)")
             
             st.download_button(
                 label="📥 Download & Send to Client",
