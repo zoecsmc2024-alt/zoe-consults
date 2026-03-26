@@ -1056,6 +1056,7 @@ def show_collateral():
     # 1. FETCH ALL DATA
     collateral_df = get_cached_data("Collateral")
     loans_df = get_cached_data("Loans") # <--- CRITICAL FIX: This stops the NameError
+    col_df = collateral_df
 
     # 2. INITIALIZE IF EMPTY
     if collateral_df.empty:
