@@ -2067,85 +2067,93 @@ def show_ledger():
     st.markdown("### 🚀 Generate Client Statement")
     
     if st.button("✨ Preview Official Statement", use_container_width=True):
-        # 1. Define the Colors
-        navy_blue = "#000080"
-        baby_blue = "#E1F5FE" 
+        # 1. FETCH BORROWER DETAILS
+        borrowers_df = get_cached_data("Borrowers")
         
-        # 2. Build the HTML (Navy & Baby Blue Theme)
+        # Find the specific borrower's full data
+        # We match the name from the loan to the name in the borrowers sheet
+        b_name = loan_info['Borrower']
+        b_details = borrowers_df[borrowers_df["Full_Name"] == b_name].iloc[0] if not borrowers_df.empty else {}
+
+        # 2. Colors
+        navy_blue = "#000080"
+        baby_blue = "#E1F5FE"
+        
+        # 3. Build HTML
         html_statement = f"""
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; border: 1px solid #ddd; border-radius: 8px; max-width: 850px; margin: auto; background-color: white;">
+        <div style="font-family: 'Arial', sans-serif; padding: 25px; border: 1px solid #eee; max-width: 850px; margin: auto; background-color: white;">
             
-            <div style="background-color: {navy_blue}; color: white; padding: 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <div style="background-color: {navy_blue}; color: white; padding: 25px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between;">
                 <div>
-                    <h1 style="margin:0; letter-spacing: 2px;">ZOE CONSULTS SMC LTD</h1>
-                    <p style="margin:5px 0 0 0; opacity: 0.9;">Professional Financial Statement</p>
+                    <h2 style="margin:0;">ZOE CONSULTS SMC LTD</h2>
+                    <p style="margin:5px 0 0 0; font-size: 14px;">Professional Financial Services</p>
                 </div>
                 <div style="text-align: right;">
-                    <p style="margin:0; font-weight: bold;">LOAN ID: {l_id}</p>
-                    <p style="margin:0; font-size: 12px;">Issued: {loan_info['Start_Date']}</p>
+                    <p style="margin:0; font-weight: bold;">STATEMENT # {l_id}</p>
+                    <p style="margin:0; font-size: 12px;">Date: {datetime.now().strftime('%d %b %Y')}</p>
                 </div>
             </div>
             
-            <div style="padding: 20px; border: 1px solid #ddd; border-top: none;">
-                <table style="width: 100%; margin-bottom: 20px;">
-                    <tr>
-                        <td style="width: 50%;">
-                            <p style="color: #666; font-size: 12px; margin-bottom: 5px;">BORROWER DETAILS</p>
-                            <h3 style="margin:0; color: {navy_blue};">{loan_info['Borrower']}</h3>
-                        </td>
-                        <td style="text-align: right;">
-                            <p style="color: #666; font-size: 12px; margin-bottom: 5px;">TOTAL REPAYABLE</p>
-                            <h3 style="margin:0; color: {navy_blue};">{loan_info['Total_Repayable']:,.0f} UGX</h3>
-                        </td>
-                    </tr>
-                </table>
+            <div style="padding: 15px; border: 1px solid {navy_blue}; border-top: none; background-color: #fcfcfc; display: flex; justify-content: space-between;">
+                <div style="width: 50%;">
+                    <p style="color: {navy_blue}; font-size: 10px; font-weight: bold; margin-bottom: 5px;">BORROWER INFORMATION</p>
+                    <h3 style="margin: 0; color: #333;">{b_name}</h3>
+                    <p style="margin: 2px 0; font-size: 13px;">📞 <strong>Phone:</strong> {b_details.get('Phone', 'N/A')}</p>
+                    <p style="margin: 2px 0; font-size: 13px;">📍 <strong>Address:</strong> {b_details.get('Address', 'N/A')}</p>
+                </div>
+                <div style="width: 45%; text-align: right;">
+                    <p style="color: {navy_blue}; font-size: 10px; font-weight: bold; margin-bottom: 5px;">ADDITIONAL DETAILS</p>
+                    <p style="margin: 2px 0; font-size: 13px;"><strong>ID/NIN:</strong> {b_details.get('NIN', 'N/A')}</p>
+                    <p style="margin: 2px 0; font-size: 13px;"><strong>Next of Kin:</strong> {b_details.get('Next_of_Kin', 'N/A')}</p>
+                </div>
+            </div>
 
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background-color: {navy_blue}; color: white;">
-                            <th style="padding: 12px; text-align: left; border: 1px solid {navy_blue};">Date</th>
-                            <th style="padding: 12px; text-align: left; border: 1px solid {navy_blue};">Description</th>
-                            <th style="padding: 12px; text-align: right; border: 1px solid {navy_blue};">Debit</th>
-                            <th style="padding: 12px; text-align: right; border: 1px solid {navy_blue};">Credit</th>
-                            <th style="padding: 12px; text-align: right; border: 1px solid {navy_blue};">Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <div style="background-color: {baby_blue}; padding: 15px; margin: 20px 0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 14px;">Principal: <strong>{loan_info['Amount']:,.0f}</strong></span>
+                <span style="font-size: 14px;">Interest: <strong>{loan_info['Interest']:,.0f}</strong></span>
+                <span style="font-size: 16px; color: {navy_blue}; font-weight: bold;">Balance: {ledger_df.iloc[-1]['Balance']:,.0f} UGX</span>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid {navy_blue}; color: {navy_blue};">
+                        <th style="padding: 10px; text-align: left;">DATE</th>
+                        <th style="padding: 10px; text-align: left;">DESCRIPTION</th>
+                        <th style="padding: 10px; text-align: right;">DEBIT (UGX)</th>
+                        <th style="padding: 10px; text-align: right;">CREDIT (UGX)</th>
+                        <th style="padding: 10px; text-align: right;">BALANCE (UGX)</th>
+                    </tr>
+                </thead>
+                <tbody>
         """
 
-        # 3. Build the table rows inside the loop
+        # Add Table Rows
         for i, row in ledger_df.iterrows():
-            bg_color = baby_blue if i % 2 == 0 else "white"
+            row_bg = "#ffffff" if i % 2 == 0 else "#f8f9fa"
             html_statement += f"""
-                        <tr style="background-color: {bg_color};">
-                            <td style="padding: 10px; border: 1px solid #eee;">{row['Date']}</td>
-                            <td style="padding: 10px; border: 1px solid #eee;">{row['Description']}</td>
-                            <td style="padding: 10px; border: 1px solid #eee; text-align: right;">{row['Debit']:,.0f}</td>
-                            <td style="padding: 10px; border: 1px solid #eee; text-align: right;">{row['Credit']:,.0f}</td>
-                            <td style="padding: 10px; border: 1px solid #eee; text-align: right; font-weight: bold; color: {navy_blue};">{row['Balance']:,.0f}</td>
-                        </tr>
+                    <tr style="background-color: {row_bg};">
+                        <td style="padding: 10px; border-bottom: 1px solid #eee;">{row['Date']}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #eee;">{row['Description']}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">{row['Debit']:,.0f}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">{row['Credit']:,.0f}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">{row['Balance']:,.0f}</td>
+                    </tr>
             """
 
-        # 4. Finalize the HTML string
         html_statement += f"""
-                    </tbody>
-                </table>
+                </tbody>
+            </table>
 
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid {navy_blue}; text-align: right;">
-                    <p style="margin:0; font-size: 14px;"><strong>Final Outstanding: {current_balance:,.0f} UGX</strong></p>
-                </div>
-                
-                <div style="margin-top: 40px; text-align: center; font-size: 10px; color: #999;">
-                    <p>Zoe Consults SMC Limited | Kampala, Uganda</p>
-                    <p>This is an official document. Please contact us for any discrepancies.</p>
-                </div>
+            <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; font-size: 11px; color: #777;">
+                <p>This is a computer-generated statement for <strong>Zoe Consults SMC Ltd</strong>.</p>
+                <p>Kampala, Uganda | Contact: 07XX-XXXXXX | Email: info@zoeconsults.com</p>
             </div>
         </div>
         """
-
-        # 5. Render the Preview (This replaces the download button)
-        st.components.v1.html(html_statement, height=700, scrolling=True)
-        st.info("💡 **Boss's Tip:** To save as PDF, right-click the statement above, select **Print**, and set the destination to **Save as PDF**.")
+        
+        # Render
+        st.components.v1.html(html_statement, height=900, scrolling=True)
+        st.info("💡 **Ready to send?** Right-click inside the statement > Print > Save as PDF.")
 
     
 
