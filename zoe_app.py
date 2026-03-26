@@ -785,14 +785,42 @@ def show_loans():
             sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
             loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
             
+            # --- STYLED METRICS ROW ---
             p1, p2, p3 = st.columns(3)
-            p1.metric("Paid", f"{loan_info['Amount_Paid']:,.0f} UGX")
-            p2.metric("Outstanding", f"{loan_info['Outstanding']:,.0f} UGX")
-            p3.metric("Status", loan_info['Status'])
             
+            # Dynamic Status Color Logic
+            status_color = "#00ffcc" if loan_info['Status'] == "Active" else "#FF4B4B" if loan_info['Status'] == "Overdue" else "#2B3F87"
+            
+            # 1. Paid Card (Neon Green Border)
+            p1.markdown(f"""
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00ffcc; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">PAID</p>
+                    <h3 style="margin:0; color:#2B3F87;">{loan_info['Amount_Paid']:,.0f} <span style="font-size:14px;">UGX</span></h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # 2. Outstanding Card (Alert Red Border)
+            p2.markdown(f"""
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">OUTSTANDING</p>
+                    <h3 style="margin:0; color:#FF4B4B;">{loan_info['Outstanding']:,.0f} <span style="font-size:14px;">UGX</span></h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # 3. Status Card (Dynamic Border)
+            p3.markdown(f"""
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {status_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">LOAN STATUS</p>
+                    <h3 style="margin:0; color:{status_color}; text-transform: uppercase;">{loan_info['Status']}</h3>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True) 
+            
+            # Collection Progress Bar
             st.progress(min(max(loan_info['Amount_Paid'] / loan_info['Total_Repayable'], 0.0), 1.0))
             
-            # --- FIX 3: Styled Table with Commas ---
+            # --- STYLED TABLE ---
             st.dataframe(
                 display_df.style.format({
                     "Amount": "{:,.0f}", "Interest": "{:,.0f}",
