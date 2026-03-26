@@ -952,38 +952,42 @@ def show_payments():
 
             # Edit Form Container
             with st.container():
-                # 1. Prepare safety logic for dropdown
-                methods_list = ["Mobile Money", "Cash", "Bank Transfer"]
-                current_method = p_row["Method"]
-                default_idx = methods_list.index(current_method) if current_method in methods_list else 1
-
-                # 2. Draw Inputs
-                new_amt = st.number_input("Modify Amount", value=float(p_row["Amount"]), step=5000.0)
-                new_met = st.selectbox("Modify Method", methods_list, index=default_idx)
+                col_e1, col_e2 = st.columns(2)
                 
-                # 3. Create Action Buttons
-                col_upd, col_del = st.columns(2)
+                # Column 1 Inputs
+                upd_amt = col_e1.number_input("Edit Principal", value=float(m_row["Amount"]), step=10000.0)
+                # Calculate current rate to pre-fill the box
+                try:
+                    current_rate = (float(m_row["Interest"]) / float(m_row["Amount"])) * 100 if float(m_row["Amount"]) > 0 else 0.0
+                except:
+                    current_rate = 0.0
+                upd_rate = col_e1.number_input("Edit Interest Rate (%)", value=float(current_rate), step=0.5)
+                upd_paid = col_e1.number_input("Manual Paid Adjust", value=float(m_row["Amount_Paid"]))
+
+                # Column 2 Inputs
+                upd_stat = col_e2.selectbox("Edit Status", ["Active", "Overdue", "Closed"], 
+                                           index=["Active", "Overdue", "Closed"].index(m_row["Status"]))
+                
+                # Added Start Date and End Date inputs
+                upd_start = col_e2.text_input("Edit Start Date (YYYY-MM-DD)", value=m_row["Start_Date"])
+                upd_end = col_e2.text_input("Edit End Date (YYYY-MM-DD)", value=m_row["End_Date"])
+
+                btn_upd, btn_del = st.columns(2)
 
                 # --- UPDATE LOGIC ---
-                if col_upd.button("🔄 Update Payment", use_container_width=True):
-                    # 1. Update Payment Sheet
-                    payments_df.loc[payments_df["Payment_ID"] == p_id, ["Amount", "Method"]] = [new_amt, new_met]
+                if btn_upd.button("💾 Save Changes", use_container_width=True):
+                    # Direct math using the new interest rate input
+                    new_interest = upd_amt * (upd_rate / 100)
+                    new_total = upd_amt + new_interest
                     
-                    # 2. Recalculate Loan Balance
-                    loan_payments = payments_df[payments_df["Loan_ID"] == target_loan_id]
-                    total_collected = loan_payments["Amount"].sum()
+                    # Update the DataFrame
+                    loans_df.loc[loans_df["Loan_ID"] == m_id, 
+                                 ["Amount", "Amount_Paid", "Status", "Start_Date", "End_Date", "Interest", "Total_Repayable"]] = \
+                                 [upd_amt, upd_paid, upd_stat, upd_start, upd_end, new_interest, new_total]
                     
-                    l_idx = loans_df[loans_df["Loan_ID"] == target_loan_id].index[0]
-                    loans_df.at[l_idx, "Amount_Paid"] = total_collected
-                    
-                    # Check Status
-                    total_req = loans_df.at[l_idx, "Total_Repayable"]
-                    loans_df.at[l_idx, "Status"] = "Closed" if total_collected >= (total_req - 1) else "Active"
-
-                    save_data("Payments", payments_df)
-                    save_data("Loans", loans_df)
-                    st.success("Payment and Loan Balance Updated!")
-                    st.rerun()
+                    if save_data("Loans", loans_df):
+                        st.success(f"Loan #{m_id} Updated Successfully!")
+                        st.rerun()
 
                 # --- DELETE LOGIC ---
                 if col_del.button("🗑️ Delete Payment", use_container_width=True):
