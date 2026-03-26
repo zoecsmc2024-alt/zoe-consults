@@ -208,8 +208,7 @@ else:
     if "page" not in st.session_state:
         st.session_state.page = "Overview"
 
-    # Show the Sidebar (We will define the sidebar function in the next piece)
-    # sidebar() 
+ 
 
 # ==============================
 # 7. DOCUMENT GENERATION (PDF)
@@ -598,9 +597,7 @@ def show_overview():
     with tab2:
         st.dataframe(df.sort_values("Start_Date", ascending=False).head(10), use_container_width=True)
 
-# --- INTEGRATE INTO MAIN ---
-if st.session_state.page == "Overview":
-    show_overview()
+
 
 
 # ==============================
