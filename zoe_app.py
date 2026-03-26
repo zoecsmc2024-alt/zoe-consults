@@ -1879,9 +1879,7 @@ def main():
     elif page == "Settings":
         show_settings()
 
-# This is the "Ignition Switch" that starts the app
-if __name__ == "__main__":
-    main()
+
 
 
 
