@@ -1570,13 +1570,12 @@ def show_expenses():
 def show_petty_cash():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Petty Cash Management</h2>", unsafe_allow_html=True)
 
-    # 1. FETCH DATA (Memory Shield)
+    # 1. FETCH DATA
     df = get_cached_data("PettyCash")
 
     if df.empty:
         df = pd.DataFrame(columns=["Transaction_ID", "Type", "Amount", "Date", "Description"])
     else:
-        # Prevent formatting bugs
         df["Transaction_ID"] = pd.to_numeric(df["Transaction_ID"], errors='coerce').fillna(0).astype(int)
         df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
 
@@ -1585,16 +1584,35 @@ def show_petty_cash():
     outflow = df[df["Type"] == "Out"]["Amount"].sum()
     balance = inflow - outflow
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Total Cash In", f"{inflow:,.0f} UGX")
-    m2.metric("Total Cash Out", f"{outflow:,.0f} UGX")
+    # --- STYLED NEON CARDS ---
+    c1, c2, c3 = st.columns(3)
     
-    # Delta shows red if balance is low (under 50k)
-    m3.metric("Current Balance", f"{balance:,.0f} UGX", 
-              delta="Low Balance" if balance < 50000 else "Healthy",
-              delta_color="normal" if balance >= 50000 else "inverse")
+    # Inflow Card (Green)
+    c1.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #10B981; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL CASH IN</p>
+            <h3 style="margin:0; color:#10B981;">{inflow:,.0f} <span style="font-size:14px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    # Outflow Card (Red)
+    c2.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL CASH OUT</p>
+            <h3 style="margin:0; color:#FF4B4B;">{outflow:,.0f} <span style="font-size:14px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Balance Card (Dynamic Color)
+    bal_color = "#2B3F87" if balance >= 50000 else "#FF4B4B"
+    c3.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {bal_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CURRENT BALANCE</p>
+            <h3 style="margin:0; color:{bal_color};">{balance:,.0f} <span style="font-size:14px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # ==============================
     # TABBED INTERFACE
@@ -1621,28 +1639,29 @@ def show_petty_cash():
                     }])
                     
                     if save_data("PettyCash", pd.concat([df, new_row], ignore_index=True)):
-                        st.success("Transaction Recorded!")
+                        st.success(f"Successfully recorded {t_amount:,.0f} UGX!")
                         st.rerun()
                 else:
                     st.error("Please provide amount and description.")
 
-    # --- TAB 2: HISTORY & MANAGEMENT ---
+    # --- TAB 2: HISTORY ---
     with tab_history:
         if not df.empty:
-            # Color-coded display
             def color_type(val):
                 return 'color: #10B981;' if val == 'In' else 'color: #FF4B4B;'
             
+            # Show Table with commas and color coding
             st.dataframe(
-                df.sort_values("Date", ascending=False).style.applymap(color_type, subset=['Type']),
+                df.sort_values("Date", ascending=False)
+                .style.applymap(color_type, subset=['Type'])
+                .format({"Amount": "{:,.0f}"}),
                 use_container_width=True, hide_index=True
             )
 
-            # ADMIN ACTIONS (Edit/Delete)
+            # ADMIN ACTIONS
             with st.expander("⚙️ Advanced: Edit or Delete Transaction"):
-                # Create a list of options WITHOUT modifying the master dataframe
                 options = [f"ID: {int(row['Transaction_ID'])} | {row['Type']} - {row['Description']}" for _, row in df.iterrows()]
-                selected_task = st.selectbox("Select Entry", options)
+                selected_task = st.selectbox("Select Entry to Modify", options)
                 
                 sel_id = int(selected_task.split(" | ")[0].replace("ID: ", ""))
                 item = df[df["Transaction_ID"] == sel_id].iloc[0]
@@ -1651,14 +1670,14 @@ def show_petty_cash():
                 up_amt = st.number_input("Update Amount", value=float(item["Amount"]), step=1000.0)
                 up_desc = st.text_input("Update Description", value=item["Description"])
 
-                c1, c2 = st.columns(2)
-                if c1.button("Save Changes"):
+                c_up, c_del = st.columns(2)
+                if c_up.button("💾 Save Changes", use_container_width=True):
                     df.loc[df["Transaction_ID"] == sel_id, ["Type", "Amount", "Description"]] = [up_type, up_amt, up_desc]
                     if save_data("PettyCash", df):
-                        st.success("Updated!")
+                        st.success("Updated Successfully!")
                         st.rerun()
 
-                if c2.button("🗑️ Delete Permanently"):
+                if c_del.button("🗑️ Delete Permanently", use_container_width=True):
                     df_new = df[df["Transaction_ID"] != sel_id]
                     if save_data("PettyCash", df_new):
                         st.warning("Entry Deleted.")
