@@ -1802,17 +1802,36 @@ def show_payroll():
     # --- TAB 2: LOGS ---
     with tab_logs:
         if not df.empty:
-            # Sort and format for display
-            display_df = df.sort_values("Date", ascending=False)
+            # 1. CLEAN UP: If 'Gross_Salary' is 0 but 'Salary' has a value, fix it automatically
+            if 'Salary' in df.columns:
+                df['Gross_Salary'] = df.apply(
+                    lambda x: x['Salary'] if (x['Gross_Salary'] == 0 or pd.isna(x['Gross_Salary'])) else x['Gross_Salary'], 
+                    axis=1
+                )
+
+            # 2. SELECT & REARRANGE: We exclude the old "Salary" column
+            # Logical Order: ID -> Date -> Name -> Gross -> NSSF -> PAYE -> Net -> Status
+            display_cols = ["Payroll_ID", "Date", "Employee", "Gross_Salary", "NSSF", "PAYE", "Net_Pay", "Status"]
+            
+            # Filter to only show columns that actually exist in the dataframe
+            final_cols = [c for c in display_cols if c in df.columns]
+            
+            # 3. DISPLAY: With Comma Formatting
             st.dataframe(
-                display_df.style.format({
-                    "Gross_Salary": "{:,.0f}", "NSSF": "{:,.0f}", 
-                    "PAYE": "{:,.0f}", "Net_Pay": "{:,.0f}"
+                df[final_cols].sort_values("Date", ascending=False)
+                .style.format({
+                    "Gross_Salary": "{:,.0f}", 
+                    "NSSF": "{:,.0f}", 
+                    "PAYE": "{:,.0f}", 
+                    "Net_Pay": "{:,.0f}"
                 }), 
-                use_container_width=True, hide_index=True
+                use_container_width=True, 
+                hide_index=True
             )
 
+            # --- ADMIN POP OVER (Keep your existing modify logic below) ---
             with st.popover("⚙️ Modify or Void Payroll Entry"):
+                # ... (Keep your selection and edit logic here)
                 pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']} ({r['Date']})" for _, r in df.iterrows()]
                 selected_task = st.selectbox("Select Record", pay_options)
                 sel_id = int(selected_task.split(" | ")[0].replace("ID: ", ""))
