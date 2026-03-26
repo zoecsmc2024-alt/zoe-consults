@@ -1457,7 +1457,6 @@ def show_expenses():
     # 1. FETCH DATA
     df = get_cached_data("Expenses")
 
-    # Added Payment_Date and Receipt_No to the fallback structure
     if df.empty:
         df = pd.DataFrame(columns=["Expense_ID", "Category", "Amount", "Date", "Description", "Payment_Date", "Receipt_No"])
 
@@ -1487,10 +1486,10 @@ def show_expenses():
                         "Expense_ID": new_id,
                         "Category": category,
                         "Amount": amount,
-                        "Date": datetime.now().strftime("%Y-%m-%d"), # System Entry Date
+                        "Date": datetime.now().strftime("%Y-%m-%d"), 
                         "Description": desc,
-                        "Payment_Date": p_date.strftime("%Y-%m-%d"), # Manual Payment Date
-                        "Receipt_No": receipt_no                    # Reference Number
+                        "Payment_Date": p_date.strftime("%Y-%m-%d"), 
+                        "Receipt_No": receipt_no                    
                     }])
                     
                     updated_df = pd.concat([df, new_entry], ignore_index=True)
@@ -1506,17 +1505,24 @@ def show_expenses():
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
             total_spent = df["Amount"].sum()
             
+            # Comma formatting for metric
             st.metric("Total Monthly Outflow", f"{total_spent:,.0f} UGX")
             
-            # Chart
             cat_summary = df.groupby("Category")["Amount"].sum().reset_index()
             fig_exp = px.pie(cat_summary, names="Category", values="Amount", 
                              title="Spending by Category",
                              hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
             st.plotly_chart(fig_exp, use_container_width=True)
             
-            # Show Table with new columns
-            st.dataframe(df.sort_values("Payment_Date", ascending=False), use_container_width=True, hide_index=True)
+            # Comma formatting for the table display
+            st.write("### Detailed Expense Log")
+            st.dataframe(
+                df[["Payment_Date", "Category", "Description", "Amount", "Receipt_No"]]
+                .sort_values("Payment_Date", ascending=False)
+                .style.format({"Amount": "{:,.0f}"}), 
+                use_container_width=True, 
+                hide_index=True
+            )
         else:
             st.info("No expense data to analyze yet.")
 
@@ -1535,7 +1541,6 @@ def show_expenses():
                                         index=["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"].index(e_row["Category"]))
                 upd_amt = c_b.number_input("Update Amount (UGX)", value=float(e_row["Amount"]), step=1000.0)
                 
-                # Update Edit Section with new fields
                 c_c, c_d = st.columns(2)
                 upd_date = c_c.text_input("Update Payment Date (YYYY-MM-DD)", value=str(e_row.get("Payment_Date", "")))
                 upd_receipt = c_d.text_input("Update Receipt No", value=str(e_row.get("Receipt_No", "")))
@@ -1545,7 +1550,6 @@ def show_expenses():
                 btn1, btn2 = st.columns([1, 1])
                 
                 if btn1.button("Update Record ✅", use_container_width=True):
-                    # Added new columns to the update logic
                     df.loc[df["Expense_ID"] == e_id, 
                            ["Category", "Amount", "Description", "Payment_Date", "Receipt_No"]] = \
                            [upd_cat, upd_amt, upd_desc, upd_date, upd_receipt]
