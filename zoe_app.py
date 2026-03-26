@@ -1454,11 +1454,12 @@ def show_calendar():
 def show_expenses():
     st.markdown("<h2 style='color: #2B3F87;'>📁 Expense Management</h2>", unsafe_allow_html=True)
 
-    # 1. FETCH DATA (Memory Shield)
+    # 1. FETCH DATA
     df = get_cached_data("Expenses")
 
+    # Added Payment_Date and Receipt_No to the fallback structure
     if df.empty:
-        df = pd.DataFrame(columns=["Expense_ID", "Category", "Amount", "Date", "Description"])
+        df = pd.DataFrame(columns=["Expense_ID", "Category", "Amount", "Date", "Description", "Payment_Date", "Receipt_No"])
 
     # ==============================
     # TABBED INTERFACE
@@ -1471,7 +1472,13 @@ def show_expenses():
             col1, col2 = st.columns(2)
             category = col1.selectbox("Category", ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"])
             amount = col2.number_input("Amount (UGX)", min_value=0, step=1000)
+            
             desc = st.text_input("Description (e.g., Office Power Bill March)")
+            
+            # --- NEW FIELDS FOR ZOE ---
+            c_date, c_receipt = st.columns(2)
+            p_date = c_date.date_input("Actual Payment Date", value=datetime.now())
+            receipt_no = c_receipt.text_input("Receipt / Invoice #", placeholder="e.g. RCP-101")
             
             if st.form_submit_button("🚀 Save Expense"):
                 if amount > 0 and desc:
@@ -1480,11 +1487,14 @@ def show_expenses():
                         "Expense_ID": new_id,
                         "Category": category,
                         "Amount": amount,
-                        "Date": datetime.now().strftime("%Y-%m-%d"),
-                        "Description": desc
+                        "Date": datetime.now().strftime("%Y-%m-%d"), # System Entry Date
+                        "Description": desc,
+                        "Payment_Date": p_date.strftime("%Y-%m-%d"), # Manual Payment Date
+                        "Receipt_No": receipt_no                    # Reference Number
                     }])
                     
-                    if save_data("Expenses", pd.concat([df, new_entry], ignore_index=True)):
+                    updated_df = pd.concat([df, new_entry], ignore_index=True)
+                    if save_data("Expenses", updated_df):
                         st.success(f"Expense of {amount:,.0f} recorded! ✅")
                         st.rerun()
                 else:
@@ -1493,27 +1503,26 @@ def show_expenses():
     # --- TAB 2: ANALYSIS & LOG ---
     with tab_view:
         if not df.empty:
-            # Ensure Amount is numeric
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
             total_spent = df["Amount"].sum()
             
             st.metric("Total Monthly Outflow", f"{total_spent:,.0f} UGX")
             
-            # Category Breakdown Chart
+            # Chart
             cat_summary = df.groupby("Category")["Amount"].sum().reset_index()
             fig_exp = px.pie(cat_summary, names="Category", values="Amount", 
                              title="Spending by Category",
                              hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
             st.plotly_chart(fig_exp, use_container_width=True)
             
-            st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
+            # Show Table with new columns
+            st.dataframe(df.sort_values("Payment_Date", ascending=False), use_container_width=True, hide_index=True)
         else:
             st.info("No expense data to analyze yet.")
 
     # --- TAB 3: MANAGE / EDIT / DELETE ---
     with tab_manage:
         if not df.empty:
-            # Selection Logic
             edit_options = df.apply(lambda x: f"ID: {int(x['Expense_ID'])} | {x['Category']} - {x['Description']}", axis=1).tolist()
             selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
             
@@ -1525,22 +1534,31 @@ def show_expenses():
                 upd_cat = c_a.selectbox("Update Category", ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"],
                                         index=["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"].index(e_row["Category"]))
                 upd_amt = c_b.number_input("Update Amount (UGX)", value=float(e_row["Amount"]), step=1000.0)
+                
+                # Update Edit Section with new fields
+                c_c, c_d = st.columns(2)
+                upd_date = c_c.text_input("Update Payment Date (YYYY-MM-DD)", value=str(e_row.get("Payment_Date", "")))
+                upd_receipt = c_d.text_input("Update Receipt No", value=str(e_row.get("Receipt_No", "")))
+                
                 upd_desc = st.text_input("Update Description", value=e_row["Description"])
 
                 btn1, btn2 = st.columns([1, 1])
                 
-                if btn1.button("Update Record ✅"):
-                    df.loc[df["Expense_ID"] == e_id, ["Category", "Amount", "Description"]] = [upd_cat, upd_amt, upd_desc]
+                if btn1.button("Update Record ✅", use_container_width=True):
+                    # Added new columns to the update logic
+                    df.loc[df["Expense_ID"] == e_id, 
+                           ["Category", "Amount", "Description", "Payment_Date", "Receipt_No"]] = \
+                           [upd_cat, upd_amt, upd_desc, upd_date, upd_receipt]
+                    
                     if save_data("Expenses", df):
-                        st.success("Updated!")
+                        st.success("Updated Successfully!")
                         st.rerun()
 
-                if btn2.button("Delete Record 🗑️"):
+                if btn2.button("Delete Record 🗑️", use_container_width=True):
                     df = df[df["Expense_ID"] != e_id]
                     if save_data("Expenses", df):
-                        st.warning("Deleted!")
+                        st.warning("Expense Record Deleted!")
                         st.rerun()
-
 # ==============================
 # 19. PETTY CASH MANAGEMENT PAGE
 # ==============================
