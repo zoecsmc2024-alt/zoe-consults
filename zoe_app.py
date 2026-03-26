@@ -659,35 +659,34 @@ def show_borrowers():
                 else:
                     st.error("⚠️ Please fill in Name and Phone.")
 
-    # --- TAB 3: MANAGE & SUMMARY ---
+    # --- TAB 3: MANAGE & SUMMARY (Inside show_borrowers) ---
     with tab_manage:
         if not df.empty:
             target_name = st.selectbox("Select Borrower to Manage", df["Name"].tolist())
             borrower = df[df["Name"] == target_name].iloc[0]
             
-            # QUICK SUMMARY (Using cached loans_df)
+            # CRITICAL: Filter all loans for this specific person
             user_loans = loans_df[loans_df["Borrower"] == target_name] if not loans_df.empty else pd.DataFrame()
             
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Total Loans", len(user_loans))
-            m2.metric("Total Borrowed", f"{pd.to_numeric(user_loans['Amount'], errors='coerce').sum():,.0f}")
-            m3.metric("Status", borrower["Status"])
+            if not user_loans.empty:
+                # Calculate totals across ALL their loans
+                total_taken = pd.to_numeric(user_loans['Amount']).sum()
+                total_paid = pd.to_numeric(user_loans['Amount_Paid']).sum()
+                total_remaining = pd.to_numeric(user_loans['Total_Repayable']).sum() - total_paid
+                active_count = user_loans[user_loans["Status"] != "Closed"].shape[0]
 
-            with st.expander("✏️ Edit Personal Details"):
-                en1, en2 = st.columns(2)
-                up_name = en1.text_input("Edit Name", borrower["Name"])
-                up_phone = en2.text_input("Edit Phone", borrower["Phone"])
-                up_status = st.selectbox("Update Status", ["Active", "Inactive"], 
-                                         index=0 if borrower["Status"] == "Active" else 1)
-                
-                if st.button("Update Info"):
-                    df.loc[df["Borrower_ID"] == borrower["Borrower_ID"], ["Name", "Phone", "Status"]] = [up_name, up_phone, up_status]
-                    if save_data("Borrowers", df):
-                        st.success("Details Updated!")
-                        st.rerun()
-        else:
-            st.info("No borrowers found.")
+                # Display a high-level bird's eye view
+                st.markdown(f"### 📋 Portfolio Summary for {target_name}")
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Total Loans Taken", len(user_loans))
+                m2.metric("Active Loans", active_count)
+                m3.metric("Total Outstanding", f"{total_remaining:,.0f} UGX", delta_color="inverse")
 
+                # Show a mini-table of all their loans
+                st.write("**Loan History:**")
+                st.dataframe(user_loans[["Loan_ID", "Amount", "Status", "End_Date"]], use_container_width=True, hide_index=True)
+            else:
+                st.info("This borrower has not taken any loans yet.")
 # ==============================
 # 13. LOANS MANAGEMENT PAGE
 # ==============================
