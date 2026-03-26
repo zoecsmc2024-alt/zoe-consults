@@ -1248,7 +1248,7 @@ def show_collateral():
 def show_overdue_tracker():
     st.markdown("<h2 style='color: #2B3F87;'>🔴 Collections Dashboard</h2>", unsafe_allow_html=True)
 
-    # 1. FETCH DATA (Memory Shield)
+    # 1. FETCH DATA
     loans_df = get_cached_data("Loans")
 
     if loans_df.empty:
@@ -1256,7 +1256,6 @@ def show_overdue_tracker():
         return
 
     # 2. DATA PREPARATION
-    # Ensure tracking columns exist
     for col in ["Follow_Up_Status", "Last_Contact_Date"]:
         if col not in loans_df.columns:
             loans_df[col] = "Pending"
@@ -1276,7 +1275,7 @@ def show_overdue_tracker():
         st.success("✨ Excellent! All collections are up to date.")
         return
 
-    # 3. CALCULATE RISK & SEVERITY
+    # 3. CALCULATIONS
     overdue_df["Days_Overdue"] = (today - overdue_df["End_Date"]).dt.days
     overdue_df["Outstanding"] = overdue_df["Total_Repayable"] - overdue_df["Amount_Paid"]
 
@@ -1286,19 +1285,33 @@ def show_overdue_tracker():
         return "Critical"
 
     overdue_df["Severity"] = overdue_df["Days_Overdue"].apply(get_severity)
-    
-    # Your Risk Score Logic (Outstanding weight + Days weight)
     overdue_df["Risk_Score"] = (overdue_df["Outstanding"] * 0.0001) + (overdue_df["Days_Overdue"] * 2)
 
-    # 4. METRICS & FILTERS
     total_at_risk = overdue_df["Outstanding"].sum()
     critical_cases = overdue_df[overdue_df["Severity"] == "Critical"].shape[0]
 
-    m1, m2 = st.columns(2)
-    m1.metric("💰 Total Capital at Risk", f"{total_at_risk:,.0f} UGX")
-    m2.metric("🔴 Critical Delinquency", critical_cases)
+    # --- STYLED NEON CARDS ---
+    c1, c2 = st.columns(2)
+    
+    # Capital at Risk Card
+    c1.markdown(f"""
+        <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL CAPITAL AT RISK</p>
+            <h2 style="margin:0; color:#FF4B4B;">{total_at_risk:,.0f} <span style="font-size:16px;">UGX</span></h2>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # Filtering UI
+    # Critical Cases Card
+    c2.markdown(f"""
+        <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CRITICAL DELINQUENCY</p>
+            <h2 style="margin:0; color:#2B3F87;">{critical_cases} <span style="font-size:16px;">CASES</span></h2>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 4. FILTERING & TABLE
     f1, f2 = st.columns([2, 1])
     search = f1.text_input("🔍 Find Borrower")
     sev_filter = f2.selectbox("Severity Level", ["All", "Mild", "Moderate", "Critical"])
@@ -1309,16 +1322,16 @@ def show_overdue_tracker():
     if sev_filter != "All":
         filtered = filtered[filtered["Severity"] == sev_filter]
 
-    # Sort by Risk (Highest first)
     filtered = filtered.sort_values("Risk_Score", ascending=False)
 
-    # COLOR-CODED DATAFRAME DISPLAY
     def color_severity(val):
         color = '#00ffcc' if val == 'Mild' else '#FFA500' if val == 'Moderate' else '#FF4B4B'
         return f'color: {color}; font-weight: bold;'
 
     st.dataframe(
-        filtered[["Loan_ID", "Borrower", "Outstanding", "Days_Overdue", "Severity", "Follow_Up_Status"]].style.applymap(color_severity, subset=['Severity']),
+        filtered[["Loan_ID", "Borrower", "Outstanding", "Days_Overdue", "Severity", "Follow_Up_Status"]]
+        .style.applymap(color_severity, subset=['Severity'])
+        .format({"Outstanding": "{:,.0f}"}), # Comma formatting in table
         use_container_width=True, hide_index=True
     )
 
@@ -1329,7 +1342,6 @@ def show_overdue_tracker():
     sel_loan_id = st.selectbox("Select Client to Contact", filtered["Loan_ID"].unique())
     loan_item = filtered[filtered["Loan_ID"] == sel_loan_id].iloc[0]
 
-    # MESSAGE LOGIC
     severity = loan_item["Severity"]
     if severity == "Mild":
         msg = f"Reminder: Your loan is {loan_item['Days_Overdue']} days overdue. Balance: {loan_item['Outstanding']:,.0f} UGX. Please settle today."
@@ -1339,24 +1351,18 @@ def show_overdue_tracker():
         msg = f"FINAL NOTICE: Loan overdue by {loan_item['Days_Overdue']} days. Pay {loan_item['Outstanding']:,.0f} UGX NOW to prevent legal action."
 
     st.info(f"📍 **Target:** {loan_item['Borrower']} | **Severity:** {severity}")
-    
     msg_text = st.text_area("Recovery Message", msg, height=100)
 
     act_col1, act_col2 = st.columns(2)
-    
-    # WhatsApp Integration Button
-    # Note: This assumes you have the phone number in your Loans or Borrowers sheet
-    # For now, we'll use a placeholder logic
     whatsapp_url = f"https://wa.me/?text={msg_text.replace(' ', '%20')}"
-    act_col1.markdown(f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; height:45px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">💬 Send via WhatsApp</button></a>', unsafe_allow_html=True)
+    act_col1.markdown(f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; height:45px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">💬 Send via WhatsApp</button></a>', unsafe_allow_html=True)
 
     if act_col2.button("💾 Log Interaction", use_container_width=True):
-        # Update the master dataframe
         loans_df.loc[loans_df["Loan_ID"] == sel_loan_id, "Follow_Up_Status"] = "Contacted"
         loans_df.loc[loans_df["Loan_ID"] == sel_loan_id, "Last_Contact_Date"] = datetime.now().strftime("%Y-%m-%d")
         
         if save_data("Loans", loans_df):
-            st.success("Interaction logged successfully.")
+            st.success(f"Interaction with {loan_item['Borrower']} logged successfully.")
             st.rerun()
 
 # ==============================
