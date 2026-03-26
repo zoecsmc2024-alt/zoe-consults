@@ -771,7 +771,7 @@ def show_loans():
     tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
 
     def show_loans():
-    st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     # ^ There must be 4 spaces here!
     
     # 1. LOAD DATA
