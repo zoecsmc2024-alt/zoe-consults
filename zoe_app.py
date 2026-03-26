@@ -536,12 +536,40 @@ def show_overview():
     overdue_count = df[df["Auto_Status"] == "Overdue"].shape[0]
     
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 Total Issued", f"{total_issued:,.0f} UGX")
-    m2.metric("📈 Expected Profit", f"{total_profit:,.0f} UGX")
-    m3.metric("💵 Collected", f"{total_collected:,.0f} UGX")
-    m4.metric("⚠️ Overdue", overdue_count)
 
-    st.markdown("---")
+    # 1. Total Issued (Capital - Corporate Blue)
+    m1.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">💰 TOTAL ISSUED</p>
+            <h3 style="margin:0; color:#2B3F87; font-size: 20px;">{total_issued:,.0f} <span style="font-size:12px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 2. Expected Profit (Growth - Neon Green)
+    m2.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00ffcc; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">📈 EXPECTED PROFIT</p>
+            <h3 style="margin:0; color:#00ffcc; font-size: 20px;">{total_profit:,.0f} <span style="font-size:12px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 3. Collected (Cash Flow - Cyan/Teal)
+    m3.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00D1FF; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">💵 COLLECTED</p>
+            <h3 style="margin:0; color:#00D1FF; font-size: 20px;">{total_collected:,.0f} <span style="font-size:12px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 4. Overdue (Risk - Alert Red)
+    m4.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">⚠️ OVERDUE LOANS</p>
+            <h3 style="margin:0; color:#FF4B4B; font-size: 24px;">{overdue_count}</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # 5. VISUALS SECTION (This is where your Chart Columns go)
     # [Insert your c1, c2 columns code here...]
