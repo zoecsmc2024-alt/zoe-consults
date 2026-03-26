@@ -879,12 +879,20 @@ def show_payments():
             target_loan_id = p_row["Loan_ID"]
 
             # Edit Form
-            with st.container():
-                new_amt = st.number_input("Modify Amount", value=float(p_row["Amount"]), step=5000.0)
-                new_met = st.selectbox("Modify Method", ["Mobile Money", "Cash", "Bank Transfer"], 
-                                      index=["Mobile Money", "Cash", "Bank Transfer"].index(p_row["Method"]))
-                
-                col_upd, col_del = st.columns(2)
+        with st.container():
+            # 1. Prepare the safety logic for the dropdown
+            methods_list = ["Mobile Money", "Cash", "Bank Transfer"]
+            current_method = p_row["Method"]
+            
+            # This prevents the "ValueError" crash if the data is messy
+            default_idx = methods_list.index(current_method) if current_method in methods_list else 1
+
+            # 2. Draw the inputs (Carefully indented under st.container)
+            new_amt = st.number_input("Modify Amount", value=float(p_row["Amount"]), step=5000.0)
+            new_met = st.selectbox("Modify Method", methods_list, index=default_idx)
+            
+            # 3. Create the Action Buttons
+            col_upd, col_del = st.columns(2)
 
                 # UPDATE LOGIC
                 if col_upd.button("🔄 Update Payment", use_container_width=True):
