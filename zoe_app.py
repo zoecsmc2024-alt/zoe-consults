@@ -816,16 +816,31 @@ def show_loans():
 
                 if st.form_submit_button("🚀 Confirm & Issue Loan"):
                     if amount > 0:
-                        new_id = int(loans_df["Loan_ID"].max() + 1) if not loans_df.empty else 1
+                        # 1. FIX: Ensure new_id is a clean integer
+                        last_id = loans_df["Loan_ID"].max()
+                        new_id = int(last_id + 1) if pd.notna(last_id) else 1
+                        
+                        # 2. FIX: Ensure math doesn't produce 'nan'
+                        safe_interest = float(interest) if pd.notna(interest) else 0.0
+                        safe_total = float(total_due) if pd.notna(total_due) else float(amount)
+
                         new_loan = pd.DataFrame([{
-                            "Loan_ID": new_id, "Borrower": selected_borrower, "Type": l_type,
-                            "Amount": amount, "Interest": interest,
-                            "Total_Repayable": total_due, "Amount_Paid": 0,
+                            "Loan_ID": new_id, 
+                            "Borrower": selected_borrower, 
+                            "Type": l_type,
+                            "Amount": float(amount), 
+                            "Interest": safe_interest,
+                            "Total_Repayable": safe_total, 
+                            "Amount_Paid": 0.0, # Use 0.0 instead of 0 to keep it as float
                             "Start_Date": date_issued.strftime("%Y-%m-%d"),
                             "End_Date": date_due.strftime("%Y-%m-%d"),
                             "Status": "Active"
                         }])
-                        if save_data("Loans", pd.concat([loans_df, new_loan], ignore_index=True)):
+                        
+                        # 3. FIX: Fill any accidental NaNs in the final combined dataframe
+                        updated_df = pd.concat([loans_df, new_loan], ignore_index=True).fillna(0)
+                        
+                        if save_data("Loans", updated_df):
                             st.success(f"Loan #{new_id} Issued!")
                             st.rerun()
 
