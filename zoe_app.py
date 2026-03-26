@@ -1871,6 +1871,27 @@ def show_reports():
     payments = get_cached_data("Payments")
     expenses = get_cached_data("Expenses")
     payroll = get_cached_data("Payroll")
+    
+    # 2. SAFETY CHECK & CALCULATION
+    if not payroll.empty:
+        # Check if the old 'Salary' column is still there, otherwise use 'Gross_Salary'
+        # We use .get() to avoid crashing if one is missing
+        if "Gross_Salary" in payroll.columns:
+            pay_amt = pd.to_numeric(payroll["Gross_Salary"], errors="coerce").fillna(0).sum()
+        elif "Salary" in payroll.columns:
+            pay_amt = pd.to_numeric(payroll["Salary"], errors="coerce").fillna(0).sum()
+        else:
+            pay_amt = 0
+            
+        # Optional: If you want to track Net Pay specifically in reports
+        net_pay_total = pd.to_numeric(payroll.get("Net_Pay", 0), errors="coerce").fillna(0).sum()
+    else:
+        pay_amt = 0
+        net_pay_total = 0
+
+    # 3. UPDATE YOUR METRICS / CHARTS
+    # (Update your existing metric call to include commas)
+    st.metric("Total Payroll Outflow", f"{pay_amt:,.0f} UGX")
     petty = get_cached_data("PettyCash")
 
     if loans.empty or payments.empty:
