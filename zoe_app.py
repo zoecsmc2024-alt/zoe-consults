@@ -2066,113 +2066,117 @@ def show_ledger():
     st.markdown("---")
     st.markdown("### 🚀 Generate Client Statement")
     
-    if st.button("✨ Preview Official Statement", use_container_width=True):
-        # 1. FETCH BORROWER DETAILS (Linking by Name)
+    if st.button("✨ Preview Consolidated Statement", use_container_width=True):
+        # 1. FETCH ALL RELEVANT DATA
         borrowers_df = get_cached_data("Borrowers")
+        all_loans_df = get_cached_data("Loans")
+        all_payments_df = get_cached_data("Payments")
         
-        # We match 'Borrower' from Loans sheet to 'Name' in Borrowers sheet
-        current_b_name = loan_info['Borrower']
+        # Identify the Borrower
+        current_b_name = loan_info['Borrower'] 
         
-        # Find the specific row for this borrower
+        # Find all loans for this person
+        client_loans = all_loans_df[all_loans_df["Borrower"] == current_b_name]
+        
+        # Get Borrower Details for the Header
         b_data = borrowers_df[borrowers_df["Name"] == current_b_name]
-        
-        if not b_data.empty:
-            b_details = b_data.iloc[0]
-            b_phone = b_details.get('Phone', 'N/A')
-            b_nid = b_details.get('National_ID', 'N/A')
-            b_address = b_details.get('Address', 'N/A')
-            b_email = b_details.get('Email', 'N/A')
-            b_nok = b_details.get('Next_of_Kin', 'N/A')
-        else:
-            # Fallback if borrower is missing from the list
-            b_phone, b_nid, b_address, b_email, b_nok = "N/A", "N/A", "N/A", "N/A", "N/A"
+        b_details = b_data.iloc[0] if not b_data.empty else {}
 
-        # 2. Styling
+        # 2. Colors & Header
         navy_blue = "#000080"
         baby_blue = "#E1F5FE"
         
-        # 3. Build HTML
         html_statement = f"""
         <div style="font-family: 'Arial', sans-serif; padding: 25px; border: 1px solid #eee; max-width: 850px; margin: auto; background-color: white; color: #333;">
             
             <div style="background-color: {navy_blue}; color: white; padding: 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <h1 style="margin:0; letter-spacing: 1px;">ZOE CONSULTS SMC LTD</h1>
-                    <p style="margin:5px 0 0 0; opacity: 0.8;">Official Loan Statement</p>
+                    <p style="margin:5px 0 0 0; opacity: 0.8;">Consolidated Client Statement</p>
                 </div>
                 <div style="text-align: right;">
-                    <p style="margin:0; font-weight: bold;">LOAN ID: {l_id}</p>
+                    <p style="margin:0; font-weight: bold;">CLIENT: {current_b_name}</p>
                     <p style="margin:0; font-size: 12px;">{datetime.now().strftime('%d %b %Y')}</p>
                 </div>
             </div>
             
-            <div style="padding: 20px; border: 1px solid #ddd; border-top: none; background-color: #fcfcfc;">
-                <table style="width: 100%; border-collapse: collapse;">
+            <div style="padding: 15px; border: 1px solid #ddd; border-top: none; background-color: #fcfcfc;">
+                <table style="width: 100%; font-size: 13px;">
                     <tr>
-                        <td style="width: 50%; vertical-align: top;">
-                            <p style="color: {navy_blue}; font-size: 10px; font-weight: bold; margin: 0 0 5px 0;">BORROWER DETAILS</p>
-                            <h3 style="margin: 0 0 10px 0; color: #222;">{current_b_name}</h3>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Phone:</strong> {b_phone}</p>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Address:</strong> {b_address}</p>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Email:</strong> {b_email}</p>
-                        </td>
-                        <td style="width: 50%; text-align: right; vertical-align: top;">
-                            <p style="color: {navy_blue}; font-size: 10px; font-weight: bold; margin: 0 0 5px 0;">IDENTITY & SECURITY</p>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>National ID (NIN):</strong> {b_nid}</p>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Next of Kin:</strong> {b_nok}</p>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Loan Status:</strong> {loan_info['Status']}</p>
-                        </td>
+                        <td><strong>Phone:</strong> {b_details.get('Phone', 'N/A')} | <strong>NIN:</strong> {b_details.get('National_ID', 'N/A')}</td>
+                        <td style="text-align: right;"><strong>Address:</strong> {b_details.get('Address', 'N/A')}</td>
                     </tr>
                 </table>
             </div>
 
-            <div style="background-color: {baby_blue}; padding: 15px; margin: 20px 0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #b3e5fc;">
-                <span style="font-size: 14px;">Principal: <strong>{loan_info['Amount']:,.0f}</strong></span>
-                <span style="font-size: 14px;">Interest: <strong>{loan_info['Interest']:,.0f}</strong></span>
-                <span style="font-size: 16px; color: {navy_blue}; font-weight: bold;">Current Balance: {ledger_df.iloc[-1]['Balance']:,.0f} UGX</span>
-            </div>
-
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <thead>
-                    <tr style="border-bottom: 2px solid {navy_blue}; color: {navy_blue};">
-                        <th style="padding: 10px; text-align: left;">DATE</th>
-                        <th style="padding: 10px; text-align: left;">DESCRIPTION</th>
-                        <th style="padding: 10px; text-align: right;">DEBIT (UGX)</th>
-                        <th style="padding: 10px; text-align: right;">CREDIT (UGX)</th>
-                        <th style="padding: 10px; text-align: right;">BALANCE (UGX)</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <h3 style="color: {navy_blue}; margin-top: 30px; border-bottom: 2px solid {navy_blue}; padding-bottom: 5px;">💼 Account Summaries</h3>
         """
 
-        # Ledger Rows
-        for i, row in ledger_df.iterrows():
-            row_bg = "#ffffff" if i % 2 == 0 else "#f9f9f9"
+        # 3. LOOP THROUGH EACH LOAN
+        grand_total_balance = 0
+        
+        for index, l_row in client_loans.iterrows():
+            l_id = l_row['Loan_ID']
+            
+            # Build Ledger for THIS specific loan
+            l_ledger = []
+            l_ledger.append({"Date": l_row['Date'], "Description": "Principal + Interest", "Debit": l_row['Total_Repayable'], "Credit": 0})
+            
+            l_payments = all_payments_df[all_payments_df["Loan_ID"] == l_id]
+            for _, p in l_payments.iterrows():
+                l_ledger.append({"Date": p['Date'], "Description": f"Payment (Rec: {p.get('Receipt_No', 'N/A')})", "Debit": 0, "Credit": p['Amount']})
+            
+            # Calculate Balance for this loan
+            temp_df = pd.DataFrame(l_ledger)
+            temp_df['Balance'] = temp_df['Debit'].cumsum() - temp_df['Credit'].cumsum()
+            current_l_balance = temp_df.iloc[-1]['Balance']
+            grand_total_balance += current_l_balance
+
+            # Add Loan Header and Table to HTML
             html_statement += f"""
-                    <tr style="background-color: {row_bg};">
-                        <td style="padding: 10px; border-bottom: 1px solid #eee;">{row['Date']}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid #eee;">{row['Description']}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">{row['Debit']:,.0f}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">{row['Credit']:,.0f}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: {navy_blue};">{row['Balance']:,.0f}</td>
-                    </tr>
+            <div style="margin-top: 20px; padding: 10px; background-color: {baby_blue}; border-radius: 5px;">
+                <span style="font-weight: bold; color: {navy_blue};">LOAN ID: {l_id}</span> | 
+                <span>Status: {l_row['Status']}</span> | 
+                <span style="float: right;">Loan Balance: <strong>{current_l_balance:,.0f} UGX</strong></span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
+                <tr style="border-bottom: 1px solid {navy_blue}; color: {navy_blue}; font-weight: bold;">
+                    <th style="padding: 8px; text-align: left;">Date</th>
+                    <th style="padding: 8px; text-align: left;">Description</th>
+                    <th style="padding: 8px; text-align: right;">Debit</th>
+                    <th style="padding: 8px; text-align: right;">Credit</th>
+                    <th style="padding: 8px; text-align: right;">Balance</th>
+                </tr>
             """
+            
+            for _, row in temp_df.iterrows():
+                html_statement += f"""
+                <tr>
+                    <td style="padding: 6px; border-bottom: 1px solid #eee;">{row['Date']}</td>
+                    <td style="padding: 6px; border-bottom: 1px solid #eee;">{row['Description']}</td>
+                    <td style="padding: 6px; border-bottom: 1px solid #eee; text-align: right;">{row['Debit']:,.0f}</td>
+                    <td style="padding: 6px; border-bottom: 1px solid #eee; text-align: right;">{row['Credit']:,.0f}</td>
+                    <td style="padding: 6px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">{row['Balance']:,.0f}</td>
+                </tr>
+                """
+            html_statement += "</table>"
 
+        # 4. FINAL GRAND TOTAL SECTION
         html_statement += f"""
-                </tbody>
-            </table>
+            <div style="margin-top: 30px; padding: 20px; border: 2px solid {navy_blue}; border-radius: 8px; text-align: right; background-color: #f0f4ff;">
+                <h2 style="margin: 0; color: {navy_blue};">GRAND TOTAL OUTSTANDING</h2>
+                <h1 style="margin: 5px 0 0 0; color: #FF4B4B;">{grand_total_balance:,.0f} UGX</h1>
+            </div>
 
-            <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 15px; text-align: center; font-size: 11px; color: #777;">
+            <div style="margin-top: 40px; text-align: center; font-size: 11px; color: #777;">
                 <p>Zoe Consults SMC Ltd | Kampala, Uganda</p>
                 <p><em>Trust is the foundation of our partnership.</em></p>
             </div>
         </div>
         """
         
-        # Render Statement
-        st.components.v1.html(html_statement, height=900, scrolling=True)
-        st.info("💡 **Ready to send?** Right-click inside the statement > Print > Save as PDF.")
-
+        st.components.v1.html(html_statement, height=1000, scrolling=True)
+        st.info("💡 **Consolidated View:** All active and pending loans for this client are listed above.")
     
 
 
