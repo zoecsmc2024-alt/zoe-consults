@@ -889,33 +889,50 @@ def show_loans():
 
             with st.container():
                 col_e1, col_e2 = st.columns(2)
+                
+                # --- LEFT COLUMN (Money & Rates) ---
                 upd_amt = col_e1.number_input("Edit Principal", value=float(m_row["Amount"]), step=10000.0)
+                
+                # Calculate current rate to pre-fill the box
+                try:
+                    current_rate = (float(m_row["Interest"]) / float(m_row["Amount"])) * 100 if float(m_row["Amount"]) > 0 else 0.0
+                except:
+                    current_rate = 0.0
+                    
+                upd_rate = col_e1.number_input("Edit Interest Rate (%)", value=float(current_rate), step=0.5)
+                upd_paid = col_e1.number_input("Manual Paid Adjust", value=float(m_row["Amount_Paid"]))
+
+                # --- RIGHT COLUMN (Status & Dates) ---
                 upd_stat = col_e2.selectbox("Edit Status", ["Active", "Overdue", "Closed"], 
                                            index=["Active", "Overdue", "Closed"].index(m_row["Status"]))
                 
-                upd_paid = col_e1.number_input("Manual Paid Adjust", value=float(m_row["Amount_Paid"]))
-                upd_date = col_e2.text_input("Edit End Date (YYYY-MM-DD)", value=m_row["End_Date"])
+                # Use date_input instead of text_input so you get a calendar picker!
+                try:
+                    start_val = datetime.strptime(str(m_row["Start_Date"]), "%Y-%m-%d")
+                    end_val = datetime.strptime(str(m_row["End_Date"]), "%Y-%m-%d")
+                except:
+                    start_val = datetime.now()
+                    end_val = datetime.now()
+
+                upd_start = col_e2.date_input("Edit Start Date", value=start_val)
+                upd_end = col_e2.date_input("Edit End Date", value=end_val)
 
                 btn_upd, btn_del = st.columns(2)
 
+                # --- UPDATE LOGIC ---
                 if btn_upd.button("💾 Save Changes", use_container_width=True):
-                    try:
-                        safe_interest = float(m_row["Interest"])
-                        safe_amount = float(m_row["Amount"])
-                        orig_rate = safe_interest / safe_amount if safe_amount > 0 else 0
-                    except (ValueError, TypeError):
-                        orig_rate = 0 
+                    # Direct math using the new interest rate input
+                    new_interest = upd_amt * (upd_rate / 100)
+                    new_total = upd_amt + new_interest
                     
-                    new_interest = upd_amt * orig_rate
-                    
+                    # Update the DataFrame
                     loans_df.loc[loans_df["Loan_ID"] == m_id, 
-                                 ["Amount", "Amount_Paid", "Status", "End_Date", "Interest", "Total_Repayable"]] = \
-                                 [upd_amt, upd_paid, upd_stat, upd_date, new_interest, (upd_amt + new_interest)]
+                                 ["Amount", "Amount_Paid", "Status", "Start_Date", "End_Date", "Interest", "Total_Repayable"]] = \
+                                 [upd_amt, upd_paid, upd_stat, upd_start.strftime("%Y-%m-%d"), upd_end.strftime("%Y-%m-%d"), new_interest, new_total]
                     
                     if save_data("Loans", loans_df):
-                        st.success("Loan updated!")
+                        st.success(f"Loan #{m_id} Updated Successfully!")
                         st.rerun()
-
                 if btn_del.button("🗑️ Delete Loan Permanently", use_container_width=True):
                     new_loans_df = loans_df[loans_df["Loan_ID"] != m_id]
                     if save_data("Loans", new_loans_df):
