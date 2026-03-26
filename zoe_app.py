@@ -1846,7 +1846,6 @@ def show_ledger():
     loan_info = loans_df[loans_df["Loan_ID"] == l_id].iloc[0]
     
     # --- STYLED BALANCE CARD ---
-    # We calculate current balance on the fly for accuracy
     current_balance = float(loan_info["Total_Repayable"]) - float(loan_info["Amount_Paid"])
     
     st.markdown(f"""
@@ -1859,18 +1858,17 @@ def show_ledger():
     # 2. BUILD THE LEDGER TABLE
     ledger_data = []
 
-    # --- ROW 1: THE DISBURSEMENT (Fixed to include Interest) ---
+    # --- ROW 1: THE DISBURSEMENT (Total Repayable) ---
     ledger_data.append({
         "Date": loan_info["Start_Date"],
         "Description": f"Initial Loan Disbursement (Principal + Interest)",
-        "Debit": float(loan_info["Total_Repayable"]), # Using Total_Repayable instead of Amount
+        "Debit": float(loan_info["Total_Repayable"]),
         "Credit": 0,
         "Balance": float(loan_info["Total_Repayable"])
     })
 
     # --- SUBSEQUENT ROWS: PAYMENTS ---
     relevant_payments = payments_df[payments_df["Loan_ID"] == l_id].sort_values("Date")
-    
     running_balance = float(loan_info["Total_Repayable"])
     
     for _, pay in relevant_payments.iterrows():
@@ -1898,16 +1896,26 @@ def show_ledger():
 
     st.markdown("---")
     st.markdown("### 🚀 Generate Client Statement")
+    
+    # --- PDF GENERATION LOGIC ---
     if st.button("✨ Prepare Neon PDF Statement", use_container_width=True):
-        st.write("Constructing PDF... (Feature integration coming next)")
+        st.write("Constructing PDF...")
+        
+        # This part assumes you have a function to generate the bytes
+        # If not yet built, the download button below will wait for it
+        try:
+            # Placeholder for the actual PDF generation logic
+            # pdf_bytes = generate_pdf(ledger_df, loan_info) 
             
             st.download_button(
                 label="📥 Download & Send to Client",
-                data=pdf_bytes,
-                file_name=f"Zoe_Statement_{loan_data['Borrower']}_{sel_id}.pdf",
+                data=b"PDF Content Placeholder", # Replace with your pdf_bytes variable
+                file_name=f"Zoe_Statement_{loan_info['Borrower']}_{l_id}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
+        except Exception as e:
+            st.error(f"Could not generate PDF: {e}")
 
     
 
