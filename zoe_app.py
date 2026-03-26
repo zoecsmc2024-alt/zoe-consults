@@ -640,9 +640,116 @@ def show_overview():
         )
 
 
+# ==============================
+# 12. BORROWERS MANAGEMENT PAGE
+# ==============================
+
+def show_borrowers():
+    st.markdown("<h2 style='color: #2B3F87;'>👥 Borrowers Management</h2>", unsafe_allow_html=True)
+
+    # 1. LOAD DATA
+    df = get_cached_data("Borrowers")
+    loans_df = get_cached_data("Loans") 
+
+    if df.empty:
+        # Added Email and Next_of_Kin to the fallback structure
+        df = pd.DataFrame(columns=["Borrower_ID", "Name", "Phone", "Email", "National_ID", "Address", "Next_of_Kin", "Status", "Date_Added"])
+
+    # ==============================
+    # TABBED INTERFACE
+    # ==============================
+    tab_list, tab_add, tab_manage = st.tabs(["📋 View All", "➕ Add New", "⚙️ Manage & Edit"])
+
+    # --- TAB 1: SEARCH & LIST ---
+    with tab_list:
+        col1, col2 = st.columns([2, 1])
+        search = col1.text_input("🔍 Search Name, Phone or Email")
+        status_filter = col2.selectbox("Filter", ["All", "Active", "Inactive"])
+
+        filtered_df = df.copy()
+        if search:
+            # Added Email to search functionality
+            filtered_df = filtered_df[
+                filtered_df["Name"].str.contains(search, case=False, na=False) |
+                filtered_df["Phone"].str.contains(search, case=False, na=False) |
+                filtered_df["Email"].str.contains(search, case=False, na=False)
+            ]
+        if status_filter != "All":
+            filtered_df = filtered_df[filtered_df["Status"] == status_filter]
+
+        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+
+    # --- TAB 2: ADD BORROWER ---
+    with tab_add:
+        with st.form("add_borrower_form", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            name = c1.text_input("Full Name*")
+            phone = c2.text_input("Phone Number*")
+            
+            # --- NEW FIELDS ---
+            email = c1.text_input("Email Address")
+            kin = c2.text_input("Next of Kin (Name & Phone)")
+            
+            nid = c1.text_input("National ID / NIN")
+            addr = c2.text_input("Physical Address")
+            
+            if st.form_submit_button("🚀 Save Borrower"):
+                if name and phone:
+                    new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
+                    new_entry = pd.DataFrame([{
+                        "Borrower_ID": new_id, 
+                        "Name": name, 
+                        "Phone": phone,
+                        "Email": email,        # Save Email
+                        "National_ID": nid, 
+                        "Address": addr, 
+                        "Next_of_Kin": kin,    # Save Next of Kin
+                        "Status": "Active",
+                        "Date_Added": datetime.now().strftime("%Y-%m-%d")
+                    }])
+                    updated_df = pd.concat([df, new_entry], ignore_index=True)
+                    if save_data("Borrowers", updated_df):
+                        st.success(f"✅ {name} added to system!")
+                        st.rerun()
+                else:
+                    st.error("⚠️ Please fill in Name and Phone.")
+
+    # --- TAB 3: MANAGE & SUMMARY ---
+    with tab_manage:
+        if not df.empty:
+            target_name = st.selectbox("Select Borrower to Manage", df["Name"].tolist())
+            # Fetch borrower details
+            b_data = df[df["Name"] == target_name].iloc[0]
+            
+            # Show the new contact details in the summary
+            col_info1, col_info2 = st.columns(2)
+            col_info1.write(f"**Email:** {b_data.get('Email', 'N/A')}")
+            col_info2.write(f"**Next of Kin:** {b_data.get('Next_of_Kin', 'N/A')}")
+            
+            st.markdown("---")
+            
+            user_loans = loans_df[loans_df["Borrower"] == target_name] if not loans_df.empty else pd.DataFrame()
+            
+            if not user_loans.empty:
+                total_paid = pd.to_numeric(user_loans['Amount_Paid']).sum()
+                total_remaining = pd.to_numeric(user_loans['Total_Repayable']).sum() - total_paid
+                active_count = user_loans[user_loans["Status"] != "Closed"].shape[0]
+
+                st.markdown(f"### 📋 Portfolio Summary for {target_name}")
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Total Loans Taken", len(user_loans))
+                m2.metric("Active Loans", active_count)
+                m3.metric("Total Outstanding", f"{total_remaining:,.0f} UGX")
+
+                st.write("**Loan History:**")
+                st.dataframe(user_loans[["Loan_ID", "Amount", "Status", "End_Date"]], use_container_width=True, hide_index=True)
+            else:
+                st.info("This borrower has not taken any loans yet.")
 
 
-Next_of_Kin
+
+
+
 # ==============================
 # 13. LOANS MANAGEMENT PAGE
 # ==============================
