@@ -493,15 +493,31 @@ def sidebar():
 def show_overview():
     st.markdown("<h2 style='color: #2B3F87;'>📊 Financial Dashboard</h2>", unsafe_allow_html=True)
     
-    # 1. Load Data using our Piece 3 Engine
+    # 1. LOAD PRIMARY DATA
     df = get_cached_data("Loans")
+    pay_df = get_cached_data("Payments")
+    exp_df = get_cached_data("Expenses")
 
     if df.empty:
         st.warning("⚠️ No data found in 'Loans'. Add some borrowers to get started!")
         return
 
-    # 2. PRO-CLEANING (Optimized for Speed)
-    # We do this once so we don't repeat code
+    # 2. DATA CRUNCHING (Monthly Trends for Bar Chart)
+    if not pay_df.empty and not exp_df.empty:
+        pay_df["Date"] = pd.to_datetime(pay_df["Date"])
+        exp_df["Date"] = pd.to_datetime(exp_df["Date"])
+        
+        # Group by Month
+        inc_m = pay_df.groupby(pay_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
+        exp_m = exp_df.groupby(exp_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
+        
+        # Merge into one master table for the chart
+        merged_df = pd.merge(inc_m, exp_m, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
+        merged_df.columns = ["Month", "Income", "Expenses"]
+    else:
+        merged_df = pd.DataFrame(columns=["Month", "Income", "Expenses"])
+
+    # 3. LOAN STATUS CLEANING
     df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
     df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
     df["Amount_Paid"] = pd.to_numeric(df.get("Amount_Paid", 0), errors="coerce").fillna(0)
@@ -509,15 +525,11 @@ def show_overview():
     df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
     
     today = pd.Timestamp.today()
-
-    # AUTO OVERDUE DETECTION
     df["Auto_Status"] = df["Status"]
     total_due = df["Amount"] + df["Interest"]
     df.loc[(df["End_Date"] < today) & (df["Amount_Paid"] < total_due), "Auto_Status"] = "Overdue"
 
-    # ==============================
-    # METRICS ROW
-    # ==============================
+    # 4. METRICS ROW
     total_issued = df["Amount"].sum()
     total_profit = df["Interest"].sum()
     total_collected = df["Amount_Paid"].sum()
@@ -530,22 +542,9 @@ def show_overview():
     m4.metric("⚠️ Overdue", overdue_count)
 
     st.markdown("---")
-    # --- ADD THIS INSIDE show_overview BEFORE the columns ---
-    # Fetch extra data for the Cashflow bar chart
-    exp_df = get_cached_data("Expenses")
-    pay_df = get_cached_data("Payments")
     
-    if not pay_df.empty and not exp_df.empty:
-        pay_df["Date"] = pd.to_datetime(pay_df["Date"])
-        exp_df["Date"] = pd.to_datetime(exp_df["Date"])
-        
-        inc_m = pay_df.groupby(pay_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
-        exp_m = exp_df.groupby(exp_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
-        
-        merged_df = pd.merge(inc_m, exp_m, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
-        merged_df.columns = ["Month", "Income", "Expenses"]
-    else:
-        merged_df = pd.DataFrame(columns=["Month", "Income", "Expenses"])
+    # 5. VISUALS SECTION (This is where your Chart Columns go)
+    # [Insert your c1, c2 columns code here...]
 
     # ==============================
     # ==============================
