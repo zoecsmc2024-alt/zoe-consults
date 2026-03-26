@@ -19,18 +19,6 @@ from fpdf import FPDF
 # ==============================
 SHEET_ID = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
 
-# This stores the "Key" to your Google Sheets so we don't re-calculate it every click
-@st.cache_resource
-def get_gspread_client():
-    """
-    Creates a single, reusable connection to Google Sheets.
-    This is much faster than connecting every time a page loads.
-    """
-    # Assuming your credentials are in st.secrets for Streamlit Cloud
-    creds_dict = st.secrets["gcp_service_account"]
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    return gspread.authorize(creds)
 
 # ==============================
 # 2. HIGH-SPEED DATA LOADING
@@ -543,6 +531,22 @@ def show_overview():
     m4.metric("⚠️ Overdue", overdue_count)
 
     st.markdown("---")
+    # --- ADD THIS INSIDE show_overview BEFORE the columns ---
+    # Fetch extra data for the Cashflow bar chart
+    exp_df = get_cached_data("Expenses")
+    pay_df = get_cached_data("Payments")
+    
+    if not pay_df.empty and not exp_df.empty:
+        pay_df["Date"] = pd.to_datetime(pay_df["Date"])
+        exp_df["Date"] = pd.to_datetime(exp_df["Date"])
+        
+        inc_m = pay_df.groupby(pay_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
+        exp_m = exp_df.groupby(exp_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
+        
+        merged_df = pd.merge(inc_m, exp_m, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
+        merged_df.columns = ["Month", "Income", "Expenses"]
+    else:
+        merged_df = pd.DataFrame(columns=["Month", "Income", "Expenses"])
 
     # ==============================
     # ==============================
