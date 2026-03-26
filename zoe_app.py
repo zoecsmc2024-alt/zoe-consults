@@ -769,7 +769,7 @@ def show_loans():
             st.progress(min(max(loan_info['Amount_Paid'] / loan_info['Total_Repayable'], 0.0), 1.0))
             st.dataframe(display_df, use_container_width=True)
 
-    # ==============================
+# ==============================
     # TAB 3: MANAGE (EDIT/DELETE)
     # ==============================
     with tab_manage:
@@ -794,11 +794,19 @@ def show_loans():
 
                 btn_upd, btn_del = st.columns(2)
 
+                # --- UPDATE LOGIC ---
                 if btn_upd.button("💾 Save Changes", use_container_width=True):
-                    # Simple math update for interest if principal changed
-                    orig_rate = m_row["Interest"] / m_row["Amount"] if m_row["Amount"] > 0 else 0
+                    try:
+                        # Safety math to prevent TypeError
+                        safe_interest = float(m_row["Interest"])
+                        safe_amount = float(m_row["Amount"])
+                        orig_rate = safe_interest / safe_amount if safe_amount > 0 else 0
+                    except (ValueError, TypeError):
+                        orig_rate = 0 
+                    
                     new_interest = upd_amt * orig_rate
                     
+                    # Update the specific row in the DataFrame
                     loans_df.loc[loans_df["Loan_ID"] == m_id, 
                                  ["Amount", "Amount_Paid", "Status", "End_Date", "Interest", "Total_Repayable"]] = \
                                  [upd_amt, upd_paid, upd_stat, upd_date, new_interest, (upd_amt + new_interest)]
@@ -807,8 +815,8 @@ def show_loans():
                         st.success("Loan updated!")
                         st.rerun()
 
+                # --- DELETE LOGIC ---
                 if btn_del.button("🗑️ Delete Loan Permanently", use_container_width=True):
-                    # Security: This removes it from the sheet
                     new_loans_df = loans_df[loans_df["Loan_ID"] != m_id]
                     if save_data("Loans", new_loans_df):
                         st.warning(f"Loan #{m_id} has been deleted.")
