@@ -1053,10 +1053,11 @@ def show_payments():
 def show_collateral():
     st.markdown("<h2 style='color: #2B3F87;'>🛡️ Collateral Management</h2>", unsafe_allow_html=True)
     
-    # 1. FETCH THE DATA (This is the missing link!)
-    col_df = get_cached_data("Collateral")
+    # 1. FETCH ALL DATA
     collateral_df = get_cached_data("Collateral")
+    loans_df = get_cached_data("Loans") # <--- CRITICAL FIX: This stops the NameError
 
+    # 2. INITIALIZE IF EMPTY
     if collateral_df.empty:
         collateral_df = pd.DataFrame(columns=[
             "Collateral_ID", "Borrower", "Loan_ID", "Type", 
