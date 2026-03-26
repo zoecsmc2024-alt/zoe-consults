@@ -1706,11 +1706,21 @@ def show_payroll():
     # 2. FETCH DATA
     df = get_cached_data("Payroll")
 
+    # This creates the correct columns if they are missing or the sheet is empty
+    required_columns = ["Payroll_ID", "Employee", "Gross_Salary", "NSSF", "PAYE", "Net_Pay", "Date", "Status"]
+    
     if df.empty:
-        df = pd.DataFrame(columns=["Payroll_ID", "Employee", "Gross_Salary", "NSSF", "PAYE", "Net_Pay", "Date", "Status"])
+        df = pd.DataFrame(columns=required_columns)
     else:
-        df["Payroll_ID"] = pd.to_numeric(df["Payroll_ID"], errors='coerce').fillna(0).astype(int)
-        df["Net_Pay"] = pd.to_numeric(df.get("Net_Pay", 0), errors="coerce").fillna(0)
+        # Check if new columns exist, if not, add them with 0s
+        for col in required_columns:
+            if col not in df.columns:
+                df[col] = 0
+
+    # Now convert types safely
+    df["Payroll_ID"] = pd.to_numeric(df["Payroll_ID"], errors='coerce').fillna(0).astype(int)
+    df["Net_Pay"] = pd.to_numeric(df["Net_Pay"], errors="coerce").fillna(0)
+    df["Gross_Salary"] = pd.to_numeric(df["Gross_Salary"], errors="coerce").fillna(0)
 
     # 3. URA & NSSF CALCULATION LOGIC
     def calculate_ug_payroll(gross):
