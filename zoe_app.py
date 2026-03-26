@@ -575,13 +575,12 @@ def show_overview():
     # [Insert your c1, c2 columns code here...]
 
     # ==============================
-    # ==============================
     # VISUALS (Neon Styled)
     # ==============================
+    st.markdown("---")
     c1, c2 = st.columns(2)
 
     with c1:
-        # 1. Styled Pie Chart
         status_df = df["Auto_Status"].value_counts().reset_index()
         status_df.columns = ["Status", "Count"]
         fig_pie = px.pie(
@@ -593,36 +592,52 @@ def show_overview():
         st.plotly_chart(fig_pie, use_container_width=True, key="overview_pie_chart")
 
     with c2:
-        # 2. Create the Bar Chart (Ensure merged_df is defined before this!)
-        # Check if merged_df exists to prevent a crash
-        if 'merged_df' in locals() or 'merged_df' in globals():
+        if 'merged_df' in locals() and not merged_df.empty:
             fig_bar = px.bar(
-                merged_df, 
-                x="Month", 
-                y=["Income", "Expenses"], 
-                barmode="group",
-                title="Monthly Cashflow",
+                merged_df, x="Month", y=["Income", "Expenses"], 
+                barmode="group", title="Monthly Cashflow",
                 color_discrete_map={"Income": "#00ffcc", "Expenses": "#FF4B4B"}
             )
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            
-            # 3. NOW display it using the unique key
             st.plotly_chart(fig_bar, use_container_width=True, key="overview_bar_chart")
         else:
             st.info("📊 Monthly cashflow data is being prepared...")
+
     # ==============================
-    # DATA TABLES
+    # DATA TABLES (With Comma Formatting)
     # ==============================
+    st.markdown("### 📋 Detailed Records")
     tab1, tab2 = st.tabs(["🚨 Critical Overdue", "📅 Recent Activity"])
     
     with tab1:
         overdue_display = df[df["Auto_Status"] == "Overdue"][[
             "Borrower", "Amount", "End_Date", "Amount_Paid"
         ]].sort_values("End_Date")
-        st.dataframe(overdue_display, use_container_width=True)
+        
+        if not overdue_display.empty:
+            # Apply formatting for commas
+            st.dataframe(
+                overdue_display.style.format({
+                    "Amount": "{:,.0f} UGX",
+                    "Amount_Paid": "{:,.0f} UGX"
+                }), 
+                use_container_width=True, hide_index=True
+            )
+        else:
+            st.success("No overdue loans! 🌟")
     
     with tab2:
-        st.dataframe(df.sort_values("Start_Date", ascending=False).head(10), use_container_width=True)
+        recent_activity = df.sort_values("Start_Date", ascending=False).head(10)
+        # Apply formatting for commas
+        st.dataframe(
+            recent_activity.style.format({
+                "Amount": "{:,.0f} UGX",
+                "Interest": "{:,.0f} UGX",
+                "Total_Repayable": "{:,.0f} UGX",
+                "Amount_Paid": "{:,.0f} UGX"
+            }), 
+            use_container_width=True, hide_index=True
+        )
 
 
 
