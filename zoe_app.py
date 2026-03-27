@@ -1839,86 +1839,113 @@ def show_payroll():
                         st.success(f"Salary for {name} processed!")
                         st.rerun()
 
-    # --- TAB 2: LOGS (PROFESSIONAL PAYROLL TABLE) ---
+    # --- TAB 2: LOGS (FAIL-SAFE BUILD) ---
     with tab_logs:
         if not df.empty:
+            # 1. ADD THE PRINT BUTTON FIRST (Outside the table string)
+            col_title, col_btn = st.columns([3, 1])
+            col_title.markdown(f"### 📋 MARCH {datetime.now().year} PAYROLL SUMMARY")
+            
+            # This button triggers the browser print directly
+            if col_btn.button("🖨️ Print / Save PDF", use_container_width=True):
+                st.components.v1.html("<script>window.print();</script>", height=0)
+
             def format_money(x):
-                return f"{x:,.0f}" if pd.notnull(x) else "0"
+                try:
+                    return f"{float(x):,.0f}" if pd.notnull(x) else "0"
+                except:
+                    return "0"
 
-            # 1. Start the Master String with the Style and Header
-            master_html = f"""
+            # 2. THE STYLING
+            style_code = """
             <style>
-                .payroll-container {{ font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }}
-                .payroll-table {{ border-collapse: collapse; width: 100%; font-size: 13px; }}
-                .payroll-table th {{ background-color: #2B3F87 !important; color: white !important; padding: 12px 8px; text-align: center; }}
-                .payroll-table td {{ padding: 10px 8px; border-bottom: 1px solid #f0f0f0; }}
-                .text-right {{ text-align: right; }}
-                .text-center {{ text-align: center; }}
-                .net-pay-col {{ background-color: #E3F2FD; font-weight: bold; color: #1565C0; }}
-                .total-footer {{ background-color: #2B3F87; color: white; font-weight: bold; }}
+                .main-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 13px; }
+                .main-table th { background-color: #2B3F87 !important; color: white !important; padding: 12px; border: 1px solid #ddd; }
+                .main-table td { padding: 10px; border: 1px solid #eee; }
+                .val-right { text-align: right; }
+                .highlight-net { background-color: #FFF9C4; font-weight: bold; color: #2B3F87; }
+                .footer-total { background-color: #2B3F87; color: white; font-weight: bold; }
             </style>
-
-            <div class="payroll-container">
-                <table class="payroll-table">
-                    <thead>
-                        <tr>
-                            <th>S/NO</th>
-                            <th>Employee Name</th>
-                            <th>Basic</th>
-                            <th>Arrears</th>
-                            <th>Gross</th>
-                            <th>LST</th>
-                            <th>NSSF(5%)</th>
-                            <th>PAYE</th>
-                            <th>Total Deductions</th>
-                            <th style="background-color: #1565C0;">Net Pay</th>
-                        </tr>
-                    </thead>
-                    <tbody>
             """
 
-            # 2. Add Employee Rows to the Master String
+            # 3. START THE TABLE STRING
+            table_body = f"""
+            <div style="border: 1px solid #2B3F87; border-radius: 8px; overflow: hidden;">
+            <table class="main-table">
+                <thead>
+                    <tr>
+                        <th>S/N</th>
+                        <th>Employee</th>
+                        <th>Basic</th>
+                        <th>Arrears</th>
+                        <th>Gross</th>
+                        <th>LST</th>
+                        <th>NSSF</th>
+                        <th>PAYE</th>
+                        <th>Total Deductions</th>
+                        <th style="background-color:#1a285e;">Net Pay</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
+
+            # 4. ADD EMPLOYEE ROWS
             for i, row in df.iterrows():
-                # We use += to keep adding to the same string
-                master_html += f"""
+                table_body += f"""
                 <tr>
-                    <td class="text-center">{i+1}</td>
+                    <td style="text-align:center;">{i+1}</td>
                     <td><b>{row['Employee']}</b></td>
-                    <td class="text-right">{format_money(row['Basic_Salary'])}</td>
-                    <td class="text-right">{format_money(row['Arrears'])}</td>
-                    <td class="text-right">{format_money(row['Gross_Salary'])}</td>
-                    <td class="text-right">{format_money(row['LST'])}</td>
-                    <td class="text-right">{format_money(row['NSSF_5'])}</td>
-                    <td class="text-right">{format_money(row['PAYE'])}</td>
-                    <td class="text-right">{format_money(row['Total_Deductions'])}</td>
-                    <td class="text-right net-pay-col">{format_money(row['Net_Pay'])}</td>
+                    <td class="val-right">{format_money(row['Basic_Salary'])}</td>
+                    <td class="val-right">{format_money(row['Arrears'])}</td>
+                    <td class="val-right">{format_money(row['Gross_Salary'])}</td>
+                    <td class="val-right">{format_money(row['LST'])}</td>
+                    <td class="val-right">{format_money(row['NSSF_5'])}</td>
+                    <td class="val-right">{format_money(row['PAYE'])}</td>
+                    <td class="val-right">{format_money(row['Total_Deductions'])}</td>
+                    <td class="val-right highlight-net">{format_money(row['Net_Pay'])}</td>
                 </tr>
                 """
 
-            # 3. Add the Grand Total Row and Close the Tags
-            master_html += f"""
-                        <tr class="total-footer">
-                            <td colspan="4" class="text-center">GRAND TOTAL (UGX)</td>
-                            <td class="text-right">{format_money(df['Gross_Salary'].sum())}</td>
-                            <td class="text-right">{format_money(df['LST'].sum())}</td>
-                            <td class="text-right">{format_money(df['NSSF_5'].sum())}</td>
-                            <td class="text-right">{format_money(df['PAYE'].sum())}</td>
-                            <td class="text-right">{format_money(df['Total_Deductions'].sum())}</td>
-                            <td class="text-right" style="background-color: #0D47A1;">{format_money(df['Net_Pay'].sum())}</td>
-                        </tr>
-                    </tbody>
-                </table>
+            # 5. ADD FOOTER AND CLOSE
+            table_footer = f"""
+                <tr class="footer-total">
+                    <td colspan="4" style="text-align:center;">TOTAL UGX</td>
+                    <td class="val-right">{format_money(df['Gross_Salary'].sum())}</td>
+                    <td class="val-right">{format_money(df['LST'].sum())}</td>
+                    <td class="val-right">{format_money(df['NSSF_5'].sum())}</td>
+                    <td class="val-right">{format_money(df['PAYE'].sum())}</td>
+                    <td class="val-right">{format_money(df['Total_Deductions'].sum())}</td>
+                    <td class="val-right" style="background-color:#1a285e;">{format_money(df['Net_Pay'].sum())}</td>
+                </tr>
+                </tbody>
+            </table>
             </div>
             """
 
-            # 4. RENDER EVERYTHING ONCE
-            # Ensure there are NO other st.write or st.markdown calls for these variables!
-            st.markdown(master_html, unsafe_allow_html=True)
-            
-            # 5. Add a simple print button below
-            st.button("🖨️ Print Payroll Page", on_click=lambda: None) 
-            # (Note: Standard browser print works best by pressing Ctrl+P or Cmd+P)
+            # 6. RENDER THE WHOLE THING
+            st.markdown(style_code + table_body + table_footer, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
+            # 7. MODIFY LOGIC (Popover stays here)
+            with st.popover("⚙️ Edit Payroll Record"):
+                pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
+                if pay_options:
+                    selected_task = st.selectbox("Select Record", pay_options)
+                    sel_id = int(selected_task.split(" | ")[0].replace("ID: ", ""))
+                    item = df[df["Payroll_ID"] == sel_id].iloc[0]
+
+                    up_name = st.text_input("Edit Name", value=item["Employee"])
+                    up_basic = st.number_input("Edit Basic", value=float(item["Basic_Salary"]))
+                    up_arr = st.number_input("Edit Arrears", value=float(item["Arrears"]))
+                    
+                    up_res = calculate_ug_payroll_full(up_basic, up_arr)
+
+                    if st.button("💾 Save Changes", use_container_width=True):
+                        df.loc[df["Payroll_ID"] == sel_id, ["Employee","Basic_Salary","Arrears","Gross_Salary","LST","NSSF_5","NSSF_10","PAYE","Total_Deductions","Net_Pay"]] = \
+                            [up_name, up_basic, up_arr, up_res['gross'], up_res['lst'], up_res['n5'], up_res['n10'], up_res['paye'], up_res['deduct'], up_res['net']]
+                        if save_data("Payroll", df):
+                            st.success("Successfully updated!")
+                            st.rerun()
         else:
             st.info("No payroll history found.")
         
