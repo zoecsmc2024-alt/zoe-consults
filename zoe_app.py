@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from fpdf import FPDF
+import io
+from xhtml2pdf import pisa
 
 # ==============================
 # 1. GLOBAL SETTINGS & AUTH
@@ -69,6 +71,11 @@ def open_main_sheet():
 # ==============================
 # 3. DATA HELPERS (The Engine)
 # ==============================
+
+def create_pdf(html_content):
+    pdf_buffer = io.BytesIO()
+    pisa.CreatePDF(io.StringIO(html_content), dest=pdf_buffer)
+    return pdf_buffer.getvalue()
 
 # 1. THE DATA LOADER (Cached for 10 minutes)
 @st.cache_data(ttl=600)
@@ -2200,7 +2207,20 @@ def show_ledger():
         </div>
         """
         
+        # --- DISPLAY THE HTML PREVIEW ---
         st.components.v1.html(html_statement, height=1000, scrolling=True)
+        
+        # --- ADDED: DOWNLOAD BUTTON SECTION ---
+        pdf_bytes = create_pdf(html_statement)
+        
+        st.download_button(
+            label="📥 Download Statement as PDF",
+            data=pdf_bytes,
+            file_name=f"Statement_{current_b_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+
         st.info("💡 **Consolidated View:** All active and pending loans for this client are listed above.")
     
 
