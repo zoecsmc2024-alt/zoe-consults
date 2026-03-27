@@ -1839,8 +1839,9 @@ def show_payroll():
                         st.success(f"Salary for {name} processed!")
                         st.rerun()
 
-    # --- TAB 2: LOGS ---
-    with tab_logs:
+    # --- ADD THIS TO THE BOTTOM OF YOUR tab_logs SECTION ---
+
+with tab_logs:
     if not df.empty:
         # 1. Formatting the table for the UI
         st.dataframe(
