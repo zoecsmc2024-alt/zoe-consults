@@ -1845,69 +1845,27 @@ def show_payroll():
             def format_money(x):
                 return f"{x:,.0f}" if pd.notnull(x) else "0"
 
-            # --- GLOBAL TABLE STYLING ---
-            st.markdown("""
+            # 1. COMBINE STYLE AND TABLE START INTO ONE STRING
+            full_html = """
             <style>
-                .payroll-table {
-                    border-collapse: collapse;
-                    width: 100%;
-                    font-size: 13px;
-                    font-family: Arial;
-                    background: white;
-                }
-                .payroll-table th {
-                    position: sticky;
-                    top: 0;
-                    background: #2B3F87 !important;
-                    color: white !important;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    text-align: center;
-                    z-index: 10;
-                }
-                .payroll-table td {
-                    padding: 8px;
-                    border: 1px solid #ddd;
-                }
+                .payroll-table { border-collapse: collapse; width: 100%; font-size: 13px; font-family: Arial; background: white; }
+                .payroll-table th { background: #2B3F87 !important; color: white !important; padding: 10px; border: 1px solid #ddd; text-align: center; }
+                .payroll-table td { padding: 8px; border: 1px solid #ddd; }
                 .right { text-align: right; }
                 .center { text-align: center; }
-                .net-pay {
-                    background: #facc15;
-                    font-weight: 600;
-                }
-                .total-row {
-                    background: #f1f5f9;
-                    font-weight: bold;
-                }
-                .header-bar {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 10px;
-                }
-                .print-btn {
-                    background: #2B3F87;
-                    color: white;
-                    border: none;
-                    padding: 8px 14px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-weight: 600;
-                }
+                .net-pay { background: #facc15; font-weight: 600; }
+                .total-row { background: #f1f5f9; font-weight: bold; }
+                .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+                .print-btn { background: #2B3F87; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
             </style>
-            """, unsafe_allow_html=True)
+            """
 
-            # --- BUILD TABLE HTML ---
-            # Replaced tenant.get with 'ZOE CONSULTS SMC LTD' to prevent NameError
-            table_html = f"""
+            full_html += f"""
             <div class="header-bar">
-                <h3 style="color:#2B3F87; margin:0;">
-                    MARCH {datetime.now().year} PAYROLL (ZOE CONSULTS SMC LTD)
-                </h3>
+                <h3 style="color:#2B3F87; margin:0;">MARCH {datetime.now().year} PAYROLL (ZOE CONSULTS SMC LTD)</h3>
                 <button class="print-btn" onclick="window.print()">🖨️ Print to PDF</button>
             </div>
-
-            <div style="overflow-x:auto; max-height:500px; border: 1px solid #ddd; border-radius: 8px;">
+            <div style="overflow-x:auto; border: 1px solid #ddd; border-radius: 8px;">
             <table class="payroll-table">
                 <thead>
                     <tr>
@@ -1926,9 +1884,9 @@ def show_payroll():
                 <tbody>
             """
 
-            # --- ROWS ---
+            # 2. ADD THE ROWS
             for i, row in df.iterrows():
-                table_html += f"""
+                full_html += f"""
                 <tr>
                     <td class="center">{i+1}</td>
                     <td>{row['Employee']}</td>
@@ -1943,8 +1901,8 @@ def show_payroll():
                 </tr>
                 """
 
-            # --- TOTAL ROW ---
-            table_html += f"""
+            # 3. ADD THE TOTALS AND CLOSE TAGS
+            full_html += f"""
                 <tr class="total-row">
                     <td colspan="4" class="center">TOTAL</td>
                     <td class="right">{format_money(df['Gross_Salary'].sum())}</td>
@@ -1954,46 +1912,33 @@ def show_payroll():
                     <td class="right">{format_money(df['Total_Deductions'].sum())}</td>
                     <td class="right net-pay">{format_money(df['Net_Pay'].sum())}</td>
                 </tr>
-                </tbody>
-            </table>
-            </div>
+                </tbody></table></div>
             """
 
-            # --- RENDER TABLE ---
-            st.markdown(table_html, unsafe_allow_html=True)
+            # 4. RENDER EVERYTHING ONCE AT THE VERY END
+            st.markdown(full_html, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # --- MODIFY LOGIC (Properly Indented Inside the IF block) ---
+            # 5. POPOVER (Indented inside 'if not df.empty')
             with st.popover("⚙️ Modify or Void Payroll Entry"):
                 pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
-
                 if pay_options:
                     selected_task = st.selectbox("Select Record", pay_options)
                     sel_id = int(selected_task.split(" | ")[0].replace("ID: ", ""))
                     item = df[df["Payroll_ID"] == sel_id].iloc[0]
 
-                    up_name = st.text_input("Employee Name", value=item["Employee"])
-                    up_basic = st.number_input("Basic Salary", value=float(item["Basic_Salary"]))
-                    up_arr = st.number_input("Arrears", value=float(item["Arrears"]))
-
-                    # Assumes this function is defined above in show_payroll
+                    up_name = st.text_input("Edit Name", value=item["Employee"])
+                    up_basic = st.number_input("Edit Basic", value=float(item["Basic_Salary"]))
+                    up_arr = st.number_input("Edit Arrears", value=float(item["Arrears"]))
+                    
                     up_res = calculate_ug_payroll_full(up_basic, up_arr)
 
-                    st.info(f"Preview → Gross: {up_res['gross']:,.0f} | Net: {up_res['net']:,.0f}")
-
                     if st.button("💾 Save Changes", use_container_width=True):
-                        df.loc[df["Payroll_ID"] == sel_id,
-                               ["Employee","Basic_Salary","Arrears","Gross_Salary","LST","NSSF_5","NSSF_10","PAYE","Total_Deductions","Net_Pay"]] = \
-                            [up_name, up_basic, up_arr,
-                             up_res['gross'], up_res['lst'], up_res['n5'],
-                             up_res['n10'], up_res['paye'],
-                             up_res['deduct'], up_res['net']]
-
+                        df.loc[df["Payroll_ID"] == sel_id, ["Employee","Basic_Salary","Arrears","Gross_Salary","LST","NSSF_5","NSSF_10","PAYE","Total_Deductions","Net_Pay"]] = \
+                            [up_name, up_basic, up_arr, up_res['gross'], up_res['lst'], up_res['n5'], up_res['n10'], up_res['paye'], up_res['deduct'], up_res['net']]
                         if save_data("Payroll", df):
-                            st.success("Updated successfully")
+                            st.success("Updated!")
                             st.rerun()
-                else:
-                    st.write("No records to modify.")
         else:
             st.info("No payroll history found.")
         
