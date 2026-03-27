@@ -1778,27 +1778,18 @@ def show_payroll():
                     if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
                         st.success(f"Payroll for {name} released!"); st.rerun()
 
-    # --- TAB 2: HISTORY (CLEAN PDF FIX) ---
+    # --- TAB 2: HISTORY (NO-POPUP PDF FIX) ---
     with tab_logs:
         if not df.empty:
             p_col1, p_col2 = st.columns([4, 1])
             p_col1.write(f"### {datetime.now().strftime('%B %Y')} Summary")
             
-            # --- UPDATED PDF TRIGGER ---
+            # --- DIRECT PRINT TRIGGER ---
+            # This triggers the system print dialog for the current window
             if p_col2.button("📥 Download PDF", key="print_btn_final"):
-                # This script specifically targets the 'print-area' div
                 st.components.v1.html("""
                     <script>
-                    const printContent = window.parent.document.getElementById('print-area');
-                    const WinPrint = window.open('', '', 'width=900,height=650');
-                    WinPrint.document.write('<html><head><title>Payroll Report</title>');
-                    WinPrint.document.write('<style>table {width:100%; border-collapse:collapse; font-family:sans-serif; font-size:10px;} th,td {border:1px solid #ddd; padding:8px;} th {background:#2B3F87; color:white;}</style>');
-                    WinPrint.document.write('</head><body>');
-                    WinPrint.document.write(printContent.innerHTML);
-                    WinPrint.document.write('</body></html>');
-                    WinPrint.document.close();
-                    WinPrint.focus();
-                    setTimeout(function(){ WinPrint.print(); WinPrint.close(); }, 500);
+                    window.parent.print();
                     </script>
                 """, height=0)
 
@@ -1806,55 +1797,54 @@ def show_payroll():
             for i, r in df.iterrows():
                 rows_html += f"<tr><td style='text-align:center;'>{i+1}</td><td>{r['Employee']}<br><small style='color:gray;'>{r['TIN']}</small></td><td style='text-align:right;'>{r['Basic_Salary']:,.0f}</td><td style='text-align:right;'>{r['Arrears']:,.0f}</td><td style='text-align:right; font-weight:bold;'>{r['Gross_Salary']:,.0f}</td><td style='text-align:right;'>{r['LST']:,.0f}</td><td style='text-align:right;'>{r['PAYE']:,.0f}</td><td style='text-align:right;'>{r['NSSF_5']:,.0f}</td><td style='text-align:right; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{r['Net_Pay']:,.0f}</td><td style='text-align:right; background:#FFD700; font-weight:bold;'>{r['PAYE']:,.0f}</td><td style='text-align:right; background:#FFD700;'>{r['NSSF_10']:,.0f}</td><td style='text-align:right; background:#FFD700;'>{(r['NSSF_5']+r['NSSF_10']):,.0f}</td></tr>"
 
-            # THE WRAPPER (Notice the id="print-area")
+            # THE CSS THAT HIDES THE SIDEBAR DURING PRINT
             main_html = f"""
             <style>
                 @media print {{
-                    [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{ display: none !important; }}
+                    /* Hide Sidebar, Header, and Buttons */
+                    [data-testid="stSidebar"], 
+                    [data-testid="stHeader"], 
+                    .stButton, 
+                    .stTabs,
+                    footer {{
+                        display: none !important;
+                    }}
+                    /* Force the table to take up the full page width */
+                    #print-area {{
+                        border: none !important;
+                        width: 100% !important;
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        visibility: visible !important;
+                    }}
+                    /* Hide everything else on the page */
+                    body * {{
+                        visibility: hidden;
+                    }}
+                    #print-area, #print-area * {{
+                        visibility: visible;
+                    }}
+                    @page {{ margin: 1cm; }}
                 }}
             </style>
-            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; padding:10px; background:white;">
-                <div style="text-align:center; margin-bottom:10px;">
+
+            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto; background:white; padding:15px;">
+                <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #2B3F87; padding-bottom:10px;">
                     <h2 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h2>
-                    <p style="margin:5px 0;">Official Payroll - {datetime.now().strftime('%B %Y')}</p>
+                    <p style="margin:5px 0; font-weight:bold;">OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</p>
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px;">
                     <thead><tr style="background:#2B3F87; color:white;"><th style="padding:10px;">S/N</th><th style="padding:10px; text-align:left;">Employee & TIN</th><th style="padding:10px; text-align:right;">Basic</th><th style="padding:10px; text-align:right;">Arrears</th><th style="padding:10px; text-align:right;">Gross</th><th style="padding:10px; text-align:right;">LST</th><th style="padding:10px; text-align:right;">PAYE</th><th style="padding:10px; text-align:right;">NSSF(5%)</th><th style="padding:10px; text-align:right; background:#1a285e;">Net Pay</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">Tax on Salary</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">10% NSSF</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">NSSF 15%</th></tr></thead>
                     <tbody>{rows_html}</tbody>
                 </table>
+                <div style="margin-top:50px; display:flex; justify-content:space-around; font-size:12px;">
+                    <div style="text-align:center;"><p>_______________________</p><p>Prepared By</p></div>
+                    <div style="text-align:center;"><p>_______________________</p><p>Approved By</p></div>
+                </div>
             </div>"""
             
             st.markdown(main_html, unsafe_allow_html=True)
-            
-            # (Your popover logic stays below here)
-            
-            # --- DELETE & MODIFY SECTION ---
-            st.write("---")
-            with st.popover("⚙️ Modify / Delete Entry"):
-                # Use Payroll_ID for selection to be more precise
-                pay_options = [f"{r['Employee']} (ID: {int(r['Payroll_ID'])})" for _, r in df.iterrows()]
-                selected_opt = st.selectbox("Select Record", pay_options)
-                
-                # Extract the ID from the selected string
-                sel_id = int(selected_opt.split("(ID: ")[1].replace(")", ""))
-                item = df[df['Payroll_ID'] == sel_id].iloc[0]
-                
-                # ... (Keep your existing Edit Text Inputs here) ...
-                
-                col_save, col_del = st.columns(2)
-                
-                if col_save.button("💾 Save Changes", use_container_width=True):
-                    # (Your Save Logic)
-                    st.success("Updated!"); st.rerun()
-                
-                if col_del.button("🗑️ Delete Permanently", use_container_width=True, type="primary"):
-                    # Delete by ID to be safe
-                    df_final = df[df['Payroll_ID'] != sel_id]
-                    if save_data("Payroll", df_final):
-                        st.warning(f"Record deleted successfully."); st.rerun()
-
-        else:
-            st.info("No payroll records yet.")
         
     
  
