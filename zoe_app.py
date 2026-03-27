@@ -1839,14 +1839,13 @@ def show_payroll():
                         st.success(f"Salary for {name} processed!")
                         st.rerun()
 
-    # --- TAB 2: LOGS (FAIL-SAFE BUILD) ---
+    # --- TAB 2: LOGS (CLEAN REBUILD) ---
     with tab_logs:
         if not df.empty:
-            # 1. ADD THE PRINT BUTTON FIRST (Outside the table string)
+            # 1. HEADER & PRINT BUTTON
             col_title, col_btn = st.columns([3, 1])
             col_title.markdown(f"### 📋 MARCH {datetime.now().year} PAYROLL SUMMARY")
             
-            # This button triggers the browser print directly
             if col_btn.button("🖨️ Print / Save PDF", use_container_width=True):
                 st.components.v1.html("<script>window.print();</script>", height=0)
 
@@ -1856,21 +1855,19 @@ def show_payroll():
                 except:
                     return "0"
 
-            # 2. THE STYLING
-            style_code = """
+            # 2. THE STYLING & TABLE HEADERS
+            # We wrap the whole thing in a single 'final_html' variable
+            final_html = """
             <style>
-                .main-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 13px; }
-                .main-table th { background-color: #2B3F87 !important; color: white !important; padding: 12px; border: 1px solid #ddd; }
-                .main-table td { padding: 10px; border: 1px solid #eee; }
+                .payroll-wrapper { border: 2px solid #2B3F87; border-radius: 10px; overflow: hidden; font-family: sans-serif; }
+                .main-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                .main-table th { background-color: #2B3F87 !important; color: white !important; padding: 12px; }
+                .main-table td { padding: 10px; border-bottom: 1px solid #eee; }
                 .val-right { text-align: right; }
                 .highlight-net { background-color: #FFF9C4; font-weight: bold; color: #2B3F87; }
                 .footer-total { background-color: #2B3F87; color: white; font-weight: bold; }
             </style>
-            """
-
-            # 3. START THE TABLE STRING
-            table_body = f"""
-            <div style="border: 1px solid #2B3F87; border-radius: 8px; overflow: hidden;">
+            <div class="payroll-wrapper">
             <table class="main-table">
                 <thead>
                     <tr>
@@ -1882,16 +1879,16 @@ def show_payroll():
                         <th>LST</th>
                         <th>NSSF</th>
                         <th>PAYE</th>
-                        <th>Total Deductions</th>
+                        <th>Deductions</th>
                         <th style="background-color:#1a285e;">Net Pay</th>
                     </tr>
                 </thead>
                 <tbody>
             """
 
-            # 4. ADD EMPLOYEE ROWS
+            # 3. ADD ROWS TO THE STRING
             for i, row in df.iterrows():
-                table_body += f"""
+                final_html += f"""
                 <tr>
                     <td style="text-align:center;">{i+1}</td>
                     <td><b>{row['Employee']}</b></td>
@@ -1906,8 +1903,8 @@ def show_payroll():
                 </tr>
                 """
 
-            # 5. ADD FOOTER AND CLOSE
-            table_footer = f"""
+            # 4. ADD FOOTER & CLOSE THE STRING
+            final_html += f"""
                 <tr class="footer-total">
                     <td colspan="4" style="text-align:center;">TOTAL UGX</td>
                     <td class="val-right">{format_money(df['Gross_Salary'].sum())}</td>
@@ -1922,11 +1919,12 @@ def show_payroll():
             </div>
             """
 
-            # 6. RENDER THE WHOLE THING
-            st.markdown(style_code + table_body + table_footer, unsafe_allow_html=True)
+            # 5. THE CRITICAL STEP: RENDER ONCE
+            # We use st.markdown with unsafe_allow_html on the SINGLE final string
+            st.markdown(final_html, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 7. MODIFY LOGIC (Popover stays here)
+            # 6. MODIFY LOGIC (Popover)
             with st.popover("⚙️ Edit Payroll Record"):
                 pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
                 if pay_options:
@@ -1935,7 +1933,7 @@ def show_payroll():
                     item = df[df["Payroll_ID"] == sel_id].iloc[0]
 
                     up_name = st.text_input("Edit Name", value=item["Employee"])
-                    up_basic = st.number_input("Edit Basic", value=float(item["Basic_Salary"]))
+                    up_basic = st.number_input("Edit Basic Salary", value=float(item["Basic_Salary"]))
                     up_arr = st.number_input("Edit Arrears", value=float(item["Arrears"]))
                     
                     up_res = calculate_ug_payroll_full(up_basic, up_arr)
