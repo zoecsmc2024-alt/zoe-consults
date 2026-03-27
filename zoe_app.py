@@ -1843,9 +1843,9 @@ def show_payroll():
     with tab_logs:
         if not df.empty:
             def format_money(x):
-                return f"{x:,.0f}" if pd.notnull(x) else ""
+                return f"{x:,.0f}" if pd.notnull(x) else "0"
 
-            # 1. BUILD THE EXCEL-STYLE HTML TABLE
+            # 1. START THE TABLE HTML
             table_html = f"""
             <div style="overflow-x:auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -1877,6 +1877,7 @@ def show_payroll():
                     <tbody>
             """
 
+            # 2. ADD EMPLOYEE ROWS
             for i, row in df.iterrows():
                 table_html += f"""
                 <tr>
@@ -1895,31 +1896,29 @@ def show_payroll():
                 </tr>
                 """
             
-            # Close the table tags (Don't forget the total row if you have it!)
-            table_html += "</tbody></table></div>"
-            
-            st.markdown(table_html, unsafe_allow_html=True)
-            # 2. ADD THE TOTAL ROW
+            # 3. ADD THE TOTAL ROW BEFORE CLOSING
             table_html += f"""
-                    <tr style="background:#f1f5f9; font-weight:bold;">
-                        <td colspan="4" style="padding:8px;border:1px solid #ddd;">TOTAL</td>
-                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Gross_Salary'].sum())}</td>
-                        <td style="border:1px solid #ddd; text-align:right;">{format_money(df['LST'].sum())}</td>
-                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['NSSF_5'].sum())}</td>
-                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['PAYE'].sum())}</td>
-                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Total_Deductions'].sum())}</td>
-                        <td style="text-align:right;border:1px solid #ddd; background:#facc15;">
-                            {format_money(df['Net_Pay'].sum())}
-                        </td>
-                    </tr>
-                </tbody>
-                </table>
+                <tr style="background:#f1f5f9; font-weight:bold;">
+                    <td colspan="4" style="padding:8px;border:1px solid #ddd;">TOTAL</td>
+                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Gross_Salary'].sum())}</td>
+                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['LST'].sum())}</td>
+                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['NSSF_5'].sum())}</td>
+                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['PAYE'].sum())}</td>
+                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Total_Deductions'].sum())}</td>
+                    <td style="text-align:right;border:1px solid #ddd; background:#facc15;">
+                        {format_money(df['Net_Pay'].sum())}
+                    </td>
+                </tr>
+            </tbody>
+            </table>
             </div>
             """
+            
+            # 4. FINALLY RENDER THE TABLE ONCE
             st.markdown(table_html, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 3. MODIFY LOGIC (Inside tab_logs AND inside if not empty)
+            # 5. MODIFY LOGIC (Popover stays here)
             with st.popover("⚙️ Modify or Void Payroll Entry"):
                 pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
                 if pay_options:
@@ -1931,7 +1930,6 @@ def show_payroll():
                     up_basic = st.number_input("Edit Basic Salary", value=float(item["Basic_Salary"]))
                     up_arr = st.number_input("Edit Arrears", value=float(item["Arrears"]))
                     
-                    # Ensure this function is defined at the top of show_payroll
                     up_res = calculate_ug_payroll_full(up_basic, up_arr)
                     
                     if st.button("Save Updates"):
