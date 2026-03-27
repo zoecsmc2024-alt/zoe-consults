@@ -1877,7 +1877,7 @@ def show_payroll():
                     <tbody>
             """
 
-            # 2. ADD EMPLOYEE ROWS
+            # 2. ADD EMPLOYEE ROWS (Just adding to the string)
             for i, row in df.iterrows():
                 table_html += f"""
                 <tr>
@@ -1896,21 +1896,21 @@ def show_payroll():
                 </tr>
                 """
             
-            # 3. ADD THE TOTAL ROW BEFORE CLOSING
+            # 3. ADD THE TOTAL ROW AND CLOSE EVERYTHING ONCE
             table_html += f"""
-                <tr style="background:#f1f5f9; font-weight:bold;">
-                    <td colspan="4" style="padding:8px;border:1px solid #ddd;">TOTAL</td>
-                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Gross_Salary'].sum())}</td>
-                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['LST'].sum())}</td>
-                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['NSSF_5'].sum())}</td>
-                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['PAYE'].sum())}</td>
-                    <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Total_Deductions'].sum())}</td>
-                    <td style="text-align:right;border:1px solid #ddd; background:#facc15;">
-                        {format_money(df['Net_Pay'].sum())}
-                    </td>
-                </tr>
-            </tbody>
-            </table>
+                        <tr style="background:#f1f5f9; font-weight:bold;">
+                            <td colspan="4" style="padding:8px;border:1px solid #ddd;">TOTAL</td>
+                            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Gross_Salary'].sum())}</td>
+                            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['LST'].sum())}</td>
+                            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['NSSF_5'].sum())}</td>
+                            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['PAYE'].sum())}</td>
+                            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Total_Deductions'].sum())}</td>
+                            <td style="text-align:right;border:1px solid #ddd; background:#facc15;">
+                                {format_money(df['Net_Pay'].sum())}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
             """
             
@@ -1918,7 +1918,7 @@ def show_payroll():
             st.markdown(table_html, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 5. MODIFY LOGIC (Popover stays here)
+            # 5. MODIFY LOGIC
             with st.popover("⚙️ Modify or Void Payroll Entry"):
                 pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
                 if pay_options:
@@ -1938,8 +1938,6 @@ def show_payroll():
                         if save_data("Payroll", df):
                             st.success("Payroll Record Updated!")
                             st.rerun()
-                else:
-                    st.write("No records to modify.")
         else:
             st.info("No payroll history found.")
         
