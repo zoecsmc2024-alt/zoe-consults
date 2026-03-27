@@ -2210,18 +2210,36 @@ def show_ledger():
         # --- DISPLAY THE HTML PREVIEW ---
         st.components.v1.html(html_statement, height=1000, scrolling=True)
         
-        # --- ADDED: DOWNLOAD BUTTON SECTION ---
-        pdf_bytes = create_pdf(html_statement)
-        
-        st.download_button(
-            label="📥 Download Statement as PDF",
-            data=pdf_bytes,
-            file_name=f"Statement_{current_b_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+        # --- Replace the old PDF button code with this ---
 
-        st.info("💡 **Consolidated View:** All active and pending loans for this client are listed above.")
+# 1. This creates a small piece of JavaScript to trigger the print
+print_button_html = f"""
+    <script>
+        function printStatement() {{
+            window.print();
+        }}
+    </script>
+    <div style="display: flex; justify-content: center; margin-top: 20px;">
+        <button onclick="printStatement()" style="
+            background-color: #000080; 
+            color: white; 
+            border: none; 
+            padding: 10px 25px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: bold;
+            width: 100%;
+            height: 45px;
+        ">
+            🖨️ Print / Save as PDF
+        </button>
+    </div>
+"""
+
+# 2. Display the print button using streamlit components
+st.components.v1.html(print_button_html, height=100)
+
+st.info("💡 **Tip:** When the print window opens, select **'Save as PDF'** as the Destination.")
     
 
 
