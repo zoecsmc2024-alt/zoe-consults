@@ -1732,7 +1732,7 @@ def show_payroll():
     # 2. FETCH & SANITIZE DATA
     df = get_cached_data("Payroll")
     required_columns = [
-        "Payroll_ID", "Employee", "TIN", "NSSF_No", "Basic_Salary", "Arrears", 
+        "Payroll_ID", "Employee", "TIN", "NSSF_No", "Account_No", "Basic_Salary", "Arrears", 
         "Gross_Salary", "LST", "PAYE", "NSSF_5", "NSSF_10", "Total_Deductions", 
         "Net_Pay", "Date", "Status"
     ]
@@ -1741,10 +1741,10 @@ def show_payroll():
         df = pd.DataFrame(columns=required_columns)
     else:
         for col in required_columns:
-            if col not in df.columns: df[col] = 0
-        df = df.fillna(0) # Critical JSON/NaN Fix
+            if col not in df.columns: df[col] = "" 
+        df = df.fillna("") 
 
-    # 3. BOSS-APPROVED CALCULATION LOGIC (Uganda Tiers)
+    # 3. BOSS-APPROVED CALCULATION LOGIC
     def calculate_ug_payroll_full(basic, arrears):
         gross = basic + arrears
         lst = 100000 / 12 if gross > 1000000 else 0
@@ -1766,12 +1766,6 @@ def show_payroll():
             "net": round(gross - deduct)
         }
 
-    # 4. TOP METRICS
-    total_net = df[df["Status"] == "Paid"]["Net_Pay"].sum()
-    c1, c2 = st.columns(2)
-    c1.metric("TOTAL NET PAID", f"{total_net:,.0f} UGX")
-    c2.metric("STAFF COUNT", len(df["Employee"].unique()))
-
     tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
 
     # --- TAB 1: PROCESS NEW SALARY ---
@@ -1781,6 +1775,7 @@ def show_payroll():
             col_a, col_b = st.columns(2)
             f_tin = col_a.text_input("TIN Number")
             f_nssf = col_b.text_input("NSSF Number")
+            f_acc = st.text_input("Bank Account Number") 
             f_basic = col_a.number_input("Basic Salary", min_value=0, step=10000)
             f_arrears = col_b.number_input("Arrears / Bonuses", min_value=0, step=10000)
             
@@ -1789,7 +1784,7 @@ def show_payroll():
                     res = calculate_ug_payroll_full(f_basic, f_arrears)
                     new_row = pd.DataFrame([{
                         "Payroll_ID": int(df["Payroll_ID"].max()+1) if not df.empty else 1,
-                        "Employee": name, "TIN": f_tin, "NSSF_No": f_nssf,
+                        "Employee": name, "TIN": f_tin, "NSSF_No": f_nssf, "Account_No": f_acc,
                         "Basic_Salary": f_basic, "Arrears": f_arrears, "Gross_Salary": res['gross'],
                         "LST": res['lst'], "NSSF_5": res['n5'], "NSSF_10": res['n10'], "PAYE": res['paye'],
                         "Total_Deductions": res['deduct'], "Net_Pay": res['net'], 
@@ -1798,7 +1793,7 @@ def show_payroll():
                     if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
                         st.success(f"Payroll for {name} processed!"); st.rerun()
 
-    # --- TAB 2: HISTORY (CLEAN PDF & MODIFY/DELETE) ---
+    # --- TAB 2: HISTORY ---
     with tab_logs:
         if not df.empty:
             p_col1, p_col2 = st.columns([4, 1])
@@ -1807,14 +1802,19 @@ def show_payroll():
             if p_col2.button("📥 Download PDF", key="print_btn_final"):
                 st.components.v1.html("""<script>window.parent.focus(); window.parent.print();</script>""", height=0)
 
-            def fm(x): return f"{int(float(x)):,}" if pd.notnull(x) else "0"
+            def fm(x): 
+                try: return f"{int(float(x)):,}" 
+                except: return "0"
 
             rows_html = ""
             for i, r in df.iterrows():
                 rows_html += f"""
                 <tr>
                     <td style='text-align:center;'>{i+1}</td>
-                    <td><b>{r['Employee']}</b><br><small style='color:gray;'>{r.get('TIN', '-')}</small></td>
+                    <td><b>{r['Employee']}</b><br>
+                        <small style='color:gray;'>A/C: {r.get('Account_No', '-')}</small><br>
+                        <small style='color:gray;'>TIN: {r.get('TIN', '-')}</small>
+                    </td>
                     <td style='text-align:right;'>{fm(r['Basic_Salary'])}</td>
                     <td style='text-align:right;'>{fm(r['Arrears'])}</td>
                     <td style='text-align:right; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
@@ -1824,7 +1824,7 @@ def show_payroll():
                     <td style='text-align:right; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
                     <td style='text-align:right; background:#FFD700; font-weight:bold;'>{fm(r['PAYE'])}</td>
                     <td style='text-align:right; background:#FFD700;'>{fm(r.get('NSSF_10', 0))}</td>
-                    <td style='text-align:right; background:#FFD700;'>{fm(r['NSSF_5'] + r.get('NSSF_10', 0))}</td>
+                    <td style='text-align:right; background:#FFD700;'>{fm(float(r['NSSF_5']) + float(r.get('NSSF_10', 0)))}</td>
                 </tr>"""
 
             main_html = f"""
@@ -1836,9 +1836,9 @@ def show_payroll():
                     [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{ display: none !important; }}
                     @page {{ margin: 0.5cm; }}
                 }}
-                .p-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; }}
-                .p-table th {{ background: #2B3F87 !important; color: white !important; padding: 10px; border: 1px solid #ddd; }}
-                .p-table td {{ padding: 8px; border: 1px solid #ddd; }}
+                .p-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; }}
+                .p-table th {{ background: #2B3F87 !important; color: white !important; padding: 8px; border: 1px solid #ddd; }}
+                .p-table td {{ padding: 6px; border: 1px solid #ddd; }}
             </style>
             <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; background:white; padding:20px;">
                 <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #2B3F87; padding-bottom:10px;">
@@ -1847,7 +1847,7 @@ def show_payroll():
                 </div>
                 <table class="p-table">
                     <thead><tr style="background:#2B3F87; color:white;">
-                        <th>S/N</th><th>Employee & TIN</th><th>Basic</th><th>Arrears</th><th>Gross</th><th>LST</th><th>PAYE</th><th>NSSF(5%)</th><th style="background:#1a285e;">Net Pay</th><th style="color:black; background:#FFD700;">Tax on Salary</th><th style="color:black; background:#FFD700;">10% NSSF</th><th style="color:black; background:#FFD700;">NSSF 15%</th>
+                        <th>S/N</th><th>Employee Info</th><th>Basic</th><th>Arrears</th><th>Gross</th><th>LST</th><th>PAYE</th><th>NSSF(5%)</th><th style="background:#1a285e;">Net Pay</th><th style="color:black; background:#FFD700;">Tax on Salary</th><th style="color:black; background:#FFD700;">10% NSSF</th><th style="color:black; background:#FFD700;">NSSF 15%</th>
                     </tr></thead>
                     <tbody>{rows_html}</tbody>
                 </table>
@@ -1868,13 +1868,15 @@ def show_payroll():
                     item = df[df['Payroll_ID'] == sid].iloc[0]
                     
                     u_name = st.text_input("Edit Name", value=item['Employee'])
+                    u_acc = st.text_input("Edit Bank Account", value=str(item.get('Account_No', '')))
+                    u_tin = st.text_input("Edit TIN", value=str(item.get('TIN', '')))
                     u_basic = st.number_input("Edit Basic", value=float(item['Basic_Salary']))
                     u_arr = st.number_input("Edit Arrears", value=float(item['Arrears']))
                     
                     c_s, c_d = st.columns(2)
                     if c_s.button("💾 Save Updates", use_container_width=True):
                         res_u = calculate_ug_payroll_full(u_basic, u_arr)
-                        df.loc[df['Payroll_ID'] == sid, ["Employee","Basic_Salary","Arrears","Gross_Salary","LST","PAYE","NSSF_5","NSSF_10","Total_Deductions","Net_Pay"]] = [u_name, u_basic, u_arr, res_u['gross'], res_u['lst'], res_u['paye'], res_u['n5'], res_u['n10'], res_u['deduct'], res_u['net']]
+                        df.loc[df['Payroll_ID'] == sid, ["Employee","Account_No","TIN","Basic_Salary","Arrears","Gross_Salary","LST","PAYE","NSSF_5","NSSF_10","Total_Deductions","Net_Pay"]] = [u_name, u_acc, u_tin, u_basic, u_arr, res_u['gross'], res_u['lst'], res_u['paye'], res_u['n5'], res_u['n10'], res_u['deduct'], res_u['net']]
                         if save_data("Payroll", df): st.success("Updated!"); st.rerun()
                     
                     if c_d.button("🗑️ Delete Permanently", use_container_width=True, type="primary"):
