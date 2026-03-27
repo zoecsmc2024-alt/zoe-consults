@@ -1732,150 +1732,138 @@ def show_payroll():
     # 2. FETCH DATA
     df = get_cached_data("Payroll")
 
-    # This creates the correct columns if they are missing or the sheet is empty
-    required_columns = ["Payroll_ID", "Employee", "Gross_Salary", "NSSF", "PAYE", "Net_Pay", "Date", "Status"]
+    # Updated required columns to match your payroll image
+    required_columns = [
+        "Payroll_ID", "Employee", "Basic_Salary", "Arrears", "Gross_Salary", 
+        "LST", "NSSF_5", "NSSF_10", "PAYE", "Total_Deductions", "Net_Pay", "Date", "Status"
+    ]
     
     if df.empty:
         df = pd.DataFrame(columns=required_columns)
     else:
-        # Check if new columns exist, if not, add them with 0s
         for col in required_columns:
             if col not in df.columns:
                 df[col] = 0
 
-    # Now convert types safely
-    df["Payroll_ID"] = pd.to_numeric(df["Payroll_ID"], errors='coerce').fillna(0).astype(int)
-    df["Net_Pay"] = pd.to_numeric(df["Net_Pay"], errors="coerce").fillna(0)
-    df["Gross_Salary"] = pd.to_numeric(df["Gross_Salary"], errors="coerce").fillna(0)
+    # Safety conversions
+    money_cols = ["Basic_Salary", "Arrears", "Gross_Salary", "LST", "NSSF_5", "NSSF_10", "PAYE", "Total_Deductions", "Net_Pay"]
+    for col in money_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    # 3. URA & NSSF CALCULATION LOGIC
-    def calculate_ug_payroll(gross):
-        # NSSF (Employee 5%)
-        nssf = gross * 0.05
-        taxable_income = gross - nssf
+    # 3. ADVANCED UGANDA CALCULATION LOGIC
+    def calculate_ug_payroll_full(basic, arrears):
+        gross = basic + arrears
         
-        # PAYE Tiers (Current Uganda)
+        # A. LST (Local Service Tax) Monthly approximation
+        if gross <= 100000: lst = 0
+        elif gross <= 200000: lst = 5000 / 12
+        elif gross <= 300000: lst = 10000 / 12
+        elif gross <= 400000: lst = 20000 / 12
+        elif gross <= 500000: lst = 30000 / 12
+        elif gross <= 1000000: lst = 50000 / 12
+        else: lst = 100000 / 12
+
+        # B. NSSF (Employee 5% & Employer 10%)
+        nssf_5 = gross * 0.05
+        nssf_10 = gross * 0.10
+        
+        # C. PAYE Tiers (Income tax on Gross - NSSF 5% - LST)
+        taxable_income = gross - nssf_5 - lst
         paye = 0
         if taxable_income > 410000:
             paye = 25000 + (0.30 * (taxable_income - 410000))
-            if taxable_income > 10000000: # Extra 10% for high earners
+            if taxable_income > 10000000:
                 paye += (0.10 * (taxable_income - 10000000))
         elif taxable_income > 282000:
             paye = 0.20 * (taxable_income - 282000)
         elif taxable_income > 235000:
             paye = 0.10 * (taxable_income - 235000)
             
-        return round(nssf), round(paye), round(taxable_income - paye)
+        total_deductions = nssf_5 + paye + lst
+        net_pay = gross - total_deductions
+        
+        return {
+            "gross": round(gross),
+            "lst": round(lst),
+            "n5": round(nssf_5),
+            "n10": round(nssf_10),
+            "paye": round(paye),
+            "deduct": round(total_deductions),
+            "net": round(net_pay)
+        }
 
     # 4. MONTHLY METRICS
     total_net = df[df["Status"] == "Paid"]["Net_Pay"].sum()
     staff_count = df["Employee"].nunique()
 
     c1, c2 = st.columns(2)
-    c1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL NET SALARIES PAID</p>
-            <h3 style="margin:0; color:#2B3F87;">{total_net:,.0f} <span style="font-size:14px;">UGX</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-    c2.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00ffcc; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">STAFF COUNT</p>
-            <h3 style="margin:0; color:#2B3F87;">{staff_count} <span style="font-size:14px;">MEMBERS</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
+    c1.metric("TOTAL NET SALARIES PAID", f"{total_net:,.0f} UGX")
+    c2.metric("STAFF COUNT", f"{staff_count} MEMBERS")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ==============================
-    # TABBED INTERFACE
-    # ==============================
     tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
 
     # --- TAB 1: PROCESS PAYMENT ---
     with tab_process:
         with st.form("process_payroll_form", clear_on_submit=True):
-            col_a, col_b = st.columns(2)
-            name = col_a.text_input("Employee Name", placeholder="e.g., Namuli Sarah")
-            gross_input = col_b.number_input("Gross Salary (UGX)", min_value=0, step=50000)
+            name = st.text_input("Employee Name")
+            col1, col2 = st.columns(2)
+            f_basic = col1.number_input("Basic Salary", min_value=0, step=10000)
+            f_arrears = col2.number_input("Arrears / Bonuses", min_value=0, step=10000)
             
-            # Preview math before saving
-            n_preview, p_preview, net_preview = calculate_ug_payroll(gross_input)
-            st.info(f"💡 **Preview:** NSSF: {n_preview:,.0f} | PAYE: {p_preview:,.0f} | **Take Home: {net_preview:,.0f} UGX**")
+            res = calculate_ug_payroll_full(f_basic, f_arrears)
+            st.info(f"💡 **Preview:** Gross: {res['gross']:,.0f} | Deductions: {res['deduct']:,.0f} | **Take Home: {res['net']:,.0f} UGX**")
 
             if st.form_submit_button("💳 Confirm & Release Payment"):
-                if name and gross_input > 0:
+                if name and f_basic > 0:
                     new_pay_id = int(df["Payroll_ID"].max() + 1) if not df.empty else 1
-                    nssf_val, paye_val, net_val = calculate_ug_payroll(gross_input)
                     
-                    new_pay_entry = pd.DataFrame([{
+                    new_entry = pd.DataFrame([{
                         "Payroll_ID": new_pay_id,
                         "Employee": name,
-                        "Gross_Salary": gross_input,
-                        "NSSF": nssf_val,
-                        "PAYE": paye_val,
-                        "Net_Pay": net_val,
+                        "Basic_Salary": f_basic,
+                        "Arrears": f_arrears,
+                        "Gross_Salary": res['gross'],
+                        "LST": res['lst'],
+                        "NSSF_5": res['n5'],
+                        "NSSF_10": res['n10'],
+                        "PAYE": res['paye'],
+                        "Total_Deductions": res['deduct'],
+                        "Net_Pay": res['net'],
                         "Date": datetime.now().strftime("%Y-%m-%d"),
                         "Status": "Paid"
                     }])
                     
-                    if save_data("Payroll", pd.concat([df, new_pay_entry], ignore_index=True)):
-                        st.success(f"Salary for {name} ({net_val:,.0f} UGX) successfully logged!")
+                    if save_data("Payroll", pd.concat([df, new_entry], ignore_index=True)):
+                        st.success(f"Salary for {name} processed!")
                         st.rerun()
-                else:
-                    st.error("Please provide both name and salary amount.")
 
     # --- TAB 2: LOGS ---
     with tab_logs:
         if not df.empty:
-            # 1. REPAIR & CONVERT (Force numbers to be numbers)
-            numeric_cols = ["Gross_Salary", "NSSF", "PAYE", "Net_Pay"]
-            
-            # If the old 'Salary' column exists, move data to Gross_Salary first
-            if 'Salary' in df.columns:
-                df['Gross_Salary'] = df.apply(
-                    lambda x: x['Salary'] if (pd.to_numeric(x.get('Gross_Salary', 0), errors='coerce') == 0 or pd.isna(x.get('Gross_Salary'))) else x['Gross_Salary'], 
-                    axis=1
-                )
-
-            # Force all money columns to be actual numbers so commas don't crash
-            for col in numeric_cols:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-
-            # 2. SELECT & REARRANGE
-            display_cols = ["Payroll_ID", "Date", "Employee", "Gross_Salary", "NSSF", "PAYE", "Net_Pay", "Status"]
-            final_cols = [c for c in display_cols if c in df.columns]
-            
-            # 3. DISPLAY with Comma Formatting
+            # Display full table with formatting
             st.dataframe(
-                df[final_cols].sort_values("Date", ascending=False)
-                .style.format({
-                    "Gross_Salary": "{:,.0f}", 
-                    "NSSF": "{:,.0f}", 
-                    "PAYE": "{:,.0f}", 
-                    "Net_Pay": "{:,.0f}"
-                }), 
-                use_container_width=True, 
-                hide_index=True
+                df[required_columns].sort_values("Date", ascending=False)
+                .style.format({c: "{:,.0f}" for c in money_cols}),
+                use_container_width=True, hide_index=True
             )
 
-            # --- ADMIN POP OVER (Keep your existing modify logic below) ---
             with st.popover("⚙️ Modify or Void Payroll Entry"):
-                # ... (Keep your selection and edit logic here)
-                pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']} ({r['Date']})" for _, r in df.iterrows()]
+                pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
                 selected_task = st.selectbox("Select Record", pay_options)
                 sel_id = int(selected_task.split(" | ")[0].replace("ID: ", ""))
                 item = df[df["Payroll_ID"] == sel_id].iloc[0]
 
                 up_name = st.text_input("Edit Name", value=item["Employee"])
-                up_gross = st.number_input("Edit Gross Salary", value=float(item.get("Gross_Salary", 0)), step=10000.0)
+                up_basic = st.number_input("Edit Basic", value=float(item["Basic_Salary"]))
+                up_arr = st.number_input("Edit Arrears", value=float(item["Arrears"]))
                 
-                # Recalculate on update
-                u_n, u_p, u_net = calculate_ug_payroll(up_gross)
+                up_res = calculate_ug_payroll_full(up_basic, up_arr)
                 
                 if st.button("Save Updates"):
-                    df.loc[df["Payroll_ID"] == sel_id, ["Employee", "Gross_Salary", "NSSF", "PAYE", "Net_Pay"]] = [up_name, up_gross, u_n, u_p, u_net]
+                    df.loc[df["Payroll_ID"] == sel_id, ["Employee", "Basic_Salary", "Arrears", "Gross_Salary", "LST", "NSSF_5", "NSSF_10", "PAYE", "Total_Deductions", "Net_Pay"]] = \
+                        [up_name, up_basic, up_arr, up_res['gross'], up_res['lst'], up_res['n5'], up_res['n10'], up_res['paye'], up_res['deduct'], up_res['net']]
                     if save_data("Payroll", df):
                         st.success("Payroll Record Updated!")
                         st.rerun()
