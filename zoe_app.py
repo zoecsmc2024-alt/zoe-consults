@@ -1839,83 +1839,75 @@ def show_payroll():
                         st.success(f"Salary for {name} processed!")
                         st.rerun()
 
-    # --- PROFESSIONAL PAYROLL TABLE (EXCEL STYLE) ---
-with tab_logs:
-    if not df.empty:
+    # --- TAB 2: LOGS (PROFESSIONAL PAYROLL TABLE) ---
+    with tab_logs:
+        if not df.empty:
+            def format_money(x):
+                return f"{x:,.0f}" if pd.notnull(x) else ""
 
-        def format_money(x):
-            return f"{x:,.0f}" if pd.notnull(x) else ""
-
-        table_html = f"""
-        <div style="overflow-x:auto;">
-        <h3 style="text-align:center; color:#2B3F87;">
-            MARCH {datetime.now().year} PAYROLL ({tenant.get('company_name','COMPANY')})
-        </h3>
-
-        <table style="
-            border-collapse: collapse;
-            width: 100%;
-            font-size: 12px;
-            font-family: Arial;
-        ">
-            <thead>
-                <tr style="background:#2B3F87; color:white;">
-                    <th style="padding:8px;border:1px solid #ddd;">S/NO</th>
-                    <th style="padding:8px;border:1px solid #ddd;">Employee</th>
-                    <th style="padding:8px;border:1px solid #ddd;">Basic</th>
-                    <th style="padding:8px;border:1px solid #ddd;">Arrears</th>
-                    <th style="padding:8px;border:1px solid #ddd;">Gross</th>
-                    <th style="padding:8px;border:1px solid #ddd;">LST</th>
-                    <th style="padding:8px;border:1px solid #ddd;">NSSF (5%)</th>
-                    <th style="padding:8px;border:1px solid #ddd;">PAYE</th>
-                    <th style="padding:8px;border:1px solid #ddd;">Total Deductions</th>
-                    <th style="padding:8px;border:1px solid #ddd;">Net Pay</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-
-        for i, row in df.iterrows():
-            table_html += f"""
-            <tr>
-                <td style="padding:6px;border:1px solid #ddd;">{i+1}</td>
-                <td style="padding:6px;border:1px solid #ddd;">{row['Employee']}</td>
-                <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['Basic_Salary'])}</td>
-                <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['Arrears'])}</td>
-                <td style="padding:6px;border:1px solid #ddd; text-align:right; font-weight:600;">{format_money(row['Gross_Salary'])}</td>
-                <td style="padding:6px;border:1px solid #ddd;">{format_money(row['LST'])}</td>
-                <td style="padding:6px;border:1px solid #ddd;">{format_money(row['NSSF_5'])}</td>
-                <td style="padding:6px;border:1px solid #ddd;">{format_money(row['PAYE'])}</td>
-                <td style="padding:6px;border:1px solid #ddd;">{format_money(row['Total_Deductions'])}</td>
-                <td style="padding:6px;border:1px solid #ddd; background:#facc15; font-weight:600;">
-                    {format_money(row['Net_Pay'])}
-                </td>
-            </tr>
+            # 1. BUILD THE EXCEL-STYLE HTML TABLE
+            table_html = f"""
+            <div style="overflow-x:auto;">
+                <h3 style="text-align:center; color:#2B3F87;">
+                    MARCH {datetime.now().year} PAYROLL ({tenant.get('company_name','ZOE CONSULTS SMC LTD')})
+                </h3>
+                <table style="border-collapse: collapse; width: 100%; font-size: 12px; font-family: Arial;">
+                    <thead>
+                        <tr style="background:#2B3F87; color:white;">
+                            <th style="padding:8px;border:1px solid #ddd;">S/NO</th>
+                            <th style="padding:8px;border:1px solid #ddd;">Employee</th>
+                            <th style="padding:8px;border:1px solid #ddd;">Basic</th>
+                            <th style="padding:8px;border:1px solid #ddd;">Arrears</th>
+                            <th style="padding:8px;border:1px solid #ddd;">Gross</th>
+                            <th style="padding:8px;border:1px solid #ddd;">LST</th>
+                            <th style="padding:8px;border:1px solid #ddd;">NSSF (5%)</th>
+                            <th style="padding:8px;border:1px solid #ddd;">PAYE</th>
+                            <th style="padding:8px;border:1px solid #ddd;">Total Deductions</th>
+                            <th style="padding:8px;border:1px solid #ddd;">Net Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             """
 
-        # TOTAL ROW
-        table_html += f"""
-        <tr style="background:#f1f5f9; font-weight:bold;">
-            <td colspan="4" style="padding:8px;border:1px solid #ddd;">TOTAL</td>
-            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Gross_Salary'].sum())}</td>
-            <td style="border:1px solid #ddd;"></td>
-            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['NSSF_5'].sum())}</td>
-            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['PAYE'].sum())}</td>
-            <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Total_Deductions'].sum())}</td>
-            <td style="text-align:right;border:1px solid #ddd; background:#facc15;">
-                {format_money(df['Net_Pay'].sum())}
-            </td>
-        </tr>
-        """
+            for i, row in df.iterrows():
+                table_html += f"""
+                <tr>
+                    <td style="padding:6px;border:1px solid #ddd;">{i+1}</td>
+                    <td style="padding:6px;border:1px solid #ddd;">{row['Employee']}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['Basic_Salary'])}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['Arrears'])}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:right; font-weight:600;">{format_money(row['Gross_Salary'])}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['LST'])}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['NSSF_5'])}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['PAYE'])}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['Total_Deductions'])}</td>
+                    <td style="padding:6px;border:1px solid #ddd; background:#facc15; font-weight:600; text-align:right;">
+                        {format_money(row['Net_Pay'])}
+                    </td>
+                </tr>
+                """
 
-        table_html += "</tbody></table></div>"
+            # 2. ADD THE TOTAL ROW
+            table_html += f"""
+                    <tr style="background:#f1f5f9; font-weight:bold;">
+                        <td colspan="4" style="padding:8px;border:1px solid #ddd;">TOTAL</td>
+                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Gross_Salary'].sum())}</td>
+                        <td style="border:1px solid #ddd; text-align:right;">{format_money(df['LST'].sum())}</td>
+                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['NSSF_5'].sum())}</td>
+                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['PAYE'].sum())}</td>
+                        <td style="text-align:right;border:1px solid #ddd;">{format_money(df['Total_Deductions'].sum())}</td>
+                        <td style="text-align:right;border:1px solid #ddd; background:#facc15;">
+                            {format_money(df['Net_Pay'].sum())}
+                        </td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+            """
+            st.markdown(table_html, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
-        st.markdown(table_html, unsafe_allow_html=True)
-
-    else:
-        st.info("No payroll records found.")
-
-            # 3. Modify / Edit Logic (Tucked inside tab_logs)
+            # 3. MODIFY LOGIC (Inside tab_logs AND inside if not empty)
             with st.popover("⚙️ Modify or Void Payroll Entry"):
                 pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
                 if pay_options:
@@ -1927,6 +1919,7 @@ with tab_logs:
                     up_basic = st.number_input("Edit Basic Salary", value=float(item["Basic_Salary"]))
                     up_arr = st.number_input("Edit Arrears", value=float(item["Arrears"]))
                     
+                    # Ensure this function is defined at the top of show_payroll
                     up_res = calculate_ug_payroll_full(up_basic, up_arr)
                     
                     if st.button("Save Updates"):
