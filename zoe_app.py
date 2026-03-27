@@ -1729,7 +1729,7 @@ def show_payroll():
 
     st.markdown("<h2 style='color: #2B3F87;'>🧾 Payroll Management</h2>", unsafe_allow_html=True)
 
-    # 2. FETCH DATA
+    # 2. FETCH & SANITIZE DATA
     df = get_cached_data("Payroll")
     required_columns = [
         "Payroll_ID", "Employee", "TIN", "NSSF_No", "Basic_Salary", "Arrears", 
@@ -1742,26 +1742,39 @@ def show_payroll():
     else:
         for col in required_columns:
             if col not in df.columns: df[col] = 0
+        df = df.fillna(0) # Critical JSON/NaN Fix
 
-    money_cols = ["Basic_Salary", "Arrears", "Gross_Salary", "LST", "PAYE", "NSSF_5", "NSSF_10", "Total_Deductions", "Net_Pay"]
-    for col in money_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-
-    # 3. CALCULATION LOGIC
+    # 3. BOSS-APPROVED CALCULATION LOGIC (Uganda Tiers)
     def calculate_ug_payroll_full(basic, arrears):
         gross = basic + arrears
         lst = 100000 / 12 if gross > 1000000 else 0
         n5 = gross * 0.05
         n10 = gross * 0.10
-        taxable = gross - n5 - lst
+        taxable = gross - n5
         paye = 0
-        if taxable > 410000: paye = 25000 + (0.30 * (taxable - 410000))
-        elif taxable > 235000: paye = 0.10 * (taxable - 235000)
+        if taxable > 410000:
+            paye = 25000 + (0.30 * (taxable - 410000))
+        elif taxable > 282000:
+            paye = (taxable - 282000) * 0.20 + 4700
+        elif taxable > 235000:
+            paye = (taxable - 235000) * 0.10
+            
         deduct = n5 + paye + lst
-        return {"gross": round(gross), "lst": round(lst), "n5": round(n5), "n10": round(n10), "paye": round(paye), "deduct": round(deduct), "net": round(gross - deduct)}
+        return {
+            "gross": round(gross), "lst": round(lst), "n5": round(n5), 
+            "n10": round(n10), "paye": round(paye), "deduct": round(deduct), 
+            "net": round(gross - deduct)
+        }
+
+    # 4. TOP METRICS
+    total_net = df[df["Status"] == "Paid"]["Net_Pay"].sum()
+    c1, c2 = st.columns(2)
+    c1.metric("TOTAL NET PAID", f"{total_net:,.0f} UGX")
+    c2.metric("STAFF COUNT", len(df["Employee"].unique()))
 
     tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
 
+    # --- TAB 1: PROCESS NEW SALARY ---
     with tab_process:
         with st.form("new_payroll_form", clear_on_submit=True):
             name = st.text_input("Employee Name")
@@ -1771,30 +1784,28 @@ def show_payroll():
             f_basic = col_a.number_input("Basic Salary", min_value=0, step=10000)
             f_arrears = col_b.number_input("Arrears / Bonuses", min_value=0, step=10000)
             
-            if st.form_submit_button("💳 Release Payment"):
+            if st.form_submit_button("💳 Confirm & Release Payment"):
                 if name and f_basic > 0:
                     res = calculate_ug_payroll_full(f_basic, f_arrears)
-                    new_row = pd.DataFrame([{"Payroll_ID": int(df["Payroll_ID"].max()+1) if not df.empty else 1, "Employee": name, "TIN": f_tin, "NSSF_No": f_nssf, "Basic_Salary": f_basic, "Arrears": f_arrears, "Gross_Salary": res['gross'], "LST": res['lst'], "NSSF_5": res['n5'], "NSSF_10": res['n10'], "PAYE": res['paye'], "Total_Deductions": res['deduct'], "Net_Pay": res['net'], "Date": datetime.now().strftime("%Y-%m-%d"), "Status": "Paid"}])
+                    new_row = pd.DataFrame([{
+                        "Payroll_ID": int(df["Payroll_ID"].max()+1) if not df.empty else 1,
+                        "Employee": name, "TIN": f_tin, "NSSF_No": f_nssf,
+                        "Basic_Salary": f_basic, "Arrears": f_arrears, "Gross_Salary": res['gross'],
+                        "LST": res['lst'], "NSSF_5": res['n5'], "NSSF_10": res['n10'], "PAYE": res['paye'],
+                        "Total_Deductions": res['deduct'], "Net_Pay": res['net'], 
+                        "Date": datetime.now().strftime("%Y-%m-%d"), "Status": "Paid"
+                    }])
                     if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
-                        st.success(f"Payroll for {name} released!"); st.rerun()
+                        st.success(f"Payroll for {name} processed!"); st.rerun()
 
-    # --- TAB 2: HISTORY (FIXED PDF POSITIONING) ---
+    # --- TAB 2: HISTORY (CLEAN PDF & MODIFY/DELETE) ---
     with tab_logs:
         if not df.empty:
             p_col1, p_col2 = st.columns([4, 1])
             p_col1.write(f"### {datetime.now().strftime('%B %Y')} Summary")
             
-            # --- THE PRINT TRIGGER ---
             if p_col2.button("📥 Download PDF", key="print_btn_final"):
-                st.components.v1.html("""
-                    <script>
-                    const printTable = () => {
-                        window.parent.focus();
-                        window.parent.print();
-                    };
-                    printTable();
-                    </script>
-                """, height=0)
+                st.components.v1.html("""<script>window.parent.focus(); window.parent.print();</script>""", height=0)
 
             def fm(x): return f"{int(float(x)):,}" if pd.notnull(x) else "0"
 
@@ -1816,38 +1827,28 @@ def show_payroll():
                     <td style='text-align:right; background:#FFD700;'>{fm(r['NSSF_5'] + r.get('NSSF_10', 0))}</td>
                 </tr>"""
 
-            # 2. THE MASTER HTML (Adjusted for Top-of-Page Printing)
             main_html = f"""
             <style>
                 @media print {{
                     body * {{ visibility: hidden; }}
                     #print-area, #print-area * {{ visibility: visible; }}
-                    #print-area {{
-                        position: absolute;
-                        left: 0;
-                        top: -50px; /* Moves the table to the very top */
-                        width: 100% !important;
-                    }}
+                    #print-area {{ position: absolute; left: 0; top: -40px; width: 100% !important; }}
                     [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{ display: none !important; }}
-                    @page {{ margin: 0.5cm; }} /* Tightens page margins */
+                    @page {{ margin: 0.5cm; }}
                 }}
-
                 .p-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; }}
                 .p-table th {{ background: #2B3F87 !important; color: white !important; padding: 10px; border: 1px solid #ddd; }}
                 .p-table td {{ padding: 8px; border: 1px solid #ddd; }}
             </style>
-
-            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto; background:white; padding:20px;">
+            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; background:white; padding:20px;">
                 <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #2B3F87; padding-bottom:10px;">
                     <h2 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h2>
                     <p style="margin:5px 0;">Official Payroll Report - {datetime.now().strftime('%B %Y')}</p>
                 </div>
                 <table class="p-table">
-                    <thead>
-                        <tr style="background:#2B3F87; color:white;">
-                            <th>S/N</th><th>Employee & TIN</th><th>Basic</th><th>Arrears</th><th>Gross</th><th>LST</th><th>PAYE</th><th>NSSF(5%)</th><th style="background:#1a285e;">Net Pay</th><th style="color:black; background:#FFD700;">Tax on Salary</th><th style="color:black; background:#FFD700;">10% NSSF</th><th style="color:black; background:#FFD700;">NSSF 15%</th>
-                        </tr>
-                    </thead>
+                    <thead><tr style="background:#2B3F87; color:white;">
+                        <th>S/N</th><th>Employee & TIN</th><th>Basic</th><th>Arrears</th><th>Gross</th><th>LST</th><th>PAYE</th><th>NSSF(5%)</th><th style="background:#1a285e;">Net Pay</th><th style="color:black; background:#FFD700;">Tax on Salary</th><th style="color:black; background:#FFD700;">10% NSSF</th><th style="color:black; background:#FFD700;">NSSF 15%</th>
+                    </tr></thead>
                     <tbody>{rows_html}</tbody>
                 </table>
                 <div style="margin-top:60px; display:flex; justify-content:space-around; font-size:12px;">
@@ -1855,22 +1856,31 @@ def show_payroll():
                     <div style="text-align:center;"><p>_______________________</p><p>Approved By</p></div>
                 </div>
             </div>"""
-            
             st.markdown(main_html, unsafe_allow_html=True)
-            
-            # --- DELETE & MODIFY SECTION ---
+
+            # --- MODIFY & DELETE SECTION ---
             st.write("---")
             with st.popover("⚙️ Modify / Delete Record"):
-                pay_options = [f"{r['Employee']} (ID: {int(r['Payroll_ID'])})" for _, r in df.iterrows()]
-                if pay_options:
-                    selected_opt = st.selectbox("Select Record", pay_options)
-                    sel_id = int(selected_opt.split("(ID: ")[1].replace(")", ""))
+                pay_opts = [f"{r['Employee']} (ID: {int(r['Payroll_ID'])})" for _, r in df.iterrows()]
+                if pay_opts:
+                    sel_opt = st.selectbox("Select Record", pay_opts)
+                    sid = int(sel_opt.split("(ID: ")[1].replace(")", ""))
+                    item = df[df['Payroll_ID'] == sid].iloc[0]
                     
-                    col_save, col_del = st.columns(2)
-                    if col_del.button("🗑️ Delete Permanently", use_container_width=True, type="primary"):
-                        df_final = df[df['Payroll_ID'] != sel_id]
-                        if save_data("Payroll", df_final):
-                            st.warning("Record deleted."); st.rerun()
+                    u_name = st.text_input("Edit Name", value=item['Employee'])
+                    u_basic = st.number_input("Edit Basic", value=float(item['Basic_Salary']))
+                    u_arr = st.number_input("Edit Arrears", value=float(item['Arrears']))
+                    
+                    c_s, c_d = st.columns(2)
+                    if c_s.button("💾 Save Updates", use_container_width=True):
+                        res_u = calculate_ug_payroll_full(u_basic, u_arr)
+                        df.loc[df['Payroll_ID'] == sid, ["Employee","Basic_Salary","Arrears","Gross_Salary","LST","PAYE","NSSF_5","NSSF_10","Total_Deductions","Net_Pay"]] = [u_name, u_basic, u_arr, res_u['gross'], res_u['lst'], res_u['paye'], res_u['n5'], res_u['n10'], res_u['deduct'], res_u['net']]
+                        if save_data("Payroll", df): st.success("Updated!"); st.rerun()
+                    
+                    if c_d.button("🗑️ Delete Permanently", use_container_width=True, type="primary"):
+                        if save_data("Payroll", df[df['Payroll_ID'] != sid]): st.warning("Deleted!"); st.rerun()
+        else:
+            st.info("No records found.")
         
     
  
