@@ -2207,38 +2207,34 @@ def show_ledger():
         """
         
         # --- DISPLAY THE HTML PREVIEW ---
-        st.components.v1.html(html_statement, height=1000, scrolling=True)
+        # ... (Your existing HTML generation logic above) ...
         
-        # --- Replace the old PDF button code with this ---
+        # 4. DISPLAY THE PREVIEW (This was already in your code)
+        st.components.v1.html(html_statement, height=1000, scrolling=True)
 
-# 1. This creates a small piece of JavaScript to trigger the print
-print_button_html = f"""
-    <script>
-        function printStatement() {{
-            window.print();
-        }}
-    </script>
-    <div style="display: flex; justify-content: center; margin-top: 20px;">
-        <button onclick="printStatement()" style="
-            background-color: #000080; 
-            color: white; 
-            border: none; 
-            padding: 10px 25px; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            font-weight: bold;
-            width: 100%;
-            height: 45px;
-        ">
-            🖨️ Print / Save as PDF
-        </button>
-    </div>
-"""
+        # 5. ADD THE PRINT BUTTON (Move it here!)
+        print_button_script = f"""
+            <script>
+                function printStatement() {{
+                    var printContents = document.getElementById('printable-area').innerHTML;
+                    var originalContents = document.body.innerHTML;
+                    document.body.innerHTML = printContents;
+                    window.print();
+                    document.body.innerHTML = originalContents;
+                    window.location.reload(); // Refreshes to restore Streamlit state
+                }}
+            </script>
+            <div id="printable-area" style="display:none;">{html_statement}</div>
+            <button onclick="printStatement()" style="
+                background-color: #000080; color: white; border: none; 
+                padding: 12px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;
+            ">
+                📥 Download / Print PDF Statement
+            </button>
+        """
+        st.components.v1.html(print_button_script, height=100)
 
-# 2. Display the print button using streamlit components
-st.components.v1.html(print_button_html, height=100)
-
-st.info("💡 **Tip:** When the print window opens, select **'Save as PDF'** as the Destination.")
+        st.info("💡 **Consolidated View:** All active and pending loans for this client are listed above.")
     
 
 
