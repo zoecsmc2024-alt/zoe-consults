@@ -1848,9 +1848,17 @@ def show_payroll():
             # 1. BUILD THE EXCEL-STYLE HTML TABLE
             table_html = f"""
             <div style="overflow-x:auto;">
-                <h3 style="text-align:center; color:#2B3F87;">
-                    MARCH {datetime.now().year} PAYROLL ({tenant.get('company_name','ZOE CONSULTS SMC LTD')})
-                </h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="color:#2B3F87; margin:0;">
+                        MARCH {datetime.now().year} PAYROLL (ZOE CONSULTS SMC LTD)
+                    </h3>
+                    <button onclick="window.print()" style="
+                        background: #2B3F87; color: white; border: none; 
+                        padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;
+                    ">
+                        🖨️ Print to PDF
+                    </button>
+                </div>
                 <table style="border-collapse: collapse; width: 100%; font-size: 12px; font-family: Arial;">
                     <thead>
                         <tr style="background:#2B3F87; color:white;">
@@ -1872,7 +1880,7 @@ def show_payroll():
             for i, row in df.iterrows():
                 table_html += f"""
                 <tr>
-                    <td style="padding:6px;border:1px solid #ddd;">{i+1}</td>
+                    <td style="padding:6px;border:1px solid #ddd; text-align:center;">{i+1}</td>
                     <td style="padding:6px;border:1px solid #ddd;">{row['Employee']}</td>
                     <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['Basic_Salary'])}</td>
                     <td style="padding:6px;border:1px solid #ddd; text-align:right;">{format_money(row['Arrears'])}</td>
@@ -1886,7 +1894,11 @@ def show_payroll():
                     </td>
                 </tr>
                 """
-
+            
+            # Close the table tags (Don't forget the total row if you have it!)
+            table_html += "</tbody></table></div>"
+            
+            st.markdown(table_html, unsafe_allow_html=True)
             # 2. ADD THE TOTAL ROW
             table_html += f"""
                     <tr style="background:#f1f5f9; font-weight:bold;">
