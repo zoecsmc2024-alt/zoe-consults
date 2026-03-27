@@ -10,3 +10,4 @@ xlsxwriter
 streamlit-aggrid
 twilio
 reportlab
+xhtml2pdf
