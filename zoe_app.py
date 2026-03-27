@@ -1778,14 +1778,12 @@ def show_payroll():
                     if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
                         st.success(f"Payroll for {name} released!"); st.rerun()
 
-    # --- TAB 2: HISTORY (FIXED PRINT & DELETE) ---
+    # --- TAB 2: HISTORY (FIXED CLEAN PRINT) ---
     with tab_logs:
         if not df.empty:
             p_col1, p_col2 = st.columns([4, 1])
             p_col1.write(f"### {datetime.now().strftime('%B %Y')} Summary")
             
-            # --- THE NEW PRINT LOGIC ---
-            # We use a unique key and a more aggressive wait script
             if p_col2.button("📥 Download PDF", key="print_btn_final"):
                 st.components.v1.html("""
                     <script>
@@ -1796,20 +1794,91 @@ def show_payroll():
                     </script>
                 """, height=0)
 
-            # (The rest of your rows_html and main_html code stays the same)
             rows_html = ""
             for i, r in df.iterrows():
-                rows_html += f"<tr><td style='text-align:center;'>{i+1}</td><td>{r['Employee']}<br><small style='color:gray;'>{r['TIN']}</small></td><td style='text-align:right;'>{r['Basic_Salary']:,.0f}</td><td style='text-align:right;'>{r['Arrears']:,.0f}</td><td style='text-align:right; font-weight:bold;'>{r['Gross_Salary']:,.0f}</td><td style='text-align:right;'>{r['LST']:,.0f}</td><td style='text-align:right;'>{r['PAYE']:,.0f}</td><td style='text-align:right;'>{r['NSSF_5']:,.0f}</td><td style='text-align:right; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{r['Net_Pay']:,.0f}</td><td style='text-align:right; background:#FFD700; font-weight:bold;'>{r['PAYE']:,.0f}</td><td style='text-align:right; background:#FFD700;'>{r['NSSF_10']:,.0f}</td><td style='text-align:right; background:#FFD700;'>{(r['NSSF_5']+r['NSSF_10']):,.0f}</td></tr>"
+                rows_html += f"""
+                <tr>
+                    <td style='text-align:center;'>{i+1}</td>
+                    <td>{r['Employee']}<br><small style='color:gray;'>{r['TIN']}</small></td>
+                    <td style='text-align:right;'>{r['Basic_Salary']:,.0f}</td>
+                    <td style='text-align:right;'>{r['Arrears']:,.0f}</td>
+                    <td style='text-align:right; font-weight:bold;'>{r['Gross_Salary']:,.0f}</td>
+                    <td style='text-align:right;'>{r['LST']:,.0f}</td>
+                    <td style='text-align:right;'>{r['PAYE']:,.0f}</td>
+                    <td style='text-align:right;'>{r['NSSF_5']:,.0f}</td>
+                    <td style='text-align:right; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{r['Net_Pay']:,.0f}</td>
+                    <td style='text-align:right; background:#FFD700; font-weight:bold;'>{r['PAYE']:,.0f}</td>
+                    <td style='text-align:right; background:#FFD700;'>{r['NSSF_10']:,.0f}</td>
+                    <td style='text-align:right; background:#FFD700;'>{(r['NSSF_5']+r['NSSF_10']):,.0f}</td>
+                </tr>"""
 
+            # This is the "Magic" block that fixes the print view
             main_html = f"""
-            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto;">
+            <style>
+                @media print {{
+                    /* Hide Sidebar, Header, and Buttons */
+                    [data-testid="stSidebar"], 
+                    [data-testid="stHeader"], 
+                    .stButton, 
+                    .stTabs,
+                    footer {{
+                        display: none !important;
+                    }}
+                    /* Ensure the table is the only thing visible */
+                    #print-area {{
+                        border: none !important;
+                        width: 100% !important;
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                    }}
+                    /* Reset margins for PDF */
+                    @page {{ margin: 1cm; }}
+                }}
+            </style>
+
+            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto; background:white;">
+                <div style="padding:15px; border-bottom:2px solid #2B3F87; margin-bottom:10px;">
+                    <h2 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h2>
+                    <p style="margin:5px 0;">Official Monthly Payroll - {datetime.now().strftime('%B %Y')}</p>
+                </div>
                 <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px;">
-                    <thead><tr style="background:#2B3F87; color:white;"><th style="padding:10px;">S/N</th><th style="padding:10px; text-align:left;">Employee & TIN</th><th style="padding:10px; text-align:right;">Basic</th><th style="padding:10px; text-align:right;">Arrears</th><th style="padding:10px; text-align:right;">Gross</th><th style="padding:10px; text-align:right;">LST</th><th style="padding:10px; text-align:right;">PAYE</th><th style="padding:10px; text-align:right;">NSSF(5%)</th><th style="padding:10px; text-align:right; background:#1a285e;">Net Pay</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">Tax on Salary</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">10% NSSF</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">NSSF 15%</th></tr></thead>
+                    <thead>
+                        <tr style="background:#2B3F87; color:white;">
+                            <th style="padding:10px;">S/N</th>
+                            <th style="padding:10px; text-align:left;">Employee & TIN</th>
+                            <th style="padding:10px; text-align:right;">Basic</th>
+                            <th style="padding:10px; text-align:right;">Arrears</th>
+                            <th style="padding:10px; text-align:right;">Gross</th>
+                            <th style="padding:10px; text-align:right;">LST</th>
+                            <th style="padding:10px; text-align:right;">PAYE</th>
+                            <th style="padding:10px; text-align:right;">NSSF(5%)</th>
+                            <th style="padding:10px; text-align:right; background:#1a285e;">Net Pay</th>
+                            <th style="padding:10px; text-align:right; color:black; background:#FFD700;">Tax on Salary</th>
+                            <th style="padding:10px; text-align:right; color:black; background:#FFD700;">10% NSSF</th>
+                            <th style="padding:10px; text-align:right; color:black; background:#FFD700;">NSSF 15%</th>
+                        </tr>
+                    </thead>
                     <tbody>{rows_html}</tbody>
-                    <tr style="background:#f1f5f9; font-weight:bold;"><td colspan="4" style="padding:10px; text-align:right;">TOTAL UGX:</td><td style="text-align:right;">{df['Gross_Salary'].sum():,.0f}</td><td colspan="3"></td><td style="text-align:right; background:#FFF9C4; color:#2B3F87;">{df['Net_Pay'].sum():,.0f}</td><td style="text-align:right; background:#FFD700;">{df['PAYE'].sum():,.0f}</td><td style="text-align:right; background:#FFD700;">{df['NSSF_10'].sum():,.0f}</td><td style="text-align:right; background:#FFD700;">{(df['NSSF_5'].sum() + df['NSSF_10'].sum()):,.0f}</td></tr>
+                    <tr style="background:#f1f5f9; font-weight:bold;">
+                        <td colspan="4" style="padding:10px; text-align:right;">TOTAL UGX:</td>
+                        <td style="text-align:right;">{df['Gross_Salary'].sum():,.0f}</td>
+                        <td colspan="3"></td>
+                        <td style="text-align:right; background:#FFF9C4; color:#2B3F87;">{df['Net_Pay'].sum():,.0f}</td>
+                        <td style="text-align:right; background:#FFD700;">{df['PAYE'].sum():,.0f}</td>
+                        <td style="text-align:right; background:#FFD700;">{df['NSSF_10'].sum():,.0f}</td>
+                        <td style="text-align:right; background:#FFD700;">{(df['NSSF_5'].sum() + df['NSSF_10'].sum()):,.0f}</td>
+                    </tr>
                 </table>
+                <div style="margin-top:40px; display:flex; justify-content:space-around;">
+                    <div style="text-align:center;"><p>_______________________</p><p>Prepared By</p></div>
+                    <div style="text-align:center;"><p>_______________________</p><p>Authorized By</p></div>
+                </div>
             </div>"""
+            
             st.markdown(main_html, unsafe_allow_html=True)
+            
+            # --- KEEP YOUR POPOVER SECTION BELOW THIS ---
             
             # --- DELETE & MODIFY SECTION ---
             st.write("---")
