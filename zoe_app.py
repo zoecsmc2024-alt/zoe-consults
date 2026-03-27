@@ -1722,145 +1722,175 @@ def show_petty_cash():
 # ==============================
 
 def show_payroll():
-    # 1. SECURITY & DATA INITIALIZATION
+    # 1. SECURITY CHECK
     if st.session_state.get("role") != "Admin":
-        st.error("🔒 Restricted Access")
+        st.error("🔒 Restricted Access: Only Admins can manage payroll.")
         return
 
     st.markdown("<h2 style='color: #2B3F87;'>🧾 Payroll Management</h2>", unsafe_allow_html=True)
-    
-    # Fetch and Sanitize Data
+
+    # 2. FETCH DATA & DEFINE COLUMNS
     df = get_cached_data("Payroll")
-    cols = [
-        "Payroll_ID", "Employee", "TIN", "Designation", "NSSF_No", 
-        "Basic_Salary", "Arrears", "Gross_Salary", "LST", "PAYE", 
-        "NSSF_5", "Total_Deductions", "Net_Pay", "Tax_On_Salary", "NSSF_10", "NSSF_15", "Date"
+    
+    # All columns from your professional requirement
+    required_columns = [
+        "Payroll_ID", "Employee", "TIN", "NSSF_No", "Basic_Salary", "Arrears", 
+        "Gross_Salary", "LST", "PAYE", "NSSF_5", "NSSF_10", "Total_Deductions", 
+        "Net_Pay", "Date", "Status"
     ]
     
     if df.empty:
-        df = pd.DataFrame(columns=cols)
+        df = pd.DataFrame(columns=required_columns)
     else:
-        for c in cols:
-            if c not in df.columns: df[c] = 0
-        # CRITICAL: Clean any NaN values immediately to prevent JSON errors
-        df = df.fillna(0)
+        for col in required_columns:
+            if col not in df.columns:
+                df[col] = 0
 
-    # 2. CALCULATION LOGIC (Force Integers)
-    def calc_ug_payroll(basic, arrears):
-        gross = int(basic + arrears)
-        lst = 100000/12 if gross > 1000000 else 0 
+    # Safety conversions for math (Prevents the JSON NaN error)
+    money_cols = ["Basic_Salary", "Arrears", "Gross_Salary", "LST", "PAYE", "NSSF_5", "NSSF_10", "Total_Deductions", "Net_Pay"]
+    for col in money_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    # 3. ADVANCED CALCULATION LOGIC
+    def calculate_ug_payroll_full(basic, arrears):
+        gross = basic + arrears
+        # Statutory LST
+        lst = 100000 / 12 if gross > 1000000 else 0
+        # NSSF (Employee 5% & Employer 10%)
         n5 = gross * 0.05
         n10 = gross * 0.10
+        # PAYE
         taxable = gross - n5 - lst
-        paye = (25000 + (0.30 * (taxable - 410000))) if taxable > 410000 else 0
-        total_d = lst + n5 + paye
+        paye = 0
+        if taxable > 410000:
+            paye = 25000 + (0.30 * (taxable - 410000))
+        elif taxable > 235000:
+            paye = 0.10 * (taxable - 235000)
+            
+        deduct = n5 + paye + lst
         return {
-            "g": int(gross), "ls": int(lst), "n5": int(n5), "n10": int(n10), 
-            "p": int(paye), "td": int(total_d), "np": int(gross - total_d)
+            "gross": round(gross), "lst": round(lst), "n5": round(n5), 
+            "n10": round(n10), "paye": round(paye), "deduct": round(deduct), 
+            "net": round(gross - deduct)
         }
 
-    tab_process, tab_history = st.tabs(["➕ Process Salary", "📜 Payroll History"])
+    # 4. METRICS
+    total_net = df[df["Status"] == "Paid"]["Net_Pay"].sum()
+    c1, c2 = st.columns(2)
+    c1.metric("TOTAL NET PAID", f"{total_net:,.0f} UGX")
+    c2.metric("STAFF COUNT", len(df["Employee"].unique()))
 
-    # --- TAB 1: PROCESS SALARY (POPOVER STYLE) ---
+    tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
+
+    # --- TAB 1: PROCESS (Updated with TIN & NSSF) ---
     with tab_process:
-        with st.form("new_entry_form", clear_on_submit=True):
-            st.markdown("#### 📝 Employee & Tax Info")
-            c1, c2 = st.columns(2)
-            name = c1.text_input("Employee Name")
-            desig = c2.text_input("Designation")
-            tin = c1.text_input("TIN Number")
-            n_no = c2.text_input("NSSF Number")
+        with st.form("new_payroll_form", clear_on_submit=True):
+            name = st.text_input("Employee Name")
+            col_a, col_b = st.columns(2)
+            f_tin = col_a.text_input("TIN Number")
+            f_nssf = col_b.text_input("NSSF Number")
+            f_basic = col_a.number_input("Basic Salary", min_value=0, step=10000)
+            f_arrears = col_b.number_input("Arrears / Bonuses", min_value=0, step=10000)
             
-            st.markdown("#### 💵 Salary Details")
-            c3, c4 = st.columns(2)
-            b_val = c3.number_input("Basic Salary", min_value=0, step=1000)
-            a_val = c4.number_input("Arrears/Bonus", min_value=0, step=1000)
-            
-            if st.form_submit_button("💳 Confirm and Release Payment"):
-                if name and b_val > 0:
-                    r = calc_ug_payroll(b_val, a_val)
-                    new_id = int(df["Payroll_ID"].max() + 1) if not df.empty else 1
-                    entry = pd.DataFrame([{
-                        "Payroll_ID": new_id, "Employee": name, "TIN": tin, "Designation": desig, "NSSF_No": n_no,
-                        "Basic_Salary": b_val, "Arrears": a_val, "Gross_Salary": r['g'],
-                        "LST": r['ls'], "NSSF_5": r['n5'], "PAYE": r['p'],
-                        "Total_Deductions": r['td'], "Net_Pay": r['np'],
-                        "Tax_On_Salary": r['p'], "NSSF_10": r['n10'], 
-                        "NSSF_15": r['n5'] + r['n10'], "Date": datetime.now().strftime("%Y-%m-%d"), "Status": "Paid"
+            if st.form_submit_button("💳 Release Payment"):
+                if name and f_basic > 0:
+                    res = calculate_ug_payroll_full(f_basic, f_arrears)
+                    new_row = pd.DataFrame([{
+                        "Payroll_ID": int(df["Payroll_ID"].max()+1) if not df.empty else 1,
+                        "Employee": name, "TIN": f_tin, "NSSF_No": f_nssf,
+                        "Basic_Salary": f_basic, "Arrears": f_arrears, "Gross_Salary": res['gross'],
+                        "LST": res['lst'], "NSSF_5": res['n5'], "NSSF_10": res['n10'], "PAYE": res['paye'],
+                        "Total_Deductions": res['deduct'], "Net_Pay": res['net'], 
+                        "Date": datetime.now().strftime("%Y-%m-%d"), "Status": "Paid"
                     }])
-                    # Final NaN check before saving
-                    if save_data("Payroll", pd.concat([df, entry], ignore_index=True).fillna(0)):
-                        st.success(f"Paid {name} successfully!"); st.rerun()
+                    if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
+                        st.success(f"Payroll for {name} released!"); st.rerun()
 
-    # --- TAB 2: HISTORY (THE PROFESSIONAL TABLE) ---
-    with tab_history:
+    # --- TAB 2: HISTORY (PROFESSIONAL MULTI-COLUMN TABLE) ---
+    with tab_logs:
         if not df.empty:
-            def fm(x): return f"{int(float(x)):,}" # Force to int for commas
-            
-            # BUILD THE MASTER HTML STRING
-            table_html = f"""
-            <style>
-                .z-table {{ width: 100%; border-collapse: collapse; font-family: Arial; font-size: 11px; background: white; }}
-                .z-table th {{ background: #2B3F87 !important; color: white !important; padding: 10px; border: 1px solid #ddd; }}
-                .z-table td {{ padding: 8px; border: 1px solid #ddd; text-align: right; }}
-                .yellow {{ background: #FFD700 !important; font-weight: bold; color: black; }}
-                .text-left {{ text-align: left !important; }}
-            </style>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h3 style="color:#2B3F87; margin:0;">MARCH 2026 PAYROLL - ZOE CONSULTS</h3>
-                <button onclick="window.print()" style="background:#2B3F87; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">📥 Download PDF</button>
-            </div>
-            <div style="overflow-x:auto;">
-                <table class="z-table">
-                    <thead>
-                        <tr>
-                            <th>No</th><th class="text-left">Employee Name</th><th>TIN</th><th>Basic</th><th>Gross</th><th>LST</th><th>PAYE</th><th>NSSF(5%)</th><th>Net Pay</th>
-                            <th class="yellow">Tax on Salary</th><th class="yellow">10% NSSF</th><th class="yellow">NSSF 15%</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            """
+            p_col1, p_col2 = st.columns([4, 1])
+            p_col1.write(f"### {datetime.now().strftime('%B %Y')} Payroll")
+            if p_col2.button("🖨️ Print / Download PDF"):
+                st.components.v1.html("<script>window.print();</script>", height=0)
+
+            # BUILD THE TABLE ROWS
+            rows_html = ""
             for i, r in df.iterrows():
-                table_html += f"""
+                # Calculating NSSF 15% (Combined)
+                nssf_15 = r['NSSF_5'] + r['NSSF_10']
+                
+                rows_html += f"""
                 <tr>
                     <td style='text-align:center;'>{i+1}</td>
-                    <td class="text-left"><b>{r['Employee']}</b></td>
-                    <td>{fm(r['Basic_Salary'])}</td>
-                    <td>{fm(r['Gross_Salary'])}</td>
-                    <td>{fm(r['LST'])}</td>
-                    <td>{fm(r['PAYE'])}</td>
-                    <td>{fm(r['NSSF_5'])}</td>
-                    <td style='font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
-                    <td class="yellow">{fm(r['Tax_On_Salary'])}</td>
-                    <td class="yellow">{fm(r['NSSF_10'])}</td>
-                    <td class="yellow">{fm(r['NSSF_15'])}</td>
+                    <td>{r['Employee']}<br><small style='color:gray;'>{r['TIN']}</small></td>
+                    <td style='text-align:right;'>{r['Basic_Salary']:,.0f}</td>
+                    <td style='text-align:right;'>{r['Arrears']:,.0f}</td>
+                    <td style='text-align:right; font-weight:bold;'>{r['Gross_Salary']:,.0f}</td>
+                    <td style='text-align:right;'>{r['LST']:,.0f}</td>
+                    <td style='text-align:right;'>{r['PAYE']:,.0f}</td>
+                    <td style='text-align:right;'>{r['NSSF_5']:,.0f}</td>
+                    <td style='text-align:right; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{r['Net_Pay']:,.0f}</td>
+                    <td style='text-align:right; background:#FFD700; font-weight:bold;'>{r['PAYE']:,.0f}</td>
+                    <td style='text-align:right; background:#FFD700;'>{r['NSSF_10']:,.0f}</td>
+                    <td style='text-align:right; background:#FFD700;'>{nssf_15:,.0f}</td>
                 </tr>"""
 
-            # TOTAL ROW
-            table_html += f"""
+            # ASSEMBLE MASTER TABLE
+            main_html = f"""
+            <div style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px;">
+                    <thead>
+                        <tr style="background:#2B3F87; color:white;">
+                            <th style="padding:10px;">S/N</th>
+                            <th style="padding:10px; text-align:left;">Employee & TIN</th>
+                            <th style="padding:10px; text-align:right;">Basic</th>
+                            <th style="padding:10px; text-align:right;">Arrears</th>
+                            <th style="padding:10px; text-align:right;">Gross</th>
+                            <th style="padding:10px; text-align:right;">LST</th>
+                            <th style="padding:10px; text-align:right;">PAYE</th>
+                            <th style="padding:10px; text-align:right;">NSSF(5%)</th>
+                            <th style="padding:10px; text-align:right; background:#1a285e;">Net Pay</th>
+                            <th style="padding:10px; text-align:right; color:black; background:#FFD700;">Tax on Salary</th>
+                            <th style="padding:10px; text-align:right; color:black; background:#FFD700;">10% NSSF</th>
+                            <th style="padding:10px; text-align:right; color:black; background:#FFD700;">NSSF 15%</th>
+                        </tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
                     <tr style="background:#f1f5f9; font-weight:bold;">
-                        <td colspan="3">GRAND TOTAL</td>
-                        <td>{fm(df['Basic_Salary'].sum())}</td>
-                        <td>{fm(df['Gross_Salary'].sum())}</td>
-                        <td>{fm(df['LST'].sum())}</td>
-                        <td>{fm(df['PAYE'].sum())}</td>
-                        <td>{fm(df['NSSF_5'].sum())}</td>
-                        <td>{fm(df['Net_Pay'].sum())}</td>
-                        <td class="yellow">{fm(df['Tax_On_Salary'].sum())}</td>
-                        <td class="yellow">{fm(df['NSSF_10'].sum())}</td>
-                        <td class="yellow">{fm(df['NSSF_15'].sum())}</td>
+                        <td colspan="4" style="padding:10px; text-align:right;">TOTAL UGX:</td>
+                        <td style="text-align:right;">{df['Gross_Salary'].sum():,.0f}</td>
+                        <td colspan="3"></td>
+                        <td style="text-align:right; background:#FFF9C4; color:#2B3F87;">{df['Net_Pay'].sum():,.0f}</td>
+                        <td style="text-align:right; background:#FFD700;">{df['PAYE'].sum():,.0f}</td>
+                        <td style="text-align:right; background:#FFD700;">{df['NSSF_10'].sum():,.0f}</td>
+                        <td style="text-align:right; background:#FFD700;">{(df['NSSF_5'].sum() + df['NSSF_10'].sum()):,.0f}</td>
                     </tr>
-                </tbody></table></div>
-            """
-            st.markdown(table_html, unsafe_allow_html=True)
+                </table>
+            </div>"""
             
-            # EDIT BUTTON
+            st.markdown(main_html, unsafe_allow_html=True)
+            
+            # --- UPDATED MODIFY POPOVER ---
             st.write("")
-            with st.popover("⚙️ Update Record"):
-                sel = st.selectbox("Select Staff", df['Employee'].tolist())
-                # Logic for edits would go here, mimicking the Process tab
+            with st.popover("⚙️ Modify Record"):
+                sel_name = st.selectbox("Select Staff", df['Employee'].tolist())
+                item = df[df['Employee'] == sel_name].iloc[0]
+                
+                with st.form("edit_form"):
+                    new_tin = st.text_input("Edit TIN", value=item['TIN'])
+                    new_nssf = st.text_input("Edit NSSF No", value=item['NSSF_No'])
+                    new_basic = st.number_input("Edit Basic", value=float(item['Basic_Salary']))
+                    new_arr = st.number_input("Edit Arrears", value=float(item['Arrears']))
+                    
+                    if st.form_submit_button("💾 Save Changes"):
+                        res_u = calculate_ug_payroll_full(new_basic, new_arr)
+                        df.loc[df['Employee'] == sel_name, ["TIN", "NSSF_No", "Basic_Salary", "Arrears", "Gross_Salary", "LST", "PAYE", "NSSF_5", "NSSF_10", "Total_Deductions", "Net_Pay"]] = \
+                            [new_tin, new_nssf, new_basic, new_arr, res_u['gross'], res_u['lst'], res_u['paye'], res_u['n5'], res_u['n10'], res_u['deduct'], res_u['net']]
+                        save_data("Payroll", df); st.success("Updated!"); st.rerun()
+
         else:
-            st.info("No payroll records found.")
+            st.info("No records found.")
         
     
  
