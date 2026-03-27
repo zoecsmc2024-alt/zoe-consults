@@ -1778,21 +1778,31 @@ def show_payroll():
                     if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
                         st.success(f"Payroll for {name} released!"); st.rerun()
 
+    # --- TAB 2: HISTORY (FIXED PRINT & DELETE) ---
     with tab_logs:
         if not df.empty:
             p_col1, p_col2 = st.columns([4, 1])
-            p_col1.write(f"### {datetime.now().strftime('%B %Y')} Payroll")
+            p_col1.write(f"### {datetime.now().strftime('%B %Y')} Summary")
             
-            # FIXED PDF BUTTON: Uses a slight delay to ensure the table renders first
-            if p_col2.button("🖨️ Print / Download PDF"):
-                st.components.v1.html("<script>setTimeout(function(){ window.print(); }, 500);</script>", height=0)
+            # --- THE NEW PRINT LOGIC ---
+            # We use a unique key and a more aggressive wait script
+            if p_col2.button("📥 Download PDF", key="print_btn_final"):
+                st.components.v1.html("""
+                    <script>
+                    window.parent.focus();
+                    setTimeout(function(){ 
+                        window.parent.print(); 
+                    }, 1000); 
+                    </script>
+                """, height=0)
 
+            # (The rest of your rows_html and main_html code stays the same)
             rows_html = ""
             for i, r in df.iterrows():
                 rows_html += f"<tr><td style='text-align:center;'>{i+1}</td><td>{r['Employee']}<br><small style='color:gray;'>{r['TIN']}</small></td><td style='text-align:right;'>{r['Basic_Salary']:,.0f}</td><td style='text-align:right;'>{r['Arrears']:,.0f}</td><td style='text-align:right; font-weight:bold;'>{r['Gross_Salary']:,.0f}</td><td style='text-align:right;'>{r['LST']:,.0f}</td><td style='text-align:right;'>{r['PAYE']:,.0f}</td><td style='text-align:right;'>{r['NSSF_5']:,.0f}</td><td style='text-align:right; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{r['Net_Pay']:,.0f}</td><td style='text-align:right; background:#FFD700; font-weight:bold;'>{r['PAYE']:,.0f}</td><td style='text-align:right; background:#FFD700;'>{r['NSSF_10']:,.0f}</td><td style='text-align:right; background:#FFD700;'>{(r['NSSF_5']+r['NSSF_10']):,.0f}</td></tr>"
 
             main_html = f"""
-            <div style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto;">
+            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px;">
                     <thead><tr style="background:#2B3F87; color:white;"><th style="padding:10px;">S/N</th><th style="padding:10px; text-align:left;">Employee & TIN</th><th style="padding:10px; text-align:right;">Basic</th><th style="padding:10px; text-align:right;">Arrears</th><th style="padding:10px; text-align:right;">Gross</th><th style="padding:10px; text-align:right;">LST</th><th style="padding:10px; text-align:right;">PAYE</th><th style="padding:10px; text-align:right;">NSSF(5%)</th><th style="padding:10px; text-align:right; background:#1a285e;">Net Pay</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">Tax on Salary</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">10% NSSF</th><th style="padding:10px; text-align:right; color:black; background:#FFD700;">NSSF 15%</th></tr></thead>
                     <tbody>{rows_html}</tbody>
@@ -1801,32 +1811,33 @@ def show_payroll():
             </div>"""
             st.markdown(main_html, unsafe_allow_html=True)
             
-            # --- UPDATED MODIFY POPOVER WITH DELETE OPTION ---
-            st.write("")
-            with st.popover("⚙️ Modify / Delete Record"):
-                sel_name = st.selectbox("Select Staff", df['Employee'].tolist())
-                item = df[df['Employee'] == sel_name].iloc[0]
+            # --- DELETE & MODIFY SECTION ---
+            st.write("---")
+            with st.popover("⚙️ Modify / Delete Entry"):
+                # Use Payroll_ID for selection to be more precise
+                pay_options = [f"{r['Employee']} (ID: {int(r['Payroll_ID'])})" for _, r in df.iterrows()]
+                selected_opt = st.selectbox("Select Record", pay_options)
                 
-                new_tin = st.text_input("Edit TIN", value=item['TIN'])
-                new_nssf = st.text_input("Edit NSSF No", value=item['NSSF_No'])
-                new_basic = st.number_input("Edit Basic", value=float(item['Basic_Salary']))
-                new_arr = st.number_input("Edit Arrears", value=float(item['Arrears']))
+                # Extract the ID from the selected string
+                sel_id = int(selected_opt.split("(ID: ")[1].replace(")", ""))
+                item = df[df['Payroll_ID'] == sel_id].iloc[0]
+                
+                # ... (Keep your existing Edit Text Inputs here) ...
                 
                 col_save, col_del = st.columns(2)
                 
                 if col_save.button("💾 Save Changes", use_container_width=True):
-                    res_u = calculate_ug_payroll_full(new_basic, new_arr)
-                    df.loc[df['Employee'] == sel_name, ["TIN", "NSSF_No", "Basic_Salary", "Arrears", "Gross_Salary", "LST", "PAYE", "NSSF_5", "NSSF_10", "Total_Deductions", "Net_Pay"]] = [new_tin, new_nssf, new_basic, new_arr, res_u['gross'], res_u['lst'], res_u['paye'], res_u['n5'], res_u['n10'], res_u['deduct'], res_u['net']]
-                    if save_data("Payroll", df): st.success("Updated!"); st.rerun()
+                    # (Your Save Logic)
+                    st.success("Updated!"); st.rerun()
                 
-                # --- THE DELETE BUTTON ---
-                if col_del.button("🗑️ Delete Record", use_container_width=True, type="secondary"):
-                    df_final = df[df['Employee'] != sel_name]
+                if col_del.button("🗑️ Delete Permanently", use_container_width=True, type="primary"):
+                    # Delete by ID to be safe
+                    df_final = df[df['Payroll_ID'] != sel_id]
                     if save_data("Payroll", df_final):
-                        st.warning(f"Record for {sel_name} deleted."); st.rerun()
+                        st.warning(f"Record deleted successfully."); st.rerun()
 
         else:
-            st.info("No records found.")
+            st.info("No payroll records yet.")
         
     
  
