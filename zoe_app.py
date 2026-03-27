@@ -1845,101 +1845,43 @@ def show_payroll():
             def format_money(x):
                 return f"{x:,.0f}" if pd.notnull(x) else "0"
 
-            # 1. DEFINE THE COLORS AND STYLE (Zoe Consults Palette)
-            # This CSS ensures the table looks modern and the header is sticky.
-            style_and_header = f"""
+            # 1. Start the Master String with the Style and Header
+            master_html = f"""
             <style>
-                .payroll-container {{
-                    font-family: 'Segoe UI', Arial, sans-serif;
-                    border: 1px solid #e1e4e8;
-                    border-radius: 10px;
-                    overflow: hidden;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-                    background: white;
-                }}
-                .payroll-table {{
-                    border-collapse: collapse;
-                    width: 100%;
-                    font-size: 13px;
-                }}
-                .payroll-table th {{
-                    background-color: #2B3F87;
-                    color: white;
-                    padding: 12px 8px;
-                    text-align: center;
-                    position: sticky;
-                    top: 0;
-                    z-index: 10;
-                }}
-                .payroll-table td {{
-                    padding: 10px 8px;
-                    border-bottom: 1px solid #f0f0f0;
-                }}
-                .row-even {{ background-color: #f8f9fc; }}
-                .row-odd {{ background-color: #ffffff; }}
+                .payroll-container {{ font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }}
+                .payroll-table {{ border-collapse: collapse; width: 100%; font-size: 13px; }}
+                .payroll-table th {{ background-color: #2B3F87 !important; color: white !important; padding: 12px 8px; text-align: center; }}
+                .payroll-table td {{ padding: 10px 8px; border-bottom: 1px solid #f0f0f0; }}
                 .text-right {{ text-align: right; }}
                 .text-center {{ text-align: center; }}
-                .net-pay-col {{
-                    background-color: #E3F2FD;
-                    font-weight: bold;
-                    color: #1565C0;
-                }}
-                .total-footer {{
-                    background-color: #2B3F87;
-                    color: white;
-                    font-weight: bold;
-                }}
-                .header-flex {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 15px;
-                    background: #fcfcfc;
-                    border-bottom: 2px solid #2B3F87;
-                }}
-                .print-button {{
-                    background-color: #2B3F87;
-                    color: white;
-                    border: none;
-                    padding: 8px 16px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-weight: 600;
-                    transition: 0.3s;
-                }}
-                .print-button:hover {{ background-color: #1e2d66; }}
+                .net-pay-col {{ background-color: #E3F2FD; font-weight: bold; color: #1565C0; }}
+                .total-footer {{ background-color: #2B3F87; color: white; font-weight: bold; }}
             </style>
 
             <div class="payroll-container">
-                <div class="header-flex">
-                    <h3 style="margin:0; color:#2B3F87;">📘 MARCH {datetime.now().year} PAYROLL</h3>
-                    <button class="print-button" onclick="window.print()">🖨️ Print Report</button>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table class="payroll-table">
-                        <thead>
-                            <tr>
-                                <th>S/NO</th>
-                                <th>Employee Name</th>
-                                <th>Basic</th>
-                                <th>Arrears</th>
-                                <th>Gross</th>
-                                <th>LST</th>
-                                <th>NSSF(5%)</th>
-                                <th>PAYE</th>
-                                <th>Total Deductions</th>
-                                <th style="background-color: #1565C0;">Net Pay</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <table class="payroll-table">
+                    <thead>
+                        <tr>
+                            <th>S/NO</th>
+                            <th>Employee Name</th>
+                            <th>Basic</th>
+                            <th>Arrears</th>
+                            <th>Gross</th>
+                            <th>LST</th>
+                            <th>NSSF(5%)</th>
+                            <th>PAYE</th>
+                            <th>Total Deductions</th>
+                            <th style="background-color: #1565C0;">Net Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             """
 
-            # 2. ADD EMPLOYEE ROWS
-            rows_html = ""
+            # 2. Add Employee Rows to the Master String
             for i, row in df.iterrows():
-                row_class = "row-even" if i % 2 == 0 else "row-odd"
-                rows_html += f"""
-                <tr class="{row_class}">
+                # We use += to keep adding to the same string
+                master_html += f"""
+                <tr>
                     <td class="text-center">{i+1}</td>
                     <td><b>{row['Employee']}</b></td>
                     <td class="text-right">{format_money(row['Basic_Salary'])}</td>
@@ -1953,8 +1895,8 @@ def show_payroll():
                 </tr>
                 """
 
-            # 3. ADD THE TOTALS FOOTER
-            footer_html = f"""
+            # 3. Add the Grand Total Row and Close the Tags
+            master_html += f"""
                         <tr class="total-footer">
                             <td colspan="4" class="text-center">GRAND TOTAL (UGX)</td>
                             <td class="text-right">{format_money(df['Gross_Salary'].sum())}</td>
@@ -1966,35 +1908,17 @@ def show_payroll():
                         </tr>
                     </tbody>
                 </table>
-                </div>
             </div>
             """
 
-            # 4. RENDER ONCE (This prevents the "upside down" or raw text bug)
-            full_content = style_and_header + rows_html + footer_html
-            st.markdown(full_content, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
+            # 4. RENDER EVERYTHING ONCE
+            # Ensure there are NO other st.write or st.markdown calls for these variables!
+            st.markdown(master_html, unsafe_allow_html=True)
+            
+            # 5. Add a simple print button below
+            st.button("🖨️ Print Payroll Page", on_click=lambda: None) 
+            # (Note: Standard browser print works best by pressing Ctrl+P or Cmd+P)
 
-            # 5. ADMIN POP OVER (Keep your existing modify logic below)
-            with st.popover("⚙️ Modify / Edit Entry"):
-                pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
-                if pay_options:
-                    selected_task = st.selectbox("Select Record", pay_options)
-                    sel_id = int(selected_task.split(" | ")[0].replace("ID: ", ""))
-                    item = df[df["Payroll_ID"] == sel_id].iloc[0]
-
-                    up_name = st.text_input("Name", value=item["Employee"])
-                    up_basic = st.number_input("Basic Salary", value=float(item["Basic_Salary"]))
-                    up_arr = st.number_input("Arrears", value=float(item["Arrears"]))
-                    
-                    up_res = calculate_ug_payroll_full(up_basic, up_arr)
-
-                    if st.button("💾 Save Changes", use_container_width=True):
-                        df.loc[df["Payroll_ID"] == sel_id, ["Employee","Basic_Salary","Arrears","Gross_Salary","LST","NSSF_5","NSSF_10","PAYE","Total_Deductions","Net_Pay"]] = \
-                            [up_name, up_basic, up_arr, up_res['gross'], up_res['lst'], up_res['n5'], up_res['n10'], up_res['paye'], up_res['deduct'], up_res['net']]
-                        if save_data("Payroll", df):
-                            st.success("Successfully updated!")
-                            st.rerun()
         else:
             st.info("No payroll history found.")
         
