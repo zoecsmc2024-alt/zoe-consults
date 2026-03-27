@@ -1778,13 +1778,13 @@ def show_payroll():
                     if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
                         st.success(f"Payroll for {name} released!"); st.rerun()
 
-    # --- TAB 2: HISTORY (CLEAN PDF FIX) ---
+    # --- TAB 2: HISTORY (FIXED PDF POSITIONING) ---
     with tab_logs:
         if not df.empty:
             p_col1, p_col2 = st.columns([4, 1])
             p_col1.write(f"### {datetime.now().strftime('%B %Y')} Summary")
             
-            # --- THE NEW PRINT TRIGGER ---
+            # --- THE PRINT TRIGGER ---
             if p_col2.button("📥 Download PDF", key="print_btn_final"):
                 st.components.v1.html("""
                     <script>
@@ -1796,7 +1796,6 @@ def show_payroll():
                     </script>
                 """, height=0)
 
-            # 1. Formatting for the table
             def fm(x): return f"{int(float(x)):,}" if pd.notnull(x) else "0"
 
             rows_html = ""
@@ -1817,21 +1816,20 @@ def show_payroll():
                     <td style='text-align:right; background:#FFD700;'>{fm(r['NSSF_5'] + r.get('NSSF_10', 0))}</td>
                 </tr>"""
 
-            # 2. THE MASTER HTML (Includes Print CSS)
+            # 2. THE MASTER HTML (Adjusted for Top-of-Page Printing)
             main_html = f"""
             <style>
                 @media print {{
-                    /* Hide EVERYTHING except the print-area */
                     body * {{ visibility: hidden; }}
                     #print-area, #print-area * {{ visibility: visible; }}
                     #print-area {{
                         position: absolute;
                         left: 0;
-                        top: 0;
+                        top: -50px; /* Moves the table to the very top */
                         width: 100% !important;
                     }}
-                    /* Hide Streamlit UI elements specifically */
                     [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{ display: none !important; }}
+                    @page {{ margin: 0.5cm; }} /* Tightens page margins */
                 }}
 
                 .p-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; }}
@@ -1839,7 +1837,7 @@ def show_payroll():
                 .p-table td {{ padding: 8px; border: 1px solid #ddd; }}
             </style>
 
-            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto; background:white; padding:15px;">
+            <div id="print-area" style="border:1px solid #2B3F87; border-radius:10px; overflow-x:auto; background:white; padding:20px;">
                 <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #2B3F87; padding-bottom:10px;">
                     <h2 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h2>
                     <p style="margin:5px 0;">Official Payroll Report - {datetime.now().strftime('%B %Y')}</p>
@@ -1852,7 +1850,7 @@ def show_payroll():
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
-                <div style="margin-top:50px; display:flex; justify-content:space-around; font-size:12px;">
+                <div style="margin-top:60px; display:flex; justify-content:space-around; font-size:12px;">
                     <div style="text-align:center;"><p>_______________________</p><p>Prepared By</p></div>
                     <div style="text-align:center;"><p>_______________________</p><p>Approved By</p></div>
                 </div>
@@ -1864,17 +1862,15 @@ def show_payroll():
             st.write("---")
             with st.popover("⚙️ Modify / Delete Record"):
                 pay_options = [f"{r['Employee']} (ID: {int(r['Payroll_ID'])})" for _, r in df.iterrows()]
-                selected_opt = st.selectbox("Select Record", pay_options)
-                sel_id = int(selected_opt.split("(ID: ")[1].replace(")", ""))
-                
-                col_save, col_del = st.columns(2)
-                if col_del.button("🗑️ Delete Permanently", use_container_width=True, type="primary"):
-                    df_final = df[df['Payroll_ID'] != sel_id]
-                    if save_data("Payroll", df_final):
-                        st.warning("Record deleted."); st.rerun()
-
-        else:
-            st.info("No records found.")
+                if pay_options:
+                    selected_opt = st.selectbox("Select Record", pay_options)
+                    sel_id = int(selected_opt.split("(ID: ")[1].replace(")", ""))
+                    
+                    col_save, col_del = st.columns(2)
+                    if col_del.button("🗑️ Delete Permanently", use_container_width=True, type="primary"):
+                        df_final = df[df['Payroll_ID'] != sel_id]
+                        if save_data("Payroll", df_final):
+                            st.warning("Record deleted."); st.rerun()
         
     
  
