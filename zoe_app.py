@@ -1839,69 +1839,89 @@ def show_payroll():
                         st.success(f"Salary for {name} processed!")
                         st.rerun()
 
-    # --- ADD THIS TO THE BOTTOM OF YOUR tab_logs SECTION ---
+    # --- TAB 2: LOGS ---
+    with tab_logs:
+        if not df.empty:
+            # 1. Formatting the table for the UI
+            st.dataframe(
+                df[required_columns].sort_values("Date", ascending=False)
+                .style.format({c: "{:,.0f}" for c in money_cols}),
+                use_container_width=True, hide_index=True
+            )
 
-with tab_logs:
-    if not df.empty:
-        # 1. Formatting the table for the UI
-        st.dataframe(
-            df[required_columns].sort_values("Date", ascending=False)
-            .style.format({c: "{:,.0f}" for c in money_cols}),
-            use_container_width=True, hide_index=True
-        )
-
-        st.markdown("---")
-        
-        # 2. PDF Generation Logic
-        if st.button("📄 Generate Monthly Payroll Report"):
-            # Create a professional HTML version of the payroll table
-            payroll_html = f"""
-            <div id="payroll-report" style="font-family: Arial; padding: 20px;">
-                <h2 style="color: #2B3F87; text-align: center;">ZOE CONSULTS SMC LTD</h2>
-                <h3 style="text-align: center; border-bottom: 2px solid #2B3F87;">Monthly Payroll Report - {datetime.now().strftime('%B %Y')}</h3>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px;">
-                    <tr style="background-color: #2B3F87; color: white;">
-                        <th style="padding: 10px; border: 1px solid #ddd;">Employee</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">Gross Salary</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">NSSF (5%)</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">PAYE</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">Net Pay</th>
-                    </tr>
-            """
+            st.markdown("---")
             
-            for _, row in df.iterrows():
-                payroll_html += f"""
-                <tr>
-                    <td style="padding: 8px; border: 1px solid #ddd;">{row['Employee']}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{row['Gross_Salary']:,.0f}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{row['NSSF_5']:,.0f}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{row['PAYE']:,.0f}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">{row['Net_Pay']:,.0f}</td>
-                </tr>
+            # 2. PDF Generation Logic
+            if st.button("📄 Generate Monthly Payroll Report"):
+                payroll_html = f"""
+                <div id="payroll-report" style="font-family: Arial; padding: 20px;">
+                    <h2 style="color: #2B3F87; text-align: center;">ZOE CONSULTS SMC LTD</h2>
+                    <h3 style="text-align: center; border-bottom: 2px solid #2B3F87;">Monthly Payroll Report - {datetime.now().strftime('%B %Y')}</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px;">
+                        <tr style="background-color: #2B3F87; color: white;">
+                            <th style="padding: 10px; border: 1px solid #ddd;">Employee</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Gross Salary</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">NSSF (5%)</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">PAYE</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Net Pay</th>
+                        </tr>
                 """
-            
-            payroll_html += f"""
-                    <tr style="background-color: #f2f2f2; font-weight: bold;">
-                        <td style="padding: 10px; border: 1px solid #ddd;">TOTAL</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['Gross_Salary'].sum():,.0f}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['NSSF_5'].sum():,.0f}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['PAYE'].sum():,.0f}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['Net_Pay'].sum():,.0f}</td>
+                for _, row in df.iterrows():
+                    payroll_html += f"""
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{row['Employee']}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{row['Gross_Salary']:,.0f}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{row['NSSF_5']:,.0f}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{row['PAYE']:,.0f}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">{row['Net_Pay']:,.0f}</td>
                     </tr>
-                </table>
-                <p style="margin-top: 30px; font-size: 10px; color: #666; text-align: center;">Report Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-            </div>
-            
-            <script>
-                var win = window.open('', '', 'height=700,width=900');
-                win.document.write('<html><head><title>Payroll Report</title></head><body>');
-                win.document.write(document.getElementById('payroll-report').innerHTML);
-                win.document.write('</body></html>');
-                win.document.close();
-                win.print();
-            </script>
-            """
-            st.components.v1.html(payroll_html, height=0)
+                    """
+                payroll_html += f"""
+                        <tr style="background-color: #f2f2f2; font-weight: bold;">
+                            <td style="padding: 10px; border: 1px solid #ddd;">TOTAL</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['Gross_Salary'].sum():,.0f}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['NSSF_5'].sum():,.0f}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['PAYE'].sum():,.0f}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">{df['Net_Pay'].sum():,.0f}</td>
+                        </tr>
+                    </table>
+                    <p style="margin-top: 30px; font-size: 10px; color: #666; text-align: center;">Report Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+                </div>
+                <script>
+                    var win = window.open('', '', 'height=700,width=900');
+                    win.document.write('<html><head><title>Payroll Report</title></head><body>');
+                    win.document.write(document.getElementById('payroll-report').innerHTML);
+                    win.document.write('</body></html>');
+                    win.document.close();
+                    win.print();
+                </script>
+                """
+                st.components.v1.html(payroll_html, height=0)
+
+            # 3. Modify / Edit Logic (Tucked inside tab_logs)
+            with st.popover("⚙️ Modify or Void Payroll Entry"):
+                pay_options = [f"ID: {int(r['Payroll_ID'])} | {r['Employee']}" for _, r in df.iterrows()]
+                if pay_options:
+                    selected_task = st.selectbox("Select Record to Edit", pay_options)
+                    sel_id = int(selected_task.split(" | ")[0].replace("ID: ", ""))
+                    item = df[df["Payroll_ID"] == sel_id].iloc[0]
+
+                    up_name = st.text_input("Edit Name", value=item["Employee"])
+                    up_basic = st.number_input("Edit Basic Salary", value=float(item["Basic_Salary"]))
+                    up_arr = st.number_input("Edit Arrears", value=float(item["Arrears"]))
+                    
+                    up_res = calculate_ug_payroll_full(up_basic, up_arr)
+                    
+                    if st.button("Save Updates"):
+                        df.loc[df["Payroll_ID"] == sel_id, ["Employee", "Basic_Salary", "Arrears", "Gross_Salary", "LST", "NSSF_5", "NSSF_10", "PAYE", "Total_Deductions", "Net_Pay"]] = \
+                            [up_name, up_basic, up_arr, up_res['gross'], up_res['lst'], up_res['n5'], up_res['n10'], up_res['paye'], up_res['deduct'], up_res['net']]
+                        if save_data("Payroll", df):
+                            st.success("Payroll Record Updated!")
+                            st.rerun()
+                else:
+                    st.write("No records to modify.")
+        else:
+            st.info("No payroll history found.")
         
     
  
