@@ -13,8 +13,7 @@ from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from fpdf import FPDF
-import io
-from xhtml2pdf import pisa
+
 
 # ==============================
 # 1. GLOBAL SETTINGS & AUTH
