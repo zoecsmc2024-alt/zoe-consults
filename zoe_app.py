@@ -29,9 +29,10 @@ def apply_custom_styles():
             [data-testid="stSidebar"] {{
                 background-color: {BRANDING['navy']};
             }}
+            
             [data-testid="stSidebar"] * {{
                 color: white !important;
-            }
+            }}
             
             /* Active Tab Highlight */
             .st-bb {{ border-bottom-color: {BRANDING['navy']}; }}
@@ -45,7 +46,7 @@ def apply_custom_styles():
                 border: none;
             }}
             .stButton>button:hover {{
-                background-color: #1a285e; /* Slightly darker navy */
+                background-color: #1a285e;
                 color: {BRANDING['baby_blue']};
             }}
         </style>
