@@ -1949,38 +1949,64 @@ def show_payroll():
             def fm(x): return f"{int(float(x)):,}" if x != "" else "0"
             rows_html = ""
             for i, r in df.iterrows():
+                # Calculating row-level NSSF for display
+                n5_val = float(r.get('NSSF_5', 0))
+                n10_val = float(r.get('NSSF_10', 0))
+                n15_val = float(r.get('NSSF_15', 0))
+
+                # --- INCREASED PADDING & ACCOUNT NO PROVISION ---
                 rows_html += f"""
                 <tr>
-                    <td style='text-align:center; border:1px solid #ddd;'>{i+1}</td>
-                    <td style='border:1px solid #ddd;'><b>{r['Employee']}</b><br><small>{r['Designation']}</small></td>
-                    <td style='text-align:right; border:1px solid #ddd;'>{fm(r['Arrears'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd;'>{fm(r['Basic_Salary'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd;'>{fm(r['PAYE'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd;'>{fm(r['NSSF_5'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; background:#E3F2FD; font-weight:bold;'>{fm(r['Net_Pay'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; background:#FFF9C4;'>{fm(r['NSSF_10'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; background:#FFF9C4; font-weight:bold;'>{fm(r['NSSF_15'])}</td>
+                    <td style='text-align:center; border:1px solid #ddd; padding: 15px 10px;'>{i+1}</td>
+                    <td style='border:1px solid #ddd; padding: 15px 10px;'>
+                        <div style="font-weight:bold; font-size:12px;">{r['Employee']}</div>
+                        <div style="font-size:10px; color:#555;">{r.get('Designation', '-')}</div>
+                        <div style="font-size:10px; color:#2B3F87; margin-top:4px;"><b>A/C:</b> {r.get('Account_No', '-')}</div>
+                    </td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Arrears'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Basic_Salary'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['PAYE'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(n5_val)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4;'>{fm(n10_val)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_val)}</td>
                 </tr>"""
 
             main_html = f"""
-            <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 30px; background: white; font-family: sans-serif;">
-                <h2 style="text-align:center; color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h2>
-                <p style="text-align:center; margin-bottom:20px;">OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</p>
-                <table style="width:100%; border-collapse:collapse; font-size:10px;">
+            <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 35px; background: white; font-family: sans-serif;">
+                <h2 style="text-align:center; color:#2B3F87; margin:0; font-size:22px;">ZOE CONSULTS SMC LTD</h2>
+                <p style="text-align:center; color:#666; margin-bottom:25px; font-weight:bold;">OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</p>
+                
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <thead>
-                        <tr style="background:#2B3F87; color:white;">
-                            <th>S/N</th><th>Employee Details</th><th>Arrears</th><th>Basic</th><th>Gross</th><th>P.A.Y.E</th><th>NSSF(5%)</th><th>Net Pay</th><th>10% NSSF</th><th>NSSF 15%</th>
+                        <tr style="background:#2B3F87; color:white; -webkit-print-color-adjust: exact;">
+                            <th style="padding:12px; border:1px solid #ddd;">S/N</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:left;">Employee Details</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right;">Arrears</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right;">Basic</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right;">Gross</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right;">P.A.Y.E</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right;">NSSF(5%)</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right; background:#1a285e;">Net Pay</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right; color:black; background:#FFD700;">10% NSSF</th>
+                            <th style="padding:12px; border:1px solid #ddd; text-align:right; color:black; background:#FFD700;">NSSF 15%</th>
                         </tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
-                <div style="margin-top:60px; display:flex; justify-content:space-around; font-size:12px;">
-                    <div style="text-align:center; border-top:1px solid #000; width:180px; padding-top:5px;">PREPARED BY</div>
-                    <div style="text-align:center; border-top:1px solid #000; width:180px; padding-top:5px;">APPROVED BY</div>
+
+                <div style="margin-top:100px; display:flex; justify-content:space-around; font-size:12px;">
+                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:8px;"><b>PREPARED BY</b></div>
+                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:8px;"><b>APPROVED BY</b></div>
+                </div>
+                
+                <div style="margin-top:30px; text-align:center; color:#999; font-size:9px;">
+                    Generated on {datetime.now().strftime('%d %b %Y, %H:%M')}
                 </div>
             </div>"""
-            st.components.v1.html(main_html, height=600, scrolling=True)
+            
+            st.components.v1.html(main_html, height=800, scrolling=True)
 
             # --- MODIFY & DELETE SECTION ---
             st.write("---")
