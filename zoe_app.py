@@ -544,13 +544,11 @@ def show_overview():
     pay_df = get_cached_data("Payments")
     exp_df = get_cached_data("Expenses")
 
-    # FIX: Check if the dataframe is actually empty or just filtered
     if df is None or df.empty:
         st.warning("⚠️ No data found in 'Loans'. Add some borrowers to get started!")
         return
 
-    # 2. DATA CLEANING & STATUS REPAIR
-    # Ensure numeric types for math
+    # 2. DATA CLEANING
     df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
     df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
     df["Amount_Paid"] = pd.to_numeric(df["Amount_Paid"], errors="coerce").fillna(0)
@@ -558,174 +556,62 @@ def show_overview():
     
     today = pd.Timestamp.today().normalize()
     
-    # CRITICAL FIX: Define what "Active" means for Zoe Consults
-    # This ensures "Rolled/Overdue" loans show up in your totals!
+    # --- THE RECOVERY FILTER ---
+    # We define what "Live Money" is. This includes Rolled loans!
     active_statuses = ["Active", "Overdue", "Rolled/Overdue"]
     active_df = df[df["Status"].isin(active_statuses)].copy()
 
     # 3. METRICS CALCULATION
     total_issued = active_df["Amount"].sum()
     total_interest_expected = active_df["Interest"].sum()
-    total_collected = df["Amount_Paid"].sum() # Total collected from ALL time
+    total_collected = df["Amount_Paid"].sum() 
     
-    # Count overdue (Current date is past End_Date and not cleared)
+    # Overdue logic for metrics
     overdue_mask = (active_df["End_Date"] < today) & (active_df["Status"] != "Cleared")
     overdue_count = active_df[overdue_mask].shape[0]
     
-    # 4. METRICS ROW (Zoe Soft Blue Style)
+    # 4. METRICS ROW (Soft Blue)
     m1, m2, m3, m4 = st.columns(4)
+    m1.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">💰 ACTIVE PRINCIPAL</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{total_issued:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+    m2.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">📈 EXPECTED INTEREST</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{total_interest_expected:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+    m3.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #2E7D32;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">✅ TOTAL COLLECTED</p><h3 style="margin:0;color:#2E7D32;font-size:18px;">{total_collected:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+    m4.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #FF4B4B;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">🚨 OVERDUE FILES</p><h3 style="margin:0;color:#FF4B4B;font-size:18px;">{overdue_count}</h3></div>""", unsafe_allow_html=True)
 
-    # 1. Total Issued (Soft Blue)
-    m1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">💰 TOTAL ACTIVE PRINCIPAL</p>
-            <h3 style="margin:0; color:#4A90E2; font-size: 18px;">{total_issued:,.0f} <span style="font-size:10px;">UGX</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 2. Expected Interest (Soft Blue)
-    m2.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">📈 EXPECTED INTEREST</p>
-            <h3 style="margin:0; color:#4A90E2; font-size: 18px;">{total_interest_expected:,.0f} <span style="font-size:10px;">UGX</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 3. Total Collected (Success Green)
-    m3.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2E7D32; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">✅ TOTAL COLLECTED</p>
-            <h3 style="margin:0; color:#2E7D32; font-size: 18px;">{total_collected:,.0f} <span style="font-size:10px;">UGX</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 4. Overdue Count (Alert Red)
-    m4.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">🚨 OVERDUE ACCOUNTS</p>
-            <h3 style="margin:0; color:#FF4B4B; font-size: 18px;">{overdue_count} <span style="font-size:10px;">FILES</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 5. CHARTS & TABLES (Remaining logic continues below...)
+    # 5. RECENT ACTIVITY TABLES
     st.write("---")
-    # (Rest of your charts code using active_df)
-
-    # 2. Expected Profit (Baby Blue Accent)
-    m2.markdown(f"""
-        <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#2B3F87; font-weight:bold; letter-spacing:1px;">📈 EXPECTED PROFIT</p>
-            <h3 style="margin:0; color:#2B3F87; font-size: 18px;">{total_profit:,.0f} <span style="font-size:10px;">UGX</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 3. Collected (White/Navy)
-    m3.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">💵 COLLECTED</p>
-            <h3 style="margin:0; color:#2B3F87; font-size: 18px;">{total_collected:,.0f} <span style="font-size:10px;">UGX</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 4. Overdue (Risk Red - Kept for visibility)
-    m4.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">⚠️ OVERDUE LOANS</p>
-            <h3 style="margin:0; color:#FF4B4B; font-size: 22px;">{overdue_count}</h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # 5. VISUALS (Zoe Consults Styled)
-    st.markdown("---")
-    c1, c2 = st.columns(2)
-
-    with c1:
-        status_df = df["Auto_Status"].value_counts().reset_index()
-        status_df.columns = ["Status", "Count"]
-        # Pie Chart with Navy and Baby Blue sequences
-        fig_pie = px.pie(
-            status_df, names="Status", values="Count", 
-            hole=0.4, title="Portfolio Health",
-            color_discrete_sequence=["#2B3F87", "#F0F8FF", "#FF4B4B"]
-        )
-        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#2B3F87")
-        st.plotly_chart(fig_pie, use_container_width=True, key="overview_pie_chart")
-
-    with c2:
-        if 'merged_df' in locals() and not merged_df.empty:
-            # Bar Chart with Navy for Income
-            fig_bar = px.bar(
-                merged_df, x="Month", y=["Income", "Expenses"], 
-                barmode="group", title="Monthly Cashflow",
-                color_discrete_map={"Income": "#2B3F87", "Expenses": "#FF4B4B"}
-            )
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#2B3F87")
-            st.plotly_chart(fig_bar, use_container_width=True, key="overview_bar_chart")
-        else:
-            st.info("📊 Monthly cashflow data is being prepared...")
-    # ==============================
-    # DATA TABLES (With Comma Formatting)
-    # 6. RECENT ACTIVITY TABLES (Navy/Baby Blue Theme)
-    st.markdown("---")
     t1, t2 = st.columns(2)
 
     with t1:
-        st.markdown("<h4 style='color: #2B3F87;'>📝 Recent Loans</h4>", unsafe_allow_html=True)
-        recent_loans = df.sort_values(by="Start_Date", ascending=False).head(5)
+        st.markdown("<h4 style='color: #4A90E2;'>📝 Recent Active & Rolled Loans</h4>", unsafe_allow_html=True)
+        # We sort the active_df so we only see current money
+        recent_loans = active_df.sort_values(by="End_Date", ascending=False).head(5)
         
         rows_html = ""
         for i, r in recent_loans.iterrows():
             bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
             rows_html += f"""
             <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                <td style="padding:8px;">{r['Borrower']}</td>
-                <td style="padding:8px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Amount']:,.0f}</td>
-                <td style="padding:8px; text-align:center;"><span style="font-size:10px; padding:2px 6px; border-radius:10px; background:#2B3F87; color:white;">{r['Status']}</span></td>
+                <td style="padding:10px;">{r['Borrower']}</td>
+                <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{r['Amount']:,.0f}</td>
+                <td style="padding:10px; text-align:center;"><span style="font-size:10px; padding:2px 8px; border-radius:10px; background:#4A90E2; color:white;">{r['Status']}</span></td>
             </tr>"""
 
         st.markdown(f"""
-            <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #2B3F87;">
-                <thead>
-                    <tr style="background:#2B3F87; color:white; text-align:left;">
-                        <th style="padding:10px;">Borrower</th>
-                        <th style="padding:10px; text-align:right;">Amount</th>
-                        <th style="padding:10px; text-align:center;">Status</th>
-                    </tr>
-                </thead>
+            <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #4A90E2;">
+                <thead><tr style="background:#4A90E2; color:white;"><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:right;">Principal</th><th style="padding:10px; text-align:center;">Status</th></tr></thead>
                 <tbody>{rows_html}</tbody>
             </table>
         """, unsafe_allow_html=True)
 
     with t2:
-        st.markdown("<h4 style='color: #2B3F87;'>💸 Recent Payments</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #2E7D32;'>💸 Recent Cash Inflows</h4>", unsafe_allow_html=True)
         if not pay_df.empty:
             recent_pay = pay_df.sort_values(by="Date", ascending=False).head(5)
             pay_rows = ""
             for i, r in recent_pay.iterrows():
                 bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                pay_rows += f"""
-                <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                    <td style="padding:8px;">{r['Borrower']}</td>
-                    <td style="padding:8px; text-align:right; font-weight:bold; color:green;">{r['Amount']:,.0f}</td>
-                    <td style="padding:8px; text-align:center; color:#666;">{pd.to_datetime(r['Date']).strftime('%d %b')}</td>
-                </tr>"""
-
-            st.markdown(f"""
-                <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #2B3F87;">
-                    <thead>
-                        <tr style="background:#2B3F87; color:white; text-align:left;">
-                            <th style="padding:10px;">Borrower</th>
-                            <th style="padding:10px; text-align:right;">Received</th>
-                            <th style="padding:10px; text-align:center;">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>{pay_rows}</tbody>
-                </table>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("No recent payments recorded.")
+                pay_rows += f"""<tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;"><td style="padding:10px;">{r['Borrower']}</td><td style="padding:10px; text-align:right; font-weight:bold; color:green;">{r['Amount']:,.0f}</td><td style="padding:10px; text-align:center; color:#666;">{pd.to_datetime(r['Date']).strftime('%d %b')}</td></tr>"""
+            st.markdown(f"""<table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #2E7D32;"><thead><tr style="background:#2E7D32; color:white;"><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:right;">Amount</th><th style="padding:10px; text-align:center;">Date</th></tr></thead><tbody>{pay_rows}</tbody></table>""", unsafe_allow_html=True)
 
 
 # ==============================
