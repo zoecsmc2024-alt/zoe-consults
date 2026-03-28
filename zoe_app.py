@@ -745,9 +745,42 @@ def show_borrowers():
         if status_filter != "All":
             filtered_df = filtered_df[filtered_df["Status"] == status_filter]
 
-        # Displaying the main list
-        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+        # --- NEW STYLED TABLE FOR BORROWERS ---
+        if not filtered_df.empty:
+            rows_html = ""
+            for i, r in filtered_df.iterrows():
+                # Baby Blue alternating rows
+                bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                
+                rows_html += f"""
+                <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
+                    <td style="padding:12px; border:1px solid #eee;"><b>{r['Name']}</b></td>
+                    <td style="padding:12px; border:1px solid #eee;">{r['Phone']}</td>
+                    <td style="padding:12px; border:1px solid #eee; font-size: 11px;">{r.get('Email', 'N/A')}</td>
+                    <td style="padding:12px; border:1px solid #eee; text-align:center;">
+                        <span style="background:#2B3F87; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">
+                            {r['Status']}
+                        </span>
+                    </td>
+                </tr>"""
 
+            st.markdown(f"""
+                <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden; margin-top:20px;">
+                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
+                        <thead>
+                            <tr style="background:#2B3F87; color:white; text-align:left;">
+                                <th style="padding:12px;">Borrower Name</th>
+                                <th style="padding:12px;">Phone</th>
+                                <th style="padding:12px;">Email Address</th>
+                                <th style="padding:12px; text-align:center;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("No borrowers found matching your search.")
     # --- TAB 2: ADD BORROWER (Zoe Themed Form) ---
     with tab_add:
         st.markdown("<br>", unsafe_allow_html=True)
