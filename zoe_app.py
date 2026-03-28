@@ -865,7 +865,42 @@ def show_borrowers():
 
                 st.markdown("---")
                 st.write("**Full Loan History:**")
-                st.dataframe(u_loans[["Loan_ID", "Amount", "Status", "End_Date"]], use_container_width=True, hide_index=True)
+                # --- NEW STYLED LOAN HISTORY TABLE ---
+                st.write("**Full Loan History:**")
+                
+                history_rows = ""
+                for i, row in u_loans.iterrows():
+                    bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                    # Status color logic
+                    status_color = "#2B3F87" if row['Status'] != "Closed" else "#666"
+                    
+                    history_rows += f"""
+                    <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+                        <td style="padding:10px;">#{row['Loan_ID']}</td>
+                        <td style="padding:10px; font-weight:bold; color:#2B3F87;">{row['Amount']:,.0f} UGX</td>
+                        <td style="padding:10px; text-align:center;">
+                            <span style="background:{status_color}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">
+                                {row['Status']}
+                            </span>
+                        </td>
+                        <td style="padding:10px; text-align:right; color:#666;">{pd.to_datetime(row['End_Date']).strftime('%d %b %Y')}</td>
+                    </tr>"""
+
+                st.markdown(f"""
+                    <div style="border:1px solid #2B3F87; border-radius:8px; overflow:hidden; margin-top:10px;">
+                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
+                            <thead>
+                                <tr style="background:#2B3F87; color:white; text-align:left;">
+                                    <th style="padding:10px;">ID</th>
+                                    <th style="padding:10px;">Amount</th>
+                                    <th style="padding:10px; text-align:center;">Status</th>
+                                    <th style="padding:10px; text-align:right;">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>{history_rows}</tbody>
+                        </table>
+                    </div>
+                """, unsafe_allow_html=True)
             else:
                 st.info("ℹ️ This borrower has a clean history (no loans recorded yet).")
 
@@ -874,26 +909,6 @@ def show_borrowers():
 
 
 # ==============================
-# 13. LOANS MANAGEMENT PAGE
-# ==============================
-
-def show_loans():
-    st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
-    
-    # 1. LOAD DATA
-    borrowers_df = get_cached_data("Borrowers")
-    loans_df = get_cached_data("Loans")
-
-    if borrowers_df.empty:
-        st.warning("⚠️ No borrowers found. Register a client first!")
-        return
-        
-    active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
-
-    # --- TABBED INTERFACE ---
-    tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
-
-    # ==============================
 # 13. LOANS MANAGEMENT PAGE
 # ==============================
 
