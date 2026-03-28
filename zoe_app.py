@@ -2030,6 +2030,24 @@ def show_payroll():
             
             st.components.v1.html(main_html, height=800, scrolling=True)
 
+            # 2. ADD THIS "PRINT LAYER" (This is what the printer sees)
+            # We wrap it in a div that is hidden on screen but visible during print
+            st.markdown(f"""
+                <div class="only-print">
+                    {main_html}
+                </div>
+                <style>
+                    @media screen {{
+                        .only-print {{ display: none !important; }}
+                    }}
+                    @media print {{
+                        .only-print {{ display: block !important; }}
+                        /* Hide the component 'box' during print so it doesn't stay white */
+                        iframe {{ display: none !important; }}
+                    }}
+                </style>
+            """, unsafe_allow_html=True)
+
             # 5. MODIFY & DELETE SECTION (Correctly inside the 'if' block)
             st.write("---")
             with st.expander("⚙️ Modify / Delete Record"):
