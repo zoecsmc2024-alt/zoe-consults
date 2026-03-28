@@ -1977,21 +1977,72 @@ def show_payroll():
                     <td style='text-align:right; background:#FFFAE6;'>{fm(total_nssf)}</td>
                 </tr>"""
 
+            # --- THE CORRECTED PRINTABLE HTML ---
             main_html = f"""
-            <div style="border:1px solid #4A90E2; border-radius:10px; background:white; padding:20px; font-family:sans-serif;">
-                <div style="text-align:center; border-bottom:2px solid #4A90E2; padding-bottom:10px; margin-bottom:15px;">
-                    <h2 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h2>
-                    <p style="margin:5px 0; color:#666;">Official Payroll Report - {datetime.now().strftime('%B %Y')}</p>
+            <style>
+                /* This part only works when printing */
+                @media print {{
+                    /* 1. Hide everything by default */
+                    body * {{ visibility: hidden; }}
+                    
+                    /* 2. ONLY show the payroll-box and its content */
+                    #payroll-box, #payroll-box * {{ visibility: visible; }}
+                    
+                    /* 3. Position the box at the very top-left of the paper */
+                    #payroll-box {{
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100% !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                    }}
+                    
+                    /* 4. Hide Streamlit elements specifically */
+                    [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{
+                        display: none !important;
+                    }}
+                }}
+                
+                /* Standard screen styling (Soft Blue) */
+                .payroll-card {{
+                    border: 2px solid #4A90E2; 
+                    border-radius: 10px; 
+                    background: white; 
+                    padding: 30px; 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+                }}
+            </style>
+
+            <div id="payroll-box" class="payroll-card">
+                <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:15px; margin-bottom:20px;">
+                    <h1 style="color:#2B3F87; margin:0; letter-spacing:1px;">ZOE CONSULTS SMC LTD</h1>
+                    <p style="margin:5px 0; color:#666; font-weight:bold; text-transform:uppercase;">
+                        Official Payroll Report - {datetime.now().strftime('%B %Y')}
+                    </p>
                 </div>
-                <table style="width:100%; border-collapse:collapse; font-size:11px;">
-                    <thead><tr style="background:#4A90E2; color:white;">
-                        <th>S/N</th><th>Employee</th><th>Basic</th><th>Arrears</th><th>Gross</th><th>LST</th><th>PAYE</th><th>Net Pay</th><th>NSSF 15%</th>
-                    </tr></thead>
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead>
+                        <tr style="background:#4A90E2; color:white;">
+                            <th style="padding:10px;">S/N</th>
+                            <th style="padding:10px; text-align:left;">Employee Details</th>
+                            <th style="padding:10px; text-align:right;">Basic</th>
+                            <th style="padding:10px; text-align:right;">Gross</th>
+                            <th style="padding:10px; text-align:right;">PAYE</th>
+                            <th style="padding:10px; text-align:right; background:#1a285e;">Net Pay</th>
+                            <th style="padding:10px; text-align:right;">NSSF (15%)</th>
+                        </tr>
+                    </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
+                <div style="margin-top:80px; display:flex; justify-content:space-around; font-size:13px;">
+                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:5px;">Prepared By</div>
+                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:5px;">Approved By</div>
+                </div>
             </div>"""
+            
             st.markdown(main_html, unsafe_allow_html=True)
-
             # --- MODIFY & DELETE SECTION ---
             st.write("---")
             with st.expander("⚙️ Modify / Delete Record"):
