@@ -1974,9 +1974,13 @@ def show_payroll():
             # 3. BUILD ROWS
             rows_html = ""
             for i, r in df.iterrows():
-                n5_val = float(r.get('NSSF_5', 0))
-                n10_val = float(r.get('NSSF_10', 0))
-                n15_val = float(r.get('NSSF_15', 0))
+                # 1. Force the math for display (Safest way!)
+                # We pull the 5% and 10% values first
+                n5_val = float(r.get('NSSF_5', 0)) if r.get('NSSF_5') != "" else 0
+                n10_val = float(r.get('NSSF_10', 0)) if r.get('NSSF_10') != "" else 0
+                
+                # 2. Add them together for the 15% column
+                n15_total = n5_val + n10_val
 
                 rows_html += f"""
                 <tr>
@@ -1993,9 +1997,9 @@ def show_payroll():
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(n5_val)}</td>
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4;'>{fm(n10_val)}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_val)}</td>
+                    
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_total)}</td>
                 </tr>"""
-
             # 4. FINAL HTML STRUCTURE
             main_html = f"""
             <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 35px; background: white; font-family: sans-serif;">
