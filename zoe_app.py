@@ -1348,19 +1348,28 @@ def show_collateral():
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # --- "COOL ZOE" INVENTORY TABLE ---
+            # --- RESTORED & STYLED INVENTORY TABLE ---
             rows_html = ""
             for i, r in col_df.iterrows():
                 bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                
+                # Format the date nicely
+                try:
+                    formatted_date = pd.to_datetime(r['Date_Added']).strftime('%d %b %Y')
+                except:
+                    formatted_date = str(r.get('Date_Added', 'N/A'))
+
                 rows_html += f"""
                 <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+                    <td style="padding:10px; color:#666; font-size:11px;">#{r['Collateral_ID']}</td>
                     <td style="padding:10px;"><b>{r['Borrower']}</b></td>
                     <td style="padding:10px;">{r['Type']}</td>
-                    <td style="padding:10px; font-size:11px; color:#666;">{r['Description']}</td>
+                    <td style="padding:10px; font-size:11px; color:#444;">{r['Description']}</td>
                     <td style="padding:10px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Value']:,.0f}</td>
                     <td style="padding:10px; text-align:center;">
                         <span style="background:#2B3F87; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
                     </td>
+                    <td style="padding:10px; text-align:right; font-size:11px; color:#666;">{formatted_date}</td>
                 </tr>"""
 
             st.markdown(f"""
@@ -1368,11 +1377,13 @@ def show_collateral():
                     <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
                         <thead>
                             <tr style="background:#2B3F87; color:white; text-align:left;">
+                                <th style="padding:12px;">ID</th>
                                 <th style="padding:12px;">Borrower</th>
-                                <th style="padding:12px;">Asset Type</th>
+                                <th style="padding:12px;">Type</th>
                                 <th style="padding:12px;">Description</th>
-                                <th style="padding:12px; text-align:right;">Market Value</th>
+                                <th style="padding:12px; text-align:right;">Value (UGX)</th>
                                 <th style="padding:12px; text-align:center;">Status</th>
+                                <th style="padding:12px; text-align:right;">Date Secured</th>
                             </tr>
                         </thead>
                         <tbody>{rows_html}</tbody>
