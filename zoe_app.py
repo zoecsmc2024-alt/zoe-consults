@@ -14,7 +14,6 @@ from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from fpdf import FPDF
 
-
 # ==============================
 # 1. GLOBAL SETTINGS & AUTH
 # ==============================
