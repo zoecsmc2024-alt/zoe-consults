@@ -1413,24 +1413,26 @@ def show_overdue_tracker():
             loan_df.loc[i, 'Status'] = "Rolled/Overdue"
             loan_df.loc[i, 'Rollover_Date'] = datetime.now().strftime("%Y-%m-%d")
             
-        # Standardize all dates to strings for JSON safety
+        # --- Standardize all dates to strings (Inside your rollover loop) ---
         if 'Start_Date' in loan_df.columns:
             loan_df['Start_Date'] = pd.to_datetime(loan_df['Start_Date']).dt.strftime('%Y-%m-%d')
         if 'End_Date' in loan_df.columns:
             loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date']).dt.strftime('%Y-%m-%d')
 
-        def save_data(worksheet_name, dataframe):
+# --- SAVE DATA MUST START HERE (Zero Indentation) ---
+def save_data(worksheet_name, dataframe):
     """
     Overwrites a worksheet with a safety shield to prevent data loss.
     """
     try:
         # SAFETY SHIELD: Never save if the dataframe is empty 
-        # unless we explicitly want to (this prevents 'blank sheet' bugs)
         if dataframe.empty:
             st.error(f"❌ Safety Stop: Attempted to save an empty list to {worksheet_name}. Action cancelled.")
             return False
 
         # Convert everything to strings to prevent the 'Timestamp' JSON error
+        df_to_save = dataframe.copy()
+        # ... rest of your save logic ...
         df_to_save = dataframe.copy()
         for col in df_to_save.columns:
             if pd.api.types.is_datetime64_any_dtype(df_to_save[col]):
