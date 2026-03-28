@@ -360,24 +360,23 @@ st.markdown("""
         color: #2B3F87 !important;
     }
 
-    /* 3. CLEAN SIDEBAR BUTTONS - RESCUE VERSION */
+    /* 1. TARGET THE SIDEBAR BUTTONS SPECIFICALLY */
     section[data-testid="stSidebar"] .stButton > button {
-        background-color: transparent !important;
+        background-color: transparent !important; /* Removes the white box */
         color: #F0F8FF !important; /* Baby Blue Text */
-        border: 1px solid rgba(240, 248, 255, 0.2) !important; /* Soft border */
+        border: 1px solid rgba(240, 248, 255, 0.1) !important; /* Very subtle border */
         width: 100% !important;
         text-align: left !important;
         padding: 10px 15px !important;
         border-radius: 8px !important;
-        transition: all 0.3s ease !important;
+        transition: all 0.2s ease-in-out !important;
     }
 
-    /* THE HOVER FIX - This makes them turn Baby Blue when you touch them */
+    /* 2. HOVER EFFECT */
     section[data-testid="stSidebar"] .stButton > button:hover {
-        color: #2B3F87 !important; /* Navy Text on hover */
-        background-color: #F0F8FF !important; /* Baby Blue Background on hover */
+        background-color: #F0F8FF !important; /* Becomes Baby Blue */
+        color: #2B3F87 !important; /* Text turns Navy */
         border: 1px solid #F0F8FF !important;
-        transform: translateX(5px) !important;
     }
 
     /* THE ACTIVE TAB FIX - This makes the current page look 'Pressed' */
@@ -508,18 +507,9 @@ def sidebar():
         if role != "Admin" and item in restricted:
             continue
 
-        # Visual Active State (Now Baby Blue with Navy Text)
-        if current_page == item:
-            st.sidebar.markdown(f"""
-                <div style="background-color: #F0F8FF; color: #2B3F87; padding: 10px; 
-                            border-radius: 8px; font-weight: bold; margin-bottom: 5px; 
-                            display: flex; align-items: center;">
-                    {icon} &nbsp; {item}
-                </div>
-            """, unsafe_allow_html=True)
         else:
-            # Clean Button Navigation
-            if st.sidebar.button(f"{icon} {item}", key=f"nav_{item}", use_container_width=True):
+            # Clean Button Navigation with 'Secondary' type for transparency
+            if st.sidebar.button(f"{icon} {item}", key=f"nav_{item}", use_container_width=True, type="secondary"):
                 st.session_state.page = item
                 st.rerun()
 
