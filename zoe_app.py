@@ -981,95 +981,59 @@ def show_loans():
                             st.success(f"✅ Loan #{new_id} successfully issued to {selected_borrower}!"); st.rerun()
 
     # ==============================
-    # TAB 2: PORTFOLIO INSPECTOR (Zoe Metrics)
+    # TAB 2: PORTFOLIO INSPECTOR (Zoe Soft Blue)
     # ==============================
     with tab_view:
         if not loans_df.empty:
             # Prepare data for display
             display_df = loans_df.copy()
-            for col in ["Amount", "Interest", "Amount_Paid"]:
-                display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
             
-            display_df["Total_Repayable"] = display_df["Amount"] + display_df["Interest"]
-            display_df["Outstanding_Balance"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
-            
-            sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
-            loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
-            
-            # --- ZOE BRANDED METRICS ---
-            p1, p2, p3 = st.columns(3)
-            
-            # 1. Paid Card (Baby Blue/Navy)
-            p1.markdown(f"""
-                <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">RECEIVED</p>
-                    <h3 style="margin:0; color:#2B3F87; font-size:18px;">{loan_info['Amount_Paid']:,.0f} UGX</h3>
-                </div>
-            """, unsafe_allow_html=True)
+            # --- CRITICAL FIX: Ensure we see Active, Overdue, AND Rolled loans ---
+            # This brings your "disappeared" loans back!
+            relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
+            display_df = display_df[display_df["Status"].isin(relevant_statuses)]
 
-            # 2. Outstanding Card (White/Alert Red)
-            p2.markdown(f"""
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">OUTSTANDING</p>
-                    <h3 style="margin:0; color:#FF4B4B; font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3>
-                </div>
-            """, unsafe_allow_html=True)
-
-            # 3. Status Card (Dynamic Zoe Navy)
-            status_color = "#2B3F87" if loan_info['Status'] == "Active" else "#FF4B4B"
-            p3.markdown(f"""
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {status_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CURRENT STATUS</p>
-                    <h3 style="margin:0; color:{status_color}; font-size:18px;">{loan_info['Status'].upper()}</h3>
-                </div>
-            """, unsafe_allow_html=True) 
-
-            st.write("")
-            st.progress(min(max(loan_info['Amount_Paid'] / loan_info['Total_Repayable'], 0.0), 1.0))
-            
-            # Display Full Data
-            # --- NEW STYLED TABLE FOR LOANS PORTFOLIO ---
-            st.markdown("<h4 style='color: #2B3F87; margin-top:20px;'>📋 Full Loan Ledger</h4>", unsafe_allow_html=True)
-            
-            rows_html = ""
-            for i, r in display_df.iterrows():
-                # Baby Blue alternating rows
-                bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+            if display_df.empty:
+                st.info("ℹ️ No active or rolled loans to inspect at the moment.")
+            else:
+                for col in ["Amount", "Interest", "Amount_Paid"]:
+                    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 
-                # Dynamic Status Badge Color
-                stat_bg = "#2B3F87" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#666"
+                display_df["Total_Repayable"] = display_df["Amount"] + display_df["Interest"]
+                display_df["Outstanding_Balance"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
+                
+                sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
+                loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
+                
+                # --- ZOE SOFT BLUE METRICS ---
+                p1, p2, p3 = st.columns(3)
+                
+                # 1. Paid Card (Baby Blue / Soft Blue)
+                p1.markdown(f"""
+                    <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">RECEIVED</p>
+                        <h3 style="margin:0; color:#4A90E2; font-size:18px;">{loan_info['Amount_Paid']:,.0f} UGX</h3>
+                    </div>
+                """, unsafe_allow_html=True)
 
-                rows_html += f"""
-                <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                    <td style="padding:10px; border:1px solid #eee;"><b>#{r['Loan_ID']}</b></td>
-                    <td style="padding:10px; border:1px solid #eee;">{r['Borrower']}</td>
-                    <td style="padding:10px; border:1px solid #eee; text-align:right; font-weight:bold; color:#2B3F87;">{r['Amount']:,.0f}</td>
-                    <td style="padding:10px; border:1px solid #eee; text-align:right; color:#D32F2F;">{r['Outstanding_Balance']:,.0f}</td>
-                    <td style="padding:10px; border:1px solid #eee; text-align:center;">
-                        <span style="background:{stat_bg}; color:white; padding:3px 8px; border-radius:10px; font-size:10px; text-transform:uppercase;">
-                            {r['Status']}
-                        </span>
-                    </td>
-                    <td style="padding:10px; border:1px solid #eee; text-align:right; font-size:11px; color:#666;">{pd.to_datetime(r['End_Date']).strftime('%d %b %Y')}</td>
-                </tr>"""
+                # 2. Outstanding Card (White / Soft Blue)
+                p2.markdown(f"""
+                    <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">OUTSTANDING</p>
+                        <h3 style="margin:0; color:#4A90E2; font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3>
+                    </div>
+                """, unsafe_allow_html=True)
 
-            st.markdown(f"""
-                <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;">
-                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                        <thead>
-                            <tr style="background:#2B3F87; color:white; text-align:left;">
-                                <th style="padding:12px;">ID</th>
-                                <th style="padding:12px;">Borrower</th>
-                                <th style="padding:12px; text-align:right;">Principal</th>
-                                <th style="padding:12px; text-align:right;">Balance</th>
-                                <th style="padding:12px; text-align:center;">Status</th>
-                                <th style="padding:12px; text-align:right;">Due Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>{rows_html}</tbody>
-                    </table>
-                </div>
-            """, unsafe_allow_html=True)
+                # 3. Status Card
+                s_color = "#4A90E2" if loan_info['Status'] != "Overdue" else "#FF4B4B"
+                p3.markdown(f"""
+                    <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {s_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">LOAN STATUS</p>
+                        <h3 style="margin:0; color:{s_color}; font-size:18px;">{loan_info['Status'].upper()}</h3>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            
 
     # ==============================
     # TAB 3: MANAGE (Zoe Settings)
@@ -1479,7 +1443,7 @@ def show_overdue_tracker():
 st.write("")
 
 # Let's make the button stand out in Soft Blue
-if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+if st.button("🔄 Execute Monthly Rollover (Compound All)"):
     # 1. Loop through the overdue accounts
     for i, r in overdue_df.iterrows():
         # Move the date forward by 1 month
