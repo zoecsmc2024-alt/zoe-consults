@@ -1855,50 +1855,51 @@ def show_petty_cash():
 # ==============================
 
 def show_payroll():
-    # 1. SECURITY CHECK
     if st.session_state.get("role") != "Admin":
         st.error("🔒 Restricted Access: Only Admins can manage payroll.")
         return
 
     st.markdown("<h2 style='color: #4A90E2;'>🧾 Payroll Management</h2>", unsafe_allow_html=True)
 
-    # 2. FETCH & SANITIZE DATA
+    # 1. LOAD & SANITIZE DATA (Syncing with your spreadsheet image)
     df = get_cached_data("Payroll")
     required_columns = [
-        "Payroll_ID", "Employee", "TIN", "NSSF_No", "Account_No", "Basic_Salary", "Arrears", 
-        "Gross_Salary", "LST", "PAYE", "NSSF_5", "NSSF_10", "Total_Deductions", 
-        "Net_Pay", "Date", "Status"
+        "Payroll_ID", "Employee", "TIN", "Designation", "Mob_No", "Account_No", "NSSF_No",
+        "Arrears", "Basic_Salary", "Absent_Deduction", "LST", 
+        "Gross_Salary", "PAYE", "NSSF_15", "Advance_DRS", "Other_Deductions", "Net_Pay", "Date", "Status"
     ]
     
     if df.empty:
         df = pd.DataFrame(columns=required_columns)
     else:
-        # Ensure all required columns exist so the app doesn't crash
         for col in required_columns:
             if col not in df.columns:
-                df[col] = 0 if "Salary" in col or "Arrears" in col or "Pay" in col or "NSSF" in col or "LST" in col or "PAYE" in col or "Deductions" in col else ""
+                df[col] = 0 if any(word in col for word in ["Salary", "Arrears", "Pay", "NSSF", "LST", "PAYE", "Deduction", "Advance"]) else ""
         df = df.fillna("") 
 
-    # 3. BOSS-APPROVED CALCULATION LOGIC
-    def calculate_ug_payroll_full(basic, arrears):
-        gross = float(basic) + float(arrears)
+    # 2. THE CALCULATION ENGINE (Matching your spreadsheet math)
+    def calculate_zoe_payroll(basic, arrears, absent_deduct, advance, other):
+        # Gross = Basic + Arrears - Absenteeism
+        gross = (float(basic) + float(arrears)) - float(absent_deduct)
+        
+        # Taxes
         lst = 100000 / 12 if gross > 1000000 else 0
-        n5 = gross * 0.05
-        n10 = gross * 0.10
-        taxable = gross - n5
+        nssf_15 = gross * 0.15 # 15% total as per your image
+        
+        # PAYE (Standard UG formula)
+        taxable = gross - (gross * 0.05)
         paye = 0
-        if taxable > 410000:
-            paye = 25000 + (0.30 * (taxable - 410000))
-        elif taxable > 282000:
-            paye = (taxable - 282000) * 0.20 + 4700
-        elif taxable > 235000:
-            paye = (taxable - 235000) * 0.10
-            
-        deduct = n5 + paye + lst
+        if taxable > 410000: paye = 25000 + (0.30 * (taxable - 410000))
+        elif taxable > 282000: paye = (taxable - 282000) * 0.20 + 4700
+        elif taxable > 235000: paye = (taxable - 235000) * 0.10
+
+        # Net Pay = Gross - (PAYE + LST + NSSF + Advance + Others)
+        total_deductions = paye + lst + nssf_15 + float(advance) + float(other)
+        net = gross - total_deductions
+        
         return {
-            "gross": round(gross), "lst": round(lst), "n5": round(n5), 
-            "n10": round(n10), "paye": round(paye), "deduct": round(deduct), 
-            "net": round(gross - deduct)
+            "gross": round(gross), "lst": round(lst), "nssf": round(nssf_15),
+            "paye": round(paye), "net": round(net)
         }
 
     tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
@@ -1907,118 +1908,105 @@ def show_payroll():
     with tab_process:
         with st.form("new_payroll_form", clear_on_submit=True):
             name = st.text_input("Employee Name")
-            col_a, col_b = st.columns(2)
-            f_tin = col_a.text_input("TIN Number")
-            f_nssf = col_b.text_input("NSSF Number")
-            f_acc = st.text_input("Bank Account Number") 
-            f_basic = col_a.number_input("Basic Salary", min_value=0, step=10000)
-            f_arrears = col_b.number_input("Arrears / Bonuses", min_value=0, step=10000)
+            c1, c2, c3 = st.columns(3)
+            f_tin = c1.text_input("TIN")
+            f_desig = c2.text_input("Designation")
+            f_mob = c3.text_input("Mob No.")
             
+            c4, c5 = st.columns(2)
+            f_acc = c4.text_input("Account No.")
+            f_nssf_no = c5.text_input("NSSF No.")
+
+            st.write("---")
+            c6, c7, c8 = st.columns(3)
+            f_arrears = c6.number_input("ARREARS", min_value=0.0)
+            f_basic = c7.number_input("SALARY (Basic)", min_value=0.0)
+            f_absent = c8.number_input("Absenteeism Deduction", min_value=0.0)
+            
+            c9, c10 = st.columns(2)
+            f_adv = c9.number_input("S.DRS / ADVANCE", min_value=0.0)
+            f_other = c10.number_input("Other Deductions", min_value=0.0)
+
             if st.form_submit_button("💳 Confirm & Release Payment"):
                 if name and f_basic > 0:
-                    res = calculate_ug_payroll_full(f_basic, f_arrears)
+                    calc = calculate_zoe_payroll(f_basic, f_arrears, f_absent, f_adv, f_other)
                     
                     new_row = pd.DataFrame([{
                         "Payroll_ID": int(df["Payroll_ID"].max()+1) if not df.empty else 1,
-                        "Employee": str(name), 
-                        "TIN": str(f_tin), 
-                        "NSSF_No": str(f_nssf), 
-                        "Account_No": str(f_acc),
-                        "Basic_Salary": float(f_basic), 
-                        "Arrears": float(f_arrears), 
-                        "Gross_Salary": float(res['gross']),
-                        "LST": float(res['lst']), 
-                        "NSSF_5": float(res['n5']), 
-                        "NSSF_10": float(res['n10']), 
-                        "PAYE": float(res['paye']),
-                        "Total_Deductions": float(res['deduct']), 
-                        "Net_Pay": float(res['net']), 
-                        "Date": datetime.now().strftime("%Y-%m-%d"), 
-                        "Status": "Paid"
+                        "Employee": str(name), "TIN": str(f_tin), "Designation": str(f_desig),
+                        "Mob_No": str(f_mob), "Account_No": str(f_acc), "NSSF_No": str(f_nssf_no),
+                        "Arrears": float(f_arrears), "Basic_Salary": float(f_basic), 
+                        "Absent_Deduction": float(f_absent), "Gross_Salary": float(calc['gross']), 
+                        "LST": float(calc['lst']), "PAYE": float(calc['paye']),
+                        "NSSF_15": float(calc['nssf']), "Advance_DRS": float(f_adv), 
+                        "Other_Deductions": float(f_other), "Net_Pay": float(calc['net']),
+                        "Date": datetime.now().strftime("%Y-%m-%d"), "Status": "Paid"
                     }])
                     
-                    full_df = pd.concat([df, new_row], ignore_index=True)
-                    if save_data("Payroll", full_df):
-                        st.success(f"✅ Payroll for {name} processed!")
-                        st.rerun()
-                else:
-                    st.error("⚠️ Required: Name and Basic Salary.")
+                    if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
+                        st.success(f"✅ Payroll for {name} saved!"); st.rerun()
 
     # --- TAB 2: HISTORY ---
     with tab_logs:
         if not df.empty:
-            p_col1, p_col2 = st.columns([4, 1])
-            p_col1.markdown(f"<h3 style='color: #4A90E2;'>{datetime.now().strftime('%B %Y')} Summary</h3>", unsafe_allow_html=True)
-            
-            if p_col2.button("📥 Print Summary", key="print_btn_final"):
-                st.components.v1.html("""<script>window.parent.focus(); window.parent.print();</script>""", height=0)
-
             def fm(x): 
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
 
             rows_html = ""
             for i, r in df.iterrows():
-                # SAFETY MATH: Handle missing NSSF values gracefully
-                n5_val = float(r.get('NSSF_5', 0)) if r.get('NSSF_5') != "" else 0
-                n10_val = float(r.get('NSSF_10', 0)) if r.get('NSSF_10') != "" else 0
-                total_nssf = n5_val + n10_val
-
                 rows_html += f"""
                 <tr>
                     <td style='text-align:center;'>{i+1}</td>
-                    <td><b>{r['Employee']}</b><br><small>A/C: {r.get('Account_No', '-')}</small></td>
-                    <td style='text-align:right;'>{fm(r['Basic_Salary'])}</td>
+                    <td><b>{r['Employee']}</b><br><small>{r.get('Designation', '-')}</small></td>
                     <td style='text-align:right;'>{fm(r['Arrears'])}</td>
+                    <td style='text-align:right;'>{fm(r['Basic_Salary'])}</td>
                     <td style='text-align:right; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
-                    <td style='text-align:right;'>{fm(r['LST'])}</td>
                     <td style='text-align:right;'>{fm(r['PAYE'])}</td>
+                    <td style='text-align:right;'>{fm(r['NSSF_15'])}</td>
                     <td style='text-align:right; background:#E3F2FD; font-weight:bold;'>{fm(r['Net_Pay'])}</td>
-                    <td style='text-align:right; background:#FFFAE6;'>{fm(total_nssf)}</td>
                 </tr>"""
-             # 1. First, inject the CSS styles into the main app
-            st.markdown(f"""
-            <style>
-                @media print {{
-                    body * {{ visibility: hidden; }}
-                    #payroll-box, #payroll-box * {{ visibility: visible; -webkit-print-color-adjust: exact !important; }}
-                    #payroll-box {{ position: absolute; left: 0; top: 0; width: 100% !important; border: 2px solid #2B3F87 !important; padding: 40px !important; background-color: white !important; }}
-                    [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{ display: none !important; }}
-                }}
-            </style>
-            """, unsafe_allow_html=True)
 
-            # 2. Re-wrap the table and signatures into one clean HTML variable
+            # 1. CSS for Print
+            st.markdown("""<style>
+                @media print {
+                    body * { visibility: hidden; }
+                    #payroll-box, #payroll-box * { visibility: visible; -webkit-print-color-adjust: exact !important; }
+                    #payroll-box { position: absolute; left: 0; top: 0; width: 100% !important; border: 2px solid #2B3F87 !important; padding: 40px !important; background-color: white !important; }
+                    [data-testid="stSidebar"], [data-testid="stHeader"], .stButton { display: none !important; }
+                }
+            </style>""", unsafe_allow_html=True)
+
+            # 2. Main HTML Table
             full_statement_html = f"""
             <div id="payroll-box" style="border: 2px solid #4A90E2; border-radius: 10px; background: white; padding: 40px; font-family: sans-serif;">
                 <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:15px; margin-bottom:25px;">
                     <h1 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h1>
                     <p style="margin:5px 0; color:#666;"><b>OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</b></p>
                 </div>
-                <table style="width:100%; border-collapse:collapse; margin-top:20px;">
+                <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:11px;">
                     <thead>
                         <tr style="background:#2B3F87; color:white;">
-                            <th style="padding:10px; border:1px solid #ddd;">S/N</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:left;">Employee Details</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Basic</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Gross</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">PAYE</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Net Pay</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">NSSF (15%)</th>
+                            <th style="padding:8px; border:1px solid #ddd;">S/N</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Employee Details</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:right;">Arrears</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:right;">Basic</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:right;">Gross</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:right;">P.A.Y.E</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:right;">N.S.S.F</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:right; background:#1a285e;">Net Pay</th>
                         </tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
-                <div style="margin-top:100px; display:flex; justify-content:space-around;">
-                    <div style="text-align:center; border-top:2px solid #2B3F87; width:220px; padding-top:8px;"><b style="color:#2B3F87;">PREPARED BY</b></div>
-                    <div style="text-align:center; border-top:2px solid #2B3F87; width:220px; padding-top:8px;"><b style="color:#2B3F87;">APPROVED BY</b></div>
+                <div style="margin-top:80px; display:flex; justify-content:space-around; font-size:12px;">
+                    <div style="text-align:center; border-top:2px solid #2B3F87; width:200px; padding-top:8px;"><b>PREPARED BY</b></div>
+                    <div style="text-align:center; border-top:2px solid #2B3F87; width:200px; padding-top:8px;"><b>APPROVED BY</b></div>
                 </div>
-            </div>
-            """
+            </div>"""
 
-            # 3. DISPLAY IT USING THE COMPONENT (This forces it to render correctly)
-            st.components.v1.html(full_statement_html, height=600, scrolling=True)   
-            
+            st.components.v1.html(full_statement_html, height=600, scrolling=True)
+
             # --- MODIFY & DELETE SECTION ---
             st.write("---")
             with st.expander("⚙️ Modify / Delete Record"):
@@ -2034,14 +2022,14 @@ def show_payroll():
                     
                     c_s, c_d = st.columns(2)
                     if c_s.button("💾 Save Updates", use_container_width=True):
-                        res_u = calculate_ug_payroll_full(u_basic, u_arr)
-                        df.loc[df['Payroll_ID'].astype(str) == sid, ["Employee","Basic_Salary","Arrears","Gross_Salary","LST","PAYE","NSSF_5","NSSF_10","Total_Deductions","Net_Pay"]] = \
-                            [u_name, u_basic, u_arr, res_u['gross'], res_u['lst'], res_u['paye'], res_u['n5'], res_u['n10'], res_u['deduct'], res_u['net']]
+                        # Use 0 for absent/adv/other during simple edit unless you want to add fields here too
+                        res_u = calculate_zoe_payroll(u_basic, u_arr, 0, 0, 0)
+                        df.loc[df['Payroll_ID'].astype(str) == sid, ["Employee","Basic_Salary","Arrears","Gross_Salary","PAYE","NSSF_15","Net_Pay"]] = \
+                            [u_name, u_basic, u_arr, res_u['gross'], res_u['paye'], res_u['nssf'], res_u['net']]
                         if save_data("Payroll", df): st.success("Updated!"); st.rerun()
                     
                     if c_d.button("🗑️ Delete Record", use_container_width=True):
-                        if save_data("Payroll", df[df['Payroll_ID'].astype(str) != sid]): 
-                            st.warning("Deleted!"); st.rerun()
+                        if save_data("Payroll", df[df['Payroll_ID'].astype(str) != sid]): st.warning("Deleted!"); st.rerun()
         else:
             st.info("No payroll records found.")
         
