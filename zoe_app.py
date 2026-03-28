@@ -1008,17 +1008,24 @@ def show_loans():
     # ==============================
     with tab_view:
         if not loans_df.empty:
-            # Prepare data for display
             display_df = loans_df.copy()
             
-            # --- CRITICAL FIX: Ensure we see Active, Overdue, AND Rolled loans ---
-            # This brings your "disappeared" loans back!
+            # --- THE SAFETY SHIELD ---
+            # 1. Strip spaces from Status (in case "Active " vs "Active")
+            display_df["Status"] = display_df["Status"].astype(str).str.strip()
+            # 2. Force Loan_ID to be strings so the selectbox doesn't get confused
+            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
+            
+            # --- CRITICAL FIX: The Search Filter ---
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
             display_df = display_df[display_df["Status"].isin(relevant_statuses)]
 
             if display_df.empty:
-                st.info("ℹ️ No active or rolled loans to inspect at the moment.")
+                # Add a little "Helpful Hint" here to see what's actually in the data
+                actual_statuses = loans_df['Status'].unique()
+                st.info(f"ℹ️ No active loans found. Current statuses in data: {actual_statuses}")
             else:
+                # ... (rest of your beautiful metrics code)
                 for col in ["Amount", "Interest", "Amount_Paid"]:
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 
