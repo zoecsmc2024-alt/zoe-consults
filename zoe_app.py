@@ -1465,34 +1465,46 @@ def show_overdue_tracker():
         </tr>"""
 
     st.markdown(f"""
-    <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;">
-        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-            <thead>
-                <tr style="background:#2B3F87; color:white;">
-                    <th style="padding:12px;">Borrower Name</th>
-                    <th style="padding:12px;">Missed End Date</th>
-                    <th style="padding:12px;">Outstanding Bal (To Roll)</th>
-                    <th style="padding:12px;">New End Date</th>
-                </tr>
+    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr style="background:#4A90E2; color:white;">
+                ...
+            </tr>
             </thead>
             <tbody>{rows_html}</tbody>
         </table>
     </div>""", unsafe_allow_html=True)
 
-    # 4. ROLLOVER BUTTON
-    st.write("")
-    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-        for i, r in overdue_df.iterrows():
-            new_date = r['End_Date'] + pd.DateOffset(months=1)
-            current_out = r.get('Outstanding_Balance', r.get('Outstanding', 0))
-            
-            # Compounding logic: Outstanding becomes the new Amount
-            loan_df.loc[i, 'Amount'] = current_out 
-            loan_df.loc[i, 'End_Date'] = new_date
-            loan_df.loc[i, 'Status'] = "Rolled/Overdue"
-            
-        if save_data("Loans", loan_df):
-            st.success("Successfully compounded balances!"); st.rerun()
+    # 4. ROLLOVER BUTTON (Zoe Soft Blue Style)
+st.write("")
+
+# Let's make the button stand out in Soft Blue
+if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+    # 1. Loop through the overdue accounts
+    for i, r in overdue_df.iterrows():
+        # Move the date forward by 1 month
+        new_date_obj = r['End_Date'] + pd.DateOffset(months=1)
+        
+        # THE FIX: Convert the date to a STRING "YYYY-MM-DD" immediately
+        new_date_str = new_date_obj.strftime('%Y-%m-%d')
+        
+        current_out = r.get('Outstanding_Balance', r.get('Outstanding', 0))
+        
+        # 2. Update the main loan_df
+        loan_df.loc[i, 'Amount'] = float(current_out) 
+        loan_df.loc[i, 'End_Date'] = new_date_str # Save as String, not Timestamp!
+        loan_df.loc[i, 'Status'] = "Rolled/Overdue"
+        
+    # 3. SAFETY CHECK: Convert any other stray Timestamps in the whole DF to strings
+    # This is a "just in case" shield for the JSON error
+    if 'Start_Date' in loan_df.columns:
+        loan_df['Start_Date'] = pd.to_datetime(loan_df['Start_Date']).dt.strftime('%Y-%m-%d')
+    if 'End_Date' in loan_df.columns:
+        loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date']).dt.strftime('%Y-%m-%d')
+
+    # 4. Save the cleaned data
+    if save_data("Loans", loan_df):
+        st.success("✅ Successfully compounded balances and updated dates!"); st.rerun()
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
