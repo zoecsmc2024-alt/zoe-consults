@@ -1952,10 +1952,9 @@ def show_payroll():
             p_col1.markdown(f"<h3 style='color: #4A90E2;'>{datetime.now().strftime('%B %Y')} Summary</h3>", unsafe_allow_html=True)
             
             if p_col2.button("📥 Print PDF", key="print_payroll_final"):
-                # This script triggers the browser print dialog
                 st.components.v1.html("""<script>window.parent.focus(); window.parent.print();</script>""", height=0)
 
-            # 2. CSS PRINT SHIELD
+            # 2. CSS PRINT SHIELD (Keeps the printout clean)
             st.markdown("""
                 <style>
                 @media print {
@@ -1971,16 +1970,13 @@ def show_payroll():
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
 
-            # 3. BUILD ROWS
+            # 3. BUILD ROWS (With A/C Provision & NSSF 15% Math)
             rows_html = ""
             for i, r in df.iterrows():
-                # 1. Force the math for display (Safest way!)
-                # We pull the 5% and 10% values first
-                n5_val = float(r.get('NSSF_5', 0)) if r.get('NSSF_5') != "" else 0
-                n10_val = float(r.get('NSSF_10', 0)) if r.get('NSSF_10') != "" else 0
-                
-                # 2. Add them together for the 15% column
-                n15_total = n5_val + n10_val
+                # Force math for the 15% column so it's never zero
+                n5 = float(r.get('NSSF_5', 0)) if r.get('NSSF_5') != "" else 0
+                n10 = float(r.get('NSSF_10', 0)) if r.get('NSSF_10') != "" else 0
+                n15_total = n5 + n10
 
                 rows_html += f"""
                 <tr>
@@ -1994,17 +1990,19 @@ def show_payroll():
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Basic_Salary'])}</td>
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['PAYE'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(n5_val)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(n5)}</td>
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4;'>{fm(n10_val)}</td>
-                    
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4;'>{fm(n10)}</td>
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_total)}</td>
                 </tr>"""
-            # 4. FINAL HTML STRUCTURE
+
+            # 4. FINAL HTML STRUCTURE (Merged into one clean variable)
             main_html = f"""
-            <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 35px; background: white; font-family: sans-serif;">
-                <h2 style="text-align:center; color:#2B3F87; margin:0; font-size:22px;">ZOE CONSULTS SMC LTD</h2>
-                <p style="text-align:center; color:#666; margin-bottom:25px; font-weight:bold;">OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</p>
+            <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 35px; background: white; font-family: sans-serif; border-radius: 10px;">
+                <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:15px; margin-bottom:25px;">
+                    <h1 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h1>
+                    <p style="margin:5px 0; color:#666;"><b>OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</b></p>
+                </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <thead>
                         <tr style="background:#2B3F87; color:white;">
@@ -2028,35 +2026,10 @@ def show_payroll():
                 </div>
             </div>"""
             
-            st.components.v1.html(f'<div class="no-print">{main_html}</div>', height=800, scrolling=True)
+            # 5. RENDER THE PREVIEW
+            st.components.v1.html(main_html, height=800, scrolling=True)
 
-            # 2. THE PRINT LAYER (What the printer sees)
-            # We use an empty st.markdown to inject the "Print Only" CSS
-            st.markdown("""
-                <style>
-                    @media screen {
-                        .print-only { display: none !important; }
-                    }
-                    @media print {
-                        .no-print, [data-testid="stSidebar"], [data-testid="stHeader"], .stButton { 
-                            display: none !important; 
-                        }
-                        .print-only { 
-                            display: block !important; 
-                            position: absolute;
-                            left: 0;
-                            top: 0;
-                            width: 100%;
-                        }
-                    }
-                </style>
-            """, unsafe_allow_html=True)
-
-            # 3. Use st.write with unsafe_allow_html=False to AVOID the code soup
-            # Then use a single st.markdown for the actual hidden table
-            st.markdown(f'<div class="print-only">{main_html}</div>', unsafe_allow_html=True)
-
-            # 5. MODIFY & DELETE SECTION (Correctly inside the 'if' block)
+            # 6. MODIFY & DELETE SECTION (Inside the if block)
             st.write("---")
             with st.expander("⚙️ Modify / Delete Record"):
                 pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
@@ -2071,6 +2044,7 @@ def show_payroll():
                     
                     c_s, c_d = st.columns(2)
                     if c_s.button("💾 Save Updates", use_container_width=True):
+                        # Simple recalculation for basic updates
                         res_u = calculate_zoe_payroll(u_basic, u_arr, 0, 0, 0)
                         df.loc[df['Payroll_ID'].astype(str) == sid, ["Employee","Basic_Salary","Arrears","Gross_Salary","PAYE","NSSF_15","Net_Pay"]] = \
                             [u_name, u_basic, u_arr, res_u['gross'], res_u['paye'], res_u['nssf'], res_u['net']]
@@ -2080,8 +2054,7 @@ def show_payroll():
                         if save_data("Payroll", df[df['Payroll_ID'].astype(str) != sid]): st.warning("Deleted!"); st.rerun()
 
         else:
-            # 6. EMPTY STATE (Correctly aligned with 'if not df.empty:')
-            st.info("No payroll records found.")
+            st.info("No payroll records found for this period.")
         
     
  
