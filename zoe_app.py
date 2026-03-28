@@ -1944,17 +1944,40 @@ def show_payroll():
                     if save_data("Payroll", pd.concat([df, new_row], ignore_index=True)):
                         st.success("✅ Payroll Saved!"); st.rerun()
 
+    # --- TAB 2: HISTORY ---
     with tab_logs:
         if not df.empty:
-            def fm(x): return f"{int(float(x)):,}" if x != "" else "0"
+            # 1. TOP ROW: Title and Print Button
+            p_col1, p_col2 = st.columns([4, 1])
+            p_col1.markdown(f"<h3 style='color: #4A90E2;'>{datetime.now().strftime('%B %Y')} Summary</h3>", unsafe_allow_html=True)
+            
+            if p_col2.button("📥 Print PDF", key="print_payroll_final"):
+                # This tiny script triggers the browser print dialog
+                st.components.v1.html("""<script>window.parent.focus(); window.parent.print();</script>""", height=0)
+
+            # 2. CSS PRINT SHIELD (Hides everything but the payroll-box during printing)
+            st.markdown("""
+                <style>
+                @media print {
+                    body * { visibility: hidden; }
+                    #payroll-box, #payroll-box * { visibility: visible; -webkit-print-color-adjust: exact !important; }
+                    #payroll-box { position: absolute; left: 0; top: 0; width: 100% !important; border: 2px solid #2B3F87 !important; padding: 40px !important; background-color: white !important; }
+                    [data-testid="stSidebar"], [data-testid="stHeader"], .stButton { display: none !important; }
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            def fm(x): 
+                try: return f"{int(float(x)):,}" 
+                except: return "0"
+
+            # 3. BUILD ROWS
             rows_html = ""
             for i, r in df.iterrows():
-                # Calculating row-level NSSF for display
                 n5_val = float(r.get('NSSF_5', 0))
                 n10_val = float(r.get('NSSF_10', 0))
                 n15_val = float(r.get('NSSF_15', 0))
 
-                # --- INCREASED PADDING & ACCOUNT NO PROVISION ---
                 rows_html += f"""
                 <tr>
                     <td style='text-align:center; border:1px solid #ddd; padding: 15px 10px;'>{i+1}</td>
@@ -1973,14 +1996,14 @@ def show_payroll():
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_val)}</td>
                 </tr>"""
 
+            # 4. FINAL HTML STRUCTURE
             main_html = f"""
             <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 35px; background: white; font-family: sans-serif;">
                 <h2 style="text-align:center; color:#2B3F87; margin:0; font-size:22px;">ZOE CONSULTS SMC LTD</h2>
                 <p style="text-align:center; color:#666; margin-bottom:25px; font-weight:bold;">OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</p>
-                
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <thead>
-                        <tr style="background:#2B3F87; color:white; -webkit-print-color-adjust: exact;">
+                        <tr style="background:#2B3F87; color:white;">
                             <th style="padding:12px; border:1px solid #ddd;">S/N</th>
                             <th style="padding:12px; border:1px solid #ddd; text-align:left;">Employee Details</th>
                             <th style="padding:12px; border:1px solid #ddd; text-align:right;">Arrears</th>
@@ -1995,19 +2018,15 @@ def show_payroll():
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
-
                 <div style="margin-top:100px; display:flex; justify-content:space-around; font-size:12px;">
                     <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:8px;"><b>PREPARED BY</b></div>
                     <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:8px;"><b>APPROVED BY</b></div>
                 </div>
-                
-                <div style="margin-top:30px; text-align:center; color:#999; font-size:9px;">
-                    Generated on {datetime.now().strftime('%d %b %Y, %H:%M')}
-                </div>
             </div>"""
             
             st.components.v1.html(main_html, height=800, scrolling=True)
-
+        else:
+            st.info("No payroll records found.")
             # --- MODIFY & DELETE SECTION ---
             st.write("---")
             with st.expander("⚙️ Modify / Delete Record"):
