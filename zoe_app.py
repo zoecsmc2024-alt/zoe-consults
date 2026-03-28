@@ -1952,10 +1952,10 @@ def show_payroll():
             p_col1.markdown(f"<h3 style='color: #4A90E2;'>{datetime.now().strftime('%B %Y')} Summary</h3>", unsafe_allow_html=True)
             
             if p_col2.button("📥 Print PDF", key="print_payroll_final"):
-                # This tiny script triggers the browser print dialog
+                # This script triggers the browser print dialog
                 st.components.v1.html("""<script>window.parent.focus(); window.parent.print();</script>""", height=0)
 
-            # 2. CSS PRINT SHIELD (Hides everything but the payroll-box during printing)
+            # 2. CSS PRINT SHIELD
             st.markdown("""
                 <style>
                 @media print {
@@ -1971,7 +1971,7 @@ def show_payroll():
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
 
-            # 3. BUILD ROWS
+            # 3. BUILD ROWS (Including Account No & Spacious Padding)
             rows_html = ""
             for i, r in df.iterrows():
                 n5_val = float(r.get('NSSF_5', 0))
@@ -2024,7 +2024,9 @@ def show_payroll():
                 </div>
             </div>"""
             
+            # Use component to render safely
             st.components.v1.html(main_html, height=800, scrolling=True)
+
         else:
             st.info("No payroll records found.")
             # --- MODIFY & DELETE SECTION ---
