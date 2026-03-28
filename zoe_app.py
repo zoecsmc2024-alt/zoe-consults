@@ -1976,7 +1976,48 @@ def show_payroll():
                     <td style='text-align:right; background:#E3F2FD; font-weight:bold;'>{fm(r['Net_Pay'])}</td>
                     <td style='text-align:right; background:#FFFAE6;'>{fm(total_nssf)}</td>
                 </tr>"""
+             # 1. First, inject the CSS styles into the main app
+            st.markdown(f"""
+            <style>
+                @media print {{
+                    body * {{ visibility: hidden; }}
+                    #payroll-box, #payroll-box * {{ visibility: visible; -webkit-print-color-adjust: exact !important; }}
+                    #payroll-box {{ position: absolute; left: 0; top: 0; width: 100% !important; border: 2px solid #2B3F87 !important; padding: 40px !important; background-color: white !important; }}
+                    [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{ display: none !important; }}
+                }}
+            </style>
+            """, unsafe_allow_html=True)
 
+            # 2. Re-wrap the table and signatures into one clean HTML variable
+            full_statement_html = f"""
+            <div id="payroll-box" style="border: 2px solid #4A90E2; border-radius: 10px; background: white; padding: 40px; font-family: sans-serif;">
+                <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:15px; margin-bottom:25px;">
+                    <h1 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h1>
+                    <p style="margin:5px 0; color:#666;"><b>OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</b></p>
+                </div>
+                <table style="width:100%; border-collapse:collapse; margin-top:20px;">
+                    <thead>
+                        <tr style="background:#2B3F87; color:white;">
+                            <th style="padding:10px; border:1px solid #ddd;">S/N</th>
+                            <th style="padding:10px; border:1px solid #ddd; text-align:left;">Employee Details</th>
+                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Basic</th>
+                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Gross</th>
+                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">PAYE</th>
+                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Net Pay</th>
+                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">NSSF (15%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
+                </table>
+                <div style="margin-top:100px; display:flex; justify-content:space-around;">
+                    <div style="text-align:center; border-top:2px solid #2B3F87; width:220px; padding-top:8px;"><b style="color:#2B3F87;">PREPARED BY</b></div>
+                    <div style="text-align:center; border-top:2px solid #2B3F87; width:220px; padding-top:8px;"><b style="color:#2B3F87;">APPROVED BY</b></div>
+                </div>
+            </div>
+            """
+
+            # 3. DISPLAY IT USING THE COMPONENT (This forces it to render correctly)
+            st.components.v1.html(full_statement_html, height=600, scrolling=True)   
             # --- THE FINAL REFINED PRINTABLE HTML ---
             main_html = f"""
             <style>
