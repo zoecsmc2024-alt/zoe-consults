@@ -1290,124 +1290,110 @@ def show_collateral():
 # ==============================
 
 def show_overdue_tracker():
-    st.markdown("<h2 style='color: #2B3F87;'>🔴 Collections Dashboard</h2>", unsafe_allow_html=True)
-
-    # 1. FETCH DATA
-    loans_df = get_cached_data("Loans")
-
-    if loans_df.empty:
-        st.info("No loan data available to track.")
+    # 1. HEADER & SYSTEM STATUS
+    st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
+    
+    loan_df = get_cached_data("Loans") 
+    if loan_df.empty:
+        st.info("No loan records found in the system.")
         return
 
-    # 2. DATA PREPARATION
-    for col in ["Follow_Up_Status", "Last_Contact_Date"]:
-        if col not in loans_df.columns:
-            loans_df[col] = "Pending"
+    # 2. SYNC WITH YOUR TABLE COLUMNS
+    # Ensuring dates are readable for the "Today" comparison
+    loan_df['Due_Date'] = pd.to_datetime(loan_df['Due_Date'], errors='coerce')
+    today = datetime.now()
+    
+    # Check for Last Rollover Activity
+    last_roll = "No Rollovers Recorded"
+    if 'Date' in loan_df.columns:
+        rolled_ones = loan_df[loan_df['Status'] == "Rolled/Overdue"]
+        if not rolled_ones.empty:
+            last_roll = rolled_ones['Date'].max()
+    
+    st.markdown(f"<p style='color: #666; font-size: 13px;'>📅 Last Compounding Action: <b>{last_roll}</b></p>", unsafe_allow_html=True)
 
-    loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
-    loans_df["Amount_Paid"] = pd.to_numeric(loans_df["Amount_Paid"], errors="coerce").fillna(0)
-    loans_df["Total_Repayable"] = pd.to_numeric(loans_df["Total_Repayable"], errors="coerce").fillna(0)
-    today = pd.Timestamp.today()
-
-    # DETECT OVERDUE
-    overdue_df = loans_df[
-        (loans_df["End_Date"] < today) & 
-        (loans_df["Amount_Paid"] < (loans_df["Total_Repayable"] - 1))
-    ].copy()
+    # 3. FILTER FOR OVERDUE (Using 'Outstanding' to find debt)
+    # Logic: Status isn't 'Cleared' AND Due Date has passed
+    overdue_df = loan_df[(loan_df['Status'] != "Cleared") & (loan_df['Due_Date'] < today)].copy()
 
     if overdue_df.empty:
-        st.success("✨ Excellent! All collections are up to date.")
+        st.success("✅ All loans are currently up to date! No rollovers required.")
         return
 
-    # 3. CALCULATIONS
-    overdue_df["Days_Overdue"] = (today - overdue_df["End_Date"]).dt.days
-    overdue_df["Outstanding"] = overdue_df["Total_Repayable"] - overdue_df["Amount_Paid"]
-
-    def get_severity(days):
-        if days <= 7: return "Mild"
-        elif days <= 30: return "Moderate"
-        return "Critical"
-
-    overdue_df["Severity"] = overdue_df["Days_Overdue"].apply(get_severity)
-    overdue_df["Risk_Score"] = (overdue_df["Outstanding"] * 0.0001) + (overdue_df["Days_Overdue"] * 2)
-
-    total_at_risk = overdue_df["Outstanding"].sum()
-    critical_cases = overdue_df[overdue_df["Severity"] == "Critical"].shape[0]
-
-    # --- STYLED NEON CARDS ---
-    c1, c2 = st.columns(2)
+    # 4. OVERDUE TABLE (Navy Header / Baby Blue Rows)
+    st.warning(f"Found {len(overdue_df)} accounts requiring monthly compounding.")
     
-    # Capital at Risk Card
-    c1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL CAPITAL AT RISK</p>
-            <h2 style="margin:0; color:#FF4B4B;">{total_at_risk:,.0f} <span style="font-size:16px;">UGX</span></h2>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Critical Cases Card
-    c2.markdown(f"""
-        <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CRITICAL DELINQUENCY</p>
-            <h2 style="margin:0; color:#2B3F87;">{critical_cases} <span style="font-size:16px;">CASES</span></h2>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 4. FILTERING & TABLE
-    f1, f2 = st.columns([2, 1])
-    search = f1.text_input("🔍 Find Borrower")
-    sev_filter = f2.selectbox("Severity Level", ["All", "Mild", "Moderate", "Critical"])
-
-    filtered = overdue_df.copy()
-    if search:
-        filtered = filtered[filtered["Borrower"].str.contains(search, case=False)]
-    if sev_filter != "All":
-        filtered = filtered[filtered["Severity"] == sev_filter]
-
-    filtered = filtered.sort_values("Risk_Score", ascending=False)
-
-    def color_severity(val):
-        color = '#00ffcc' if val == 'Mild' else '#FFA500' if val == 'Moderate' else '#FF4B4B'
-        return f'color: {color}; font-weight: bold;'
-
-    st.dataframe(
-        filtered[["Loan_ID", "Borrower", "Outstanding", "Days_Overdue", "Severity", "Follow_Up_Status"]]
-        .style.applymap(color_severity, subset=['Severity'])
-        .format({"Outstanding": "{:,.0f}"}), # Comma formatting in table
-        use_container_width=True, hide_index=True
-    )
-
-    # 5. SMART ACTION CENTER
-    st.markdown("---")
-    st.subheader("📞 Recovery Action Center")
-    
-    sel_loan_id = st.selectbox("Select Client to Contact", filtered["Loan_ID"].unique())
-    loan_item = filtered[filtered["Loan_ID"] == sel_loan_id].iloc[0]
-
-    severity = loan_item["Severity"]
-    if severity == "Mild":
-        msg = f"Reminder: Your loan is {loan_item['Days_Overdue']} days overdue. Balance: {loan_item['Outstanding']:,.0f} UGX. Please settle today."
-    elif severity == "Moderate":
-        msg = f"URGENT: Your loan is {loan_item['Days_Overdue']} days overdue. Balance: {loan_item['Outstanding']:,.0f} UGX. Pay immediately to avoid extra fees."
-    else:
-        msg = f"FINAL NOTICE: Loan overdue by {loan_item['Days_Overdue']} days. Pay {loan_item['Outstanding']:,.0f} UGX NOW to prevent legal action."
-
-    st.info(f"📍 **Target:** {loan_item['Borrower']} | **Severity:** {severity}")
-    msg_text = st.text_area("Recovery Message", msg, height=100)
-
-    act_col1, act_col2 = st.columns(2)
-    whatsapp_url = f"https://wa.me/?text={msg_text.replace(' ', '%20')}"
-    act_col1.markdown(f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; height:45px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">💬 Send via WhatsApp</button></a>', unsafe_allow_html=True)
-
-    if act_col2.button("💾 Log Interaction", use_container_width=True):
-        loans_df.loc[loans_df["Loan_ID"] == sel_loan_id, "Follow_Up_Status"] = "Contacted"
-        loans_df.loc[loans_df["Loan_ID"] == sel_loan_id, "Last_Contact_Date"] = datetime.now().strftime("%Y-%m-%d")
+    rows_html = ""
+    for i, r in overdue_df.iterrows():
+        new_due = r['Due_Date'] + pd.DateOffset(months=1)
+        bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
         
-        if save_data("Loans", loans_df):
-            st.success(f"Interaction with {loan_item['Borrower']} logged successfully.")
-            st.rerun()
+        rows_html += f"""
+        <tr style="background-color: {bg_color};">
+            <td style="padding:10px; border:1px solid #ddd;"><b>{r['Borrower']}</b></td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:center;">{r['Due_Date'].strftime('%d %b %Y')}</td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:right; color:#2B3F87; font-weight:bold;">{r['Outstanding']:,.0f} UGX</td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:center; color:#2E7D32;"><b>{new_due.strftime('%d %b %Y')}</b></td>
+        </tr>"""
+
+    st.markdown(f"""
+    <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
+            <thead>
+                <tr style="background:#2B3F87; color:white;">
+                    <th style="padding:12px;">Borrower Name</th>
+                    <th style="padding:12px;">Missed Date</th>
+                    <th style="padding:12px;">Outstanding (To Roll)</th>
+                    <th style="padding:12px;">Next Due Date</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+    </div>""", unsafe_allow_html=True)
+
+    # 5. THE ROLLOVER BUTTON (The "Evans Rule" Fix)
+    st.write("")
+    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+        for i, r in overdue_df.iterrows():
+            new_due = r['Due_Date'] + pd.DateOffset(months=1)
+            
+            # --- THE MAGIC ---
+            # We move the Outstanding balance into the 'Amount' column.
+            # This makes the unpaid interest part of the new loan base.
+            loan_df.loc[i, 'Amount'] = r['Outstanding'] 
+            loan_df.loc[i, 'Due_Date'] = new_due
+            loan_df.loc[i, 'Status'] = "Rolled/Overdue"
+            loan_df.loc[i, 'Date'] = today.strftime("%Y-%m-%d") 
+            
+        if save_data("Loans", loan_df):
+            st.success("Successfully compounded balances! The Loans tab has been updated."); st.rerun()
+
+    # 6. AUDIT LOG & GROWTH VISUAL
+    st.write("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("<h4 style='color: #2B3F87;'>📈 Growth Projection</h4>", unsafe_allow_html=True)
+        sel_b = st.selectbox("Select Borrower", overdue_df['Borrower'].unique())
+        curr_out = overdue_df[overdue_df['Borrower'] == sel_b]['Outstanding'].iloc[0]
+        
+        proj_data = []
+        temp_val = curr_out
+        for m in range(1, 7):
+            temp_val += (temp_val * 0.10) # 10% interest simulation
+            proj_data.append({"Month": f"M{m}", "Debt": round(temp_val)})
+        
+        st.bar_chart(pd.DataFrame(proj_data).set_index("Month"), color="#2B3F87")
+
+    with col2:
+        st.markdown("<h4 style='color: #2B3F87;'>📜 Rollover History</h4>", unsafe_allow_html=True)
+        # Showing the history of people who have been rolled
+        history = loan_df[loan_df['Status'] == "Rolled/Overdue"][['Borrower', 'Amount', 'Date']].tail(5)
+        if not history.empty:
+            history.columns = ['Borrower', 'New Base Amount', 'Date Rolled']
+            st.table(history)
+        else:
+            st.info("No rollover history found for this month.")
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
