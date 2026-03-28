@@ -532,54 +532,7 @@ def sidebar():
     if st.sidebar.button("🚪 Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
-# 6. DASHBOARD VISUALS (Plotly Charts)
-    st.markdown("---")
-    st.markdown("<h4 style='color: #4A90E2;'>📈 Portfolio Analytics</h4>", unsafe_allow_html=True)
-    c_pie, c_bar = st.columns(2)
 
-    with c_pie:
-        # Portfolio Health (Status Breakdown)
-        status_counts = df["Status"].value_counts().reset_index()
-        status_counts.columns = ["Status", "Count"]
-        
-        fig_pie = px.pie(
-            status_counts, names="Status", values="Count", 
-            hole=0.5, title="Loan Status Distribution",
-            color_discrete_sequence=["#4A90E2", "#FF4B4B", "#FFA500", "#F0F8FF"]
-        )
-        fig_pie.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', 
-            font_color="#2B3F87", 
-            margin=dict(t=40, b=0, l=0, r=0)
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-    with c_bar:
-        # Monthly Performance (Collections vs Expenses)
-        if not pay_df.empty and not exp_df.empty:
-            pay_df["Date"] = pd.to_datetime(pay_df["Date"])
-            exp_df["Date"] = pd.to_datetime(exp_df["Date"])
-            
-            # Use period for grouping to ensure chronological order
-            inc_m = pay_df.groupby(pay_df["Date"].dt.to_period("M"))["Amount"].sum().reset_index()
-            exp_m = exp_df.groupby(exp_df["Date"].dt.to_period("M"))["Amount"].sum().reset_index()
-            
-            # Convert periods back to strings for Plotly
-            inc_m["Date"] = inc_m["Date"].astype(str)
-            exp_m["Date"] = exp_m["Date"].astype(str)
-            
-            m_cash = pd.merge(inc_m, exp_m, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
-            m_cash.columns = ["Month", "Income", "Expenses"]
-            
-            fig_bar = px.bar(
-                m_cash, x="Month", y=["Income", "Expenses"],
-                barmode="group", title="Cashflow Comparison",
-                color_discrete_map={"Income": "#2E7D32", "Expenses": "#FF4B4B"}
-            )
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#2B3F87")
-            st.plotly_chart(fig_bar, use_container_width=True)
-        else:
-            st.info("📊 Record expenses and payments to see your cashflow trend.")
 # ==============================
 # 12. BORROWERS MANAGEMENT PAGE
 # ==============================
