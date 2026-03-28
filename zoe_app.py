@@ -2038,24 +2038,32 @@ def show_reports():
         st.info("📈 Record more loans to see your financial analytics.")
         return
 
-    # 2. SAFETY PAYROLL & PETTY CASH CALCULATIONS
+    # 2. THE ULTIMATE PAYROLL SAFETY CHECK
+    # This line forces payroll to be a DataFrame if it's not one already
+    if not isinstance(payroll, pd.DataFrame):
+        payroll = pd.DataFrame()
+
     pay_amt, nssf_total, paye_total = 0, 0, 0
-    if isinstance(payroll, pd.DataFrame) and not payroll.empty:
-        pay_amt = pd.to_numeric(payroll.get("Gross_Salary", 0), errors="coerce").fillna(0).sum()
-        n5 = pd.to_numeric(payroll.get("NSSF_5", 0), errors="coerce").fillna(0).sum()
-        n10 = pd.to_numeric(payroll.get("NSSF_10", 0), errors="coerce").fillna(0).sum()
+    
+    if not payroll.empty:
+        # Use a super-safe way to pull column totals
+        pay_amt = pd.to_numeric(payroll.get("Gross_Salary", pd.Series([0])), errors="coerce").fillna(0).sum()
+        n5 = pd.to_numeric(payroll.get("NSSF_5", pd.Series([0])), errors="coerce").fillna(0).sum()
+        n10 = pd.to_numeric(payroll.get("NSSF_10", pd.Series([0])), errors="coerce").fillna(0).sum()
         nssf_total = n5 + n10
-        paye_total = pd.to_numeric(payroll.get("PAYE", 0), errors="coerce").fillna(0).sum()
+        paye_total = pd.to_numeric(payroll.get("PAYE", pd.Series([0])), errors="coerce").fillna(0).sum()
 
-    petty_out = 0
-    if isinstance(petty, pd.DataFrame) and not petty.empty:
-        petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
-
-    # 3. CONSOLIDATED MATH
+    # 3. OTHER DATA SUMS
     l_amt = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0).sum()
     l_int = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0).sum()
     p_amt = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0).sum() if not payments.empty else 0
     exp_amt = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0).sum() if not expenses.empty else 0
+    
+    # Force petty to be a DataFrame safely
+    if not isinstance(petty, pd.DataFrame): petty = pd.DataFrame()
+    petty_out = 0
+    if not petty.empty and "Type" in petty.columns:
+        petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
     
     total_outflow = exp_amt + pay_amt + petty_out + nssf_total + paye_total
     net_profit = p_amt - total_outflow
@@ -2063,6 +2071,7 @@ def show_reports():
     # 4. KPI DASHBOARD (Soft Blue)
     st.subheader("🚀 Financial Performance")
     k1, k2, k3, k4 = st.columns(4)
+    # ... rest of your KPI and charts code ...
     
     k1.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:10px;border-left:5px solid #4A90E2;box-shadow:2px 2px 8px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">CAPITAL ISSUED</p><h4 style="margin:0;color:#4A90E2;">{l_amt:,.0f}</h4></div>""", unsafe_allow_html=True)
     k2.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:10px;border-left:5px solid #4A90E2;box-shadow:2px 2px 8px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">INTEREST ACCRUED</p><h4 style="margin:0;color:#4A90E2;">{l_int:,.0f}</h4></div>""", unsafe_allow_html=True)
