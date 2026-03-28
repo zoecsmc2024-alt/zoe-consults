@@ -546,16 +546,14 @@ def show_overview():
         st.warning("⚠️ No data found in 'Loans'. Add some borrowers to get started!")
         return
 
-    # 2. DATA CRUNCHING (Monthly Trends for Bar Chart)
+    # 2. DATA CRUNCHING (Monthly Trends)
     if not pay_df.empty and not exp_df.empty:
         pay_df["Date"] = pd.to_datetime(pay_df["Date"])
         exp_df["Date"] = pd.to_datetime(exp_df["Date"])
         
-        # Group by Month
         inc_m = pay_df.groupby(pay_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
         exp_m = exp_df.groupby(exp_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
         
-        # Merge into one master table for the chart
         merged_df = pd.merge(inc_m, exp_m, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
         merged_df.columns = ["Month", "Income", "Expenses"]
     else:
@@ -565,7 +563,6 @@ def show_overview():
     df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
     df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
     df["Amount_Paid"] = pd.to_numeric(df.get("Amount_Paid", 0), errors="coerce").fillna(0)
-    df["Start_Date"] = pd.to_datetime(df["Start_Date"], errors="coerce")
     df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
     
     today = pd.Timestamp.today()
@@ -573,7 +570,7 @@ def show_overview():
     total_due = df["Amount"] + df["Interest"]
     df.loc[(df["End_Date"] < today) & (df["Amount_Paid"] < total_due), "Auto_Status"] = "Overdue"
 
-    # 4. METRICS ROW
+    # 4. METRICS ROW (Branded Zoe Consults)
     total_issued = df["Amount"].sum()
     total_profit = df["Interest"].sum()
     total_collected = df["Amount_Paid"].sum()
@@ -581,72 +578,68 @@ def show_overview():
     
     m1, m2, m3, m4 = st.columns(4)
 
-    # 1. Total Issued (Capital - Corporate Blue)
+    # 1. Total Issued (Navy Blue)
     m1.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">💰 TOTAL ISSUED</p>
-            <h3 style="margin:0; color:#2B3F87; font-size: 20px;">{total_issued:,.0f} <span style="font-size:12px;">UGX</span></h3>
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">💰 TOTAL ISSUED</p>
+            <h3 style="margin:0; color:#2B3F87; font-size: 18px;">{total_issued:,.0f} <span style="font-size:10px;">UGX</span></h3>
         </div>
     """, unsafe_allow_html=True)
 
-    # 2. Expected Profit (Growth - Neon Green)
+    # 2. Expected Profit (Baby Blue Accent)
     m2.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00ffcc; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">📈 EXPECTED PROFIT</p>
-            <h3 style="margin:0; color:#00ffcc; font-size: 20px;">{total_profit:,.0f} <span style="font-size:12px;">UGX</span></h3>
+        <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#2B3F87; font-weight:bold; letter-spacing:1px;">📈 EXPECTED PROFIT</p>
+            <h3 style="margin:0; color:#2B3F87; font-size: 18px;">{total_profit:,.0f} <span style="font-size:10px;">UGX</span></h3>
         </div>
     """, unsafe_allow_html=True)
 
-    # 3. Collected (Cash Flow - Cyan/Teal)
+    # 3. Collected (White/Navy)
     m3.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00D1FF; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">💵 COLLECTED</p>
-            <h3 style="margin:0; color:#00D1FF; font-size: 20px;">{total_collected:,.0f} <span style="font-size:12px;">UGX</span></h3>
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">💵 COLLECTED</p>
+            <h3 style="margin:0; color:#2B3F87; font-size: 18px;">{total_collected:,.0f} <span style="font-size:10px;">UGX</span></h3>
         </div>
     """, unsafe_allow_html=True)
 
-    # 4. Overdue (Risk - Alert Red)
+    # 4. Overdue (Risk Red - Kept for visibility)
     m4.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold; letter-spacing:1px;">⚠️ OVERDUE LOANS</p>
-            <h3 style="margin:0; color:#FF4B4B; font-size: 24px;">{overdue_count}</h3>
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">⚠️ OVERDUE LOANS</p>
+            <h3 style="margin:0; color:#FF4B4B; font-size: 22px;">{overdue_count}</h3>
         </div>
     """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 5. VISUALS SECTION (This is where your Chart Columns go)
-    # [Insert your c1, c2 columns code here...]
-
-    # ==============================
-    # VISUALS (Neon Styled)
-    # ==============================
+    # 5. VISUALS (Zoe Consults Styled)
     st.markdown("---")
     c1, c2 = st.columns(2)
 
     with c1:
         status_df = df["Auto_Status"].value_counts().reset_index()
         status_df.columns = ["Status", "Count"]
+        # Pie Chart with Navy and Baby Blue sequences
         fig_pie = px.pie(
             status_df, names="Status", values="Count", 
-            hole=0.4, title="Loan Portfolio Health",
-            color_discrete_sequence=["#00ffcc", "#2B3F87", "#FF4B4B"]
+            hole=0.4, title="Portfolio Health",
+            color_discrete_sequence=["#2B3F87", "#F0F8FF", "#FF4B4B"]
         )
-        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#2B3F87")
         st.plotly_chart(fig_pie, use_container_width=True, key="overview_pie_chart")
 
     with c2:
         if 'merged_df' in locals() and not merged_df.empty:
+            # Bar Chart with Navy for Income
             fig_bar = px.bar(
                 merged_df, x="Month", y=["Income", "Expenses"], 
                 barmode="group", title="Monthly Cashflow",
-                color_discrete_map={"Income": "#00ffcc", "Expenses": "#FF4B4B"}
+                color_discrete_map={"Income": "#2B3F87", "Expenses": "#FF4B4B"}
             )
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#2B3F87")
             st.plotly_chart(fig_bar, use_container_width=True, key="overview_bar_chart")
         else:
             st.info("📊 Monthly cashflow data is being prepared...")
-
     # ==============================
     # DATA TABLES (With Comma Formatting)
     # ==============================
