@@ -13,6 +13,43 @@ from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from fpdf import FPDF
+# 1. DEFINE YOUR COLORS ONCE
+BRANDING = {
+    "navy": "#2B3F87",      # Primary Header / Buttons
+    "baby_blue": "#F0F8FF", # Row Highlights / Hover
+    "white": "#FFFFFF",     # Backgrounds
+    "text_gray": "#666666"  # Captions / Timestamps
+}
+
+# 2. THE GLOBAL STYLER (Apply this at the start of main())
+def apply_custom_styles():
+    st.markdown(f"""
+        <style>
+            /* Sidebar Background */
+            [data-testid="stSidebar"] {{
+                background-color: {BRANDING['navy']};
+            }}
+            [data-testid="stSidebar"] * {{
+                color: white !important;
+            }
+            
+            /* Active Tab Highlight */
+            .st-bb {{ border-bottom-color: {BRANDING['navy']}; }}
+            .st-at {{ background-color: {BRANDING['baby_blue']}; }}
+            
+            /* Buttons */
+            .stButton>button {{
+                background-color: {BRANDING['navy']};
+                color: white;
+                border-radius: 8px;
+                border: none;
+            }}
+            .stButton>button:hover {{
+                background-color: #1a285e; /* Slightly darker navy */
+                color: {BRANDING['baby_blue']};
+            }}
+        </style>
+    """, unsafe_allow_html=True)
 
 # ==============================
 # 1. GLOBAL SETTINGS & AUTH
