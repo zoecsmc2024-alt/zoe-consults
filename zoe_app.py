@@ -1971,7 +1971,7 @@ def show_payroll():
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
 
-            # 3. BUILD ROWS (Including Account No & Spacious Padding)
+            # 3. BUILD ROWS
             rows_html = ""
             for i, r in df.iterrows():
                 n5_val = float(r.get('NSSF_5', 0))
@@ -2024,12 +2024,9 @@ def show_payroll():
                 </div>
             </div>"""
             
-            # Use component to render safely
             st.components.v1.html(main_html, height=800, scrolling=True)
 
-        else:
-            st.info("No payroll records found.")
-            # --- MODIFY & DELETE SECTION ---
+            # 5. MODIFY & DELETE SECTION (Correctly inside the 'if' block)
             st.write("---")
             with st.expander("⚙️ Modify / Delete Record"):
                 pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
@@ -2044,7 +2041,6 @@ def show_payroll():
                     
                     c_s, c_d = st.columns(2)
                     if c_s.button("💾 Save Updates", use_container_width=True):
-                        # Use 0 for absent/adv/other during simple edit unless you want to add fields here too
                         res_u = calculate_zoe_payroll(u_basic, u_arr, 0, 0, 0)
                         df.loc[df['Payroll_ID'].astype(str) == sid, ["Employee","Basic_Salary","Arrears","Gross_Salary","PAYE","NSSF_15","Net_Pay"]] = \
                             [u_name, u_basic, u_arr, res_u['gross'], res_u['paye'], res_u['nssf'], res_u['net']]
@@ -2052,7 +2048,9 @@ def show_payroll():
                     
                     if c_d.button("🗑️ Delete Record", use_container_width=True):
                         if save_data("Payroll", df[df['Payroll_ID'].astype(str) != sid]): st.warning("Deleted!"); st.rerun()
+
         else:
+            # 6. EMPTY STATE (Correctly aligned with 'if not df.empty:')
             st.info("No payroll records found.")
         
     
