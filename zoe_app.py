@@ -642,39 +642,65 @@ def show_overview():
             st.info("📊 Monthly cashflow data is being prepared...")
     # ==============================
     # DATA TABLES (With Comma Formatting)
-    # ==============================
-    st.markdown("### 📋 Detailed Records")
-    tab1, tab2 = st.tabs(["🚨 Critical Overdue", "📅 Recent Activity"])
-    
-    with tab1:
-        overdue_display = df[df["Auto_Status"] == "Overdue"][[
-            "Borrower", "Amount", "End_Date", "Amount_Paid"
-        ]].sort_values("End_Date")
+    # 6. RECENT ACTIVITY TABLES (Navy/Baby Blue Theme)
+    st.markdown("---")
+    t1, t2 = st.columns(2)
+
+    with t1:
+        st.markdown("<h4 style='color: #2B3F87;'>📝 Recent Loans</h4>", unsafe_allow_html=True)
+        recent_loans = df.sort_values(by="Start_Date", ascending=False).head(5)
         
-        if not overdue_display.empty:
-            # Apply formatting for commas
-            st.dataframe(
-                overdue_display.style.format({
-                    "Amount": "{:,.0f} UGX",
-                    "Amount_Paid": "{:,.0f} UGX"
-                }), 
-                use_container_width=True, hide_index=True
-            )
+        rows_html = ""
+        for i, r in recent_loans.iterrows():
+            bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+            rows_html += f"""
+            <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
+                <td style="padding:8px;">{r['Borrower']}</td>
+                <td style="padding:8px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Amount']:,.0f}</td>
+                <td style="padding:8px; text-align:center;"><span style="font-size:10px; padding:2px 6px; border-radius:10px; background:#2B3F87; color:white;">{r['Status']}</span></td>
+            </tr>"""
+
+        st.markdown(f"""
+            <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #2B3F87;">
+                <thead>
+                    <tr style="background:#2B3F87; color:white; text-align:left;">
+                        <th style="padding:10px;">Borrower</th>
+                        <th style="padding:10px; text-align:right;">Amount</th>
+                        <th style="padding:10px; text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>{rows_html}</tbody>
+            </table>
+        """, unsafe_allow_html=True)
+
+    with t2:
+        st.markdown("<h4 style='color: #2B3F87;'>💸 Recent Payments</h4>", unsafe_allow_html=True)
+        if not pay_df.empty:
+            recent_pay = pay_df.sort_values(by="Date", ascending=False).head(5)
+            pay_rows = ""
+            for i, r in recent_pay.iterrows():
+                bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                pay_rows += f"""
+                <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
+                    <td style="padding:8px;">{r['Borrower']}</td>
+                    <td style="padding:8px; text-align:right; font-weight:bold; color:green;">{r['Amount']:,.0f}</td>
+                    <td style="padding:8px; text-align:center; color:#666;">{pd.to_datetime(r['Date']).strftime('%d %b')}</td>
+                </tr>"""
+
+            st.markdown(f"""
+                <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #2B3F87;">
+                    <thead>
+                        <tr style="background:#2B3F87; color:white; text-align:left;">
+                            <th style="padding:10px;">Borrower</th>
+                            <th style="padding:10px; text-align:right;">Received</th>
+                            <th style="padding:10px; text-align:center;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>{pay_rows}</tbody>
+                </table>
+            """, unsafe_allow_html=True)
         else:
-            st.success("No overdue loans! 🌟")
-    
-    with tab2:
-        recent_activity = df.sort_values("Start_Date", ascending=False).head(10)
-        # Apply formatting for commas
-        st.dataframe(
-            recent_activity.style.format({
-                "Amount": "{:,.0f} UGX",
-                "Interest": "{:,.0f} UGX",
-                "Total_Repayable": "{:,.0f} UGX",
-                "Amount_Paid": "{:,.0f} UGX"
-            }), 
-            use_container_width=True, hide_index=True
-        )
+            st.info("No recent payments recorded.")
 
 
 # ==============================
