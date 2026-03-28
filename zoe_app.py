@@ -1873,8 +1873,10 @@ def show_payroll():
     if df.empty:
         df = pd.DataFrame(columns=required_columns)
     else:
+        # Ensure all required columns exist so the app doesn't crash
         for col in required_columns:
-            if col not in df.columns: df[col] = "" 
+            if col not in df.columns:
+                df[col] = 0 if "Salary" in col or "Arrears" in col or "Pay" in col or "NSSF" in col or "LST" in col or "PAYE" in col or "Deductions" in col else ""
         df = df.fillna("") 
 
     # 3. BOSS-APPROVED CALCULATION LOGIC
@@ -1916,7 +1918,6 @@ def show_payroll():
                 if name and f_basic > 0:
                     res = calculate_ug_payroll_full(f_basic, f_arrears)
                     
-                    # THE FIX: Ensure all values, especially Date, are JSON safe strings
                     new_row = pd.DataFrame([{
                         "Payroll_ID": int(df["Payroll_ID"].max()+1) if not df.empty else 1,
                         "Employee": str(name), 
@@ -1932,17 +1933,16 @@ def show_payroll():
                         "PAYE": float(res['paye']),
                         "Total_Deductions": float(res['deduct']), 
                         "Net_Pay": float(res['net']), 
-                        "Date": datetime.now().strftime("%Y-%m-%d"), # Safe string
+                        "Date": datetime.now().strftime("%Y-%m-%d"), 
                         "Status": "Paid"
                     }])
                     
-                    # Safety check: Force everything to strings before final save
                     full_df = pd.concat([df, new_row], ignore_index=True)
                     if save_data("Payroll", full_df):
-                        st.success(f"✅ Payroll for {name} processed successfully!")
+                        st.success(f"✅ Payroll for {name} processed!")
                         st.rerun()
                 else:
-                    st.error("⚠️ Required: Please provide Name and Basic Salary.")
+                    st.error("⚠️ Required: Name and Basic Salary.")
 
     # --- TAB 2: HISTORY ---
     with tab_logs:
@@ -1959,19 +1959,22 @@ def show_payroll():
 
             rows_html = ""
             for i, r in df.iterrows():
+                # SAFETY MATH: Handle missing NSSF values gracefully
+                n5_val = float(r.get('NSSF_5', 0)) if r.get('NSSF_5') != "" else 0
+                n10_val = float(r.get('NSSF_10', 0)) if r.get('NSSF_10') != "" else 0
+                total_nssf = n5_val + n10_val
+
                 rows_html += f"""
                 <tr>
                     <td style='text-align:center;'>{i+1}</td>
-                    <td><b>{r['Employee']}</b><br>
-                        <small style='color:gray;'>A/C: {r.get('Account_No', '-')}</small>
-                    </td>
+                    <td><b>{r['Employee']}</b><br><small>A/C: {r.get('Account_No', '-')}</small></td>
                     <td style='text-align:right;'>{fm(r['Basic_Salary'])}</td>
                     <td style='text-align:right;'>{fm(r['Arrears'])}</td>
                     <td style='text-align:right; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
                     <td style='text-align:right;'>{fm(r['LST'])}</td>
                     <td style='text-align:right;'>{fm(r['PAYE'])}</td>
-                    <td style='text-align:right; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
-                    <td style='text-align:right; background:#FFFAE6;'>{fm(float(r.get('NSSF_5',0)) + float(r.get('NSSF_10', 0)))}</td>
+                    <td style='text-align:right; background:#E3F2FD; font-weight:bold;'>{fm(r['Net_Pay'])}</td>
+                    <td style='text-align:right; background:#FFFAE6;'>{fm(total_nssf)}</td>
                 </tr>"""
 
             main_html = f"""
@@ -1994,13 +1997,13 @@ def show_payroll():
             with st.expander("⚙️ Modify / Delete Record"):
                 pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
                 if pay_opts:
-                    sel_opt = st.selectbox("Select Record to Change", pay_opts)
+                    sel_opt = st.selectbox("Select Record", pay_opts)
                     sid = str(sel_opt.split("(ID: ")[1].replace(")", ""))
                     item = df[df['Payroll_ID'].astype(str) == sid].iloc[0]
                     
                     u_name = st.text_input("Edit Name", value=str(item['Employee']))
-                    u_basic = st.number_input("Edit Basic", value=float(item['Basic_Salary']))
-                    u_arr = st.number_input("Edit Arrears", value=float(item['Arrears']))
+                    u_basic = st.number_input("Edit Basic", value=float(item['Basic_Salary'] if item['Basic_Salary'] != "" else 0))
+                    u_arr = st.number_input("Edit Arrears", value=float(item['Arrears'] if item['Arrears'] != "" else 0))
                     
                     c_s, c_d = st.columns(2)
                     if c_s.button("💾 Save Updates", use_container_width=True):
@@ -2013,7 +2016,7 @@ def show_payroll():
                         if save_data("Payroll", df[df['Payroll_ID'].astype(str) != sid]): 
                             st.warning("Deleted!"); st.rerun()
         else:
-            st.info("No payroll records found for this period.")
+            st.info("No payroll records found.")
         
     
  
