@@ -708,6 +708,7 @@ def show_overview():
 # ==============================
 
 def show_borrowers():
+    # Primary Header in Navy
     st.markdown("<h2 style='color: #2B3F87;'>👥 Borrowers Management</h2>", unsafe_allow_html=True)
 
     # 1. LOAD DATA
@@ -715,23 +716,22 @@ def show_borrowers():
     loans_df = get_cached_data("Loans") 
 
     if df.empty:
-        # Added Email and Next_of_Kin to the fallback structure
         df = pd.DataFrame(columns=["Borrower_ID", "Name", "Phone", "Email", "National_ID", "Address", "Next_of_Kin", "Status", "Date_Added"])
 
     # ==============================
-    # TABBED INTERFACE
+    # TABBED INTERFACE (Styled Tabs)
     # ==============================
     tab_list, tab_add, tab_manage = st.tabs(["📋 View All", "➕ Add New", "⚙️ Manage & Edit"])
 
     # --- TAB 1: SEARCH & LIST ---
     with tab_list:
+        st.markdown("<br>", unsafe_allow_html=True)
         col1, col2 = st.columns([2, 1])
         search = col1.text_input("🔍 Search Name, Phone or Email")
-        status_filter = col2.selectbox("Filter", ["All", "Active", "Inactive"])
+        status_filter = col2.selectbox("Filter Status", ["All", "Active", "Inactive"])
 
         filtered_df = df.copy()
         if search:
-            # Added Email to search functionality
             filtered_df = filtered_df[
                 filtered_df["Name"].str.contains(search, case=False, na=False) |
                 filtered_df["Phone"].str.contains(search, case=False, na=False) |
@@ -740,74 +740,96 @@ def show_borrowers():
         if status_filter != "All":
             filtered_df = filtered_df[filtered_df["Status"] == status_filter]
 
+        # Displaying the main list
         st.dataframe(filtered_df, use_container_width=True, hide_index=True)
 
-    # --- TAB 2: ADD BORROWER ---
+    # --- TAB 2: ADD BORROWER (Zoe Themed Form) ---
     with tab_add:
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Using a styled container for the form
         with st.form("add_borrower_form", clear_on_submit=True):
+            st.markdown("<h4 style='color: #2B3F87;'>📝 Register New Borrower</h4>", unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             name = c1.text_input("Full Name*")
             phone = c2.text_input("Phone Number*")
             
-            # --- NEW FIELDS ---
             email = c1.text_input("Email Address")
             kin = c2.text_input("Next of Kin (Name & Phone)")
             
             nid = c1.text_input("National ID / NIN")
             addr = c2.text_input("Physical Address")
             
-            if st.form_submit_button("🚀 Save Borrower"):
+            st.markdown("<br>", unsafe_allow_html=True)
+            # The button will automatically be Navy Blue due to our global styles
+            if st.form_submit_button("🚀 Save Borrower Profile", use_container_width=True):
                 if name and phone:
                     new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
                     new_entry = pd.DataFrame([{
                         "Borrower_ID": new_id, 
                         "Name": name, 
                         "Phone": phone,
-                        "Email": email,        # Save Email
+                        "Email": email,
                         "National_ID": nid, 
                         "Address": addr, 
-                        "Next_of_Kin": kin,    # Save Next of Kin
+                        "Next_of_Kin": kin,
                         "Status": "Active",
                         "Date_Added": datetime.now().strftime("%Y-%m-%d")
                     }])
                     updated_df = pd.concat([df, new_entry], ignore_index=True)
                     if save_data("Borrowers", updated_df):
-                        st.success(f"✅ {name} added to system!")
+                        st.success(f"✅ {name} has been registered successfully!")
                         st.rerun()
                 else:
-                    st.error("⚠️ Please fill in Name and Phone.")
+                    st.error("⚠️ Required: Please provide Name and Phone Number.")
 
-    # --- TAB 3: MANAGE & SUMMARY ---
+    # --- TAB 3: MANAGE & SUMMARY (Zoe Portfolio Style) ---
     with tab_manage:
+        st.markdown("<br>", unsafe_allow_html=True)
         if not df.empty:
-            target_name = st.selectbox("Select Borrower to Manage", df["Name"].tolist())
-            # Fetch borrower details
+            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist())
             b_data = df[df["Name"] == target_name].iloc[0]
             
-            # Show the new contact details in the summary
-            col_info1, col_info2 = st.columns(2)
-            col_info1.write(f"**Email:** {b_data.get('Email', 'N/A')}")
-            col_info2.write(f"**Next of Kin:** {b_data.get('Next_of_Kin', 'N/A')}")
+            # Info Cards in Baby Blue
+            st.markdown(f"""
+                <div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border: 1px solid #2B3F87;">
+                    <p style="margin:0; color:#2B3F87;"><b>📧 Email:</b> {b_data.get('Email', 'N/A')} | 
+                    <b>👨‍👩‍👦 Next of Kin:</b> {b_data.get('Next_of_Kin', 'N/A')}</p>
+                </div>
+            """, unsafe_allow_html=True)
             
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
             
             user_loans = loans_df[loans_df["Borrower"] == target_name] if not loans_df.empty else pd.DataFrame()
             
             if not user_loans.empty:
-                total_paid = pd.to_numeric(user_loans['Amount_Paid']).sum()
-                total_remaining = pd.to_numeric(user_loans['Total_Repayable']).sum() - total_paid
-                active_count = user_loans[user_loans["Status"] != "Closed"].shape[0]
+                # Convert to numeric for math
+                u_loans = user_loans.copy()
+                u_loans['Amount_Paid'] = pd.to_numeric(u_loans['Amount_Paid'], errors='coerce').fillna(0)
+                u_loans['Total_Repayable'] = pd.to_numeric(u_loans['Total_Repayable'], errors='coerce').fillna(0)
+                
+                total_paid = u_loans['Amount_Paid'].sum()
+                total_remaining = u_loans['Total_Repayable'].sum() - total_paid
+                active_count = u_loans[u_loans["Status"] != "Closed"].shape[0]
 
-                st.markdown(f"### 📋 Portfolio Summary for {target_name}")
+                st.markdown(f"<h3 style='color: #2B3F87;'>📈 Portfolio: {target_name}</h3>", unsafe_allow_html=True)
+                
+                # Metric Cards
                 m1, m2, m3 = st.columns(3)
-                m1.metric("Total Loans Taken", len(user_loans))
-                m2.metric("Active Loans", active_count)
-                m3.metric("Total Outstanding", f"{total_remaining:,.0f} UGX")
+                m1.metric("Lifetime Loans", len(u_loans))
+                m2.metric("Active Files", active_count)
+                # Outstanding in bold Navy
+                m3.markdown(f"""
+                    <div style="text-align:center;">
+                        <p style="margin:0; font-size:14px; color:#666;">Outstanding Balance</p>
+                        <h4 style="margin:0; color:#2B3F87;">{total_remaining:,.0f} UGX</h4>
+                    </div>
+                """, unsafe_allow_html=True)
 
-                st.write("**Loan History:**")
-                st.dataframe(user_loans[["Loan_ID", "Amount", "Status", "End_Date"]], use_container_width=True, hide_index=True)
+                st.markdown("---")
+                st.write("**Full Loan History:**")
+                st.dataframe(u_loans[["Loan_ID", "Amount", "Status", "End_Date"]], use_container_width=True, hide_index=True)
             else:
-                st.info("This borrower has not taken any loans yet.")
+                st.info("ℹ️ This borrower has a clean history (no loans recorded yet).")
 
 
 
