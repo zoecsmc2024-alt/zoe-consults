@@ -537,56 +537,79 @@ def sidebar():
 # ==============================
 
 def show_overview():
-    st.markdown("<h2 style='color: #2B3F87;'>📊 Financial Dashboard</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #4A90E2;'>📊 Financial Dashboard</h2>", unsafe_allow_html=True)
     
     # 1. LOAD PRIMARY DATA
     df = get_cached_data("Loans")
     pay_df = get_cached_data("Payments")
     exp_df = get_cached_data("Expenses")
 
-    if df.empty:
+    # FIX: Check if the dataframe is actually empty or just filtered
+    if df is None or df.empty:
         st.warning("⚠️ No data found in 'Loans'. Add some borrowers to get started!")
         return
 
-    # 2. DATA CRUNCHING (Monthly Trends)
-    if not pay_df.empty and not exp_df.empty:
-        pay_df["Date"] = pd.to_datetime(pay_df["Date"])
-        exp_df["Date"] = pd.to_datetime(exp_df["Date"])
-        
-        inc_m = pay_df.groupby(pay_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
-        exp_m = exp_df.groupby(exp_df["Date"].dt.strftime('%b %Y'))["Amount"].sum().reset_index()
-        
-        merged_df = pd.merge(inc_m, exp_m, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
-        merged_df.columns = ["Month", "Income", "Expenses"]
-    else:
-        merged_df = pd.DataFrame(columns=["Month", "Income", "Expenses"])
-
-    # 3. LOAN STATUS CLEANING
+    # 2. DATA CLEANING & STATUS REPAIR
+    # Ensure numeric types for math
     df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
     df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
-    df["Amount_Paid"] = pd.to_numeric(df.get("Amount_Paid", 0), errors="coerce").fillna(0)
+    df["Amount_Paid"] = pd.to_numeric(df["Amount_Paid"], errors="coerce").fillna(0)
     df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
     
-    today = pd.Timestamp.today()
-    df["Auto_Status"] = df["Status"]
-    total_due = df["Amount"] + df["Interest"]
-    df.loc[(df["End_Date"] < today) & (df["Amount_Paid"] < total_due), "Auto_Status"] = "Overdue"
-
-    # 4. METRICS ROW (Branded Zoe Consults)
-    total_issued = df["Amount"].sum()
-    total_profit = df["Interest"].sum()
-    total_collected = df["Amount_Paid"].sum()
-    overdue_count = df[df["Auto_Status"] == "Overdue"].shape[0]
+    today = pd.Timestamp.today().normalize()
     
+    # CRITICAL FIX: Define what "Active" means for Zoe Consults
+    # This ensures "Rolled/Overdue" loans show up in your totals!
+    active_statuses = ["Active", "Overdue", "Rolled/Overdue"]
+    active_df = df[df["Status"].isin(active_statuses)].copy()
+
+    # 3. METRICS CALCULATION
+    total_issued = active_df["Amount"].sum()
+    total_interest_expected = active_df["Interest"].sum()
+    total_collected = df["Amount_Paid"].sum() # Total collected from ALL time
+    
+    # Count overdue (Current date is past End_Date and not cleared)
+    overdue_mask = (active_df["End_Date"] < today) & (active_df["Status"] != "Cleared")
+    overdue_count = active_df[overdue_mask].shape[0]
+    
+    # 4. METRICS ROW (Zoe Soft Blue Style)
     m1, m2, m3, m4 = st.columns(4)
 
-    # 1. Total Issued (Navy Blue)
+    # 1. Total Issued (Soft Blue)
     m1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">💰 TOTAL ISSUED</p>
-            <h3 style="margin:0; color:#2B3F87; font-size: 18px;">{total_issued:,.0f} <span style="font-size:10px;">UGX</span></h3>
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">💰 TOTAL ACTIVE PRINCIPAL</p>
+            <h3 style="margin:0; color:#4A90E2; font-size: 18px;">{total_issued:,.0f} <span style="font-size:10px;">UGX</span></h3>
         </div>
     """, unsafe_allow_html=True)
+
+    # 2. Expected Interest (Soft Blue)
+    m2.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">📈 EXPECTED INTEREST</p>
+            <h3 style="margin:0; color:#4A90E2; font-size: 18px;">{total_interest_expected:,.0f} <span style="font-size:10px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 3. Total Collected (Success Green)
+    m3.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2E7D32; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">✅ TOTAL COLLECTED</p>
+            <h3 style="margin:0; color:#2E7D32; font-size: 18px;">{total_collected:,.0f} <span style="font-size:10px;">UGX</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 4. Overdue Count (Alert Red)
+    m4.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:11px; color:#666; font-weight:bold; letter-spacing:1px;">🚨 OVERDUE ACCOUNTS</p>
+            <h3 style="margin:0; color:#FF4B4B; font-size: 18px;">{overdue_count} <span style="font-size:10px;">FILES</span></h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 5. CHARTS & TABLES (Remaining logic continues below...)
+    st.write("---")
+    # (Rest of your charts code using active_df)
 
     # 2. Expected Profit (Baby Blue Accent)
     m2.markdown(f"""
@@ -1397,8 +1420,7 @@ def show_overdue_tracker():
         st.info("No loan records found.")
         return
 
-    # --- THE COLUMN MAPPING FIXES ---
-    # 1. Use 'End_Date' for dates
+    # 1. Prepare Dates
     loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date'], errors='coerce')
     today = datetime.now()
     
@@ -1411,13 +1433,11 @@ def show_overdue_tracker():
 
     st.warning(f"Found {len(overdue_df)} accounts requiring monthly compounding.")
 
-    # 3. TABLE DISPLAY (Using 'Outstanding_Balance')
+    # 3. TABLE DISPLAY (Soft Blue Style)
     rows_html = ""
     for i, r in overdue_df.iterrows():
         new_end_date = r['End_Date'] + pd.DateOffset(months=1)
         bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-        
-        # We use .get() as a safety net so it doesn't crash if a value is missing
         current_out = r.get('Outstanding_Balance', r.get('Outstanding', 0))
         
         rows_html += f"""
@@ -1430,46 +1450,40 @@ def show_overdue_tracker():
 
     st.markdown(f"""
     <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden;">
-        <table style="width:100%; border-collapse:collapse;">
-            <tr style="background:#4A90E2; color:white;">
-                ...
-            </tr>
+        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
+            <thead>
+                <tr style="background:#4A90E2; color:white;">
+                    <th style="padding:10px;">Borrower</th>
+                    <th style="padding:10px;">Missed Date</th>
+                    <th style="padding:10px;">Balance to Roll</th>
+                    <th style="padding:10px;">New Due Date</th>
+                </tr>
             </thead>
             <tbody>{rows_html}</tbody>
         </table>
     </div>""", unsafe_allow_html=True)
 
-    # 4. ROLLOVER BUTTON (Zoe Soft Blue Style)
-st.write("")
+    # 4. ROLLOVER BUTTON (NOW CORRECTLY INDENTED)
+    st.write("")
+    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+        for i, r in overdue_df.iterrows():
+            new_date_obj = r['End_Date'] + pd.DateOffset(months=1)
+            new_date_str = new_date_obj.strftime('%Y-%m-%d')
+            current_out = r.get('Outstanding_Balance', r.get('Outstanding', 0))
+            
+            # Update the main loan_df
+            loan_df.loc[i, 'Amount'] = float(current_out) 
+            loan_df.loc[i, 'End_Date'] = new_date_str
+            loan_df.loc[i, 'Status'] = "Rolled/Overdue"
+            
+        # Standardize all dates to strings for JSON safety
+        if 'Start_Date' in loan_df.columns:
+            loan_df['Start_Date'] = pd.to_datetime(loan_df['Start_Date']).dt.strftime('%Y-%m-%d')
+        if 'End_Date' in loan_df.columns:
+            loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date']).dt.strftime('%Y-%m-%d')
 
-# Let's make the button stand out in Soft Blue
-if st.button("🔄 Execute Monthly Rollover (Compound All)"):
-    # 1. Loop through the overdue accounts
-    for i, r in overdue_df.iterrows():
-        # Move the date forward by 1 month
-        new_date_obj = r['End_Date'] + pd.DateOffset(months=1)
-        
-        # THE FIX: Convert the date to a STRING "YYYY-MM-DD" immediately
-        new_date_str = new_date_obj.strftime('%Y-%m-%d')
-        
-        current_out = r.get('Outstanding_Balance', r.get('Outstanding', 0))
-        
-        # 2. Update the main loan_df
-        loan_df.loc[i, 'Amount'] = float(current_out) 
-        loan_df.loc[i, 'End_Date'] = new_date_str # Save as String, not Timestamp!
-        loan_df.loc[i, 'Status'] = "Rolled/Overdue"
-        
-    # 3. SAFETY CHECK: Convert any other stray Timestamps in the whole DF to strings
-    # This is a "just in case" shield for the JSON error
-    if 'Start_Date' in loan_df.columns:
-        loan_df['Start_Date'] = pd.to_datetime(loan_df['Start_Date']).dt.strftime('%Y-%m-%d')
-    if 'End_Date' in loan_df.columns:
-        loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date']).dt.strftime('%Y-%m-%d')
-
-    # 4. Save the cleaned data
-    if save_data("Loans", loan_df):
-        st.success("✅ Successfully compounded balances and updated dates!"); st.rerun()
-
+        if save_data("Loans", loan_df):
+            st.success("✅ Successfully compounded balances!"); st.rerun()
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
