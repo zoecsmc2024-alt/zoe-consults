@@ -1290,50 +1290,41 @@ def show_collateral():
 # ==============================
 
 def show_overdue_tracker():
-    # 1. HEADER & SYSTEM STATUS
     st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
     
     loan_df = get_cached_data("Loans") 
     if loan_df.empty:
-        st.info("No loan records found in the system.")
+        st.info("No loan records found.")
         return
 
-    # 2. SYNC WITH YOUR TABLE COLUMNS
-    # Ensuring dates are readable for the "Today" comparison
-    loan_df['Due_Date'] = pd.to_datetime(loan_df['Due_Date'], errors='coerce')
+    # --- THE FIX: Using 'End_Date' instead of 'Due_Date' ---
+    # We use .copy() to avoid setting-with-copy warnings
+    loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date'], errors='coerce')
     today = datetime.now()
     
-    # Check for Last Rollover Activity
-    last_roll = "No Rollovers Recorded"
-    if 'Date' in loan_df.columns:
-        rolled_ones = loan_df[loan_df['Status'] == "Rolled/Overdue"]
-        if not rolled_ones.empty:
-            last_roll = rolled_ones['Date'].max()
-    
-    st.markdown(f"<p style='color: #666; font-size: 13px;'>📅 Last Compounding Action: <b>{last_roll}</b></p>", unsafe_allow_html=True)
-
-    # 3. FILTER FOR OVERDUE (Using 'Outstanding' to find debt)
-    # Logic: Status isn't 'Cleared' AND Due Date has passed
-    overdue_df = loan_df[(loan_df['Status'] != "Cleared") & (loan_df['Due_Date'] < today)].copy()
+    # 1. IDENTIFY OVERDUE ACCOUNTS
+    # We check if 'Status' is not 'Cleared' and the 'End_Date' has passed
+    overdue_df = loan_df[(loan_df['Status'] != "Cleared") & (loan_df['End_Date'] < today)].copy()
 
     if overdue_df.empty:
-        st.success("✅ All loans are currently up to date! No rollovers required.")
+        st.success("✅ All loans are up to date! No rollovers required.")
         return
 
-    # 4. OVERDUE TABLE (Navy Header / Baby Blue Rows)
     st.warning(f"Found {len(overdue_df)} accounts requiring monthly compounding.")
-    
+
+    # 2. TABLE DISPLAY (Navy/Baby Blue)
     rows_html = ""
     for i, r in overdue_df.iterrows():
-        new_due = r['Due_Date'] + pd.DateOffset(months=1)
+        # New date is exactly one month after the current End_Date
+        new_end_date = r['End_Date'] + pd.DateOffset(months=1)
         bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
         
         rows_html += f"""
         <tr style="background-color: {bg_color};">
             <td style="padding:10px; border:1px solid #ddd;"><b>{r['Borrower']}</b></td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:center;">{r['Due_Date'].strftime('%d %b %Y')}</td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:center;">{r['End_Date'].strftime('%d %b %Y')}</td>
             <td style="padding:10px; border:1px solid #ddd; text-align:right; color:#2B3F87; font-weight:bold;">{r['Outstanding']:,.0f} UGX</td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:center; color:#2E7D32;"><b>{new_due.strftime('%d %b %Y')}</b></td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:center; color:#2E7D32;"><b>{new_end_date.strftime('%d %b %Y')}</b></td>
         </tr>"""
 
     st.markdown(f"""
@@ -1342,58 +1333,28 @@ def show_overdue_tracker():
             <thead>
                 <tr style="background:#2B3F87; color:white;">
                     <th style="padding:12px;">Borrower Name</th>
-                    <th style="padding:12px;">Missed Date</th>
+                    <th style="padding:12px;">Missed End Date</th>
                     <th style="padding:12px;">Outstanding (To Roll)</th>
-                    <th style="padding:12px;">Next Due Date</th>
+                    <th style="padding:12px;">New End Date</th>
                 </tr>
             </thead>
             <tbody>{rows_html}</tbody>
         </table>
     </div>""", unsafe_allow_html=True)
 
-    # 5. THE ROLLOVER BUTTON (The "Evans Rule" Fix)
+    # 3. ROLLOVER BUTTON
     st.write("")
     if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
         for i, r in overdue_df.iterrows():
-            new_due = r['Due_Date'] + pd.DateOffset(months=1)
+            new_date = r['End_Date'] + pd.DateOffset(months=1)
             
-            # --- THE MAGIC ---
-            # We move the Outstanding balance into the 'Amount' column.
-            # This makes the unpaid interest part of the new loan base.
+            # Update 'Amount' with 'Outstanding' balance for compounding
             loan_df.loc[i, 'Amount'] = r['Outstanding'] 
-            loan_df.loc[i, 'Due_Date'] = new_due
+            loan_df.loc[i, 'End_Date'] = new_date
             loan_df.loc[i, 'Status'] = "Rolled/Overdue"
-            loan_df.loc[i, 'Date'] = today.strftime("%Y-%m-%d") 
             
         if save_data("Loans", loan_df):
-            st.success("Successfully compounded balances! The Loans tab has been updated."); st.rerun()
-
-    # 6. AUDIT LOG & GROWTH VISUAL
-    st.write("---")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("<h4 style='color: #2B3F87;'>📈 Growth Projection</h4>", unsafe_allow_html=True)
-        sel_b = st.selectbox("Select Borrower", overdue_df['Borrower'].unique())
-        curr_out = overdue_df[overdue_df['Borrower'] == sel_b]['Outstanding'].iloc[0]
-        
-        proj_data = []
-        temp_val = curr_out
-        for m in range(1, 7):
-            temp_val += (temp_val * 0.10) # 10% interest simulation
-            proj_data.append({"Month": f"M{m}", "Debt": round(temp_val)})
-        
-        st.bar_chart(pd.DataFrame(proj_data).set_index("Month"), color="#2B3F87")
-
-    with col2:
-        st.markdown("<h4 style='color: #2B3F87;'>📜 Rollover History</h4>", unsafe_allow_html=True)
-        # Showing the history of people who have been rolled
-        history = loan_df[loan_df['Status'] == "Rolled/Overdue"][['Borrower', 'Amount', 'Date']].tail(5)
-        if not history.empty:
-            history.columns = ['Borrower', 'New Base Amount', 'Date Rolled']
-            st.table(history)
-        else:
-            st.info("No rollover history found for this month.")
+            st.success("Successfully compounded balances!"); st.rerun()
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
