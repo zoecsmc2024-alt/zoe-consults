@@ -2074,17 +2074,13 @@ def show_reports():
     
     p_color = "#2E7D32" if net_profit >= 0 else "#FF4B4B"
     k4.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:10px;border-left:5px solid {p_color};box-shadow:2px 2px 8px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">NET PROFIT</p><h4 style="margin:0;color:{p_color};">{net_profit:,.0f}</h4></div>""", unsafe_allow_html=True)
-    
-    # ... rest of your charts logic ...
-        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid {p_color}; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">NET PROFIT</p>
-            <h4 style="margin:0; color:{p_color};">{net_profit:,.0f}</h4>
-        </div>
-    """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 5. VISUAL ANALYTICS
+    # 5. VISUAL ANALYTICS (Start Chart Logic here)
+    st.markdown("---")
+    col_left, col_right = st.columns(2)
+    # ... rest of your charts logic ...
     col_left, col_right = st.columns(2)
 
     with col_left:
