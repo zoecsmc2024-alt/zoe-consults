@@ -2025,7 +2025,7 @@ def show_payroll():
 # ==============================
 
 def show_reports():
-    st.markdown("<h2 style='color: #2B3F87;'>📊 Advanced Analytics & Reports</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #4A90E2;'>📊 Advanced Analytics & Reports</h2>", unsafe_allow_html=True)
     
     # 1. FETCH ALL DATA
     loans = get_cached_data("Loans")
@@ -2034,63 +2034,48 @@ def show_reports():
     payroll = get_cached_data("Payroll")
     petty = get_cached_data("PettyCash")
 
-    if loans.empty or payments.empty:
-        st.info("📈 Not enough data yet. Once you record more loans and payments, your P&L will appear here.")
+    if loans.empty:
+        st.info("📈 Record more loans to see your financial analytics.")
         return
 
-    # 2. SAFETY PAYROLL CALCULATION
-    if not payroll.empty:
-        p_col = "Gross_Salary" if "Gross_Salary" in payroll.columns else "Salary"
-        pay_amt = pd.to_numeric(payroll[p_col], errors="coerce").fillna(0).sum()
-        nssf_total = pd.to_numeric(payroll.get("NSSF", 0), errors="coerce").fillna(0).sum()
+    # 2. SAFETY PAYROLL CALCULATION (THE FIX)
+    # We check if payroll is a real DataFrame before asking for NSSF
+    pay_amt, nssf_total, paye_total = 0, 0, 0
+    if isinstance(payroll, pd.DataFrame) and not payroll.empty:
+        # Use .get() but ensure it's on the DataFrame properly
+        pay_amt = pd.to_numeric(payroll.get("Gross_Salary", 0), errors="coerce").fillna(0).sum()
+        # In your payroll sheet, these columns are actually NSSF_5 or NSSF_10
+        n5 = pd.to_numeric(payroll.get("NSSF_5", 0), errors="coerce").fillna(0).sum()
+        n10 = pd.to_numeric(payroll.get("NSSF_10", 0), errors="coerce").fillna(0).sum()
+        nssf_total = n5 + n10
         paye_total = pd.to_numeric(payroll.get("PAYE", 0), errors="coerce").fillna(0).sum()
-    else:
-        pay_amt, nssf_total, paye_total = 0, 0, 0
 
-    # 3. DATA CLEANING & CONVERSION
+    # 3. OTHER DATA CLEANING
     l_amt = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0).sum()
     l_int = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0).sum()
-    p_amt = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0).sum()
-    exp_amt = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0).sum()
+    p_amt = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0).sum() if not payments.empty else 0
+    exp_amt = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0).sum() if not expenses.empty else 0
     
     petty_out = 0
-    if not petty.empty:
+    if isinstance(petty, pd.DataFrame) and not petty.empty:
         petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
     
+    # Total Outflow and Net Profit math
     total_outflow = exp_amt + pay_amt + petty_out + nssf_total + paye_total
     net_profit = p_amt - total_outflow
 
-    # 4. KPI DASHBOARD WITH STYLED CARDS
+    # --- KPI DASHBOARD (Soft Blue) ---
     st.subheader("🚀 Financial Performance")
     k1, k2, k3, k4 = st.columns(4)
     
-    # Capital Issued (Navy)
-    k1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">CAPITAL ISSUED</p>
-            <h4 style="margin:0; color:#2B3F87;">{l_amt:,.0f}</h4>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Interest Accrued (Baby Blue)
-    k2.markdown(f"""
-        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #89CFF0; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">INTEREST ACCRUED</p>
-            <h4 style="margin:0; color:#2B3F87;">{l_int:,.0f}</h4>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Total Collections (Green)
-    k3.markdown(f"""
-        <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #00ffcc; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">COLLECTIONS</p>
-            <h4 style="margin:0; color:#2B3F87;">{p_amt:,.0f}</h4>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Profit Card (Dynamic Color)
-    p_color = "#00ffcc" if net_profit > 0 else "#FF4B4B"
-    k4.markdown(f"""
+    k1.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:10px;border-left:5px solid #4A90E2;box-shadow:2px 2px 8px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">CAPITAL ISSUED</p><h4 style="margin:0;color:#4A90E2;">{l_amt:,.0f}</h4></div>""", unsafe_allow_html=True)
+    k2.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:10px;border-left:5px solid #4A90E2;box-shadow:2px 2px 8px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">INTEREST ACCRUED</p><h4 style="margin:0;color:#4A90E2;">{l_int:,.0f}</h4></div>""", unsafe_allow_html=True)
+    k3.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:10px;border-left:5px solid #2E7D32;box-shadow:2px 2px 8px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">COLLECTIONS</p><h4 style="margin:0;color:#2E7D32;">{p_amt:,.0f}</h4></div>""", unsafe_allow_html=True)
+    
+    p_color = "#2E7D32" if net_profit >= 0 else "#FF4B4B"
+    k4.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:10px;border-left:5px solid {p_color};box-shadow:2px 2px 8px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">NET PROFIT</p><h4 style="margin:0;color:{p_color};">{net_profit:,.0f}</h4></div>""", unsafe_allow_html=True)
+    
+    # ... rest of your charts logic ...
         <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid {p_color}; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
             <p style="margin:0; font-size:11px; color:#666; font-weight:bold;">NET PROFIT</p>
             <h4 style="margin:0; color:{p_color};">{net_profit:,.0f}</h4>
