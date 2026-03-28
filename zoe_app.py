@@ -1297,13 +1297,12 @@ def show_overdue_tracker():
         st.info("No loan records found.")
         return
 
-    # --- THE FIX: Using 'End_Date' instead of 'Due_Date' ---
-    # We use .copy() to avoid setting-with-copy warnings
+    # --- THE COLUMN MAPPING FIXES ---
+    # 1. Use 'End_Date' for dates
     loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date'], errors='coerce')
     today = datetime.now()
     
-    # 1. IDENTIFY OVERDUE ACCOUNTS
-    # We check if 'Status' is not 'Cleared' and the 'End_Date' has passed
+    # 2. Identify Overdue Accounts
     overdue_df = loan_df[(loan_df['Status'] != "Cleared") & (loan_df['End_Date'] < today)].copy()
 
     if overdue_df.empty:
@@ -1312,18 +1311,20 @@ def show_overdue_tracker():
 
     st.warning(f"Found {len(overdue_df)} accounts requiring monthly compounding.")
 
-    # 2. TABLE DISPLAY (Navy/Baby Blue)
+    # 3. TABLE DISPLAY (Using 'Outstanding_Balance')
     rows_html = ""
     for i, r in overdue_df.iterrows():
-        # New date is exactly one month after the current End_Date
         new_end_date = r['End_Date'] + pd.DateOffset(months=1)
         bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+        
+        # We use .get() as a safety net so it doesn't crash if a value is missing
+        current_out = r.get('Outstanding_Balance', r.get('Outstanding', 0))
         
         rows_html += f"""
         <tr style="background-color: {bg_color};">
             <td style="padding:10px; border:1px solid #ddd;"><b>{r['Borrower']}</b></td>
             <td style="padding:10px; border:1px solid #ddd; text-align:center;">{r['End_Date'].strftime('%d %b %Y')}</td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:right; color:#2B3F87; font-weight:bold;">{r['Outstanding']:,.0f} UGX</td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:right; color:#2B3F87; font-weight:bold;">{current_out:,.0f} UGX</td>
             <td style="padding:10px; border:1px solid #ddd; text-align:center; color:#2E7D32;"><b>{new_end_date.strftime('%d %b %Y')}</b></td>
         </tr>"""
 
@@ -1334,7 +1335,7 @@ def show_overdue_tracker():
                 <tr style="background:#2B3F87; color:white;">
                     <th style="padding:12px;">Borrower Name</th>
                     <th style="padding:12px;">Missed End Date</th>
-                    <th style="padding:12px;">Outstanding (To Roll)</th>
+                    <th style="padding:12px;">Outstanding Bal (To Roll)</th>
                     <th style="padding:12px;">New End Date</th>
                 </tr>
             </thead>
@@ -1342,14 +1343,15 @@ def show_overdue_tracker():
         </table>
     </div>""", unsafe_allow_html=True)
 
-    # 3. ROLLOVER BUTTON
+    # 4. ROLLOVER BUTTON
     st.write("")
     if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
         for i, r in overdue_df.iterrows():
             new_date = r['End_Date'] + pd.DateOffset(months=1)
+            current_out = r.get('Outstanding_Balance', r.get('Outstanding', 0))
             
-            # Update 'Amount' with 'Outstanding' balance for compounding
-            loan_df.loc[i, 'Amount'] = r['Outstanding'] 
+            # Compounding logic: Outstanding becomes the new Amount
+            loan_df.loc[i, 'Amount'] = current_out 
             loan_df.loc[i, 'End_Date'] = new_date
             loan_df.loc[i, 'Status'] = "Rolled/Overdue"
             
