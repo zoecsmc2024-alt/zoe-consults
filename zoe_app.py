@@ -2038,33 +2038,29 @@ def show_reports():
         st.info("📈 Record more loans to see your financial analytics.")
         return
 
-    # 2. SAFETY PAYROLL CALCULATION (THE FIX)
-    # We check if payroll is a real DataFrame before asking for NSSF
+    # 2. SAFETY PAYROLL & PETTY CASH CALCULATIONS
     pay_amt, nssf_total, paye_total = 0, 0, 0
     if isinstance(payroll, pd.DataFrame) and not payroll.empty:
-        # Use .get() but ensure it's on the DataFrame properly
         pay_amt = pd.to_numeric(payroll.get("Gross_Salary", 0), errors="coerce").fillna(0).sum()
-        # In your payroll sheet, these columns are actually NSSF_5 or NSSF_10
         n5 = pd.to_numeric(payroll.get("NSSF_5", 0), errors="coerce").fillna(0).sum()
         n10 = pd.to_numeric(payroll.get("NSSF_10", 0), errors="coerce").fillna(0).sum()
         nssf_total = n5 + n10
         paye_total = pd.to_numeric(payroll.get("PAYE", 0), errors="coerce").fillna(0).sum()
 
-    # 3. OTHER DATA CLEANING
+    petty_out = 0
+    if isinstance(petty, pd.DataFrame) and not petty.empty:
+        petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
+
+    # 3. CONSOLIDATED MATH
     l_amt = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0).sum()
     l_int = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0).sum()
     p_amt = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0).sum() if not payments.empty else 0
     exp_amt = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0).sum() if not expenses.empty else 0
     
-    petty_out = 0
-    if isinstance(petty, pd.DataFrame) and not petty.empty:
-        petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
-    
-    # Total Outflow and Net Profit math
     total_outflow = exp_amt + pay_amt + petty_out + nssf_total + paye_total
     net_profit = p_amt - total_outflow
 
-    # --- KPI DASHBOARD (Soft Blue) ---
+    # 4. KPI DASHBOARD (Soft Blue)
     st.subheader("🚀 Financial Performance")
     k1, k2, k3, k4 = st.columns(4)
     
@@ -2077,23 +2073,31 @@ def show_reports():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 5. VISUAL ANALYTICS (Start Chart Logic here)
+    # 5. VISUAL ANALYTICS
     st.markdown("---")
-    col_left, col_right = st.columns(2)
-    # ... rest of your charts logic ...
     col_left, col_right = st.columns(2)
 
     with col_left:
         st.write("**💰 Income vs. Expenses (Monthly)**")
-        payments["Date"] = pd.to_datetime(payments["Date"])
-        expenses["Date"] = pd.to_datetime(expenses["Date"])
-        inc_trend = payments.groupby(payments["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
-        exp_trend = expenses.groupby(expenses["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
-        merged = pd.merge(inc_trend, exp_trend, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
-        merged.columns = ["Month", "Income", "Expenses"]
-        fig_bar = px.bar(merged, x="Month", y=["Income", "Expenses"], barmode="group",
-                         color_discrete_map={"Income": "#00ffcc", "Expenses": "#FF4B4B"})
-        st.plotly_chart(fig_bar, use_container_width=True)
+        if not payments.empty:
+            pay_copy = payments.copy()
+            pay_copy["Date"] = pd.to_datetime(pay_copy["Date"])
+            inc_trend = pay_copy.groupby(pay_copy["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
+            
+            exp_copy = expenses.copy() if not expenses.empty else pd.DataFrame(columns=["Amount", "Date"])
+            if not exp_copy.empty:
+                exp_copy["Date"] = pd.to_datetime(exp_copy["Date"])
+                exp_trend = exp_copy.groupby(exp_copy["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
+            else:
+                exp_trend = pd.DataFrame(columns=["Date", "Amount"])
+
+            merged = pd.merge(inc_trend, exp_trend, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
+            merged.columns = ["Month", "Income", "Expenses"]
+            fig_bar = px.bar(merged, x="Month", y=["Income", "Expenses"], barmode="group",
+                             color_discrete_map={"Income": "#00ffcc", "Expenses": "#FF4B4B"})
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("No payment data to chart.")
 
     with col_right:
         st.write("**🛡️ Portfolio Weight (Top 5)**")
@@ -2105,7 +2109,7 @@ def show_reports():
     # 6. RISK INDICATOR
     st.markdown("---")
     st.subheader("🚨 Risk Assessment")
-    overdue_val = loans[loans["Status"] == "Overdue"].Amount.sum()
+    overdue_val = loans[loans["Status"].isin(["Overdue", "Rolled/Overdue"])].Amount.sum()
     risk_percent = (overdue_val / l_amt * 100) if l_amt > 0 else 0
     r1, r2 = st.columns([2, 1])
     r1.write(f"Your Portfolio at Risk (PAR) is **{risk_percent:.1f}%**.")
