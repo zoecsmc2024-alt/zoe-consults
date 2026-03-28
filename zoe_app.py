@@ -1262,7 +1262,7 @@ def show_collateral():
     
     # 1. FETCH ALL DATA
     collateral_df = get_cached_data("Collateral")
-    loans_df = get_cached_data("Loans") # <--- CRITICAL FIX: This stops the NameError
+    loans_df = get_cached_data("Loans") 
     col_df = collateral_df
 
     # 2. INITIALIZE IF EMPTY
@@ -1282,21 +1282,19 @@ def show_collateral():
         if loans_df.empty:
             st.warning("⚠️ No loans found. Issue a loan before adding collateral.")
         else:
-            # Only show loans that are still Active or Overdue
-            active_loan_mask = loans_df["Status"].isin(["Active", "Overdue"])
+            active_loan_mask = loans_df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])
             available_loans = loans_df[active_loan_mask]
 
             if available_loans.empty:
                 st.info("✅ All current loans are cleared. No assets need to be held.")
             else:
                 with st.form("collateral_form", clear_on_submit=True):
+                    st.markdown("<h4 style='color: #2B3F87;'>🔒 Secure New Asset</h4>", unsafe_allow_html=True)
                     c1, c2 = st.columns(2)
                     
-                    # Searchable selection
                     loan_options = available_loans.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
-                    selected_loan = c1.selectbox("Link to Loan", loan_options)
+                    selected_loan = c1.selectbox("Link to Active Loan", loan_options)
                     
-                    # Extract ID and Borrower Name
                     sel_id = int(selected_loan.split(" - ")[0].replace("ID: ", ""))
                     sel_borrower = selected_loan.split(" - ")[1]
 
@@ -1304,7 +1302,7 @@ def show_collateral():
                     desc = st.text_input("Asset Description", placeholder="e.g. Toyota Prado UBA 123X Black")
                     est_value = st.number_input("Estimated Value (UGX)", min_value=0, step=100000)
 
-                    if st.form_submit_button("🔒 Secure Asset"):
+                    if st.form_submit_button("💾 Save & Secure Asset", use_container_width=True):
                         if desc and est_value > 0:
                             new_c_id = int(collateral_df["Collateral_ID"].max() + 1) if not collateral_df.empty else 1
                             new_asset = pd.DataFrame([{
@@ -1319,52 +1317,74 @@ def show_collateral():
                             }])
                             
                             if save_data("Collateral", pd.concat([collateral_df, new_asset], ignore_index=True)):
-                                st.success(f"Asset #{new_c_id} registered for {sel_borrower}!")
+                                st.success(f"✅ Asset #{new_c_id} registered for {sel_borrower}!")
                                 st.rerun()
                         else:
-                            st.error("Please provide a description and value.")
+                            st.error("⚠️ Please provide both a description and an estimated value.")
 
-    # --- TAB 2: VIEW & UPDATE ---
+    # --- TAB 2: VIEW & UPDATE (Zoe Portfolio Style) ---
     with tab_view:
         if not col_df.empty:
-            # 1. CLEANING & REPAIR
             col_df["Value"] = pd.to_numeric(col_df["Value"], errors='coerce').fillna(0)
             
-            # 2. COLORED METRIC CARDS
-            total_val = col_df["Value"].sum()
-            in_custody = col_df[col_df["Status"] == "In Custody"].shape[0]
+            # --- BRANDED METRICS ---
+            total_val = col_df[col_df["Status"] != "Released"]["Value"].sum()
+            in_custody = col_df[col_df["Status"].isin(["In Custody", "Held"])].shape[0]
             
             m1, m2 = st.columns(2)
-            # Total Value Card (Blue)
             m1.markdown(f"""
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL ASSET VALUE (EST)</p>
+                <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL ASSET SECURITY</p>
                     <h2 style="margin:0; color:#2B3F87;">{total_val:,.0f} <span style="font-size:14px;">UGX</span></h2>
                 </div>
             """, unsafe_allow_html=True)
 
-            # Assets in Custody Card (Cyan)
             m2.markdown(f"""
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #00D1FF; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">ASSETS IN CUSTODY</p>
-                    <h2 style="margin:0; color:#00D1FF;">{in_custody}</h2>
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">ACTIVE ASSETS</p>
+                    <h2 style="margin:0; color:#2B3F87;">{in_custody}</h2>
                 </div>
             """, unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 3. FORMATTED TABLE
-            st.dataframe(
-                col_df.style.format({"Value": "{:,.0f}"}),
-                use_container_width=True, hide_index=True
-            )
+            # --- "COOL ZOE" INVENTORY TABLE ---
+            rows_html = ""
+            for i, r in col_df.iterrows():
+                bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                rows_html += f"""
+                <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+                    <td style="padding:10px;"><b>{r['Borrower']}</b></td>
+                    <td style="padding:10px;">{r['Type']}</td>
+                    <td style="padding:10px; font-size:11px; color:#666;">{r['Description']}</td>
+                    <td style="padding:10px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Value']:,.0f}</td>
+                    <td style="padding:10px; text-align:center;">
+                        <span style="background:#2B3F87; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
+                    </td>
+                </tr>"""
+
+            st.markdown(f"""
+                <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;">
+                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
+                        <thead>
+                            <tr style="background:#2B3F87; color:white; text-align:left;">
+                                <th style="padding:12px;">Borrower</th>
+                                <th style="padding:12px;">Asset Type</th>
+                                <th style="padding:12px;">Description</th>
+                                <th style="padding:12px; text-align:right;">Market Value</th>
+                                <th style="padding:12px; text-align:center;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </div>
+            """, unsafe_allow_html=True)
 
             # 4. DELETE & EDIT SECTION
-            with st.expander("⚙️ Manage Collateral Records (Edit/Delete)"):
+            with st.expander("⚙️ Manage Collateral Records"):
                 manage_list = col_df.apply(lambda x: f"ID: {x['Collateral_ID']} | {x['Borrower']} - {x['Description']}", axis=1).tolist()
                 selected_col = st.selectbox("Select Asset to Modify", manage_list)
                 
-                # Extract the actual ID
                 c_id = selected_col.split(" | ")[0].replace("ID: ", "")
                 c_row = col_df[col_df["Collateral_ID"].astype(str) == c_id].iloc[0]
 
@@ -1373,35 +1393,23 @@ def show_collateral():
                 upd_val = ce1.number_input("Edit Value (UGX)", value=float(c_row["Value"]), step=100000.0)
                 
                 collateral_options = ["In Custody", "Released", "Disposed", "Held"]
-                
-                # Get current status, default to "In Custody" if empty
                 current_c_status = str(c_row.get("Status", "In Custody"))
+                if current_c_status not in collateral_options: current_c_status = "Held"
                 
-                # Safety check for the selectbox index
-                if current_c_status not in collateral_options:
-                    current_c_status = "Held"
+                upd_stat = ce2.selectbox("Update Status", collateral_options, index=collateral_options.index(current_c_status))
                 
-                upd_stat = ce2.selectbox("Update Status", collateral_options, 
-                                        index=collateral_options.index(current_c_status))
-                
-                # Action Buttons
                 btn_upd, btn_del = st.columns(2)
-
                 if btn_upd.button("💾 Save Asset Changes", use_container_width=True):
                     col_df.loc[col_df["Collateral_ID"].astype(str) == c_id, ["Description", "Value", "Status"]] = [upd_desc, upd_val, upd_stat]
                     if save_data("Collateral", col_df):
-                        st.success("✅ Asset updated!")
-                        st.rerun()
+                        st.success("✅ Asset updated!"); st.rerun()
 
                 if btn_del.button("🗑️ Delete Asset Record", use_container_width=True):
                     new_col_df = col_df[col_df["Collateral_ID"].astype(str) != c_id]
                     if save_data("Collateral", new_col_df):
-                        st.warning("⚠️ Asset record deleted!")
-                        st.rerun()
+                        st.warning("⚠️ Asset record deleted!"); st.rerun()
         else:
-            # This 'else' now correctly matches the 'if not col_df.empty'
             st.info("💡 No collateral registered yet.")
-
 # ==============================
 # 16. COLLECTIONS & OVERDUE TRACKER
 # ==============================
