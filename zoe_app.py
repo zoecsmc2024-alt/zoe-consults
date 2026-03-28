@@ -216,7 +216,7 @@ def login_page():
     A clean, centered login page.
     Note: I removed the sidebar() call from here to stop the 'flicker' error.
     """
-    st.markdown("<h2 style='text-align: center; color: #00ffcc;'>🔐 ZOE ADMIN LOGIN</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #000080;'>🔐 LOGIN</h2>", unsafe_allow_html=True)
     
     # Create a nice centered container
     with st.container():
@@ -468,32 +468,32 @@ def sidebar():
     user = st.session_state.get("user", "Guest")
     current_page = st.session_state.get("page", "Overview")
 
-    # 1. THE LOGO LOADER (Now 100x Faster via Cache)
-    logo_base64 = get_logo() # Uses our cached function from Piece 3
+    # 1. THE LOGO LOADER
+    logo_base64 = get_logo() 
     
     if logo_base64:
         img_src = f"data:image/png;base64,{logo_base64}"
         st.sidebar.markdown(f"""
             <div style="display: flex; justify-content: center; margin-bottom: 20px;">
                 <div style="width: 85px; height: 85px; border-radius: 50%; overflow: hidden; 
-                            border: 3px solid #00ffcc; box-shadow: 0px 0px 15px rgba(0, 255, 204, 0.5);">
+                            border: 3px solid #F0F8FF; box-shadow: 0px 0px 15px rgba(240, 248, 255, 0.3);">
                     <img src="{img_src}" style="width: 100%; height: 100%; object-fit: cover;">
                 </div>
             </div>
         """, unsafe_allow_html=True)
     
-    # 2. BRANDING & USER INFO
+    # 2. BRANDING & USER INFO (Updated to Navy/Baby Blue)
     st.sidebar.markdown(f"""
         <div style="text-align: center;">
-            <h2 class="sidebar-brand">ZOE CONSULTS</h2>
-            <div class="online-indicator">
-                <span class="online-dot"></span> System Online
+            <h2 style="color: #FFFFFF; margin-bottom: 0;">ZOE CONSULTS</h2>
+            <div style="color: #F0F8FF; font-size: 12px; margin-top: 5px;">
+                <span style="height: 8px; width: 8px; background-color: #00ffcc; border-radius: 50%; display: inline-block; margin-right: 5px;"></span> System Online
             </div>
-            <p style='color:#94A3B8; font-size:14px; margin-top:10px;'>
-                👤 <span style='color:#00ffcc;'>{user} ({role})</span>
+            <p style='color:#F0F8FF; font-size:14px; margin-top:10px; opacity: 0.9;'>
+                👤 <b>{user}</b> <span style='font-size: 12px;'>({role})</span>
             </p>
         </div>
-        <hr style='border-top: 1px solid #2B3F87; margin: 20px 0;'>
+        <hr style='border-top: 1px solid rgba(255,255,255,0.2); margin: 20px 0;'>
     """, unsafe_allow_html=True)
 
     # 3. NAVIGATION MENU
@@ -510,10 +510,12 @@ def sidebar():
         if role != "Admin" and item in restricted:
             continue
 
-        # Visual Active State
+        # Visual Active State (Now Baby Blue with Navy Text)
         if current_page == item:
             st.sidebar.markdown(f"""
-                <div class="active-menu-item">
+                <div style="background-color: #F0F8FF; color: #2B3F87; padding: 10px; 
+                            border-radius: 8px; font-weight: bold; margin-bottom: 5px; 
+                            display: flex; align-items: center;">
                     {icon} &nbsp; {item}
                 </div>
             """, unsafe_allow_html=True)
@@ -525,10 +527,9 @@ def sidebar():
 
     # 4. LOGOUT (Clean & Simple)
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
-    if st.sidebar.button("🚪 Logout", use_container_width=True, type="secondary"):
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()
-
 # ==============================
 # 11. DASHBOARD LOGIC (OVERVIEW)
 # ==============================
