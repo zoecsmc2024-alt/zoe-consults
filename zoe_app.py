@@ -902,9 +902,9 @@ def show_loans():
             # 2. Force Loan_ID to be strings so the selectbox doesn't get confused
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
             
-            # --- CRITICAL FIX: The Search Filter ---
+            # Inside show_loans() -> tab_view
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-            display_df = display_df[display_df["Status"].isin(relevant_statuses)]
+            display_df = loans_df[loans_df["Status"].isin(relevant_statuses)].copy()
 
             if display_df.empty:
                 # Add a little "Helpful Hint" here to see what's actually in the data
