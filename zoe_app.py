@@ -322,88 +322,58 @@ def generate_ledger_pdf(loan_data, ledger_df):
 # ==============================
 # 8. SYSTEM & UI CONFIGURATION
 # ==============================
-# This MUST be the first Streamlit command in the whole script
 st.set_page_config(page_title="Zoe Admin", layout="wide", initial_sidebar_state="expanded")
 
-# Injection of the 'Zoe Consults' Professional Design System
 st.markdown("""
 <style>
-    /* 1. MAIN APP WORKSPACE - Soft Baby Blue Background */
+    /* 1. FORCE MAIN BACKGROUND */
     .stApp {
-        background-color: #F0F8FF !important;
+        background-color: #F0F8FF !important; /* Baby Blue */
     }
 
-    /* 2. SIDEBAR - Zoe Navy Blue */
-    section[data-testid="stSidebar"] {
+    /* 2. FORCE SIDEBAR NAVY */
+    [data-testid="stSidebar"] {
         background-color: #2B3F87 !important;
-        border-right: 3px solid #F0F8FF !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: #F0F8FF !important;
     }
 
-    /* 3. CLEAN SIDEBAR BUTTONS - White Text & Baby Blue Hover */
-    section[data-testid="stSidebar"] .stButton > button {
-        background-color: transparent !important;
-        color: #F0F8FF !important; /* Baby Blue Text */
-        border: none !important;
-        width: 100% !important;
-        text-align: left !important;
-        padding: 10px 15px !important;
-        transition: all 0.3s ease;
-        font-weight: 500;
-    }
-
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        color: #FFFFFF !important; 
-        background-color: rgba(240, 248, 255, 0.1) !important;
-        transform: translateX(5px);
-    }
-
-    /* 4. METRIC CARDS - Branded Navy Borders */
+    /* 3. FORCE METRIC CARD COLORS */
+    /* This targets the actual boxes you see on the Dashboard and Loans page */
     div[data-testid="stMetric"] {
-        background: #FFFFFF !important;
+        background-color: #FFFFFF !important;
         border: 1px solid #2B3F87 !important;
-        border-left: 5px solid #2B3F87 !important; /* Signature Navy Stripe */
+        border-left: 5px solid #2B3F87 !important;
         border-radius: 15px !important;
-        box-shadow: 0 4px 12px rgba(43, 63, 135, 0.08) !important;
-        padding: 20px !important;
+        box-shadow: 0 4px 12px rgba(43, 63, 135, 0.1) !important;
     }
     
-    /* Force Metric Text to Navy */
-    [data-testid="stMetricValue"] {
+    /* Force the Metric Label (e.g., "PAID") to Gray */
+    div[data-testid="stMetricLabel"] > div {
+        color: #666666 !important;
+        font-weight: bold !important;
+    }
+    
+    /* Force the Metric Value (the amount) to Zoe Navy */
+    div[data-testid="stMetricValue"] > div {
         color: #2B3F87 !important;
     }
 
-    /* 5. BRANDING ELEMENTS */
-    .sidebar-brand {
-        color: #FFFFFF !important;
-        font-size: 24px !important;
-        font-weight: 800 !important;
-        letter-spacing: 1.5px !important;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    /* 4. TAB STYLING */
+    button[data-baseweb="tab"] {
+        color: #2B3F87 !important;
+    }
+    button[aria-selected="true"] {
+        background-color: #F0F8FF !important;
+        border-bottom: 2px solid #2B3F87 !important;
     }
 
-    .online-indicator {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #F0F8FF;
-        font-size: 12px;
-        font-weight: 600;
-        margin-top: 5px;
-    }
-
-    .online-dot {
-        height: 8px;
-        width: 8px;
-        background-color: #00FFCC; /* Keep Green for "Online" status as it's standard */
-        border-radius: 50%;
-        box-shadow: 0 0 10px #00FFCC;
-        animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.4; }
-        100% { opacity: 1; }
+    /* 5. DATA FRAME / TABLE HEADERS */
+    /* This tries to force standard Streamlit tables to look Navy */
+    thead tr th {
+        background-color: #2B3F87 !important;
+        color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
