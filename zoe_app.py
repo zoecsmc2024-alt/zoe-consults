@@ -1977,68 +1977,91 @@ def show_payroll():
                     <td style='text-align:right; background:#FFFAE6;'>{fm(total_nssf)}</td>
                 </tr>"""
 
-            # --- THE CORRECTED PRINTABLE HTML ---
+            # --- THE FINAL REFINED PRINTABLE HTML ---
             main_html = f"""
             <style>
-                /* This part only works when printing */
                 @media print {{
-                    /* 1. Hide everything by default */
+                    /* 1. Reset Page Margins */
+                    @page {{ margin: 1cm; size: auto; }}
+                    
+                    /* 2. Hide everything except the target */
                     body * {{ visibility: hidden; }}
+                    #payroll-box, #payroll-box * {{ 
+                        visibility: visible; 
+                        -webkit-print-color-adjust: exact !important; 
+                        print-color-adjust: exact !important; 
+                    }}
                     
-                    /* 2. ONLY show the payroll-box and its content */
-                    #payroll-box, #payroll-box * {{ visibility: visible; }}
-                    
-                    /* 3. Position the box at the very top-left of the paper */
+                    /* 3. Force the Box to look like a Sheet of Paper */
                     #payroll-box {{
                         position: absolute;
                         left: 0;
                         top: 0;
                         width: 100% !important;
-                        border: none !important;
-                        box-shadow: none !important;
+                        border: 2px solid #2B3F87 !important; /* Force Navy Border */
+                        padding: 40px !important;
+                        background-color: white !important;
                     }}
-                    
-                    /* 4. Hide Streamlit elements specifically */
+
+                    /* 4. Kill Streamlit UI */
                     [data-testid="stSidebar"], [data-testid="stHeader"], .stButton {{
                         display: none !important;
                     }}
                 }}
                 
-                /* Standard screen styling (Soft Blue) */
+                /* Standard Screen Styling */
                 .payroll-card {{
                     border: 2px solid #4A90E2; 
                     border-radius: 10px; 
                     background: white; 
-                    padding: 30px; 
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+                    padding: 40px; 
+                    font-family: sans-serif;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                    margin-bottom: 20px;
+                }}
+                .print-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 20px;
+                }}
+                .print-table th, .print-table td {{
+                    border: 1px solid #ddd !important; /* Ensure table lines show up */
+                    padding: 10px;
                 }}
             </style>
 
             <div id="payroll-box" class="payroll-card">
-                <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:15px; margin-bottom:20px;">
-                    <h1 style="color:#2B3F87; margin:0; letter-spacing:1px;">ZOE CONSULTS SMC LTD</h1>
-                    <p style="margin:5px 0; color:#666; font-weight:bold; text-transform:uppercase;">
-                        Official Payroll Report - {datetime.now().strftime('%B %Y')}
-                    </p>
+                <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:15px; margin-bottom:25px;">
+                    <h1 style="color:#2B3F87; margin:0;">ZOE CONSULTS SMC LTD</h1>
+                    <p style="margin:5px 0; color:#666; letter-spacing:1px;"><b>OFFICIAL PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</b></p>
                 </div>
-                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                
+                <table class="print-table">
                     <thead>
-                        <tr style="background:#4A90E2; color:white;">
-                            <th style="padding:10px;">S/N</th>
-                            <th style="padding:10px; text-align:left;">Employee Details</th>
-                            <th style="padding:10px; text-align:right;">Basic</th>
-                            <th style="padding:10px; text-align:right;">Gross</th>
-                            <th style="padding:10px; text-align:right;">PAYE</th>
-                            <th style="padding:10px; text-align:right; background:#1a285e;">Net Pay</th>
-                            <th style="padding:10px; text-align:right;">NSSF (15%)</th>
+                        <tr style="background:#2B3F87 !important; color:white !important;">
+                            <th>S/N</th>
+                            <th style="text-align:left;">Employee Details</th>
+                            <th style="text-align:right;">Basic</th>
+                            <th style="text-align:right;">Gross</th>
+                            <th style="text-align:right;">PAYE</th>
+                            <th style="text-align:right;">Net Pay</th>
+                            <th style="text-align:right;">NSSF (15%)</th>
                         </tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
-                <div style="margin-top:80px; display:flex; justify-content:space-around; font-size:13px;">
-                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:5px;">Prepared By</div>
-                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:5px;">Approved By</div>
+
+                <div style="margin-top:100px; display:flex; justify-content:space-around;">
+                    <div style="text-align:center; border-top:2px solid #2B3F87; width:220px; padding-top:8px;">
+                        <b style="color:#2B3F87;">PREPARED BY</b>
+                    </div>
+                    <div style="text-align:center; border-top:2px solid #2B3F87; width:220px; padding-top:8px;">
+                        <b style="color:#2B3F87;">APPROVED BY</b>
+                    </div>
+                </div>
+                
+                <div style="margin-top:40px; text-align:center; color:#999; font-size:10px;">
+                    This is a computer-generated document | Zoe Consults SMC Ltd © {datetime.now().year}
                 </div>
             </div>"""
             
