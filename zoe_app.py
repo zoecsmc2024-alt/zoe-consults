@@ -1620,21 +1620,23 @@ def show_expenses():
     # ==============================
     tab_add, tab_view, tab_manage = st.tabs(["➕ Record Expense", "📊 Spending Analysis", "⚙️ Manage/Delete"])
 
-    # --- TAB 1: ADD NEW EXPENSE ---
+    # --- TAB 1: ADD NEW EXPENSE (Branded Form) ---
     with tab_add:
+        st.markdown("<br>", unsafe_allow_html=True)
         with st.form("add_expense_form", clear_on_submit=True):
+            st.markdown("<h4 style='color: #2B3F87;'>📝 Log Business Outflow</h4>", unsafe_allow_html=True)
             col1, col2 = st.columns(2)
-            category = col1.selectbox("Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenes"])
+            category = col1.selectbox("Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"])
             amount = col2.number_input("Amount (UGX)", min_value=0, step=1000)
             
             desc = st.text_input("Description (e.g., Office Power Bill March)")
             
-            # --- NEW FIELDS FOR ZOE ---
             c_date, c_receipt = st.columns(2)
             p_date = c_date.date_input("Actual Payment Date", value=datetime.now())
             receipt_no = c_receipt.text_input("Receipt / Invoice #", placeholder="e.g. RCP-101")
             
-            if st.form_submit_button("🚀 Save Expense"):
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.form_submit_button("🚀 Save Expense Record", use_container_width=True):
                 if amount > 0 and desc:
                     new_id = int(df["Expense_ID"].max() + 1) if not df.empty else 1
                     new_entry = pd.DataFrame([{
@@ -1649,71 +1651,103 @@ def show_expenses():
                     
                     updated_df = pd.concat([df, new_entry], ignore_index=True)
                     if save_data("Expenses", updated_df):
-                        st.success(f"Expense of {amount:,.0f} recorded! ✅")
+                        st.success(f"✅ Expense of {amount:,.0f} recorded successfully!")
                         st.rerun()
                 else:
-                    st.error("Please provide both an amount and a description.")
+                    st.error("⚠️ Please provide both an amount and a description.")
 
-    # --- TAB 2: ANALYSIS & LOG ---
+    # --- TAB 2: ANALYSIS & LOG (Cool Zoe Tables) ---
     with tab_view:
         if not df.empty:
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
             total_spent = df["Amount"].sum()
             
-            # Comma formatting for metric
-            st.metric("Total Monthly Outflow", f"{total_spent:,.0f} UGX")
+            # Branded Outflow Card
+            st.markdown(f"""
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL MONTHLY OUTFLOW</p>
+                    <h2 style="margin:0; color:#FF4B4B;">{total_spent:,.0f} <span style="font-size:14px;">UGX</span></h2>
+                </div>
+            """, unsafe_allow_html=True)
             
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Branded Pie Chart
             cat_summary = df.groupby("Category")["Amount"].sum().reset_index()
             fig_exp = px.pie(cat_summary, names="Category", values="Amount", 
-                             title="Spending by Category",
-                             hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
+                             title="Spending Distribution",
+                             hole=0.4, color_discrete_sequence=["#2B3F87", "#F0F8FF", "#FF4B4B", "#666"])
+            fig_exp.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="#2B3F87")
             st.plotly_chart(fig_exp, use_container_width=True)
             
-            # Comma formatting for the table display
-            st.write("### Detailed Expense Log")
-            st.dataframe(
-                df[["Payment_Date", "Category", "Description", "Amount", "Receipt_No"]]
-                .sort_values("Payment_Date", ascending=False)
-                .style.format({"Amount": "{:,.0f}"}), 
-                use_container_width=True, 
-                hide_index=True
-            )
-        else:
-            st.info("No expense data to analyze yet.")
+            # "Cool Zoe" Expense Table
+            st.markdown("<h4 style='color: #2B3F87;'>📜 Detailed Expense Log</h4>", unsafe_allow_html=True)
+            
+            rows_html = ""
+            sorted_df = df.sort_values("Payment_Date", ascending=False)
+            for i, r in sorted_df.iterrows():
+                bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                rows_html += f"""
+                <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+                    <td style="padding:10px; color:#666; font-size:11px;">{r['Payment_Date']}</td>
+                    <td style="padding:10px;"><b>{r['Category']}</b></td>
+                    <td style="padding:10px; font-size:11px;">{r['Description']}</td>
+                    <td style="padding:10px; text-align:right; font-weight:bold; color:#FF4B4B;">{r['Amount']:,.0f}</td>
+                    <td style="padding:10px; text-align:center; color:#666; font-size:10px;">{r['Receipt_No']}</td>
+                </tr>"""
 
-    # --- TAB 3: MANAGE / EDIT / DELETE ---
+            st.markdown(f"""
+                <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;">
+                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
+                        <thead>
+                            <tr style="background:#2B3F87; color:white; text-align:left;">
+                                <th style="padding:12px;">Date</th>
+                                <th style="padding:12px;">Category</th>
+                                <th style="padding:12px;">Description</th>
+                                <th style="padding:12px; text-align:right;">Amount (UGX)</th>
+                                <th style="padding:12px; text-align:center;">Receipt #</th>
+                            </tr>
+                        </thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("💡 No expense data recorded for this period.")
+
+    # --- TAB 3: MANAGE / EDIT / DELETE (Safety First) ---
     with tab_manage:
         if not df.empty:
+            st.markdown("<h4 style='color: #2B3F87;'>🛠️ Adjust Expense Records</h4>", unsafe_allow_html=True)
             edit_options = df.apply(lambda x: f"ID: {int(x['Expense_ID'])} | {x['Category']} - {x['Description']}", axis=1).tolist()
-            selected_to_edit = st.selectbox("Select Expense to Modify", edit_options)
+            selected_to_edit = st.selectbox("Select Record", edit_options)
             
             e_id = int(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
             e_row = df[df["Expense_ID"] == e_id].iloc[0]
 
             with st.container():
                 c_a, c_b = st.columns(2)
-                upd_cat = c_a.selectbox("Update Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office expenses"],
-                                        index=["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"].index(e_row["Category"]))
-                upd_amt = c_b.number_input("Update Amount (UGX)", value=float(e_row["Amount"]), step=1000.0)
+                upd_cat = c_a.selectbox("Update Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"],
+                                        index=["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"].index(e_row["Category"]) if e_row["Category"] in ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"] else 0)
+                upd_amt = c_b.number_input("Update Amount", value=float(e_row["Amount"]), step=1000.0)
                 
                 c_c, c_d = st.columns(2)
-                upd_date = c_c.text_input("Update Payment Date (YYYY-MM-DD)", value=str(e_row.get("Payment_Date", "")))
+                upd_date = c_c.text_input("Update Payment Date", value=str(e_row.get("Payment_Date", "")))
                 upd_receipt = c_d.text_input("Update Receipt No", value=str(e_row.get("Receipt_No", "")))
                 
                 upd_desc = st.text_input("Update Description", value=e_row["Description"])
 
-                btn1, btn2 = st.columns([1, 1])
-                
-                if btn1.button("Update Record ✅", use_container_width=True):
+                btn1, btn2 = st.columns(2)
+                if btn1.button("💾 Save Changes", use_container_width=True):
                     df.loc[df["Expense_ID"] == e_id, 
                            ["Category", "Amount", "Description", "Payment_Date", "Receipt_No"]] = \
                            [upd_cat, upd_amt, upd_desc, upd_date, upd_receipt]
                     
                     if save_data("Expenses", df):
-                        st.success("Updated Successfully!")
+                        st.success("Record updated! ✅")
                         st.rerun()
 
-                if btn2.button("Delete Record 🗑️", use_container_width=True):
+                if btn2.button("🗑️ Delete Permanently", use_container_width=True):
                     df = df[df["Expense_ID"] != e_id]
                     if save_data("Expenses", df):
                         st.warning("Expense Record Deleted!")
