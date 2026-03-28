@@ -374,19 +374,23 @@ st.markdown("""
         transition: all 0.2s ease !important;
     }
 
-    /* 2. HOVER & ACTIVE FIX - Prevents text from turning invisible white */
-    section[data-testid="stSidebar"] .stButton > button:hover,
+    /* 1. THE ULTIMATE CLICK FIX */
     section[data-testid="stSidebar"] .stButton > button:focus,
-    section[data-testid="stSidebar"] .stButton > button:active {
-        background-color: #F0F8FF !important; /* Baby Blue Background */
-        color: #2B3F87 !important; /* FORCE NAVY TEXT on click/hover */
+    section[data-testid="stSidebar"] .stButton > button:active,
+    section[data-testid="stSidebar"] .stButton > button:focus-visible,
+    section[data-testid="stSidebar"] .stButton > button:focus:not(:active) {
+        background-color: #F0F8FF !important; /* Force Baby Blue on click */
+        color: #2B3F87 !important;            /* Force Navy Text on click */
         border: 1px solid #F0F8FF !important;
-        box-shadow: none !important;
+        box-shadow: none !important;          /* Removes the glowy white outline */
+        outline: none !important;             /* Removes the browser focus ring */
     }
 
-    /* 3. THE GAP FIX (Reduces space between buttons) */
-    [data-testid="stVerticalBlock"] > div:has(div.stButton) {
-        gap: 0rem !important;
+    /* 2. MAKE BUTTONS SLIMMER (SAVE SPACE) */
+    section[data-testid="stSidebar"] .stButton > button {
+        padding: 4px 10px !important;         /* Extra slim padding */
+        min-height: 35px !important;          /* Force buttons to be shorter */
+        margin-top: -5px !important;          /* Pull them closer together */
     }
 
     /* THE ACTIVE TAB FIX - This makes the current page look 'Pressed' */
