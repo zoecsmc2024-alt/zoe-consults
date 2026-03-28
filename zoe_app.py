@@ -1501,7 +1501,7 @@ def show_expenses():
     with tab_add:
         with st.form("add_expense_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
-            category = col1.selectbox("Category", ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"])
+            category = col1.selectbox("Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenes"])
             amount = col2.number_input("Amount (UGX)", min_value=0, step=1000)
             
             desc = st.text_input("Description (e.g., Office Power Bill March)")
@@ -1569,7 +1569,7 @@ def show_expenses():
 
             with st.container():
                 c_a, c_b = st.columns(2)
-                upd_cat = c_a.selectbox("Update Category", ["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"],
+                upd_cat = c_a.selectbox("Update Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office expenses"],
                                         index=["Rent", "Transport", "Utilities", "Salaries", "Marketing", "Other"].index(e_row["Category"]))
                 upd_amt = c_b.number_input("Update Amount (UGX)", value=float(e_row["Amount"]), step=1000.0)
                 
