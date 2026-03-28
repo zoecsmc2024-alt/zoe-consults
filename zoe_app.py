@@ -325,46 +325,51 @@ def generate_ledger_pdf(loan_data, ledger_df):
 # This MUST be the first Streamlit command in the whole script
 st.set_page_config(page_title="Zoe Admin", layout="wide", initial_sidebar_state="expanded")
 
-# Injection of the 'Neon Sky' Design System
+# Injection of the 'Zoe Consults' Professional Design System
 st.markdown("""
 <style>
-    /* 1. MAIN APP WORKSPACE */
+    /* 1. MAIN APP WORKSPACE - Soft Baby Blue Background */
     .stApp {
-        background-color: #F0F7FF !important;
+        background-color: #F0F8FF !important;
     }
 
-    /* 2. SIDEBAR - Deep Midnight & Neon Border */
+    /* 2. SIDEBAR - Zoe Navy Blue */
     section[data-testid="stSidebar"] {
-        background-color: #020617 !important;
-        border-right: 2px solid #2B3F87 !important;
+        background-color: #2B3F87 !important;
+        border-right: 3px solid #F0F8FF !important;
     }
 
-    /* 3. CLEAN SIDEBAR BUTTONS */
-    /* Removes the default Streamlit button styling that looks 'clunky' */
+    /* 3. CLEAN SIDEBAR BUTTONS - White Text & Baby Blue Hover */
     section[data-testid="stSidebar"] .stButton > button {
         background-color: transparent !important;
-        color: #94A3B8 !important;
+        color: #F0F8FF !important; /* Baby Blue Text */
         border: none !important;
         width: 100% !important;
         text-align: left !important;
         padding: 10px 15px !important;
         transition: all 0.3s ease;
+        font-weight: 500;
     }
 
     section[data-testid="stSidebar"] .stButton > button:hover {
-        color: #00FFCC !important; /* Neon Green Glow */
-        background-color: rgba(0, 255, 204, 0.05) !important;
+        color: #FFFFFF !important; 
+        background-color: rgba(240, 248, 255, 0.1) !important;
         transform: translateX(5px);
     }
 
-    /* 4. METRIC CARDS - Glassmorphism Effect */
+    /* 4. METRIC CARDS - Branded Navy Borders */
     div[data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(43, 63, 135, 0.1) !important;
-        border-radius: 20px !important;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05) !important;
+        background: #FFFFFF !important;
+        border: 1px solid #2B3F87 !important;
+        border-left: 5px solid #2B3F87 !important; /* Signature Navy Stripe */
+        border-radius: 15px !important;
+        box-shadow: 0 4px 12px rgba(43, 63, 135, 0.08) !important;
         padding: 20px !important;
+    }
+    
+    /* Force Metric Text to Navy */
+    [data-testid="stMetricValue"] {
+        color: #2B3F87 !important;
     }
 
     /* 5. BRANDING ELEMENTS */
@@ -372,15 +377,15 @@ st.markdown("""
         color: #FFFFFF !important;
         font-size: 24px !important;
         font-weight: 800 !important;
-        letter-spacing: 1px !important;
-        text-shadow: 0px 0px 10px rgba(0, 255, 204, 0.3);
+        letter-spacing: 1.5px !important;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .online-indicator {
         display: flex;
         align-items: center;
         gap: 8px;
-        color: #00FFCC;
+        color: #F0F8FF;
         font-size: 12px;
         font-weight: 600;
         margin-top: 5px;
@@ -389,7 +394,7 @@ st.markdown("""
     .online-dot {
         height: 8px;
         width: 8px;
-        background-color: #00FFCC;
+        background-color: #00FFCC; /* Keep Green for "Online" status as it's standard */
         border-radius: 50%;
         box-shadow: 0 0 10px #00FFCC;
         animation: pulse 2s infinite;
