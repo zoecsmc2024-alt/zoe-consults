@@ -949,6 +949,49 @@ def show_loans():
                     </div>
                 """, unsafe_allow_html=True)
 
+                # --- THIS PART WAS MISSING: THE ACTUAL TABLE ---
+                st.markdown("<h4 style='color: #4A90E2; margin-top:20px;'>📋 Full Portfolio Ledger</h4>", unsafe_allow_html=True)
+                
+                rows_html = ""
+                # Use display_df so we see Active, Overdue, and Rolled/Overdue!
+                for i, r in display_df.iterrows():
+                    bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                    
+                    # Status Badge Color Logic
+                    stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
+
+                    rows_html += f"""
+                    <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
+                        <td style="padding:10px; border:1px solid #eee;"><b>#{r['Loan_ID']}</b></td>
+                        <td style="padding:10px; border:1px solid #eee;">{r['Borrower']}</td>
+                        <td style="padding:10px; border:1px solid #eee; text-align:right; font-weight:bold; color:#4A90E2;">{float(r['Amount']):,.0f}</td>
+                        <td style="padding:10px; border:1px solid #eee; text-align:right; color:#D32F2F;">{float(r['Outstanding_Balance']):,.0f}</td>
+                        <td style="padding:10px; border:1px solid #eee; text-align:center;">
+                            <span style="background:{stat_bg}; color:white; padding:3px 8px; border-radius:10px; font-size:10px; text-transform:uppercase;">
+                                {r['Status']}
+                            </span>
+                        </td>
+                        <td style="padding:10px; border:1px solid #eee; text-align:right; font-size:11px; color:#666;">{pd.to_datetime(r['End_Date']).strftime('%d %b %Y')}</td>
+                    </tr>"""
+
+                st.markdown(f"""
+                    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden;">
+                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
+                            <thead>
+                                <tr style="background:#4A90E2; color:white; text-align:left;">
+                                    <th style="padding:12px;">ID</th>
+                                    <th style="padding:12px;">Borrower</th>
+                                    <th style="padding:12px; text-align:right;">Principal</th>
+                                    <th style="padding:12px; text-align:right;">Balance</th>
+                                    <th style="padding:12px; text-align:center;">Status</th>
+                                    <th style="padding:12px; text-align:right;">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>{rows_html}</tbody>
+                        </table>
+                    </div>
+                """, unsafe_allow_html=True)
+
             
 
     # ==============================
