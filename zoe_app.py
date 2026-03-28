@@ -2028,25 +2028,33 @@ def show_payroll():
                 </div>
             </div>"""
             
-            st.components.v1.html(main_html, height=800, scrolling=True)
+            st.components.v1.html(f'<div class="no-print">{main_html}</div>', height=800, scrolling=True)
 
-            # 2. ADD THIS "PRINT LAYER" (This is what the printer sees)
-            # We wrap it in a div that is hidden on screen but visible during print
-            st.markdown(f"""
-                <div class="only-print">
-                    {main_html}
-                </div>
+            # 2. THE PRINT LAYER (What the printer sees)
+            # We use an empty st.markdown to inject the "Print Only" CSS
+            st.markdown("""
                 <style>
-                    @media screen {{
-                        .only-print {{ display: none !important; }}
-                    }}
-                    @media print {{
-                        .only-print {{ display: block !important; }}
-                        /* Hide the component 'box' during print so it doesn't stay white */
-                        iframe {{ display: none !important; }}
-                    }}
+                    @media screen {
+                        .print-only { display: none !important; }
+                    }
+                    @media print {
+                        .no-print, [data-testid="stSidebar"], [data-testid="stHeader"], .stButton { 
+                            display: none !important; 
+                        }
+                        .print-only { 
+                            display: block !important; 
+                            position: absolute;
+                            left: 0;
+                            top: 0;
+                            width: 100%;
+                        }
+                    }
                 </style>
             """, unsafe_allow_html=True)
+
+            # 3. Use st.write with unsafe_allow_html=False to AVOID the code soup
+            # Then use a single st.markdown for the actual hidden table
+            st.markdown(f'<div class="print-only">{main_html}</div>', unsafe_allow_html=True)
 
             # 5. MODIFY & DELETE SECTION (Correctly inside the 'if' block)
             st.write("---")
