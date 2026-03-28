@@ -1612,6 +1612,9 @@ def show_expenses():
     # 1. FETCH DATA
     df = get_cached_data("Expenses")
 
+    # The Master Category List for Zoe Consults
+    EXPENSE_CATS = ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"]
+
     if df.empty:
         df = pd.DataFrame(columns=["Expense_ID", "Category", "Amount", "Date", "Description", "Payment_Date", "Receipt_No"])
 
@@ -1620,13 +1623,14 @@ def show_expenses():
     # ==============================
     tab_add, tab_view, tab_manage = st.tabs(["➕ Record Expense", "📊 Spending Analysis", "⚙️ Manage/Delete"])
 
-    # --- TAB 1: ADD NEW EXPENSE (Branded Form) ---
+    # --- TAB 1: ADD NEW EXPENSE ---
     with tab_add:
         st.markdown("<br>", unsafe_allow_html=True)
         with st.form("add_expense_form", clear_on_submit=True):
             st.markdown("<h4 style='color: #2B3F87;'>📝 Log Business Outflow</h4>", unsafe_allow_html=True)
             col1, col2 = st.columns(2)
-            category = col1.selectbox("Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"])
+            # UPDATED CATEGORY LIST
+            category = col1.selectbox("Category", EXPENSE_CATS)
             amount = col2.number_input("Amount (UGX)", min_value=0, step=1000)
             
             desc = st.text_input("Description (e.g., Office Power Bill March)")
@@ -1651,18 +1655,17 @@ def show_expenses():
                     
                     updated_df = pd.concat([df, new_entry], ignore_index=True)
                     if save_data("Expenses", updated_df):
-                        st.success(f"✅ Expense of {amount:,.0f} recorded successfully!")
+                        st.success(f"✅ Expense of {amount:,.0f} recorded under {category}!")
                         st.rerun()
                 else:
                     st.error("⚠️ Please provide both an amount and a description.")
 
-    # --- TAB 2: ANALYSIS & LOG (Cool Zoe Tables) ---
+    # --- TAB 2: ANALYSIS & LOG ---
     with tab_view:
         if not df.empty:
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
             total_spent = df["Amount"].sum()
             
-            # Branded Outflow Card
             st.markdown(f"""
                 <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
                     <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL MONTHLY OUTFLOW</p>
@@ -1672,15 +1675,13 @@ def show_expenses():
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Branded Pie Chart
             cat_summary = df.groupby("Category")["Amount"].sum().reset_index()
             fig_exp = px.pie(cat_summary, names="Category", values="Amount", 
                              title="Spending Distribution",
-                             hole=0.4, color_discrete_sequence=["#2B3F87", "#F0F8FF", "#FF4B4B", "#666"])
+                             hole=0.4, color_discrete_sequence=["#2B3F87", "#F0F8FF", "#FF4B4B", "#ADB5BD"])
             fig_exp.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="#2B3F87")
             st.plotly_chart(fig_exp, use_container_width=True)
             
-            # "Cool Zoe" Expense Table
             st.markdown("<h4 style='color: #2B3F87;'>📜 Detailed Expense Log</h4>", unsafe_allow_html=True)
             
             rows_html = ""
@@ -1713,9 +1714,9 @@ def show_expenses():
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.info("💡 No expense data recorded for this period.")
+            st.info("💡 No expense data recorded yet.")
 
-    # --- TAB 3: MANAGE / EDIT / DELETE (Safety First) ---
+    # --- TAB 3: MANAGE / EDIT / DELETE ---
     with tab_manage:
         if not df.empty:
             st.markdown("<h4 style='color: #2B3F87;'>🛠️ Adjust Expense Records</h4>", unsafe_allow_html=True)
@@ -1727,8 +1728,14 @@ def show_expenses():
 
             with st.container():
                 c_a, c_b = st.columns(2)
-                upd_cat = c_a.selectbox("Update Category", ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"],
-                                        index=["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"].index(e_row["Category"]) if e_row["Category"] in ["Rent", "Insurance Account", "Utilities", "Salaries", "Marketing", "Office Expenses"] else 0)
+                # FIXED LOGIC: We look for the current category in our new Master List
+                current_cat = e_row["Category"]
+                if current_cat not in EXPENSE_CATS:
+                    current_cat = "Office Expenses" # Fallback
+                
+                upd_cat = c_a.selectbox("Update Category", EXPENSE_CATS, 
+                                        index=EXPENSE_CATS.index(current_cat))
+                
                 upd_amt = c_b.number_input("Update Amount", value=float(e_row["Amount"]), step=1000.0)
                 
                 c_c, c_d = st.columns(2)
