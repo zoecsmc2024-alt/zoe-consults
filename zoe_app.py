@@ -360,13 +360,36 @@ st.markdown("""
         color: #2B3F87 !important;
     }
 
-    /* 4. TAB STYLING */
-    button[data-baseweb="tab"] {
-        color: #2B3F87 !important;
+    /* 3. CLEAN SIDEBAR BUTTONS - RESCUE VERSION */
+    section[data-testid="stSidebar"] .stButton > button {
+        background-color: transparent !important;
+        color: #F0F8FF !important; /* Baby Blue Text */
+        border: 1px solid rgba(240, 248, 255, 0.2) !important; /* Soft border */
+        width: 100% !important;
+        text-align: left !important;
+        padding: 10px 15px !important;
+        border-radius: 8px !important;
+        transition: all 0.3s ease !important;
     }
-    button[aria-selected="true"] {
+
+    /* THE HOVER FIX - This makes them turn Baby Blue when you touch them */
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        color: #2B3F87 !important; /* Navy Text on hover */
+        background-color: #F0F8FF !important; /* Baby Blue Background on hover */
+        border: 1px solid #F0F8FF !important;
+        transform: translateX(5px) !important;
+    }
+
+    /* THE ACTIVE TAB FIX - This makes the current page look 'Pressed' */
+    .active-menu-item {
         background-color: #F0F8FF !important;
-        border-bottom: 2px solid #2B3F87 !important;
+        color: #2B3F87 !important;
+        padding: 10px 15px !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        margin-bottom: 5px !important;
+        display: flex !important;
+        align-items: center !important;
     }
 
     /* 5. DATA FRAME / TABLE HEADERS */
