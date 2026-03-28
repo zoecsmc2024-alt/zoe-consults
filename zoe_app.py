@@ -619,8 +619,8 @@ def show_overview():
 # ==============================
 
 def show_borrowers():
-    # Primary Header in Navy
-    st.markdown("<h2 style='color: #2B3F87;'>👥 Borrowers Management</h2>", unsafe_allow_html=True)
+    # Primary Header in Soft Blue
+    st.markdown("<h2 style='color: #4A90E2;'>👥 Borrowers Management</h2>", unsafe_allow_html=True)
 
     # 1. LOAD DATA
     df = get_cached_data("Borrowers")
@@ -630,54 +630,50 @@ def show_borrowers():
         df = pd.DataFrame(columns=["Borrower_ID", "Name", "Phone", "Email", "National_ID", "Address", "Next_of_Kin", "Status", "Date_Added"])
 
     # ==============================
-    # TABBED INTERFACE (Styled Tabs)
+    # TABBED INTERFACE
     # ==============================
-    tab_list, tab_add, tab_manage = st.tabs(["📋 View All", "➕ Add New", "⚙️ Manage & Edit"])
+    tab_list, tab_add, tab_manage = st.tabs(["📋 View All", "➕ Add New", "⚙️ Audit Portfolio"])
 
-    # --- TAB 1: SEARCH & LIST ---
+    # --- TAB 1: SEARCH & LIST (Soft Blue Table) ---
     with tab_list:
         st.markdown("<br>", unsafe_allow_html=True)
         col1, col2 = st.columns([2, 1])
-        search = col1.text_input("🔍 Search Name, Phone or Email")
+        search = col1.text_input("🔍 Search Name or Phone")
         status_filter = col2.selectbox("Filter Status", ["All", "Active", "Inactive"])
 
         filtered_df = df.copy()
         if search:
             filtered_df = filtered_df[
                 filtered_df["Name"].str.contains(search, case=False, na=False) |
-                filtered_df["Phone"].str.contains(search, case=False, na=False) |
-                filtered_df["Email"].str.contains(search, case=False, na=False)
+                filtered_df["Phone"].str.contains(search, case=False, na=False)
             ]
         if status_filter != "All":
             filtered_df = filtered_df[filtered_df["Status"] == status_filter]
 
-        # --- NEW STYLED TABLE FOR BORROWERS ---
         if not filtered_df.empty:
             rows_html = ""
             for i, r in filtered_df.iterrows():
-                # Baby Blue alternating rows
                 bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                
                 rows_html += f"""
                 <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                    <td style="padding:12px; border:1px solid #eee;"><b>{r['Name']}</b></td>
-                    <td style="padding:12px; border:1px solid #eee;">{r['Phone']}</td>
-                    <td style="padding:12px; border:1px solid #eee; font-size: 11px;">{r.get('Email', 'N/A')}</td>
-                    <td style="padding:12px; border:1px solid #eee; text-align:center;">
-                        <span style="background:#2B3F87; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">
+                    <td style="padding:12px;"><b>{r['Name']}</b></td>
+                    <td style="padding:12px;">{r['Phone']}</td>
+                    <td style="padding:12px; font-size: 11px; color:#666;">{r.get('National_ID', 'N/A')}</td>
+                    <td style="padding:12px; text-align:center;">
+                        <span style="background:#4A90E2; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">
                             {r['Status']}
                         </span>
                     </td>
                 </tr>"""
 
             st.markdown(f"""
-                <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden; margin-top:20px;">
+                <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;">
                     <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
                         <thead>
-                            <tr style="background:#2B3F87; color:white; text-align:left;">
+                            <tr style="background:#4A90E2; color:white; text-align:left;">
                                 <th style="padding:12px;">Borrower Name</th>
                                 <th style="padding:12px;">Phone</th>
-                                <th style="padding:12px;">Email Address</th>
+                                <th style="padding:12px;">National ID</th>
                                 <th style="padding:12px; text-align:center;">Status</th>
                             </tr>
                         </thead>
@@ -686,129 +682,90 @@ def show_borrowers():
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.info("No borrowers found matching your search.")
-    # --- TAB 2: ADD BORROWER (Zoe Themed Form) ---
+            st.info("No borrowers found.")
+
+    # --- TAB 2: ADD BORROWER ---
     with tab_add:
         st.markdown("<br>", unsafe_allow_html=True)
-        # Using a styled container for the form
         with st.form("add_borrower_form", clear_on_submit=True):
-            st.markdown("<h4 style='color: #2B3F87;'>📝 Register New Borrower</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='color: #4A90E2;'>📝 Register New Borrower</h4>", unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             name = c1.text_input("Full Name*")
             phone = c2.text_input("Phone Number*")
-            
             email = c1.text_input("Email Address")
-            kin = c2.text_input("Next of Kin (Name & Phone)")
-            
+            kin = c2.text_input("Next of Kin")
             nid = c1.text_input("National ID / NIN")
             addr = c2.text_input("Physical Address")
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            # The button will automatically be Navy Blue due to our global styles
             if st.form_submit_button("🚀 Save Borrower Profile", use_container_width=True):
                 if name and phone:
                     new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
                     new_entry = pd.DataFrame([{
-                        "Borrower_ID": new_id, 
-                        "Name": name, 
-                        "Phone": phone,
-                        "Email": email,
-                        "National_ID": nid, 
-                        "Address": addr, 
-                        "Next_of_Kin": kin,
-                        "Status": "Active",
+                        "Borrower_ID": new_id, "Name": name, "Phone": phone,
+                        "Email": email, "National_ID": nid, "Address": addr, 
+                        "Next_of_Kin": kin, "Status": "Active",
                         "Date_Added": datetime.now().strftime("%Y-%m-%d")
                     }])
-                    updated_df = pd.concat([df, new_entry], ignore_index=True)
-                    if save_data("Borrowers", updated_df):
-                        st.success(f"✅ {name} has been registered successfully!")
-                        st.rerun()
+                    if save_data("Borrowers", pd.concat([df, new_entry], ignore_index=True)):
+                        st.success(f"✅ {name} registered!"); st.rerun()
                 else:
-                    st.error("⚠️ Required: Please provide Name and Phone Number.")
+                    st.error("⚠️ Required: Name and Phone Number.")
 
-    # --- TAB 3: MANAGE & SUMMARY (Zoe Portfolio Style) ---
+    # --- TAB 3: AUDIT PORTFOLIO (Safety Sync) ---
     with tab_manage:
-        st.markdown("<br>", unsafe_allow_html=True)
         if not df.empty:
             target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist())
             b_data = df[df["Name"] == target_name].iloc[0]
             
-            # Info Cards in Baby Blue
             st.markdown(f"""
-                <div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border: 1px solid #2B3F87;">
-                    <p style="margin:0; color:#2B3F87;"><b>📧 Email:</b> {b_data.get('Email', 'N/A')} | 
-                    <b>👨‍👩‍👦 Next of Kin:</b> {b_data.get('Next_of_Kin', 'N/A')}</p>
+                <div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border-left: 5px solid #4A90E2;">
+                    <p style="margin:0; color:#2B3F87;"><b>📍 Address:</b> {b_data.get('Address', 'N/A')} | <b>📞 Kin:</b> {b_data.get('Next_of_Kin', 'N/A')}</p>
                 </div>
             """, unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            user_loans = loans_df[loans_df["Borrower"] == target_name] if not loans_df.empty else pd.DataFrame()
+            # THE FIX: Ensure we find ALL active/overdue/rolled loans for this person
+            user_loans = loans_df[loans_df["Borrower"] == target_name].copy()
             
             if not user_loans.empty:
-                # Convert to numeric for math
-                u_loans = user_loans.copy()
-                u_loans['Amount_Paid'] = pd.to_numeric(u_loans['Amount_Paid'], errors='coerce').fillna(0)
-                u_loans['Total_Repayable'] = pd.to_numeric(u_loans['Total_Repayable'], errors='coerce').fillna(0)
+                for col in ['Amount_Paid', 'Total_Repayable', 'Amount']:
+                    user_loans[col] = pd.to_numeric(user_loans[col], errors='coerce').fillna(0)
                 
-                total_paid = u_loans['Amount_Paid'].sum()
-                total_remaining = u_loans['Total_Repayable'].sum() - total_paid
-                active_count = u_loans[u_loans["Status"] != "Closed"].shape[0]
-
-                st.markdown(f"<h3 style='color: #2B3F87;'>📈 Portfolio: {target_name}</h3>", unsafe_allow_html=True)
+                total_remaining = user_loans['Total_Repayable'].sum() - user_loans['Amount_Paid'].sum()
                 
-                # Metric Cards
                 m1, m2, m3 = st.columns(3)
-                m1.metric("Lifetime Loans", len(u_loans))
-                m2.metric("Active Files", active_count)
-                # Outstanding in bold Navy
-                m3.markdown(f"""
-                    <div style="text-align:center;">
-                        <p style="margin:0; font-size:14px; color:#666;">Outstanding Balance</p>
-                        <h4 style="margin:0; color:#2B3F87;">{total_remaining:,.0f} UGX</h4>
-                    </div>
-                """, unsafe_allow_html=True)
+                m1.metric("Total Loans", len(user_loans))
+                # Count both standard and Rolled/Overdue
+                active_count = user_loans[user_loans["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].shape[0]
+                m2.metric("Active/Rolled", active_count)
+                m3.markdown(f"<div style='text-align:center;'><p style='margin:0;font-size:12px;color:#666;font-weight:bold;'>TOTAL BALANCE</p><h3 style='color:#FF4B4B;margin:0;'>{total_remaining:,.0f}</h3></div>", unsafe_allow_html=True)
 
-                st.markdown("---")
-                
-                # --- NEW STYLED LOAN HISTORY TABLE ---
-                st.write("**Full Loan History:**")
-                
+                # History Table
                 history_rows = ""
-                for i, row in u_loans.iterrows():
+                for i, row in user_loans.iterrows():
                     bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                    # Status color logic
-                    status_color = "#2B3F87" if row['Status'] != "Closed" else "#666"
-                    
+                    stat_c = "#4A90E2" if row['Status'] in ["Active", "Rolled/Overdue"] else "#FF4B4B" if row['Status'] == "Overdue" else "#666"
                     history_rows += f"""
-                    <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+                    <tr style="background-color: {bg};">
                         <td style="padding:10px;">#{row['Loan_ID']}</td>
-                        <td style="padding:10px; font-weight:bold; color:#2B3F87;">{row['Amount']:,.0f} UGX</td>
-                        <td style="padding:10px; text-align:center;">
-                            <span style="background:{status_color}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">
-                                {row['Status']}
-                            </span>
-                        </td>
-                        <td style="padding:10px; text-align:right; color:#666;">{pd.to_datetime(row['End_Date']).strftime('%d %b %Y')}</td>
+                        <td style="padding:10px; font-weight:bold; color:#2B3F87;">{row['Amount']:,.0f}</td>
+                        <td style="padding:10px; text-align:center;"><span style="background:{stat_c}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{row['Status']}</span></td>
+                        <td style="padding:10px; text-align:right;">{pd.to_datetime(row['End_Date']).strftime('%d %b %Y')}</td>
                     </tr>"""
-
+                
                 st.markdown(f"""
-                    <div style="border:1px solid #2B3F87; border-radius:8px; overflow:hidden; margin-top:10px;">
-                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                            <thead>
-                                <tr style="background:#2B3F87; color:white; text-align:left;">
-                                    <th style="padding:10px;">ID</th>
-                                    <th style="padding:10px;">Amount</th>
-                                    <th style="padding:10px; text-align:center;">Status</th>
-                                    <th style="padding:10px; text-align:right;">Due Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>{history_rows}</tbody>
+                    <div style='border:1px solid #4A90E2; border-radius:8px; overflow:hidden; margin-top:15px;'>
+                        <table style='width:100%; font-size:12px; border-collapse:collapse;'>
+                            <tr style='background:#4A90E2; color:white;'>
+                                <th style='padding:10px; text-align:left;'>ID</th>
+                                <th style='padding:10px; text-align:left;'>Principal</th>
+                                <th style='padding:10px; text-align:center;'>Status</th>
+                                <th style='padding:10px; text-align:right;'>Due Date</th>
+                            </tr>
+                            {history_rows}
                         </table>
-                    </div>
-                """, unsafe_allow_html=True)
+                    </div>""", unsafe_allow_html=True)
             else:
-                st.info("ℹ️ This borrower has a clean history (no loans recorded yet).")
+                st.info("ℹ️ No loan history for this borrower.")
 
 
 
