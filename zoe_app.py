@@ -360,23 +360,33 @@ st.markdown("""
         color: #2B3F87 !important;
     }
 
-    /* 1. TARGET THE SIDEBAR BUTTONS SPECIFICALLY */
+    /* 1. COMPACT SIDEBAR BUTTONS */
     section[data-testid="stSidebar"] .stButton > button {
-        background-color: transparent !important; /* Removes the white box */
+        background-color: transparent !important;
         color: #F0F8FF !important; /* Baby Blue Text */
-        border: 1px solid rgba(240, 248, 255, 0.1) !important; /* Very subtle border */
+        border: 1px solid rgba(240, 248, 255, 0.1) !important;
         width: 100% !important;
         text-align: left !important;
-        padding: 10px 15px !important;
-        border-radius: 8px !important;
-        transition: all 0.2s ease-in-out !important;
+        padding: 6px 12px !important; /* REDUCED PADDING to stop scrolling */
+        margin-bottom: 2px !important; /* Tighter spacing */
+        border-radius: 6px !important;
+        font-size: 14px !important; /* Slightly smaller text for fit */
+        transition: all 0.2s ease !important;
     }
 
-    /* 2. HOVER EFFECT */
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #F0F8FF !important; /* Becomes Baby Blue */
-        color: #2B3F87 !important; /* Text turns Navy */
+    /* 2. HOVER & ACTIVE FIX - Prevents text from turning invisible white */
+    section[data-testid="stSidebar"] .stButton > button:hover,
+    section[data-testid="stSidebar"] .stButton > button:focus,
+    section[data-testid="stSidebar"] .stButton > button:active {
+        background-color: #F0F8FF !important; /* Baby Blue Background */
+        color: #2B3F87 !important; /* FORCE NAVY TEXT on click/hover */
         border: 1px solid #F0F8FF !important;
+        box-shadow: none !important;
+    }
+
+    /* 3. THE GAP FIX (Reduces space between buttons) */
+    [data-testid="stVerticalBlock"] > div:has(div.stButton) {
+        gap: 0rem !important;
     }
 
     /* THE ACTIVE TAB FIX - This makes the current page look 'Pressed' */
