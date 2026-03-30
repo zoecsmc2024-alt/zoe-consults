@@ -2410,12 +2410,12 @@ def show_reports():
             st.error("🆘 Critical Risk Level")
 
 # ==============================
-# 22. MASTER LEDGER & STATEMENTS
+# 22. MASTER LEDGER & STATEMENTS (Cleaned & De-duplicated)
 # ==============================
 def show_ledger():
     st.markdown("<h2 style='color: #2B3F87;'>📘 Master Ledger</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA & NORMALIZE HEADERS (The Fix)
+    # 1. LOAD DATA & NORMALIZE
     loans_df = get_cached_data("Loans")
     payments_df = get_cached_data("Payments")
 
@@ -2423,146 +2423,85 @@ def show_ledger():
         st.info("No loan records found to generate a ledger.")
         return
 
-    # Clean the headers so 'Loan ID' becomes 'Loan_ID' automatically
+    # Normalize headers immediately
     loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
     if not payments_df.empty:
         payments_df.columns = payments_df.columns.str.strip().str.replace(" ", "_")
 
-    # 2. SELECTION LOGIC
-    # We ensure Loan_ID is a string and handle missing values to prevent "N/A" crashes
+    # 2. SELECTION LOGIC (Only one selectbox!)
     loans_df['Loan_ID'] = loans_df['Loan_ID'].fillna("0").astype(str)
+    loan_options = [f"ID: {r.get('Loan_ID', '0')} - {r.get('Borrower', 'Unknown')}" for _, r in loans_df.iterrows()]
     
-    loan_options = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', '0')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
-    selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options)
+    selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options, key="ledger_main_select")
     
-    # Extract the ID safely using a float conversion first (handles '3.0')
+    # Extract ID safely
     try:
         raw_id = selected_loan.split(" - ")[0].replace("ID: ", "")
-        l_id_int = int(float(raw_id))
-        l_id_str = str(l_id_int)
+        l_id_str = str(int(float(raw_id)))
     except:
-        st.error("❌ Invalid Loan ID format selected.")
+        st.error("❌ Invalid Loan ID selected.")
         return
     
     # Get specific loan info
     loan_info = loans_df[loans_df["Loan_ID"] == l_id_str].iloc[0]
     
-    # --- MATH ENGINE ---
-    t_repayable = float(loan_info.get("Total_Repayable", 0))
-    if t_repayable == 0:
-        t_repayable = float(loan_info.get("Principal", 0)) + float(loan_info.get("Interest", 0))
-
-    a_paid = float(loan_info.get("Amount_Paid", 0))
-    current_balance = t_repayable - a_paid
+    # 3. TREND MATH & BALANCE CALCULATION
+    current_p = float(loan_info.get("Principal", 0))
+    interest_amt = float(loan_info.get("Interest", 0))
+    rate = float(loan_info.get("Interest_Rate", 0))
     
-    # --- DISPLAY BALANCE CARD ---
+    # Back-calculate old principal if interest is currently 0 in the sheet
+    if interest_amt == 0 and rate > 0:
+        old_p = current_p / (1 + (rate/100))
+        interest_amt = current_p - old_p
+    else:
+        old_p = current_p - interest_amt
+
+    # --- TOP CARD DISPLAY ---
+    # Calc current balance for the big card
+    t_repay = current_p + (interest_amt if interest_amt > 0 else 0)
+    a_paid = float(loan_info.get("Amount_Paid", 0))
+    display_bal = t_repay - a_paid
+
     st.markdown(f"""
         <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;">
             <p style="margin:0; font-size:14px; color:#666; font-weight:bold;">CURRENT OUTSTANDING BALANCE (INC. INTEREST)</p>
-            <h1 style="margin:0; color:#2B3F87;">{current_balance:,.0f} <span style="font-size:18px;">UGX</span></h1>
+            <h1 style="margin:0; color:#2B3F87;">{display_bal:,.0f} <span style="font-size:18px;">UGX</span></h1>
         </div>
     """, unsafe_allow_html=True)
 
-    # 2. SELECTION LOGIC
-    # We ensure Loan_ID is a string and handle missing values to prevent "N/A" crashes
-    loans_df['Loan_ID'] = loans_df['Loan_ID'].fillna("0").astype(str)
-    
-    loan_options = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', '0')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
-    selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options, key="ledger_dropdown_v1")
-    
-    # Extract the ID safely using a float conversion first (handles '3.0')
-    try:
-        raw_id = selected_loan.split(" - ")[0].replace("ID: ", "")
-        l_id_int = int(float(raw_id))
-        l_id_str = str(l_id_int)
-    except:
-        st.error("❌ Invalid Loan ID format selected.")
-        return
-    
-    # Get specific loan info
-    loan_info = loans_df[loans_df["Loan_ID"] == l_id_str].iloc[0]
-    
-    # --- MATH ENGINE ---
-    t_repayable = float(loan_info.get("Total_Repayable", 0))
-    if t_repayable == 0:
-        t_repayable = float(loan_info.get("Principal", 0)) + float(loan_info.get("Interest", 0))
-
-    a_paid = float(loan_info.get("Amount_Paid", 0))
-    current_balance = t_repayable - a_paid
-    
-    # --- DISPLAY BALANCE CARD ---
-    st.markdown(f"""
-        <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;">
-            <p style="margin:0; font-size:14px; color:#666; font-weight:bold;">CURRENT OUTSTANDING BALANCE (INC. INTEREST)</p>
-            <h1 style="margin:0; color:#2B3F87;">{current_balance:,.0f} <span style="font-size:18px;">UGX</span></h1>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 3. BUILD THE LEDGER TABLE
+    # 4. BUILD THE LEDGER TABLE DATA
     ledger_data = []
-    disburse_date = loan_info.get("Start_Date", datetime.now().strftime("%Y-%m-%d"))
-    
+    is_rolled = "Rolled" in str(loan_info.get('Status', ''))
+
     if is_rolled:
-                # 1. Clearer Description for the start
-                l_ledger.append({
-                    "Date": "Prev Month", 
-                    "Description": "Opening Balance (Principal)", 
-                    "Debit": old_p, 
-                    "Credit": 0
-                })
-                # 2. Change the description to emphasize it's INTEREST
-                l_ledger.append({
-                    "Date": l_row.get('Rollover_Date', '30 Mar'), 
-                    "Description": f"➕ Monthly Interest ({l_row.get('Interest_Rate')}% Compounded)", 
-                    "Debit": interest_amt, 
-                    "Credit": 0
-                })
+        ledger_data.append({"Date": "Prev Month", "Description": "Opening Balance (Brought Forward)", "Debit": old_p, "Credit": 0, "Balance": old_p})
+        ledger_data.append({"Date": loan_info.get('Rollover_Date', '30 Mar'), "Description": f"➕ Monthly Interest ({rate}% Compounded)", "Debit": interest_amt, "Credit": 0, "Balance": current_p})
+    else:
+        ledger_data.append({"Date": loan_info.get("Start_Date", "-"), "Description": "Initial Loan Disbursement", "Debit": current_p, "Credit": 0, "Balance": current_p})
 
-    # --- SUBSEQUENT ROWS: PAYMENTS ---
-    relevant_payments = pd.DataFrame()
+    # Add Payments to the list
     if not payments_df.empty:
-        relevant_payments = payments_df[payments_df["Loan_ID"].astype(str) == l_id_str].sort_values("Date")
-    
-    running_balance = float(t_repayable)
-    
-    for _, pay in relevant_payments.iterrows():
-        p_amt = float(pay.get("Amount", 0))
-        running_balance -= p_amt
-        ledger_data.append({
-            "Date": pay.get("Date", "-"),
-            "Description": f"Repayment ({pay.get('Method', 'Cash')})",
-            "Debit": 0,
-            "Credit": p_amt,
-            "Balance": running_balance
-        })
+        rel_pay = payments_df[payments_df["Loan_ID"].astype(str) == l_id_str].sort_values("Date")
+        curr_run_bal = current_p
+        for _, pay in rel_pay.iterrows():
+            p_amt = float(pay.get("Amount", 0))
+            curr_run_bal -= p_amt
+            ledger_data.append({
+                "Date": pay.get("Date", "-"),
+                "Description": f"✅ Repayment ({pay.get('Method', 'Cash')})",
+                "Debit": 0, "Credit": p_amt, "Balance": curr_run_bal
+            })
 
-    ledger_display_df = pd.DataFrame(ledger_data)
+    # Show the table on screen
+    st.dataframe(pd.DataFrame(ledger_data).style.format({"Debit": "{:,.0f}", "Credit": "{:,.0f}", "Balance": "{:,.0f}"}), use_container_width=True, hide_index=True)
 
-    st.dataframe(
-        ledger_display_df.style.format({
-            "Debit": "{:,.0f}",
-            "Credit": "{:,.0f}",
-            "Balance": "{:,.0f}"
-        }),
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.dataframe(
-        ledger_display_df.style.format({
-            "Debit": "{:,.0f}",
-            "Credit": "{:,.0f}",
-            "Balance": "{:,.0f}"
-        }),
-        use_container_width=True,
-        hide_index=True
-    )
-
+    # 5. PRINTABLE STATEMENT SECTION
     st.markdown("---")
-    st.markdown("### 🚀 Generate Client Statement")
-    
     if st.button("✨ Preview Consolidated Statement", use_container_width=True):
-        # Fetching all data for the HTML Statement
+        # (This is where your HTML generation code from the previous steps lives)
+        st.info("Generating professional statement...")
+        # (Rest of your statement HTML logic remains here...)
         borrowers_df = get_cached_data("Borrowers")
         all_loans_df = loans_df.copy() # Already normalized above
         all_payments_df = payments_df.copy() # Already normalized above
