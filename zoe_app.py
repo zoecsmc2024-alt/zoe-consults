@@ -586,41 +586,75 @@ def show_overview():
 
     with t1:
         st.markdown("<h4 style='color: #4A90E2;'>📝 Recent Portfolio Activity</h4>", unsafe_allow_html=True)
-        recent_loans = active_df.sort_values(by="End_Date", ascending=False).head(5)
+        # We define rows_html once and then fill it
         rows_html = ""
-        for i, r in recent_loans.iterrows():
-            bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-            # Updated Line 604 and the loop below it
-rows_html = ""
-# We take the last 5 loans issued
-for i, r in active_df.tail(5).iterrows():
-    bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-    
-    # SAFE GET: This prevents the KeyError by providing a fallback
-    b_name = r.get('Borrower', 'Unknown')
-    p_amt = float(r.get('Principal', 0))
-    b_stat = r.get('Status', 'Active')
-    e_date = pd.to_datetime(r.get('End_Date')).strftime('%d %b') if r.get('End_Date') else "-"
+        
+        if not active_df.empty:
+            # We take the 5 most recent based on End_Date
+            recent_loans = active_df.sort_values(by="End_Date", ascending=False).head(5)
+            
+            for i, (idx, r) in enumerate(recent_loans.iterrows()):
+                bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                
+                # SAFE GET: prevents KeyError
+                b_name = r.get('Borrower', 'Unknown')
+                p_amt = float(r.get('Principal', 0))
+                b_stat = r.get('Status', 'Active')
+                e_date = pd.to_datetime(r.get('End_Date')).strftime('%d %b') if r.get('End_Date') else "-"
 
-    rows_html += f"""
-    <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
-        <td style="padding:10px;">{b_name}</td>
-        <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{p_amt:,.0f}</td>
-        <td style="padding:10px; text-align:center;"><span style="font-size:10px; background:#e1f5fe; padding:2px 5px; border-radius:5px;">{b_stat}</span></td>
-        <td style="padding:10px; text-align:center; color:#666;">{e_date}</td>
-    </tr>"""
-        st.markdown(f"""<table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #4A90E2;"><thead><tr style="background:#4A90E2; color:white;"><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:right;">Amount</th><th style="padding:10px; text-align:center;">Status</th></tr></thead><tbody>{rows_html}</tbody></table>""", unsafe_allow_html=True)
+                rows_html += f"""
+                <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+                    <td style="padding:10px;">{b_name}</td>
+                    <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{p_amt:,.0f}</td>
+                    <td style="padding:10px; text-align:center;"><span style="font-size:10px; background:#e1f5fe; padding:2px 5px; border-radius:5px;">{b_stat}</span></td>
+                    <td style="padding:10px; text-align:center; color:#666;">{e_date}</td>
+                </tr>"""
+        
+        st.markdown(f"""
+            <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #4A90E2;">
+                <thead>
+                    <tr style="background:#4A90E2; color:white;">
+                        <th style="padding:10px;">Borrower</th>
+                        <th style="padding:10px; text-align:right;">Principal</th>
+                        <th style="padding:10px; text-align:center;">Status</th>
+                        <th style="padding:10px; text-align:center;">Due</th>
+                    </tr>
+                </thead>
+                <tbody>{rows_html if rows_html else "<tr><td colspan='4' style='text-align:center;padding:10px;'>No active loans</td></tr>"}</tbody>
+            </table>
+        """, unsafe_allow_html=True)
 
     with t2:
         st.markdown("<h4 style='color: #2E7D32;'>💸 Recent Cash Inflows</h4>", unsafe_allow_html=True)
-        if not pay_df.empty:
+        pay_rows = ""
+        
+        if pay_df is not None and not pay_df.empty:
             recent_pay = pay_df.sort_values(by="Date", ascending=False).head(5)
-            pay_rows = ""
-            for i, r in recent_pay.iterrows():
+            for i, (idx, r) in enumerate(recent_pay.iterrows()):
                 bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                pay_rows += f"""<tr style="background-color: {bg}; border-bottom: 1px solid #ddd;"><td style="padding:10px;">{r['Borrower']}</td><td style="padding:10px; text-align:right; font-weight:bold; color:green;">{r['Amount']:,.0f}</td><td style="padding:10px; text-align:center; color:#666;">{pd.to_datetime(r['Date']).strftime('%d %b')}</td></tr>"""
-            st.markdown(f"""<table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #2E7D32;"><thead><tr style="background:#2E7D32; color:white;"><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:right;">Amount</th><th style="padding:10px; text-align:center;">Date</th></tr></thead><tbody>{pay_rows}</tbody></table>""", unsafe_allow_html=True)
-
+                p_borr = r.get('Borrower', 'Unknown')
+                p_val = float(r.get('Amount', 0))
+                p_date = pd.to_datetime(r.get('Date')).strftime('%d %b') if r.get('Date') else "-"
+                
+                pay_rows += f"""
+                <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+                    <td style="padding:10px;">{p_borr}</td>
+                    <td style="padding:10px; text-align:right; font-weight:bold; color:green;">{p_val:,.0f}</td>
+                    <td style="padding:10px; text-align:center; color:#666;">{p_date}</td>
+                </tr>"""
+        
+        st.markdown(f"""
+            <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #2E7D32;">
+                <thead>
+                    <tr style="background:#2E7D32; color:white;">
+                        <th style="padding:10px;">Borrower</th>
+                        <th style="padding:10px; text-align:right;">Amount</th>
+                        <th style="padding:10px; text-align:center;">Date</th>
+                    </tr>
+                </thead>
+                <tbody>{pay_rows if pay_rows else "<tr><td colspan='3' style='text-align:center;padding:10px;'>No recent payments</td></tr>"}</tbody>
+            </table>
+        """, unsafe_allow_html=True)
     # 6. DASHBOARD VISUALS
     st.markdown("---")
     st.markdown("<h4 style='color: #4A90E2;'>📈 Portfolio Analytics</h4>", unsafe_allow_html=True)
