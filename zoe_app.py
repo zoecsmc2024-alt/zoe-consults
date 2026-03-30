@@ -1436,10 +1436,14 @@ def show_overdue_tracker():
     # Check session state first
     loans_data = st.session_state.get("loans")
     
-    # If session is empty, go get it from the source!
+    def show_overdue_tracker():
+    st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
+
+    # 1. --- THE AUTO-REFILL GATEKEEPER ---
+    loans_data = st.session_state.get("loans")
+    
     if loans_data is None or loans_data.empty:
         with st.spinner("🔄 Re-syncing with Google Sheets..."):
-            # Use your actual data loading function name here (e.g., get_data or load_loans)
             loans_data = get_cached_data("Loans") 
             if loans_data is not None and not loans_data.empty:
                 st.session_state.loans = loans_data
@@ -1447,35 +1451,39 @@ def show_overdue_tracker():
                 st.info("💡 No loan records found in the system.")
                 return
 
-    # 2. --- NOW USE THE DATA ---
+    # 2. --- NOW USE THE DATA (Align these to the left!) ---
     loans = loans_data.copy()
+    # Normalize headers immediately so the check below works
+    loans.columns = loans.columns.str.strip().str.replace(" ", "_")
+    
     ledger = st.session_state.get("ledger", pd.DataFrame())
 
-        # 3. --- REQUIRED COLUMNS CHECK ---
-        required_cols = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
-        missing = [col for col in required_cols if col not in loans.columns]
+    # 3. --- REQUIRED COLUMNS CHECK (Fixed Indentation) ---
+    required_cols = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
+    missing = [col for col in required_cols if col not in loans.columns]
 
-        if missing:
-            st.error(f"❌ Missing columns in Google Sheet: {missing}")
-            st.write("Current columns found:", list(loans.columns))
-            return
+    if missing:
+        st.error(f"❌ Missing columns in Google Sheet: {missing}")
+        st.write("Current columns found:", list(loans.columns))
+        return
 
-        # 4. --- DATE PREP ---
-        loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
-        today = datetime.now()
+    # 4. --- DATE PREP ---
+    loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
+    today = datetime.now()
 
-        # 5. --- FILTER OVERDUE ACCOUNTS ---
-        # We look for anything not 'Cleared' that is past its due date
-        overdue_df = loans[
-            (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
-            (loans['End_Date'] < today)
-        ].copy()
+    # 5. --- FILTER OVERDUE ACCOUNTS ---
+    overdue_df = loans[
+        (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
+        (loans['End_Date'] < today)
+    ].copy()
 
-        if overdue_df.empty:
-            st.success("✨ Excellent! All accounts are currently up to date.")
-            return
+    if overdue_df.empty:
+        st.success("✨ Excellent! All accounts are currently up to date.")
+        return
 
-        st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
+    st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
+    # Show the table so we can see the data!
+    st.dataframe(overdue_df, use_container_width=True)
 
         # 6. --- DISPLAY PREVIEW ---
         display_cols = ["Loan_ID", "Borrower", "Principal", "End_Date", "Status"]
