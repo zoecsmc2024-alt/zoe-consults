@@ -2534,32 +2534,42 @@ def show_ledger():
             <h3 style="color: {navy_blue}; margin-top: 30px; border-bottom: 2px solid {navy_blue}; padding-bottom: 5px;">💼 Account Summaries</h3>
         """
 
-        # 3. LOOP THROUGH EACH LOAN (Updated to show Trend)
-        grand_total_balance = 0
+        # 3. LOOP THROUGH EACH LOAN (Updated with Reverse Math for Trend)
         for index, l_row in client_loans.iterrows():
             this_loan_id = str(l_row['Loan_ID'])
             l_ledger = []
             
-            # --- THE TREND LOGIC ---
-            # 1. Fetch current details
+            # --- THE TREND MATH ---
             current_p = float(l_row.get('Principal', 0))
+            # Recover the interest amount to show the "jump"
+            interest_amt = float(l_row.get('Interest', 0))
+            
+            # If interest is 0 in the sheet (common after rollover), 
+            # we calculate what it WAS based on the rate
+            if interest_amt == 0:
+                rate = float(l_row.get('Interest_Rate', 0)) / 100
+                # Formula: Old Principal = Current / (1 + rate)
+                old_p = current_p / (1 + rate) if rate > 0 else current_p
+                interest_amt = current_p - old_p
+            else:
+                old_p = current_p - interest_amt
+
             is_rolled = "Rolled" in str(l_row.get('Status', ''))
             
-            # 2. If it's rolled, we show the "Rollover Compounding" as a trail
             if is_rolled:
-                # We show the original estimated balance before this rollover
-                # (This is a simplified trail since the old row was overwritten)
+                # 1. Show the starting point (Before Rollover)
                 l_ledger.append({
                     "Date": "Prev Month", 
-                    "Description": "Balance Carried Forward", 
-                    "Debit": current_p, 
+                    "Description": "Balance Brought Forward", 
+                    "Debit": old_p, 
                     "Credit": 0
                 })
+                # 2. Show the "Jump" (The Compounding)
                 l_ledger.append({
                     "Date": l_row.get('Rollover_Date', '30 Mar'), 
-                    "Description": "🔄 Monthly Rollover & Compounding", 
-                    "Debit": 0, 
-                    "Credit": 0 # This just acts as a label in the trend
+                    "Description": "🔄 Monthly Rollover (Interest Compounded)", 
+                    "Debit": interest_amt, 
+                    "Credit": 0
                 })
             else:
                 l_ledger.append({
