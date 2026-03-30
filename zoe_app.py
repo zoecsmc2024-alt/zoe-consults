@@ -1505,6 +1505,9 @@ def show_overdue_tracker():
     # 5. EXECUTE ROLLOVER (THE ENGINE)
     st.write("")
     if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+        # We work on a copy of loans_df to be safe
+        updated_df = loans_df.copy()
+        
         for i, r in overdue_df.iterrows():
             b_name = r['Borrower']
             
@@ -1519,17 +1522,30 @@ def show_overdue_tracker():
             if final_roll_amt == 0:
                 final_roll_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
             
-            new_date = (r['End_Date'] + pd.DateOffset(months=1)).strftime('%Y-%m-%d')
+            # Math for the new date
+            # We convert to string immediately to avoid the Timestamp error
+            new_date_obj = pd.to_datetime(r['End_Date']) + pd.DateOffset(months=1)
+            new_date_str = new_date_obj.strftime('%Y-%m-%d')
             
-            # Update the Loan Record
-            loan_df.loc[i, 'Principal'] = final_roll_amt # Push balance to new principal
-            loan_df.loc[i, 'End_Date'] = new_date
-            loan_df.loc[i, 'Status'] = "Rolled/Overdue"
-            loan_df.loc[i, 'Rollover_Date'] = today.strftime('%Y-%m-%d')
+            # Update the Loan Record in our updated_df
+            updated_df.loc[i, 'Principal'] = final_roll_amt 
+            updated_df.loc[i, 'End_Date'] = new_date_str
+            updated_df.loc[i, 'Status'] = "Rolled/Overdue"
+            updated_df.loc[i, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
 
-        if save_data("Loans", loan_df):
-            st.success("✨ Rollover Complete! Balances updated.")
+        # --- THE JSON SERIALIZABLE FIX ---
+        # Before saving, force ALL date-like columns to be plain text strings
+        date_cols = ["Start_Date", "End_Date", "Rollover_Date", "Due Date", "Date"]
+        for col in date_cols:
+            if col in updated_df.columns:
+                updated_df[col] = pd.to_datetime(updated_df[col], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
+
+        # 2. NOW try to save it
+        if save_data("Loans", updated_df):
+            st.success("✅ Rollover completed successfully! All balances compounded.")
             st.rerun()
+        else:
+            st.error("❌ Failed to save to Google Sheets. Check your connection.")
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
