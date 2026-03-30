@@ -2534,18 +2534,42 @@ def show_ledger():
             <h3 style="color: {navy_blue}; margin-top: 30px; border-bottom: 2px solid {navy_blue}; padding-bottom: 5px;">💼 Account Summaries</h3>
         """
 
+        # 3. LOOP THROUGH EACH LOAN (Updated to show Trend)
         grand_total_balance = 0
         for index, l_row in client_loans.iterrows():
             this_loan_id = str(l_row['Loan_ID'])
             l_ledger = []
             
-            orig_date = l_row.get('End_Date', 'N/A')
-            orig_repay = pd.to_numeric(l_row.get('Total_Repayable', 0), errors='coerce')
-            if orig_repay == 0:
-                orig_repay = float(l_row.get('Principal', 0)) + float(l_row.get('Interest', 0))
+            # --- THE TREND LOGIC ---
+            # 1. Fetch current details
+            current_p = float(l_row.get('Principal', 0))
+            is_rolled = "Rolled" in str(l_row.get('Status', ''))
             
-            l_ledger.append({"Date": orig_date, "Description": "Principal + Interest", "Debit": orig_repay, "Credit": 0})
-            
+            # 2. If it's rolled, we show the "Rollover Compounding" as a trail
+            if is_rolled:
+                # We show the original estimated balance before this rollover
+                # (This is a simplified trail since the old row was overwritten)
+                l_ledger.append({
+                    "Date": "Prev Month", 
+                    "Description": "Balance Carried Forward", 
+                    "Debit": current_p, 
+                    "Credit": 0
+                })
+                l_ledger.append({
+                    "Date": l_row.get('Rollover_Date', '30 Mar'), 
+                    "Description": "🔄 Monthly Rollover & Compounding", 
+                    "Debit": 0, 
+                    "Credit": 0 # This just acts as a label in the trend
+                })
+            else:
+                l_ledger.append({
+                    "Date": l_row.get('Start_Date', 'N/A'), 
+                    "Description": "Original Loan Disbursement", 
+                    "Debit": current_p, 
+                    "Credit": 0
+                })
+
+            # 3. Fetch payments to show the "Paid" part of the trail
             l_payments = all_payments_df[all_payments_df["Loan_ID"].astype(str) == this_loan_id] if not all_payments_df.empty else pd.DataFrame()
             for _, p in l_payments.iterrows():
                 l_ledger.append({
