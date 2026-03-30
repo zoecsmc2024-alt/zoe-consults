@@ -1429,8 +1429,10 @@ def show_collateral():
 # ==============================
 # 16. COLLECTIONS & OVERDUE TRACKER (Fixed Amount Recovery)
 # ==============================
-
 def show_overdue_tracker():
+    global loans_df  # Add this line here!
+    updated_df = loans_df.copy()
+
     st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
     
     # 1. LOAD DATA Safely
@@ -1506,6 +1508,8 @@ def show_overdue_tracker():
     st.write("")
     if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
         # We work on a copy of loans_df to be safe
+        global loans_df 
+        # Line 1509
         updated_df = loans_df.copy()
         
         for i, r in overdue_df.iterrows():
