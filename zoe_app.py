@@ -594,7 +594,7 @@ def show_overview():
     active_df = df[df["Status"].isin(active_statuses)].copy()
 
     # 3. METRICS CALCULATION
-    total_issued = active_df["Amount"].sum()
+    total_issued = active_df["Principal"].sum() if "Principal" in active_df.columns else 0
     total_interest_expected = active_df["Interest"].sum()
     total_collected = df["Amount_Paid"].sum() 
     
