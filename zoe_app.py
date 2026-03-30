@@ -1044,17 +1044,22 @@ def show_loans():
             selected_manage = st.selectbox("🔍 Select Loan to Manage/Edit", manage_options)
 
             # 2. SAFE ID PARSING
+            # 2. SAFE ID PARSING
             try:
-                raw_manage_id = selected_manage.split(" | ")[0].replace("ID: ", "")
-                m_id = int(float(raw_manage_id))
+                # First, extract the ID from the dropdown text
+                raw_manage_id = selected_manage.split("|")[0].replace("ID:", "").strip()
+                m_id_str = str(int(float(raw_manage_id))) # Cleans '3.0' to '3'
                 
-                # Fetch the specific row data using the ID
-                # We use the original loans_df here to make saving easier later
-                m_row = loans_df[loans_df["Loan_ID"].astype(str).str.contains(str(m_id))].iloc[0]
+                # --- THE FIX: Normalize the main loans list headers ---
+                temp_loans = loans_df.copy()
+                temp_loans.columns = temp_loans.columns.str.strip().str.replace(" ", "_")
+                
+                # Now find the row using the clean 'Loan_ID' name
+                m_row = temp_loans[temp_loans["Loan_ID"].astype(str) == m_id_str].iloc[0]
                 
             except Exception as e:
                 st.error(f"❌ Error loading loan details: {e}")
-                st.stop() # Stops just this tab, doesn't crash the app
+                st.stop()
 
             # --- THE BOXES & BUTTONS (NOW CONNECTED) ---
             with st.container():
