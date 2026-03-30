@@ -563,35 +563,6 @@ def show_overview():
     active_statuses = ["Active", "Overdue", "Rolled/Overdue"]
     active_df = df[df["Status"].isin(active_statuses)].copy()
 
-    # ==============================
-# 11. DASHBOARD LOGIC (OVERVIEW)
-# ==============================
-
-def show_overview():
-    st.markdown("<h2 style='color: #4A90E2;'>📊 Financial Dashboard</h2>", unsafe_allow_html=True)
-    
-    # 1. LOAD PRIMARY DATA
-    df = get_cached_data("Loans")
-    pay_df = get_cached_data("Payments")
-    exp_df = get_cached_data("Expenses")
-
-    if df is None or df.empty:
-        st.warning("⚠️ No data found in 'Loans'. Add some borrowers to get started!")
-        return
-
-    # 2. DATA CLEANING
-    # Updated Line 553
-    # We search for Principal because that's our new header!
-    df["Principal"] = pd.to_numeric(df.get("Principal", 0), errors="coerce").fillna(0)
-    df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
-    df["Amount_Paid"] = pd.to_numeric(df["Amount_Paid"], errors="coerce").fillna(0)
-    df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
-    
-    today = pd.Timestamp.today().normalize()
-    
-    # RECOVERY FILTER: Include Rolled loans in Active count
-    active_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-    active_df = df[df["Status"].isin(active_statuses)].copy()
 
     # 3. METRICS CALCULATION
     total_issued = active_df["Principal"].sum() if "Principal" in active_df.columns else 0
