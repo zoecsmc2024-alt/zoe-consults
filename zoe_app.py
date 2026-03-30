@@ -1033,12 +1033,25 @@ def show_loans():
         if not loans_df.empty:
             st.markdown("<h4 style='color: #2B3F87;'>🛠️ Modify Loan Agreement</h4>", unsafe_allow_html=True)
             
-            # 1. Selection List (Using Principal)
-            manage_list = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} | {x.get('Borrower', 'Unknown')} - {float(x.get('Principal', 0)):,.0f} UGX", axis=1).tolist()
-            selected_manage = st.selectbox("Search and Select Loan ID", manage_list)
-            m_id = int(selected_manage.split(" | ")[0].replace("ID: ", ""))
-            m_row = loans_df[loans_df["Loan_ID"] == m_id].iloc[0]
+            # --- 1. NORMALIZE HEADERS AT THE START OF MANAGE SECTION ---
+        manage_df = loans_df.copy()
+        manage_df.columns = manage_df.columns.str.strip().str.replace(" ", "_")
 
+        # Create the selection list safely
+        manage_df['Loan_ID'] = manage_df['Loan_ID'].fillna("0").astype(str)
+        manage_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in manage_df.iterrows()]
+        
+        selected_manage = st.selectbox("🔍 Select Loan to Manage/Edit", manage_options)
+
+        # --- 2. SAFE ID PARSING (Fix for Line 1039) ---
+        try:
+            # We split by the pipe symbol " | " which matches your dropdown format
+            raw_manage_id = selected_manage.split(" | ")[0].replace("ID: ", "")
+            # Convert float first (handles '19.0') then to int
+            m_id = int(float(raw_manage_id))
+        except (ValueError, IndexError):
+            st.error("❌ Could not parse the Loan ID. Please check the Google Sheet row.")
+            return
             with st.container():
                 col_e1, col_e2 = st.columns(2)
                 
