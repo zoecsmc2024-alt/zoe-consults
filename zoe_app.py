@@ -2399,40 +2399,50 @@ def show_reports():
 # ==============================
 # 22. MASTER LEDGER & STATEMENTS
 # ==============================
-
 def show_ledger():
     st.markdown("<h2 style='color: #2B3F87;'>📘 Master Ledger</h2>", unsafe_allow_html=True)
     
+    # 1. LOAD DATA & NORMALIZE HEADERS (The Fix)
     loans_df = get_cached_data("Loans")
     payments_df = get_cached_data("Payments")
 
-    if loans_df.empty:
+    if loans_df is None or loans_df.empty:
         st.info("No loan records found to generate a ledger.")
         return
 
-    # 1. Selection
-    # Using .get() here too just in case!
-    loan_options = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
+    # Clean the headers so 'Loan ID' becomes 'Loan_ID' automatically
+    loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
+    if not payments_df.empty:
+        payments_df.columns = payments_df.columns.str.strip().str.replace(" ", "_")
+
+    # 2. SELECTION LOGIC
+    # We ensure Loan_ID is a string and handle missing values to prevent "N/A" crashes
+    loans_df['Loan_ID'] = loans_df['Loan_ID'].fillna("0").astype(str)
+    
+    loan_options = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', '0')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
     selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options)
     
-    # Extract the ID safely
-    l_id = int(selected_loan.split(" - ")[0].replace("ID: ", ""))
+    # Extract the ID safely using a float conversion first (handles '3.0')
+    try:
+        raw_id = selected_loan.split(" - ")[0].replace("ID: ", "")
+        l_id_int = int(float(raw_id))
+        l_id_str = str(l_id_int)
+    except:
+        st.error("❌ Invalid Loan ID format selected.")
+        return
     
     # Get specific loan info
-    loan_info = loans_df[loans_df["Loan_ID"] == l_id].iloc[0]
+    loan_info = loans_df[loans_df["Loan_ID"] == l_id_str].iloc[0]
     
-    # --- MATH ENGINE (Properly Indented) ---
-    # We use .get() and fallback to math if Total_Repayable is missing
+    # --- MATH ENGINE ---
     t_repayable = float(loan_info.get("Total_Repayable", 0))
     if t_repayable == 0:
         t_repayable = float(loan_info.get("Principal", 0)) + float(loan_info.get("Interest", 0))
 
     a_paid = float(loan_info.get("Amount_Paid", 0))
-
-    # Now we calculate the balance safely
     current_balance = t_repayable - a_paid
     
-    # --- DISPLAY THE CARD ---
+    # --- DISPLAY BALANCE CARD ---
     st.markdown(f"""
         <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;">
             <p style="margin:0; font-size:14px; color:#666; font-weight:bold;">CURRENT OUTSTANDING BALANCE (INC. INTEREST)</p>
@@ -2440,11 +2450,8 @@ def show_ledger():
         </div>
     """, unsafe_allow_html=True)
 
-    # 2. BUILD THE LEDGER TABLE
+    # 3. BUILD THE LEDGER TABLE
     ledger_data = []
-
-    # --- ROW 1: THE DISBURSEMENT (Initial Debt) ---
-    # We pull the Start_Date safely from your Google Sheet
     disburse_date = loan_info.get("Start_Date", datetime.now().strftime("%Y-%m-%d"))
     
     ledger_data.append({
@@ -2456,28 +2463,27 @@ def show_ledger():
     })
 
     # --- SUBSEQUENT ROWS: PAYMENTS ---
-    # (Your code would then loop through payments and append them to ledger_data)
-        
-
-    # --- SUBSEQUENT ROWS: PAYMENTS ---
-    relevant_payments = payments_df[payments_df["Loan_ID"] == l_id].sort_values("Date")
+    relevant_payments = pd.DataFrame()
+    if not payments_df.empty:
+        relevant_payments = payments_df[payments_df["Loan_ID"].astype(str) == l_id_str].sort_values("Date")
+    
     running_balance = float(t_repayable)
     
     for _, pay in relevant_payments.iterrows():
-        running_balance -= float(pay["Amount"])
+        p_amt = float(pay.get("Amount", 0))
+        running_balance -= p_amt
         ledger_data.append({
-            "Date": pay["Date"],
-            "Description": f"Repayment ({pay['Method']})",
+            "Date": pay.get("Date", "-"),
+            "Description": f"Repayment ({pay.get('Method', 'Cash')})",
             "Debit": 0,
-            "Credit": float(pay["Amount"]),
+            "Credit": p_amt,
             "Balance": running_balance
         })
 
-    ledger_df = pd.DataFrame(ledger_data)
+    ledger_display_df = pd.DataFrame(ledger_data)
 
-    # 3. DISPLAY FORMATTED TABLE
     st.dataframe(
-        ledger_df.style.format({
+        ledger_display_df.style.format({
             "Debit": "{:,.0f}",
             "Credit": "{:,.0f}",
             "Balance": "{:,.0f}"
@@ -2490,28 +2496,23 @@ def show_ledger():
     st.markdown("### 🚀 Generate Client Statement")
     
     if st.button("✨ Preview Consolidated Statement", use_container_width=True):
-        # 1. FETCH ALL RELEVANT DATA
+        # Fetching all data for the HTML Statement
         borrowers_df = get_cached_data("Borrowers")
-        all_loans_df = get_cached_data("Loans")
-        all_payments_df = get_cached_data("Payments")
+        all_loans_df = loans_df.copy() # Already normalized above
+        all_payments_df = payments_df.copy() # Already normalized above
         
-        # Identify the Borrower
         current_b_name = loan_info['Borrower'] 
-        
-        # Find all loans for this person
         client_loans = all_loans_df[all_loans_df["Borrower"] == current_b_name]
         
-        # Get Borrower Details for the Header
-        b_data = borrowers_df[borrowers_df["Name"] == current_b_name]
+        b_data = borrowers_df[borrowers_df["Name"] == current_b_name] if not borrowers_df.empty else pd.DataFrame()
         b_details = b_data.iloc[0] if not b_data.empty else {}
 
-        # 2. Colors & Header
+        # START HTML GENERATION
         navy_blue = "#000080"
         baby_blue = "#E1F5FE"
         
         html_statement = f"""
         <div style="font-family: 'Arial', sans-serif; padding: 25px; border: 1px solid #eee; max-width: 850px; margin: auto; background-color: white; color: #333;">
-            
             <div style="background-color: {navy_blue}; color: white; padding: 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <h1 style="margin:0; letter-spacing: 1px;">ZOE CONSULTS SMC LTD</h1>
@@ -2522,7 +2523,6 @@ def show_ledger():
                     <p style="margin:0; font-size: 12px;">{datetime.now().strftime('%d %b %Y')}</p>
                 </div>
             </div>
-            
             <div style="padding: 15px; border: 1px solid #ddd; border-top: none; background-color: #fcfcfc;">
                 <table style="width: 100%; font-size: 13px;">
                     <tr>
@@ -2531,45 +2531,30 @@ def show_ledger():
                     </tr>
                 </table>
             </div>
-
             <h3 style="color: {navy_blue}; margin-top: 30px; border-bottom: 2px solid {navy_blue}; padding-bottom: 5px;">💼 Account Summaries</h3>
         """
 
-        # 3. LOOP THROUGH EACH LOAN
         grand_total_balance = 0
-        
         for index, l_row in client_loans.iterrows():
-            l_id = l_row['Loan_ID']
-            
-            # BUILD LEDGER SAFELY
+            this_loan_id = str(l_row['Loan_ID'])
             l_ledger = []
             
-            # Find the date and amount using .get() to avoid KeyErrors
-            orig_date = l_row.get('Date') if 'Date' in l_row else l_row.get('date', 'N/A')
+            orig_date = l_row.get('End_Date', 'N/A')
             orig_repay = pd.to_numeric(l_row.get('Total_Repayable', 0), errors='coerce')
+            if orig_repay == 0:
+                orig_repay = float(l_row.get('Principal', 0)) + float(l_row.get('Interest', 0))
             
-            l_ledger.append({
-                "Date": orig_date, 
-                "Description": "Principal + Interest", 
-                "Debit": orig_repay, 
-                "Credit": 0
-            })
+            l_ledger.append({"Date": orig_date, "Description": "Principal + Interest", "Debit": orig_repay, "Credit": 0})
             
-            # Fetch payments for this specific loan
-            l_payments = all_payments_df[all_payments_df["Loan_ID"] == l_id]
+            l_payments = all_payments_df[all_payments_df["Loan_ID"].astype(str) == this_loan_id] if not all_payments_df.empty else pd.DataFrame()
             for _, p in l_payments.iterrows():
-                # Safety check for payment columns too
-                p_date = p.get('Date') if 'Date' in p else p.get('date', 'N/A')
-                p_amt = pd.to_numeric(p.get('Amount', 0), errors='coerce')
-                
                 l_ledger.append({
-                    "Date": p_date, 
+                    "Date": p.get('Date', '-'), 
                     "Description": f"Payment (Rec: {p.get('Receipt_No', 'N/A')})", 
                     "Debit": 0, 
-                    "Credit": p_amt
+                    "Credit": pd.to_numeric(p.get('Amount', 0), errors='coerce')
                 })
             
-            # Convert to DataFrame for Balance Calculation
             temp_df = pd.DataFrame(l_ledger)
             if not temp_df.empty:
                 temp_df['Balance'] = temp_df['Debit'].cumsum() - temp_df['Credit'].cumsum()
@@ -2578,13 +2563,11 @@ def show_ledger():
             else:
                 current_l_balance = 0
 
-            # --- REMAINDER OF YOUR HTML CODE ---
-
-            # Add Loan Header and Table to HTML
+            # Add to HTML
             html_statement += f"""
             <div style="margin-top: 20px; padding: 10px; background-color: {baby_blue}; border-radius: 5px;">
-                <span style="font-weight: bold; color: {navy_blue};">LOAN ID: {l_id}</span> | 
-                <span>Status: {l_row['Status']}</span> | 
+                <span style="font-weight: bold; color: {navy_blue};">LOAN ID: {this_loan_id}</span> | 
+                <span>Status: {l_row.get('Status', 'Active')}</span> | 
                 <span style="float: right;">Loan Balance: <strong>{current_l_balance:,.0f} UGX</strong></span>
             </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
@@ -2596,7 +2579,6 @@ def show_ledger():
                     <th style="padding: 8px; text-align: right;">Balance</th>
                 </tr>
             """
-            
             for _, row in temp_df.iterrows():
                 html_statement += f"""
                 <tr>
@@ -2605,31 +2587,20 @@ def show_ledger():
                     <td style="padding: 6px; border-bottom: 1px solid #eee; text-align: right;">{row['Debit']:,.0f}</td>
                     <td style="padding: 6px; border-bottom: 1px solid #eee; text-align: right;">{row['Credit']:,.0f}</td>
                     <td style="padding: 6px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">{row['Balance']:,.0f}</td>
-                </tr>
-                """
+                </tr>"""
             html_statement += "</table>"
 
-        # 4. FINAL GRAND TOTAL SECTION
+        # Footer & Grand Total
         html_statement += f"""
             <div style="margin-top: 30px; padding: 20px; border: 2px solid {navy_blue}; border-radius: 8px; text-align: right; background-color: #f0f4ff;">
                 <h2 style="margin: 0; color: {navy_blue};">GRAND TOTAL OUTSTANDING</h2>
                 <h1 style="margin: 5px 0 0 0; color: #FF4B4B;">{grand_total_balance:,.0f} UGX</h1>
             </div>
-
-            <div style="margin-top: 40px; text-align: center; font-size: 11px; color: #777;">
-                <p>Zoe Consults SMC Ltd | Kampala, Uganda</p>
-                <p><em>Trust is the foundation of our partnership.</em></p>
-            </div>
-        </div>
-        """
+        </div>"""
         
-        # --- DISPLAY THE HTML PREVIEW ---
-        # ... (Your existing HTML generation logic above) ...
-        
-        # 4. DISPLAY THE PREVIEW (This was already in your code)
-        st.components.v1.html(html_statement, height=1000, scrolling=True)
+        st.components.v1.html(html_statement, height=800, scrolling=True)
 
-        # 5. ADD THE PRINT BUTTON (Move it here!)
+        # PDF Print Button Script
         print_button_script = f"""
             <script>
                 function printStatement() {{
@@ -2638,20 +2609,15 @@ def show_ledger():
                     document.body.innerHTML = printContents;
                     window.print();
                     document.body.innerHTML = originalContents;
-                    window.location.reload(); // Refreshes to restore Streamlit state
+                    window.location.reload();
                 }}
             </script>
             <div id="printable-area" style="display:none;">{html_statement}</div>
-            <button onclick="printStatement()" style="
-                background-color: #000080; color: white; border: none; 
-                padding: 12px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;
-            ">
+            <button onclick="printStatement()" style="background-color: #000080; color: white; border: none; padding: 12px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">
                 📥 Download / Print PDF Statement
             </button>
         """
         st.components.v1.html(print_button_script, height=100)
-
-        st.info("💡 **Consolidated View:** All active and pending loans for this client are listed above.")
     
 
 
