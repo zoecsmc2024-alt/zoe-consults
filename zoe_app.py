@@ -2224,19 +2224,30 @@ def show_reports():
         nssf_total = n5 + n10
         paye_total = pd.to_numeric(payroll.get("PAYE", pd.Series([0])), errors="coerce").fillna(0).sum()
 
-    # 3. OTHER DATA SUMS
-    l_amt = pd.to_numeric(loans["Amount"], errors="coerce").fillna(0).sum()
-    l_int = pd.to_numeric(loans["Interest"], errors="coerce").fillna(0).sum()
-    p_amt = pd.to_numeric(payments["Amount"], errors="coerce").fillna(0).sum() if not payments.empty else 0
-    exp_amt = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0).sum() if not expenses.empty else 0
+    # 3. OTHER DATA SUMS (Properly Indented)
+    # Safe Principal Lookup
+    l_amt_col = "Principal" if "Principal" in loans.columns else "Amount"
+    l_amt = pd.to_numeric(loans.get(l_amt_col, 0), errors="coerce").fillna(0).sum()
+    
+    # Other Metric Totals
+    l_int = pd.to_numeric(loans.get("Interest", 0), errors="coerce").fillna(0).sum()
+    p_amt = pd.to_numeric(payments.get("Amount", 0), errors="coerce").fillna(0).sum() if not payments.empty else 0
+    exp_amt = pd.to_numeric(expenses.get("Amount", 0), errors="coerce").fillna(0).sum() if not expenses.empty else 0
     
     # Force petty to be a DataFrame safely
-    if not isinstance(petty, pd.DataFrame): petty = pd.DataFrame()
+    if not isinstance(petty, pd.DataFrame): 
+        petty = pd.DataFrame()
+    
     petty_out = 0
     if not petty.empty and "Type" in petty.columns:
-        petty_out = pd.to_numeric(petty[petty["Type"]=="Out"]["Amount"], errors="coerce").fillna(0).sum()
+        petty_out = pd.to_numeric(petty[petty["Type"]=="Out"].get("Amount", 0), errors="coerce").fillna(0).sum()
     
-    total_outflow = exp_amt + pay_amt + petty_out + nssf_total + paye_total
+    # 💰 FINANCIAL LOGIC:
+    # Total Outflow = Expenses + Petty Cash Out + (Taxes if defined)
+    # Note: nssf_total and paye_total must be defined above this line!
+    total_outflow = exp_amt + petty_out + (nssf_total if 'nssf_total' in locals() else 0) + (paye_total if 'paye_total' in locals() else 0)
+    
+    # Net Profit = Inflows (Payments) - Outflows (Expenses)
     net_profit = p_amt - total_outflow
 
     # 4. KPI DASHBOARD (Soft Blue)
