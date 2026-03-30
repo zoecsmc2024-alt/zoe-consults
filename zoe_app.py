@@ -2297,14 +2297,21 @@ def show_ledger():
     # 2. BUILD THE LEDGER TABLE
     ledger_data = []
 
-    # --- ROW 1: THE DISBURSEMENT (Total Repayable) ---
+    # --- ROW 1: THE DISBURSEMENT (Initial Debt) ---
+    # We pull the Start_Date safely from your Google Sheet
+    disburse_date = loan_info.get("Start_Date", datetime.now().strftime("%Y-%m-%d"))
+    
     ledger_data.append({
-        "Date": loan_info["Start_Date"],
-        "Description": f"Initial Loan Disbursement (Principal + Interest)",
-        "Debit": float(loan_info["Total_Repayable"]),
+        "Date": disburse_date,
+        "Description": "Initial Loan Disbursement (Principal + Interest)",
+        "Debit": t_repayable,
         "Credit": 0,
-        "Balance": float(loan_info["Total_Repayable"])
+        "Balance": t_repayable
     })
+
+    # --- SUBSEQUENT ROWS: PAYMENTS ---
+    # (Your code would then loop through payments and append them to ledger_data)
+        
 
     # --- SUBSEQUENT ROWS: PAYMENTS ---
     relevant_payments = payments_df[payments_df["Loan_ID"] == l_id].sort_values("Date")
