@@ -1774,17 +1774,28 @@ def show_expenses():
             st.markdown("<h4 style='color: #2B3F87;'>📜 Detailed Expense Log</h4>", unsafe_allow_html=True)
             
             rows_html = ""
+            # We already figured out the correct date column name here:
             date_col = "Date" if "Date" in df.columns else df.columns[0] 
+            
             sorted_df = df.sort_values(date_col, ascending=False)
+            
             for i, r in sorted_df.iterrows():
                 bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                
+                # SAFE GET: Use .get() to prevent KeyError if a column is missing
+                d_val = r.get(date_col, "-")
+                c_val = r.get('Category', 'Other')
+                desc = r.get('Description', '-')
+                amt  = float(r.get('Amount', 0))
+                rec  = r.get('Receipt_No', '-')
+
                 rows_html += f"""
                 <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
-                    <td style="padding:10px; color:#666; font-size:11px;">{r['Payment_Date']}</td>
-                    <td style="padding:10px;"><b>{r['Category']}</b></td>
-                    <td style="padding:10px; font-size:11px;">{r['Description']}</td>
-                    <td style="padding:10px; text-align:right; font-weight:bold; color:#FF4B4B;">{r['Amount']:,.0f}</td>
-                    <td style="padding:10px; text-align:center; color:#666; font-size:10px;">{r['Receipt_No']}</td>
+                    <td style="padding:10px; color:#666; font-size:11px;">{d_val}</td>
+                    <td style="padding:10px;"><b>{c_val}</b></td>
+                    <td style="padding:10px; font-size:11px;">{desc}</td>
+                    <td style="padding:10px; text-align:right; font-weight:bold; color:#FF4B4B;">{amt:,.0f}</td>
+                    <td style="padding:10px; text-align:center; color:#666; font-size:10px;">{rec}</td>
                 </tr>"""
 
             st.markdown(f"""
