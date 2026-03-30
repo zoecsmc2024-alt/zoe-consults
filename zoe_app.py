@@ -1185,24 +1185,31 @@ def show_payments():
                         st.error("Invalid amount. Cannot exceed balance due.")
 
     # ==============================
-    # TAB 2: HISTORY (Stable Color Version)
+    # TAB 2: HISTORY (Color via Emojis)
     # ==============================
     with tab_history:
         if not payments_df.empty:
-            # 1. Ensure Amount is numeric and handled safely
-            payments_df["Amount"] = pd.to_numeric(payments_df.get("Amount", 0), errors="coerce").fillna(0)
+            # 1. Clean the data
+            df_display = payments_df.copy()
+            df_display["Amount"] = pd.to_numeric(df_display.get("Amount", 0), errors="coerce").fillna(0)
             
-            # 2. Sort by Date
-            sorted_pay = payments_df.sort_values("Date", ascending=False)
+            # 2. Add a "Trend" Emoji Column based on Amount
+            def get_color_emoji(amt):
+                if amt >= 5000000: return "🟢 Large"  # Over 5M
+                if amt >= 1000000: return "🔵 Medium" # Over 1M
+                return "⚪ Small"
+            
+            df_display["Level"] = df_display["Amount"].apply(get_color_emoji)
+            
+            # 3. Sort by Date
+            df_display = df_display.sort_values("Date", ascending=False)
 
-            # 3. Apply stable styling
-            # This uses a standard color map that doesn't require extra imports
-            styled_view = sorted_pay.style.format({"Amount": "{:,.0f} UGX"})\
-                .background_gradient(subset=["Amount"], cmap="YlGnBu")
-
-            # 4. Display
+            # 4. Reorder columns to put the "Level" first for visual impact
+            cols = ["Level"] + [c for c in df_display.columns if c != "Level"]
+            
+            # 5. Display (Safe version, no .style)
             st.dataframe(
-                styled_view, 
+                df_display[cols], 
                 use_container_width=True, 
                 hide_index=True
             )
