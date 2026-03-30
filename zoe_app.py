@@ -1502,12 +1502,21 @@ def show_calendar():
         st.info("📅 Calendar is clear! No active loans to track.")
         return
 
-    # 2. DATA PREPARATION
+    # 2. DATA PREPARATION (Bulletproofed)
+    # Ensure columns exist before processing
+    for col in ["End_Date", "Total_Repayable", "Status", "Borrower", "Loan_ID"]:
+        if col not in loans_df.columns:
+            loans_df[col] = 0 if col == "Total_Repayable" else "Unknown"
+
+    # Convert to proper types
     loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
-    loans_df["Total_Repayable"] = pd.to_numeric(loans_df.get("Total_Repayable", 0), errors="coerce").fillna(0)
+    loans_df["Total_Repayable"] = pd.to_numeric(loans_df["Total_Repayable"], errors="coerce").fillna(0)
+    
+    # Today's reference date
     today = pd.Timestamp.today().normalize()
     
-    active_loans = loans_df[loans_df["Status"] != "Closed"].copy()
+    # Filter for loans that aren't closed
+    active_loans = loans_df[loans_df["Status"].astype(str).str.lower() != "closed"].copy()
 
     # 3. DAILY WORKLOAD METRICS (Zoe Branded Cards)
     due_today_df = active_loans[active_loans["End_Date"].dt.date == today.date()]
