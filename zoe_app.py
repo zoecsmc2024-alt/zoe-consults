@@ -2272,18 +2272,22 @@ def show_reports():
         st.write("**💰 Income vs. Expenses (Monthly)**")
         if not payments.empty:
             pay_copy = payments.copy()
-            pay_copy["Date"] = pd.to_datetime(pay_copy["Date"])
-            inc_trend = pay_copy.groupby(pay_copy["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
+            pay_copy["Date"] = pd.to_datetime(pay_copy.get("Date"))
+            # Safe Amount lookup
+            p_val_col = "Amount" if "Amount" in pay_copy.columns else pay_copy.columns[0]
+            inc_trend = pay_copy.groupby(pay_copy["Date"].dt.strftime('%Y-%m'))[p_val_col].sum().reset_index()
             
             exp_copy = expenses.copy() if not expenses.empty else pd.DataFrame(columns=["Amount", "Date"])
             if not exp_copy.empty:
-                exp_copy["Date"] = pd.to_datetime(exp_copy["Date"])
-                exp_trend = exp_copy.groupby(exp_copy["Date"].dt.strftime('%Y-%m')).Amount.sum().reset_index()
+                exp_copy["Date"] = pd.to_datetime(exp_copy.get("Date"))
+                exp_trend = exp_copy.groupby(exp_copy["Date"].dt.strftime('%Y-%m'))["Amount"].sum().reset_index()
             else:
                 exp_trend = pd.DataFrame(columns=["Date", "Amount"])
 
-            merged = pd.merge(inc_trend, exp_trend, on="Date", how="outer", suffixes=('_Inc', '_Exp')).fillna(0)
+            # Merge trends
+            merged = pd.merge(inc_trend, exp_trend, left_on="Date", right_on="Date", how="outer").fillna(0)
             merged.columns = ["Month", "Income", "Expenses"]
+            
             fig_bar = px.bar(merged, x="Month", y=["Income", "Expenses"], barmode="group",
                              color_discrete_map={"Income": "#00ffcc", "Expenses": "#FF4B4B"})
             st.plotly_chart(fig_bar, use_container_width=True)
@@ -2292,10 +2296,22 @@ def show_reports():
 
     with col_right:
         st.write("**🛡️ Portfolio Weight (Top 5)**")
-        top_borrowers = loans.groupby("Borrower").Amount.sum().sort_values(ascending=False).head(5).reset_index()
-        fig_pie = px.pie(top_borrowers, names="Borrower", values="Amount", hole=0.5,
-                         color_discrete_sequence=px.colors.sequential.GnBu_r)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        if not loans.empty:
+            # Safe Principal/Amount lookup
+            val_col = "Principal" if "Principal" in loans.columns else "Amount"
+
+            # Safe grouping logic (Properly Indented)
+            top_borrowers = loans.groupby("Borrower")[val_col].sum().sort_values(ascending=False).head(5).reset_index()
+
+            # Rename for chart clarity
+            top_borrowers.columns = ["Borrower", "Total_Loaned"]
+            
+            # CRITICAL FIX: values must match the new column name "Total_Loaned"
+            fig_pie = px.pie(top_borrowers, names="Borrower", values="Total_Loaned", hole=0.5,
+                             color_discrete_sequence=px.colors.sequential.GnBu_r)
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("No loan data for portfolio analysis.")
 
     # 6. RISK INDICATOR
     st.markdown("---")
