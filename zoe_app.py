@@ -1396,14 +1396,20 @@ def show_collateral():
     # 1. FETCH ALL DATA
     collateral_df = get_cached_data("Collateral")
     loans_df = get_cached_data("Loans") 
-    col_df = collateral_df
-
-    # 2. INITIALIZE IF EMPTY
+    
+    # 2. INITIALIZE & NORMALIZE (The Fix for the Language Barrier)
     if collateral_df.empty:
         collateral_df = pd.DataFrame(columns=[
             "Collateral_ID", "Borrower", "Loan_ID", "Type", 
             "Description", "Value", "Status", "Date_Added"
         ])
+    else:
+        # Standardize Collateral Headers
+        collateral_df.columns = collateral_df.columns.str.strip().str.replace(" ", "_")
+
+    # Standardize Loan Headers so we can find 'Loan_ID'
+    if not loans_df.empty:
+        loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
 
     # ==============================
     # TABBED INTERFACE
@@ -1415,8 +1421,9 @@ def show_collateral():
         if loans_df.empty:
             st.warning("⚠️ No loans found. Issue a loan before adding collateral.")
         else:
+            # Filter for active loans
             active_loan_mask = loans_df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])
-            available_loans = loans_df[active_loan_mask]
+            available_loans = loans_df[active_loan_mask].copy()
 
             if available_loans.empty:
                 st.info("✅ All current loans are cleared. No assets need to be held.")
@@ -1425,10 +1432,14 @@ def show_collateral():
                     st.markdown("<h4 style='color: #2B3F87;'>🔒 Secure New Asset</h4>", unsafe_allow_html=True)
                     c1, c2 = st.columns(2)
                     
-                    loan_options = available_loans.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
+                    # Safe Dropdown Creation
+                    available_loans['Loan_ID'] = available_loans['Loan_ID'].astype(str)
+                    loan_options = available_loans.apply(lambda x: f"ID: {x['Loan_ID']} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
+                    
                     selected_loan = c1.selectbox("Link to Active Loan", loan_options)
                     
-                    sel_id = int(selected_loan.split(" - ")[0].replace("ID: ", ""))
+                    # Parse Selection
+                    sel_id = selected_loan.split(" - ")[0].replace("ID: ", "")
                     sel_borrower = selected_loan.split(" - ")[1]
 
                     asset_type = c2.selectbox("Asset Type", ["Logbook (Car)", "Land Title", "Electronics", "House Deed", "Other"])
@@ -1437,120 +1448,90 @@ def show_collateral():
 
                     if st.form_submit_button("💾 Save & Secure Asset", use_container_width=True):
                         if desc and est_value > 0:
+                            # ID Math
                             new_c_id = int(collateral_df["Collateral_ID"].max() + 1) if not collateral_df.empty else 1
+                            
                             new_asset = pd.DataFrame([{
                                 "Collateral_ID": new_c_id,
                                 "Borrower": sel_borrower,
                                 "Loan_ID": sel_id,
                                 "Type": asset_type,
                                 "Description": desc,
-                                "Value": est_value,
+                                "Value": float(est_value),
                                 "Status": "Held",
                                 "Date_Added": datetime.now().strftime("%Y-%m-%d")
                             }])
                             
-                            if save_data("Collateral", pd.concat([collateral_df, new_asset], ignore_index=True)):
+                            # Clean for saving (restore spaces)
+                            save_ready_df = pd.concat([collateral_df, new_asset], ignore_index=True)
+                            save_ready_df.columns = [c.replace("_", " ") for c in save_ready_df.columns]
+                            
+                            if save_data("Collateral", save_ready_df):
                                 st.success(f"✅ Asset #{new_c_id} registered for {sel_borrower}!")
                                 st.rerun()
                         else:
                             st.error("⚠️ Please provide both a description and an estimated value.")
 
-    # --- TAB 2: VIEW & UPDATE (Zoe Portfolio Style) ---
+    # --- TAB 2: VIEW & UPDATE ---
     with tab_view:
-        if not col_df.empty:
-            col_df["Value"] = pd.to_numeric(col_df["Value"], errors='coerce').fillna(0)
+        if not collateral_df.empty:
+            collateral_df["Value"] = pd.to_numeric(collateral_df["Value"], errors='coerce').fillna(0)
             
             # --- BRANDED METRICS ---
-            total_val = col_df[col_df["Status"] != "Released"]["Value"].sum()
-            in_custody = col_df[col_df["Status"].isin(["In Custody", "Held"])].shape[0]
+            total_val = collateral_df[collateral_df["Status"] != "Released"]["Value"].sum()
+            in_custody = collateral_df[collateral_df["Status"].isin(["In Custody", "Held"])].shape[0]
             
             m1, m2 = st.columns(2)
-            m1.markdown(f"""
-                <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL ASSET SECURITY</p>
-                    <h2 style="margin:0; color:#2B3F87;">{total_val:,.0f} <span style="font-size:14px;">UGX</span></h2>
-                </div>
-            """, unsafe_allow_html=True)
+            m1.markdown(f"""<div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">TOTAL ASSET SECURITY</p><h2 style="margin:0; color:#2B3F87;">{total_val:,.0f} <span style="font-size:14px;">UGX</span></h2></div>""", unsafe_allow_html=True)
+            m2.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">ACTIVE ASSETS</p><h2 style="margin:0; color:#2B3F87;">{in_custody}</h2></div>""", unsafe_allow_html=True)
 
-            m2.markdown(f"""
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                    <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">ACTIVE ASSETS</p>
-                    <h2 style="margin:0; color:#2B3F87;">{in_custody}</h2>
-                </div>
-            """, unsafe_allow_html=True)
+            st.write("")
 
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- RESTORED & STYLED INVENTORY TABLE ---
+            # --- INVENTORY TABLE ---
             rows_html = ""
-            for i, r in col_df.iterrows():
+            for i, r in collateral_df.iterrows():
                 bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                
-                # Format the date nicely
-                try:
-                    formatted_date = pd.to_datetime(r['Date_Added']).strftime('%d %b %Y')
-                except:
-                    formatted_date = str(r.get('Date_Added', 'N/A'))
-
                 rows_html += f"""
                 <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
                     <td style="padding:10px; color:#666; font-size:11px;">#{r['Collateral_ID']}</td>
                     <td style="padding:10px;"><b>{r['Borrower']}</b></td>
                     <td style="padding:10px;">{r['Type']}</td>
-                    <td style="padding:10px; font-size:11px; color:#444;">{r['Description']}</td>
+                    <td style="padding:10px; font-size:11px;">{r['Description']}</td>
                     <td style="padding:10px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Value']:,.0f}</td>
-                    <td style="padding:10px; text-align:center;">
-                        <span style="background:#2B3F87; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
-                    </td>
-                    <td style="padding:10px; text-align:right; font-size:11px; color:#666;">{formatted_date}</td>
+                    <td style="padding:10px; text-align:center;"><span style="background:#2B3F87; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span></td>
+                    <td style="padding:10px; text-align:right; font-size:11px; color:#666;">{r['Date_Added']}</td>
                 </tr>"""
 
-            st.markdown(f"""
-                <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;">
-                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                        <thead>
-                            <tr style="background:#2B3F87; color:white; text-align:left;">
-                                <th style="padding:12px;">ID</th>
-                                <th style="padding:12px;">Borrower</th>
-                                <th style="padding:12px;">Type</th>
-                                <th style="padding:12px;">Description</th>
-                                <th style="padding:12px; text-align:right;">Value (UGX)</th>
-                                <th style="padding:12px; text-align:center;">Status</th>
-                                <th style="padding:12px; text-align:right;">Date Secured</th>
-                            </tr>
-                        </thead>
-                        <tbody>{rows_html}</tbody>
-                    </table>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;"><thead><tr style="background:#2B3F87; color:white; text-align:left;"><th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th><th style="padding:12px;">Type</th><th style="padding:12px;">Description</th><th style="padding:12px; text-align:right;">Value</th><th style="padding:12px; text-align:center;">Status</th><th style="padding:12px; text-align:right;">Date</th></tr></thead><tbody>{rows_html}</tbody></table></div>""", unsafe_allow_html=True)
 
-            # 4. DELETE & EDIT SECTION
+            # --- DELETE & EDIT SECTION ---
             with st.expander("⚙️ Manage Collateral Records"):
-                manage_list = col_df.apply(lambda x: f"ID: {x['Collateral_ID']} | {x['Borrower']} - {x['Description']}", axis=1).tolist()
+                manage_list = collateral_df.apply(lambda x: f"ID: {x['Collateral_ID']} | {x['Borrower']} - {x['Description']}", axis=1).tolist()
                 selected_col = st.selectbox("Select Asset to Modify", manage_list)
                 
-                c_id = selected_col.split(" | ")[0].replace("ID: ", "")
-                c_row = col_df[col_df["Collateral_ID"].astype(str) == c_id].iloc[0]
+                c_id_raw = selected_col.split(" | ")[0].replace("ID: ", "")
+                c_row = collateral_df[collateral_df["Collateral_ID"].astype(str) == c_id_raw].iloc[0]
 
                 ce1, ce2 = st.columns(2)
                 upd_desc = ce1.text_input("Edit Description", value=c_row["Description"])
-                upd_val = ce1.number_input("Edit Value (UGX)", value=float(c_row["Value"]), step=100000.0)
+                upd_val = ce1.number_input("Edit Value (UGX)", value=float(c_row["Value"]))
                 
-                collateral_options = ["In Custody", "Released", "Disposed", "Held"]
-                current_c_status = str(c_row.get("Status", "In Custody"))
-                if current_c_status not in collateral_options: current_c_status = "Held"
-                
-                upd_stat = ce2.selectbox("Update Status", collateral_options, index=collateral_options.index(current_c_status))
+                status_opts = ["In Custody", "Released", "Disposed", "Held"]
+                upd_stat = ce2.selectbox("Update Status", status_opts, index=status_opts.index(c_row["Status"]) if c_row["Status"] in status_opts else 0)
                 
                 btn_upd, btn_del = st.columns(2)
                 if btn_upd.button("💾 Save Asset Changes", use_container_width=True):
-                    col_df.loc[col_df["Collateral_ID"].astype(str) == c_id, ["Description", "Value", "Status"]] = [upd_desc, upd_val, upd_stat]
-                    if save_data("Collateral", col_df):
+                    collateral_df.loc[collateral_df["Collateral_ID"].astype(str) == c_id_raw, ["Description", "Value", "Status"]] = [upd_desc, upd_val, upd_stat]
+                    # Restore spaces for saving
+                    final_df = collateral_df.copy()
+                    final_df.columns = [c.replace("_", " ") for c in final_df.columns]
+                    if save_data("Collateral", final_df):
                         st.success("✅ Asset updated!"); st.rerun()
 
                 if btn_del.button("🗑️ Delete Asset Record", use_container_width=True):
-                    new_col_df = col_df[col_df["Collateral_ID"].astype(str) != c_id]
-                    if save_data("Collateral", new_col_df):
+                    final_df = collateral_df[collateral_df["Collateral_ID"].astype(str) != c_id_raw]
+                    final_df.columns = [c.replace("_", " ") for c in final_df.columns]
+                    if save_data("Collateral", final_df):
                         st.warning("⚠️ Asset record deleted!"); st.rerun()
         else:
             st.info("💡 No collateral registered yet.")
