@@ -1243,73 +1243,80 @@ def show_payments():
             st.info("No payment records found.")
 
     # ==============================
-    # TAB 3: MANAGE / EDIT LOANS
+    # TAB 3: MANAGE / EDIT LOANS (Final Fix)
     # ==============================
     with tab_manage:
         st.markdown("### 🛠️ Modify Loan Agreement")
         
-        # 1. PREP DATA
-        manage_df = loans_df.copy()
-        manage_df.columns = manage_df.columns.str.strip().str.replace(" ", "_")
+        # 1. LOAD & CLEAN DATA
+        # Ensure we are looking at the latest data
+        m_df = st.session_state.get("loans", pd.DataFrame()).copy()
+        m_df.columns = m_df.columns.str.strip().str.replace(" ", "_")
         
-        # Create selection list
-        manage_df['Loan_ID'] = manage_df['Loan_ID'].fillna("0").astype(str)
-        manage_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in manage_df.iterrows()]
-        
-        selected_manage = st.selectbox("🔍 Select Loan to Manage/Edit", manage_options, key="manage_loan_selector")
-
-        # 2. EXTRACT SELECTED DATA
-        try:
-            m_id_str = selected_manage.split(" | ")[0].replace("ID: ", "")
-            # Filter the dataframe to find the specific loan details
-            m_loan = manage_df[manage_df["Loan_ID"] == m_id_str].iloc[0]
-        except Exception as e:
-            st.error(f"Could not load loan details: {e}")
-            return
-
-        st.divider()
-
-        # 3. EDIT FORM (The "Lost" Code)
-        with st.form("edit_loan_form"):
-            col1, col2 = st.columns(2)
+        if m_df.empty:
+            st.info("ℹ️ No loans available to edit.")
+        else:
+            # Create the list for the dropdown
+            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str)
+            m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
             
-            with col1:
-                new_borrower = st.text_input("Borrower Name", value=str(m_loan.get('Borrower', '')))
-                # Principal (The compounded amount you see in the screenshot)
-                new_principal = st.number_input("Principal Amount (UGX)", value=float(m_loan.get('Principal', 0)), step=1000.0)
-                new_rate = st.number_input("Monthly Interest Rate (%)", value=float(m_loan.get('Interest_Rate', 0)), step=0.1)
+            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="final_manage_select")
 
-            with col2:
-                # Current Status
-                status_list = ["Active", "Overdue", "Rolled/Overdue", "Cleared", "Defaulted"]
-                current_status = str(m_loan.get('Status', 'Active'))
-                new_status = st.selectbox("Loan Status", status_list, index=status_list.index(current_status) if current_status in status_list else 0)
-                
-                # Dates
-                new_end_date = st.date_input("New Due Date", value=pd.to_datetime(m_loan.get('End_Date', datetime.now())))
+            # 2. EXTRACT THE ID
+            # We use a very flexible split to make sure we don't miss it
+            m_id_raw = selected_m.split("|")[0].replace("ID:", "").strip()
+            
+            # Find the specific row
+            target_loan = m_df[m_df["Loan_ID"] == m_id_raw]
 
-            # 4. SAVE CHANGES BUTTON
-            if st.submit_button("💾 Save Changes to Google Sheets", use_container_width=True):
-                # Update the main dataframe
-                # We find the original index in the loans_df to ensure we save to the right row
-                original_idx = manage_df[manage_df["Loan_ID"] == m_id_str].index[0]
+            if not target_loan.empty:
+                loan_to_edit = target_loan.iloc[0]
                 
-                loans_df.loc[original_idx, 'Borrower'] = new_borrower
-                loans_df.loc[original_idx, 'Principal'] = new_principal
-                loans_df.loc[original_idx, 'Interest_Rate'] = new_rate
-                loans_df.loc[original_idx, 'Status'] = new_status
-                loans_df.loc[original_idx, 'End_Date'] = new_end_date.strftime('%Y-%m-%d')
+                st.divider()
                 
-                # Restore spaces for Google Sheets compatibility
-                final_save_df = loans_df.copy()
-                final_save_df.columns = [col.replace("_", " ") for col in final_save_df.columns]
+                # 3. THE EDIT FORM (Moved outside a sub-block to ensure visibility)
+                with st.form("edit_form_final"):
+                    c1, c2 = st.columns(2)
+                    
+                    with c1:
+                        up_name = st.text_input("Borrower Name", value=str(loan_to_edit.get('Borrower', '')))
+                        up_p = st.number_input("Principal Amount (UGX)", value=float(loan_to_edit.get('Principal', 0)))
+                        up_i = st.number_input("Interest Amount (UGX)", value=float(loan_to_edit.get('Interest', 0)))
+                    
+                    with c2:
+                        status_opts = ["Active", "Overdue", "Rolled/Overdue", "Cleared", "Defaulted"]
+                        curr_s = str(loan_to_edit.get('Status', 'Active'))
+                        up_status = st.selectbox("Loan Status", status_opts, index=status_opts.index(curr_s) if curr_s in status_opts else 0)
+                        up_date = st.date_input("Due Date", value=pd.to_datetime(loan_to_edit.get('End_Date', datetime.now())))
 
-                if save_data("Loans", final_save_df):
-                    st.success(f"✅ Loan #{m_id_str} updated successfully!")
-                    st.session_state.loans = final_save_df
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to save. Check your connection to Google Sheets.")
+                    # 4. THE SAVE BUTTON
+                    submitted = st.form_submit_button("💾 Save Changes to Google Sheets", use_container_width=True)
+                    
+                    if submitted:
+                        # Create the update
+                        updated_loans = st.session_state.loans.copy()
+                        # Normalize headers on the original state too
+                        updated_loans.columns = updated_loans.columns.str.strip().str.replace(" ", "_")
+                        
+                        # Apply changes
+                        idx = updated_loans[updated_loans["Loan_ID"].astype(str) == m_id_raw].index[0]
+                        updated_loans.at[idx, 'Borrower'] = up_name
+                        updated_loans.at[idx, 'Principal'] = up_p
+                        updated_loans.at[idx, 'Interest'] = up_i
+                        updated_loans.at[idx, 'Status'] = up_status
+                        updated_loans.at[idx, 'End_Date'] = up_date.strftime('%Y-%m-%d')
+                        
+                        # Put spaces back for saving
+                        updated_loans.columns = [c.replace("_", " ") for c in updated_loans.columns]
+                        
+                        if save_data("Loans", updated_loans):
+                            st.success(f"✅ Changes for Loan #{m_id_raw} saved!")
+                            st.session_state.loans = updated_loans
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save to Google Sheets.")
+            else:
+                st.error("⚠️ Could not find details for the selected Loan ID.")
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
