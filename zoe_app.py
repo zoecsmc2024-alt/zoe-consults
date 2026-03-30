@@ -1430,13 +1430,7 @@ def show_collateral():
 # 16. COLLECTIONS & OVERDUE TRACKER (Fixed Amount Recovery)
 # ==============================
 def show_overdue_tracker():
-    st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
-
-    # 1. --- THE AUTO-REFILL GATEKEEPER ---
-    # Check session state first
-    loans_data = st.session_state.get("loans")
-    
-    def show_overdue_tracker():
+    # ALL code below this line MUST be indented by 4 spaces
     st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
 
     # 1. --- THE AUTO-REFILL GATEKEEPER ---
@@ -1450,6 +1444,11 @@ def show_overdue_tracker():
             else:
                 st.info("💡 No loan records found in the system.")
                 return
+
+    # 2. --- NOW USE THE DATA ---
+    loans = loans_data.copy()
+    # (Continue with the rest of your filtering and button logic here, 
+    # making sure it's all indented at this same level!)
 
     # 2. --- NOW USE THE DATA (Align these to the left!) ---
     loans = loans_data.copy()
