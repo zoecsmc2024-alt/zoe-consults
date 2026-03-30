@@ -1243,40 +1243,73 @@ def show_payments():
             st.info("No payment records found.")
 
     # ==============================
-    # TAB 3: ADJUST PAYMENTS
+    # TAB 3: MANAGE / EDIT LOANS
     # ==============================
     with tab_manage:
-        if payments_df.empty:
-            st.info("No payments to manage.")
-        else:
-            st.subheader("⚠️ Adjust Previous Payments")
-            pay_list = payments_df.apply(lambda x: f"PayID: {x['Payment_ID']} | {x['Borrower']} - {x['Amount']:,.0f} UGX", axis=1).tolist()
-            selected_pay = st.selectbox("Select Payment Record", pay_list)
+        st.markdown("### 🛠️ Modify Loan Agreement")
+        
+        # 1. PREP DATA
+        manage_df = loans_df.copy()
+        manage_df.columns = manage_df.columns.str.strip().str.replace(" ", "_")
+        
+        # Create selection list
+        manage_df['Loan_ID'] = manage_df['Loan_ID'].fillna("0").astype(str)
+        manage_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in manage_df.iterrows()]
+        
+        selected_manage = st.selectbox("🔍 Select Loan to Manage/Edit", manage_options, key="manage_loan_selector")
+
+        # 2. EXTRACT SELECTED DATA
+        try:
+            m_id_str = selected_manage.split(" | ")[0].replace("ID: ", "")
+            # Filter the dataframe to find the specific loan details
+            m_loan = manage_df[manage_df["Loan_ID"] == m_id_str].iloc[0]
+        except Exception as e:
+            st.error(f"Could not load loan details: {e}")
+            return
+
+        st.divider()
+
+        # 3. EDIT FORM (The "Lost" Code)
+        with st.form("edit_loan_form"):
+            col1, col2 = st.columns(2)
             
-            p_id = int(selected_pay.split(" | ")[0].replace("PayID: ", ""))
-            p_row = payments_df[payments_df["Payment_ID"] == p_id].iloc[0]
-            target_loan_id = p_row["Loan_ID"]
+            with col1:
+                new_borrower = st.text_input("Borrower Name", value=str(m_loan.get('Borrower', '')))
+                # Principal (The compounded amount you see in the screenshot)
+                new_principal = st.number_input("Principal Amount (UGX)", value=float(m_loan.get('Principal', 0)), step=1000.0)
+                new_rate = st.number_input("Monthly Interest Rate (%)", value=float(m_loan.get('Interest_Rate', 0)), step=0.1)
 
-            # DELETE LOGIC (Recalculates Loan Balance Automatically)
-            if st.button("🗑️ Delete This Payment Permanently", use_container_width=True):
-                # 1. Remove from Payments
-                new_payments_df = payments_df[payments_df["Payment_ID"] != p_id]
+            with col2:
+                # Current Status
+                status_list = ["Active", "Overdue", "Rolled/Overdue", "Cleared", "Defaulted"]
+                current_status = str(m_loan.get('Status', 'Active'))
+                new_status = st.selectbox("Loan Status", status_list, index=status_list.index(current_status) if current_status in status_list else 0)
                 
-                # 2. Recalculate Loan Balance for the affected loan
-                loan_payments = new_payments_df[new_payments_df["Loan_ID"] == target_loan_id]
-                total_collected = loan_payments["Amount"].sum() if not loan_payments.empty else 0
-                
-                l_idx = loans_df[loans_df["Loan_ID"] == target_loan_id].index[0]
-                loans_df.at[l_idx, "Amount_Paid"] = total_collected
-                
-                # Re-open loan if it was closed but now has balance
-                total_req = loans_df.at[l_idx, "Total_Repayable"]
-                if total_collected < (total_req - 10):
-                    loans_df.at[l_idx, "Status"] = "Active"
+                # Dates
+                new_end_date = st.date_input("New Due Date", value=pd.to_datetime(m_loan.get('End_Date', datetime.now())))
 
-                if save_data("Payments", new_payments_df) and save_data("Loans", loans_df):
-                    st.warning("Payment Deleted. Loan balance adjusted.")
+            # 4. SAVE CHANGES BUTTON
+            if st.submit_button("💾 Save Changes to Google Sheets", use_container_width=True):
+                # Update the main dataframe
+                # We find the original index in the loans_df to ensure we save to the right row
+                original_idx = manage_df[manage_df["Loan_ID"] == m_id_str].index[0]
+                
+                loans_df.loc[original_idx, 'Borrower'] = new_borrower
+                loans_df.loc[original_idx, 'Principal'] = new_principal
+                loans_df.loc[original_idx, 'Interest_Rate'] = new_rate
+                loans_df.loc[original_idx, 'Status'] = new_status
+                loans_df.loc[original_idx, 'End_Date'] = new_end_date.strftime('%Y-%m-%d')
+                
+                # Restore spaces for Google Sheets compatibility
+                final_save_df = loans_df.copy()
+                final_save_df.columns = [col.replace("_", " ") for col in final_save_df.columns]
+
+                if save_data("Loans", final_save_df):
+                    st.success(f"✅ Loan #{m_id_str} updated successfully!")
+                    st.session_state.loans = final_save_df
                     st.rerun()
+                else:
+                    st.error("❌ Failed to save. Check your connection to Google Sheets.")
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
