@@ -837,12 +837,13 @@ def show_loans():
                         safe_interest = float(interest) if pd.notna(interest) else 0.0
                         safe_total = float(total_due) if pd.notna(total_due) else float(amount)
 
+                        # --- CORRECTED INDENTATION BELOW ---
                         new_loan = pd.DataFrame([{
                             "Loan_ID": new_id, 
                             "Borrower": selected_borrower, 
                             "Type": l_type,
-                            "Amount": float(amount), 
-                            "Interest_Rate": float(interest_rate), # Storing the rate
+                            "Principal": float(amount),  # Matched to your Google Sheet header
+                            "Interest_Rate": float(interest_rate),
                             "Interest": safe_interest,
                             "Total_Repayable": safe_total, 
                             "Amount_Paid": 0.0,
@@ -854,7 +855,8 @@ def show_loans():
                         updated_df = pd.concat([loans_df, new_loan], ignore_index=True).fillna(0)
                         
                         if save_data("Loans", updated_df):
-                            st.success(f"✅ Loan #{new_id} successfully issued to {selected_borrower}!"); st.rerun()
+                            st.success(f"✅ Loan #{new_id} successfully issued to {selected_borrower}!")
+                            st.rerun()
 
     # ==============================
     # TAB 2: PORTFOLIO INSPECTOR (Zoe Soft Blue)
@@ -968,7 +970,7 @@ def show_loans():
 
             with st.container():
                 col_e1, col_e2 = st.columns(2)
-                upd_amt = col_e1.number_input("Adjust Principal", value=float(m_row["Amount"]), step=10000.0)
+                upd_amt = col_e1.number_input("Adjust Principal", value=float(m_row.get("Principal", 0)), step=10000.0)
                 try:
                     curr_rate = (float(m_row["Interest"]) / float(m_row["Amount"])) * 100 if float(m_row["Amount"]) > 0 else 0.0
                 except: curr_rate = 0.0
