@@ -1302,15 +1302,18 @@ def show_collateral():
 def show_overdue_tracker():
     st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA (We need both to bridge the balances)
+    # 1. LOAD DATA
     loan_df = get_cached_data("Loans") 
-    ledger_df = get_cached_data("Ledger")
+    try:
+        ledger_df = get_cached_data("Ledger")
+    except:
+        ledger_df = pd.DataFrame()
 
-    if loan_df.empty or ledger_df.empty:
-        st.info("No records found in Loans or Ledger to track.")
+    if loan_df.empty:
+        st.info("No records found in Loans to track.")
         return
 
-    # 2. Identify Overdue Accounts from the Loans sheet
+    # 2. Identify Overdue Accounts
     loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date'], errors='coerce')
     today = datetime.now()
     overdue_df = loan_df[(loan_df['Status'] != "Cleared") & (loan_df['End_Date'] < today)].copy()
@@ -1319,21 +1322,27 @@ def show_overdue_tracker():
         st.success("✅ All loans are up to date! No rollovers required.")
         return
 
-    # 3. THE "BRIDGE" MATH: Get true balances from Ledger
-    # This replaces the '0' issue by looking at the last Ledger entry for each person
-    latest_ledger = ledger_df.sort_values('Date').groupby('Borrower_Name').tail(1)
+    # 3. BRIDGE LOGIC: Find balance in Ledger
+    latest_ledger = pd.DataFrame()
+    if not ledger_df.empty:
+        # Detect if the column is 'Borrower' or 'Borrower_Name'
+        b_col = 'Borrower_Name' if 'Borrower_Name' in ledger_df.columns else 'Borrower'
+        if b_col in ledger_df.columns:
+            latest_ledger = ledger_df.sort_values('Date').groupby(b_col).tail(1)
     
     st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
 
     # 4. TABLE DISPLAY
     rows_html = ""
     for i, r in overdue_df.iterrows():
-        # Look up this specific borrower's balance from the Ledger
         b_name = r['Borrower']
-        match = latest_ledger[latest_ledger['Borrower_Name'] == b_name]
+        current_out = float(r.get('Amount', 0)) # Fallback
         
-        # If found in ledger, use that balance; otherwise, use loan amount
-        current_out = float(match['Balance'].values[0]) if not match.empty else float(r['Amount'])
+        if not latest_ledger.empty:
+            b_col = 'Borrower_Name' if 'Borrower_Name' in latest_ledger.columns else 'Borrower'
+            match = latest_ledger[latest_ledger[b_col] == b_name]
+            if not match.empty:
+                current_out = float(match['Balance'].values[0])
         
         new_end_date = r['End_Date'] + pd.DateOffset(months=1)
         bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
@@ -1353,7 +1362,7 @@ def show_overdue_tracker():
                 <tr style="background:#4A90E2; color:white;">
                     <th style="padding:10px;">Borrower</th>
                     <th style="padding:10px;">Missed Date</th>
-                    <th style="padding:10px;">Current Balance (P+I)</th>
+                    <th style="padding:10px;">Balance to Roll (P+I)</th>
                     <th style="padding:10px;">New Due Date</th>
                 </tr>
             </thead>
@@ -1361,28 +1370,27 @@ def show_overdue_tracker():
         </table>
     </div>""", unsafe_allow_html=True)
 
-    # 5. EXECUTE ROLLOVER (THE ENGINE)
+    # 5. EXECUTE ROLLOVER
     st.write("")
-    if st.button("🔄 Execute Monthly Rollover (Push to Next Month)", use_container_width=True):
-        # We will update the loan_df with the NEW balances from the ledger
+    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
         for i, r in overdue_df.iterrows():
             b_name = r['Borrower']
-            match = latest_ledger[latest_ledger['Borrower_Name'] == b_name]
+            true_balance = float(r.get('Amount', 0))
             
-            if not match.empty:
-                true_balance = float(match['Balance'].values[0])
-                new_date = (r['End_Date'] + pd.DateOffset(months=1)).strftime('%Y-%m-%d')
-                
-                # UPDATE: Move the ledger balance into the Loan 'Amount' for the new month
-                loan_df.loc[i, 'Amount'] = true_balance
-                loan_df.loc[i, 'End_Date'] = new_date
-                loan_df.loc[i, 'Status'] = "Rolled/Overdue"
-                loan_df.loc[i, 'Notes'] = f"Rolled on {today.strftime('%d-%m')}. Prev Balance: {true_balance:,.0f}"
+            if not latest_ledger.empty:
+                b_col = 'Borrower_Name' if 'Borrower_Name' in latest_ledger.columns else 'Borrower'
+                match = latest_ledger[latest_ledger[b_col] == b_name]
+                if not match.empty:
+                    true_balance = float(match['Balance'].values[0])
+            
+            new_date = (r['End_Date'] + pd.DateOffset(months=1)).strftime('%Y-%m-%d')
+            loan_df.loc[i, 'Amount'] = true_balance
+            loan_df.loc[i, 'End_Date'] = new_date
+            loan_df.loc[i, 'Status'] = "Rolled/Overdue"
+            loan_df.loc[i, 'Notes'] = f"Rolled on {today.strftime('%d-%m')}. Balance: {true_balance:,.0f}"
 
-        # 6. SAVE TO GOOGLE SHEETS
         if save_data("Loans", loan_df):
-            st.success("✨ Rollover Complete! Balances updated for the new month.")
-            st.balloons()
+            st.success("✨ Rollover Complete! Balances have been pushed forward.")
             st.rerun()
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
