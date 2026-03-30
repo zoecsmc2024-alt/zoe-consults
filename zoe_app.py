@@ -1185,24 +1185,38 @@ def show_payments():
                         st.error("Invalid amount. Cannot exceed balance due.")
 
     # ==============================
-    # TAB 2: HISTORY
+    # TAB 2: HISTORY (With Color Formatting)
     # ==============================
     with tab_history:
         if not payments_df.empty:
-            # 1. Clean the Amount column to ensure it's numeric (prevents errors)
+            # 1. Data Cleaning (Safe Conversion)
             payments_df["Amount"] = pd.to_numeric(payments_df.get("Amount", 0), errors="coerce").fillna(0)
             
             # 2. Sort by Date (Most Recent at Top)
             sorted_pay = payments_df.sort_values("Date", ascending=False)
             
-            # 3. Display with Ugandan Shilling formatting
+            # 3. Create a Styled View
+            # - Commas for the Amount (1,000,000)
+            # - Background gradient for Amount (Higher = Darker Green)
+            styled_df = sorted_pay.style.format({
+                "Amount": "{:,.0f} UGX"
+            }).background_gradient(
+                subset=["Amount"], 
+                cmap="Greens"
+            ).set_properties(**{
+                'background-color': '#ffffff',
+                'color': '#2B3F87',
+                'border-color': '#f0f2f6'
+            })
+            
+            # 4. Display the beautiful table
             st.dataframe(
-                sorted_pay.style.format({"Amount": "{:,.0f}"}), 
+                styled_df, 
                 use_container_width=True, 
                 hide_index=True
             )
         else:
-            st.info("No payment records found.")
+            st.info("💡 No payment records found. Record a payment in the first tab to see trends!")
 
     # ==============================
     # TAB 3: ADJUST PAYMENTS
