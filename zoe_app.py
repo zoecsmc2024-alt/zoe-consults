@@ -1432,21 +1432,24 @@ def show_collateral():
 def show_overdue_tracker():
     st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
 
-    try:
-        # 1. --- LOAD FROM SESSION STATE SAFELY ---
-        # Using .get() prevents the "AttributeError" if the app hasn't loaded yet
-        loans = st.session_state.get("loans", pd.DataFrame()).copy()
-        ledger = st.session_state.get("ledger", pd.DataFrame()).copy()
+    # 1. --- THE AUTO-REFILL GATEKEEPER ---
+    # Check session state first
+    loans_data = st.session_state.get("loans")
+    
+    # If session is empty, go get it from the source!
+    if loans_data is None or loans_data.empty:
+        with st.spinner("🔄 Re-syncing with Google Sheets..."):
+            # Use your actual data loading function name here (e.g., get_data or load_loans)
+            loans_data = get_cached_data("Loans") 
+            if loans_data is not None and not loans_data.empty:
+                st.session_state.loans = loans_data
+            else:
+                st.info("💡 No loan records found in the system.")
+                return
 
-        if loans.empty:
-            st.info("💡 No loan records found in the system.")
-            return
-
-        # 2. --- NORMALIZE COLUMN NAMES ---
-        # This fixes "Principal " vs "Principal" and "Loan ID" vs "Loan_ID"
-        loans.columns = loans.columns.str.strip().str.replace(" ", "_")
-        if not ledger.empty:
-            ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
+    # 2. --- NOW USE THE DATA ---
+    loans = loans_data.copy()
+    ledger = st.session_state.get("ledger", pd.DataFrame())
 
         # 3. --- REQUIRED COLUMNS CHECK ---
         required_cols = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
