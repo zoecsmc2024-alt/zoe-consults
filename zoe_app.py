@@ -961,7 +961,7 @@ def show_loans():
     with tab_manage:
         if not loans_df.empty:
             st.markdown("<h4 style='color: #2B3F87;'>🛠️ Modify Loan Agreement</h4>", unsafe_allow_html=True)
-            manage_list = loans_df.apply(lambda x: f"ID: {x['Loan_ID']} | {x['Borrower']} - {x['Amount']}", axis=1).tolist()
+            manage_list = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} | {x.get('Borrower', 'Unknown')} - {float(x.get('Principal', 0)):,.0f} UGX", axis=1).tolist()
             selected_manage = st.selectbox("Search and Select Loan ID", manage_list)
             m_id = int(selected_manage.split(" | ")[0].replace("ID: ", ""))
             m_row = loans_df[loans_df["Loan_ID"] == m_id].iloc[0]
