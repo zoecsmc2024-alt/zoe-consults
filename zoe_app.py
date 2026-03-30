@@ -2265,16 +2265,28 @@ def show_ledger():
         return
 
     # 1. Selection
-    loan_options = loans_df.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
+    # Using .get() here too just in case!
+    loan_options = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
     selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options)
+    
+    # Extract the ID safely
     l_id = int(selected_loan.split(" - ")[0].replace("ID: ", ""))
     
     # Get specific loan info
     loan_info = loans_df[loans_df["Loan_ID"] == l_id].iloc[0]
     
-    # --- STYLED BALANCE CARD ---
-    current_balance = float(loan_info["Total_Repayable"]) - float(loan_info["Amount_Paid"])
+    # --- MATH ENGINE (Properly Indented) ---
+    # We use .get() and fallback to math if Total_Repayable is missing
+    t_repayable = float(loan_info.get("Total_Repayable", 0))
+    if t_repayable == 0:
+        t_repayable = float(loan_info.get("Principal", 0)) + float(loan_info.get("Interest", 0))
+
+    a_paid = float(loan_info.get("Amount_Paid", 0))
+
+    # Now we calculate the balance safely
+    current_balance = t_repayable - a_paid
     
+    # --- DISPLAY THE CARD ---
     st.markdown(f"""
         <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;">
             <p style="margin:0; font-size:14px; color:#666; font-weight:bold;">CURRENT OUTSTANDING BALANCE (INC. INTEREST)</p>
