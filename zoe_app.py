@@ -601,7 +601,25 @@ def show_overview():
         rows_html = ""
         for i, r in recent_loans.iterrows():
             bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-            rows_html += f"""<tr style="background-color: {bg}; border-bottom: 1px solid #ddd;"><td style="padding:10px;">{r['Borrower']}</td><td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{r['Amount']:,.0f}</td><td style="padding:10px; text-align:center;"><span style="font-size:10px; padding:2px 8px; border-radius:10px; background:#4A90E2; color:white;">{r['Status']}</span></td></tr>"""
+            # Updated Line 604 and the loop below it
+rows_html = ""
+# We take the last 5 loans issued
+for i, r in active_df.tail(5).iterrows():
+    bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+    
+    # SAFE GET: This prevents the KeyError by providing a fallback
+    b_name = r.get('Borrower', 'Unknown')
+    p_amt = float(r.get('Principal', 0))
+    b_stat = r.get('Status', 'Active')
+    e_date = pd.to_datetime(r.get('End_Date')).strftime('%d %b') if r.get('End_Date') else "-"
+
+    rows_html += f"""
+    <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
+        <td style="padding:10px;">{b_name}</td>
+        <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{p_amt:,.0f}</td>
+        <td style="padding:10px; text-align:center;"><span style="font-size:10px; background:#e1f5fe; padding:2px 5px; border-radius:5px;">{b_stat}</span></td>
+        <td style="padding:10px; text-align:center; color:#666;">{e_date}</td>
+    </tr>"""
         st.markdown(f"""<table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #4A90E2;"><thead><tr style="background:#4A90E2; color:white;"><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:right;">Amount</th><th style="padding:10px; text-align:center;">Status</th></tr></thead><tbody>{rows_html}</tbody></table>""", unsafe_allow_html=True)
 
     with t2:
