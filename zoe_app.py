@@ -923,7 +923,7 @@ def show_loans():
             display_df = loans_df.copy()
             
             # 1. CLEAN DATA TYPES IMMEDIATELY
-            for col in ["Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
+            for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
                 if col in display_df.columns:
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 else:
@@ -939,28 +939,32 @@ def show_loans():
                 st.info("ℹ️ No active loans found.")
             else:
                 # 3. METRIC CALCULATIONS
-                display_df["Total_Repayable"] = display_df["Amount"] + display_df["Interest"]
+                actual_p = display_df["Principal"] if "Principal" in display_df.columns else display_df["Amount"]
+                display_df["Total_Repayable"] = actual_p + display_df["Interest"]
                 display_df["Outstanding_Balance"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
                 
                 sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
                 loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
                 
-                # --- METRIC CARDS ---
+                # --- METRIC CARDS (Updated for Principal) ---
                 p1, p2, p3 = st.columns(3)
-                p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Amount_Paid']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
-                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
-                s_color = "#4A90E2" if loan_info['Status'] != "Overdue" else "#FF4B4B"
-                p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{loan_info['Status'].upper()}</h3></div>""", unsafe_allow_html=True)
+                p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info.get('Amount_Paid', 0):,.0f} UGX</h3></div>""", unsafe_allow_html=True)
+                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info.get('Outstanding_Balance', 0):,.0f} UGX</h3></div>""", unsafe_allow_html=True)
+                s_color = "#4A90E2" if loan_info.get('Status') != "Overdue" else "#FF4B4B"
+                p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{str(loan_info.get('Status', 'ACTIVE')).upper()}</h3></div>""", unsafe_allow_html=True)
 
                 # --- THE COMPLETE "ZOE" PORTFOLIO TABLE (RESTORING ALL COLUMNS) ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                    stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
+                    stat_bg = "#4A90E2" if r.get('Status') == "Active" else "#FF4B4B" if r.get('Status') == "Overdue" else "#FFA500"
 
-                    # 1. Fetch dates safely
-                    start_date = pd.to_datetime(r.get('Start_Date')).strftime('%d %b %y') if r.get('Start_Date') else "-"
-                    end_date = pd.to_datetime(r.get('End_Date')).strftime('%d %b %y') if r.get('End_Date') else "-"
+                    # 1. Fetch dates safely (Checking all possible names)
+                    s_date_raw = r.get('Start_Date') or r.get('Issued On') or r.get('Date')
+                    start_date = pd.to_datetime(s_date_raw).strftime('%d %b %y') if pd.notna(s_date_raw) else "-"
+                    
+                    e_date_raw = r.get('End_Date') or r.get('Due Date')
+                    end_date = pd.to_datetime(e_date_raw).strftime('%d %b %y') if pd.notna(e_date_raw) else "-"
                     
                     # 2. Last Rolled Date logic
                     roll_date = r.get('Rollover_Date', '-')
@@ -968,23 +972,25 @@ def show_loans():
                         try: roll_date = pd.to_datetime(roll_date).strftime('%d %b')
                         except: pass
 
-                    # 3. Rate Recovery logic
+                    # 3. Principal & Rate Recovery (Checking new Principal header)
+                    p_val = float(r.get('Principal', 0)) if float(r.get('Principal', 0)) > 0 else float(r.get('Amount', 0))
+                    
                     raw_rate = float(r.get('Interest_Rate', 0))
-                    if raw_rate == 0 and float(r['Amount']) > 0:
-                        calculated_rate = (float(r['Interest']) / float(r['Amount'])) * 100
+                    if raw_rate == 0 and p_val > 0:
+                        calculated_rate = (float(r.get('Interest', 0)) / p_val) * 100
                     else:
                         calculated_rate = raw_rate
 
                     rows_html += f"""
                     <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                        <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
-                        <td style="padding:10px;">{r['Borrower']}</td>
+                        <td style="padding:10px;"><b>#{r.get('Loan_ID', '0')}</b></td>
+                        <td style="padding:10px;">{r.get('Borrower', 'Unknown')}</td>
                         <td style="padding:10px; text-align:center; color:#666;">{start_date}</td>
-                        <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{float(r['Amount']):,.0f}</td>
+                        <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{p_val:,.0f}</td>
                         <td style="padding:10px; text-align:center; color:#2B3F87; font-weight:bold;">{calculated_rate:.1f}%</td>
-                        <td style="padding:10px; text-align:right; color:#D32F2F;">{float(r['Outstanding_Balance']):,.0f}</td>
+                        <td style="padding:10px; text-align:right; color:#D32F2F;">{float(r.get('Outstanding_Balance', 0)):,.0f}</td>
                         <td style="padding:10px; text-align:center;">
-                            <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
+                            <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r.get('Status', 'Active')}</span>
                         </td>
                         <td style="padding:10px; text-align:center; font-size:11px; color:#666;">{roll_date}</td>
                         <td style="padding:10px; text-align:center; font-size:11px; font-weight:bold; color:#2B3F87;">{end_date}</td>
