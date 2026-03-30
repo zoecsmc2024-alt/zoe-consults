@@ -842,6 +842,7 @@ def show_loans():
                             "Borrower": selected_borrower, 
                             "Type": l_type,
                             "Amount": float(amount), 
+                            "Interest_Rate": float(interest_rate), # Storing the rate
                             "Interest": safe_interest,
                             "Total_Repayable": safe_total, 
                             "Amount_Paid": 0.0,
@@ -863,21 +864,16 @@ def show_loans():
             display_df = loans_df.copy()
             
             # --- THE SAFETY SHIELD ---
-            # 1. Strip spaces from Status (in case "Active " vs "Active")
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
-            # 2. Force Loan_ID to be strings so the selectbox doesn't get confused
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
             
-            # Inside show_loans() -> tab_view
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-            display_df = loans_df[loans_df["Status"].isin(relevant_statuses)].copy()
+            display_df = display_df[display_df["Status"].isin(relevant_statuses)].copy()
 
             if display_df.empty:
-                # Add a little "Helpful Hint" here to see what's actually in the data
                 actual_statuses = loans_df['Status'].unique()
                 st.info(f"ℹ️ No active loans found. Current statuses in data: {actual_statuses}")
             else:
-                # ... (rest of your beautiful metrics code)
                 for col in ["Amount", "Interest", "Amount_Paid"]:
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 
@@ -889,8 +885,6 @@ def show_loans():
                 
                 # --- ZOE SOFT BLUE METRICS ---
                 p1, p2, p3 = st.columns(3)
-                
-                # 1. Paid Card (Baby Blue / Soft Blue)
                 p1.markdown(f"""
                     <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
                         <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">RECEIVED</p>
@@ -898,7 +892,6 @@ def show_loans():
                     </div>
                 """, unsafe_allow_html=True)
 
-                # 2. Outstanding Card (White / Soft Blue)
                 p2.markdown(f"""
                     <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
                         <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">OUTSTANDING</p>
@@ -906,7 +899,6 @@ def show_loans():
                     </div>
                 """, unsafe_allow_html=True)
 
-                # 3. Status Card
                 s_color = "#4A90E2" if loan_info['Status'] != "Overdue" else "#FF4B4B"
                 p3.markdown(f"""
                     <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {s_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
@@ -915,13 +907,12 @@ def show_loans():
                     </div>
                 """, unsafe_allow_html=True)
 
-                # --- THE COMPLETE "ZOE" PORTFOLIO TABLE ---
+                # --- THE COMPLETE "ZOE" PORTFOLIO TABLE WITH RATE COLUMN ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
 
-                    # Format Rollover Date safely
                     roll_date = r.get('Rollover_Date', '-')
                     if roll_date and roll_date != '-':
                         try: roll_date = pd.to_datetime(roll_date).strftime('%d %b')
@@ -932,6 +923,7 @@ def show_loans():
                         <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
                         <td style="padding:10px;">{r['Borrower']}</td>
                         <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{float(r['Amount']):,.0f}</td>
+                        <td style="padding:10px; text-align:center; color:#2B3F87;">{r.get('Interest_Rate', 0)}%</td>
                         <td style="padding:10px; text-align:right; color:#D32F2F;">{float(r['Outstanding_Balance']):,.0f}</td>
                         <td style="padding:10px; text-align:center;">
                             <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
@@ -948,6 +940,7 @@ def show_loans():
                                     <th style="padding:12px;">ID</th>
                                     <th style="padding:12px;">Borrower</th>
                                     <th style="padding:12px; text-align:right;">Principal</th>
+                                    <th style="padding:12px; text-align:center;">Rate (%)</th>
                                     <th style="padding:12px; text-align:right;">Balance</th>
                                     <th style="padding:12px; text-align:center;">Status</th>
                                     <th style="padding:12px; text-align:center;">Last Rolled</th>
