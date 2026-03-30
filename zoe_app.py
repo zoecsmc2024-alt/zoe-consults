@@ -1189,9 +1189,17 @@ def show_payments():
     # ==============================
     with tab_history:
         if not payments_df.empty:
+            # 1. Clean the Amount column to ensure it's numeric (prevents errors)
+            payments_df["Amount"] = pd.to_numeric(payments_df.get("Amount", 0), errors="coerce").fillna(0)
+            
+            # 2. Sort by Date (Most Recent at Top)
+            sorted_pay = payments_df.sort_values("Date", ascending=False)
+            
+            # 3. Display with Ugandan Shilling formatting
             st.dataframe(
-                payments_df.sort_values("Date", ascending=False).style.format({"Amount": "{:,.0f}"}), 
-                use_container_width=True, hide_index=True
+                sorted_pay.style.format({"Amount": "{:,.0f}"}), 
+                use_container_width=True, 
+                hide_index=True
             )
         else:
             st.info("No payment records found.")
