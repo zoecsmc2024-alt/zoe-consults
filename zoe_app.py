@@ -1504,7 +1504,7 @@ def show_calendar():
 
     # 2. DATA PREPARATION
     loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
-    loans_df["Total_Repayable"] = pd.to_numeric(loans_df["Total_Repayable"], errors="coerce").fillna(0)
+    loans_df["Total_Repayable"] = pd.to_numeric(loans_df.get("Total_Repayable", 0), errors="coerce").fillna(0)
     today = pd.Timestamp.today().normalize()
     
     active_loans = loans_df[loans_df["Status"] != "Closed"].copy()
