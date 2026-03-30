@@ -538,21 +538,23 @@ def sidebar():
 # ==============================
 
 def show_overview():
-    st.markdown("<h2 style='color: #4A90E2;'>📊 Financial Dashboard</h2>", unsafe_allow_html=True)
+    st.markdown("## 📊 Financial Dashboard")
     
-    # 1. LOAD PRIMARY DATA
+    # 1. Load the data
     df = get_cached_data("Loans")
-    pay_df = get_cached_data("Payments")
-    exp_df = get_cached_data("Expenses")
-
-    if df is None or df.empty:
-        st.warning("⚠️ No data found in 'Loans'. Add some borrowers to get started!")
+    
+    if df.empty:
+        st.info("No data available for the dashboard.")
         return
 
-    # 2. DATA CLEANING
-    # Updated Line 553
-    # We search for Principal because that's our new header!
-    df["Principal"] = pd.to_numeric(df.get("Principal", 0), errors="coerce").fillna(0)
+    # 🌟 THE TRANSLATOR (Add these two lines right here!)
+    # This ensures "Amount Paid" becomes "Amount_Paid" for the math below
+    df.columns = df.columns.str.strip().str.replace(" ", "_")
+    
+    # 2. Now your existing math will work perfectly!
+    df["Amount_Paid"] = pd.to_numeric(df["Amount_Paid"], errors="coerce").fillna(0)
+    df["Principal"] = pd.to_numeric(df["Principal"], errors="coerce").fillna(0)
+    # ... (rest of your dashboard code)
     df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
     df["Amount_Paid"] = pd.to_numeric(df["Amount_Paid"], errors="coerce").fillna(0)
     df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
