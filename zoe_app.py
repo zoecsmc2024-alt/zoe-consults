@@ -1392,13 +1392,13 @@ def show_collateral():
         else:
             st.info("💡 No collateral registered yet.")
 # ==============================
-# 16. COLLECTIONS & OVERDUE TRACKER
+# 16. COLLECTIONS & OVERDUE TRACKER (Fixed Amount Recovery)
 # ==============================
 
 def show_overdue_tracker():
     st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA
+    # 1. LOAD DATA Safely
     loan_df = get_cached_data("Loans") 
     try:
         ledger_df = get_cached_data("Ledger")
@@ -1415,13 +1415,12 @@ def show_overdue_tracker():
     overdue_df = loan_df[(loan_df['Status'] != "Cleared") & (loan_df['End_Date'] < today)].copy()
 
     if overdue_df.empty:
-        st.success("✅ All loans are up to date! No rollovers required.")
+        st.success("✅ All loans are up to date!")
         return
 
-    # 3. BRIDGE LOGIC: Find balance in Ledger
+    # 3. BRIDGE MATH: Column-aware balance lookup
     latest_ledger = pd.DataFrame()
     if not ledger_df.empty:
-        # Detect if the column is 'Borrower' or 'Borrower_Name'
         b_col = 'Borrower_Name' if 'Borrower_Name' in ledger_df.columns else 'Borrower'
         if b_col in ledger_df.columns:
             latest_ledger = ledger_df.sort_values('Date').groupby(b_col).tail(1)
@@ -1432,13 +1431,19 @@ def show_overdue_tracker():
     rows_html = ""
     for i, r in overdue_df.iterrows():
         b_name = r['Borrower']
-        current_out = float(r.get('Amount', 0)) # Fallback
         
+        # --- AUTO-RECOVERY LOGIC ---
+        # Step A: Try Ledger
+        current_out = 0
         if not latest_ledger.empty:
             b_col = 'Borrower_Name' if 'Borrower_Name' in latest_ledger.columns else 'Borrower'
             match = latest_ledger[latest_ledger[b_col] == b_name]
             if not match.empty:
                 current_out = float(match['Balance'].values[0])
+        
+        # Step B: If Ledger is 0, Fallback to (Principal + Interest)
+        if current_out == 0:
+            current_out = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
         
         new_end_date = r['End_Date'] + pd.DateOffset(months=1)
         bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
@@ -1446,47 +1451,49 @@ def show_overdue_tracker():
         rows_html += f"""
         <tr style="background-color: {bg_color};">
             <td style="padding:10px; border:1px solid #ddd;"><b>{b_name}</b></td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:center;">{r['End_Date'].strftime('%d %b %Y')}</td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:center;">{r['End_Date'].strftime('%d %b %y')}</td>
             <td style="padding:10px; border:1px solid #ddd; text-align:right; color:#2B3F87; font-weight:bold;">{current_out:,.0f} UGX</td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:center; color:#2E7D32;"><b>{new_end_date.strftime('%d %b %Y')}</b></td>
+            <td style="padding:10px; border:1px solid #ddd; text-align:center; color:#2E7D32;"><b>{new_end_date.strftime('%d %b %y')}</b></td>
         </tr>"""
 
     st.markdown(f"""
     <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden;">
         <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
-            <thead>
-                <tr style="background:#4A90E2; color:white;">
-                    <th style="padding:10px;">Borrower</th>
-                    <th style="padding:10px;">Missed Date</th>
-                    <th style="padding:10px;">Balance to Roll (P+I)</th>
-                    <th style="padding:10px;">New Due Date</th>
-                </tr>
-            </thead>
+            <tr style="background:#4A90E2; color:white;">
+                <th style="padding:10px;">Borrower</th><th style="padding:10px;">Missed Date</th>
+                <th style="padding:10px;">Balance to Roll (P+I)</th><th style="padding:10px;">New Due Date</th>
+            </tr>
             <tbody>{rows_html}</tbody>
         </table>
     </div>""", unsafe_allow_html=True)
 
-    # 5. EXECUTE ROLLOVER
+    # 5. EXECUTE ROLLOVER (THE ENGINE)
     st.write("")
     if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
         for i, r in overdue_df.iterrows():
             b_name = r['Borrower']
-            true_balance = float(r.get('Amount', 0))
             
+            # Use same recovery math for the actual save
+            final_roll_amt = 0
             if not latest_ledger.empty:
                 b_col = 'Borrower_Name' if 'Borrower_Name' in latest_ledger.columns else 'Borrower'
                 match = latest_ledger[latest_ledger[b_col] == b_name]
                 if not match.empty:
-                    true_balance = float(match['Balance'].values[0])
+                    final_roll_amt = float(match['Balance'].values[0])
+            
+            if final_roll_amt == 0:
+                final_roll_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
             
             new_date = (r['End_Date'] + pd.DateOffset(months=1)).strftime('%Y-%m-%d')
-            loan_df.loc[i, 'Amount'] = true_balance
+            
+            # Update the Loan Record
+            loan_df.loc[i, 'Principal'] = final_roll_amt # Push balance to new principal
             loan_df.loc[i, 'End_Date'] = new_date
             loan_df.loc[i, 'Status'] = "Rolled/Overdue"
-            loan_df.loc[i, 'Notes'] = f"Rolled on {today.strftime('%d-%m')}. Balance: {true_balance:,.0f}"
+            loan_df.loc[i, 'Rollover_Date'] = today.strftime('%Y-%m-%d')
 
         if save_data("Loans", loan_df):
-            st.success("✨ Rollover Complete! Balances have been pushed forward.")
+            st.success("✨ Rollover Complete! Balances updated.")
             st.rerun()
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
