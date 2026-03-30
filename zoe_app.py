@@ -963,6 +963,8 @@ def show_loans():
     with tab_manage:
         if not loans_df.empty:
             st.markdown("<h4 style='color: #2B3F87;'>🛠️ Modify Loan Agreement</h4>", unsafe_allow_html=True)
+            
+            # 1. Selection List (Using Principal)
             manage_list = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} | {x.get('Borrower', 'Unknown')} - {float(x.get('Principal', 0)):,.0f} UGX", axis=1).tolist()
             selected_manage = st.selectbox("Search and Select Loan ID", manage_list)
             m_id = int(selected_manage.split(" | ")[0].replace("ID: ", ""))
@@ -970,13 +972,20 @@ def show_loans():
 
             with st.container():
                 col_e1, col_e2 = st.columns(2)
+                
+                # 2. Left Column Adjustments
                 upd_amt = col_e1.number_input("Adjust Principal", value=float(m_row.get("Principal", 0)), step=10000.0)
-                try:
-                    curr_rate = (float(m_row["Interest"]) / float(m_row["Amount"])) * 100 if float(m_row["Amount"]) > 0 else 0.0
-                except: curr_rate = 0.0
+                
+                # Dynamic Rate Recovery
+                try: 
+                    curr_rate = (float(m_row.get("Interest", 0)) / float(m_row.get("Principal", 1))) * 100 
+                except: 
+                    curr_rate = 0.0
+                
                 upd_rate = col_e1.number_input("Adjust Rate (%)", value=float(curr_rate), step=0.5)
-                upd_paid = col_e1.number_input("Adjust Total Paid", value=float(m_row["Amount_Paid"]))
+                upd_paid = col_e1.number_input("Adjust Total Paid", value=float(m_row.get("Amount_Paid", 0)))
 
+                # 3. Right Column Adjustments
                 upd_stat = col_e2.selectbox("Change Status", ["Active", "Overdue", "Closed", "Rolled/Overdue"], 
                                            index=["Active", "Overdue", "Closed", "Rolled/Overdue"].index(m_row.get("Status", "Active")))
                 
@@ -985,20 +994,39 @@ def show_loans():
                 if current_type not in loan_types: current_type = "Business"
                 upd_type = col_e2.selectbox("Change Type", loan_types, index=loan_types.index(current_type))
                 
-                upd_start = col_e2.date_input("Adjust Start Date", value=datetime.strptime(str(m_row["Start_Date"]), "%Y-%m-%d"))
-                upd_end = col_e2.date_input("Adjust End Date", value=datetime.strptime(str(m_row["End_Date"]), "%Y-%m-%d"))
+                # 4. Date Adjustments (Indented properly)
+                raw_start = m_row.get("Start_Date", datetime.now().strftime("%Y-%m-%d"))
+                try:
+                    val_start = pd.to_datetime(raw_start).date()
+                except:
+                    val_start = datetime.now().date()
 
+                upd_start = col_e2.date_input("Adjust Start Date", value=val_start)
+                
+                # End Date Safety
+                try:
+                    val_end = pd.to_datetime(m_row.get("End_Date")).date()
+                except:
+                    val_end = datetime.now().date()
+                upd_end = col_e2.date_input("Adjust End Date", value=val_end)
+
+                # 5. Save & Delete Buttons
                 b_upd, b_del = st.columns(2)
+                
                 if b_upd.button("💾 Save Changes", use_container_width=True):
                     new_int = upd_amt * (upd_rate / 100)
-                    loans_df.loc[loans_df["Loan_ID"] == m_id, ["Amount", "Amount_Paid", "Status", "Start_Date", "End_Date", "Interest", "Total_Repayable", "Type"]] = \
-                        [upd_amt, upd_paid, upd_stat, upd_start.strftime("%Y-%m-%d"), upd_end.strftime("%Y-%m-%d"), new_int, (upd_amt + new_int), upd_type]
+                    # We map exactly to your NEW Google Sheet headers here
+                    loans_df.loc[loans_df["Loan_ID"] == m_id, ["Principal", "Amount_Paid", "Status", "Start_Date", "End_Date", "Interest", "Total_Repayable", "Type", "Interest_Rate"]] = \
+                        [upd_amt, upd_paid, upd_stat, upd_start.strftime("%Y-%m-%d"), upd_end.strftime("%Y-%m-%d"), new_int, (upd_amt + new_int), upd_type, upd_rate]
+                    
                     if save_data("Loans", loans_df):
-                        st.success("Loan records updated!"); st.rerun()
+                        st.success("Loan records updated!")
+                        st.rerun()
 
                 if b_del.button("🗑️ Delete Permanently", use_container_width=True):
                     if save_data("Loans", loans_df[loans_df["Loan_ID"] != m_id]):
-                        st.warning("Loan record deleted!"); st.rerun()
+                        st.warning("Loan record deleted!")
+                        st.rerun()
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
