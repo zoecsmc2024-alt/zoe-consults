@@ -1120,41 +1120,51 @@ def show_loans():
                 b_upd, b_del = st.columns(2)
                 
                 if b_upd.button("💾 Save Changes", use_container_width=True):
+                    # 1. Define the math first
                     new_int = upd_amt * (upd_rate / 100)
                     
-                    # 1. Create a "Working Copy" with underscores to find the row
+                    # 2. CREATE THE MAPPING (The Fix)
+                    # We need to make sure 'm_id' is defined exactly as it was in the selection step
+                    # Let's extract it again right here to be 100% safe
+                    try:
+                        current_selection_id = selected_manage.split("|")[0].replace("ID:", "").strip()
+                        # We use this clean ID to find the row
+                    except:
+                        st.error("Could not verify Loan ID for saving.")
+                        st.stop()
+
+                    # 3. Create a "Searchable" copy
                     save_copy = loans_df.copy()
                     save_copy.columns = save_copy.columns.str.strip().str.replace(" ", "_")
                     
-                    # 2. Find the row using our clean 'Loan_ID' name
-                    # We convert everything to strings to be 100% sure they match
-                    mask = save_copy["Loan_ID"].astype(str).str.contains(str(m_id))
+                    # 4. Find the row index using the ID we just grabbed
+                    # This 'mask' uses the 'current_selection_id' we just defined
+                    mask = save_copy["Loan_ID"].astype(str).str.contains(current_selection_id)
                     
                     if not mask.any():
-                        st.error("❌ Could not locate the original row to save.")
+                        st.error(f"❌ Error: Could not find Loan #{current_selection_id} in the database.")
                     else:
-                        # 3. Get the exact index (the row number) from our original data
-                        target_index = save_copy[mask].index[0]
+                        target_idx = save_copy[mask].index[0]
                         
-                        # 4. Update the ORIGINAL loans_df (using original header names)
-                        # We use .at[index, 'Header Name'] to avoid KeyErrors
-                        loans_df.at[target_index, "Principal"] = upd_amt
-                        loans_df.at[target_index, "Amount Paid"] = upd_paid
-                        loans_df.at[target_index, "Status"] = upd_stat
-                        loans_df.at[target_index, "Start Date"] = upd_start.strftime("%Y-%m-%d")
-                        loans_df.at[target_index, "End Date"] = upd_end.strftime("%Y-%m-%d")
-                        loans_df.at[target_index, "Interest"] = new_int
-                        loans_df.at[target_index, "Total Repayable"] = upd_amt + new_int
-                        loans_df.at[target_index, "Type"] = upd_type
-                        loans_df.at[target_index, "Interest Rate"] = upd_rate
+                        # 5. Update the original loans_df (Matching your exact Google Sheet headers)
+                        # Ensure these names match your Google Sheet Columns exactly!
+                        loans_df.at[target_idx, "Principal"] = upd_amt
+                        loans_df.at[target_idx, "Status"] = upd_stat
+                        loans_df.at[target_idx, "Interest Rate"] = upd_rate
+                        loans_df.at[target_idx, "Amount Paid"] = upd_paid
+                        loans_df.at[target_idx, "Type"] = upd_type
+                        loans_df.at[target_idx, "Start Date"] = upd_start.strftime("%Y-%m-%d")
+                        loans_df.at[target_idx, "End Date"] = upd_end.strftime("%Y-%m-%d")
+                        loans_df.at[target_idx, "Interest"] = new_int
+                        loans_df.at[target_idx, "Total Repayable"] = upd_amt + new_int
                         
-                        # 5. Save the whole thing back to Google Sheets
+                        # 6. Save and Sync
                         if save_data("Loans", loans_df):
-                            st.success(f"✅ Loan #{m_id} updated and synced!")
+                            st.success(f"✅ Changes for Loan #{current_selection_id} saved successfully!")
                             st.session_state.loans = loans_df
                             st.rerun()
                         else:
-                            st.error("❌ Connection error: Could not sync to Google Sheets.")
+                            st.error("❌ Failed to sync with Google Sheets. Please try again.")
 
                 if b_del.button("🗑️ Delete Permanently", use_container_width=True):
                     # Filter out the deleted loan and save
