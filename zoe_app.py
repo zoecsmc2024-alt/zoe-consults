@@ -1033,81 +1033,84 @@ def show_loans():
         if not loans_df.empty:
             st.markdown("<h4 style='color: #2B3F87;'>🛠️ Modify Loan Agreement</h4>", unsafe_allow_html=True)
             
-            # --- 1. NORMALIZE HEADERS AT THE START OF MANAGE SECTION ---
-        manage_df = loans_df.copy()
-        manage_df.columns = manage_df.columns.str.strip().str.replace(" ", "_")
+            # 1. NORMALIZE HEADERS
+            manage_df = loans_df.copy()
+            manage_df.columns = manage_df.columns.str.strip().str.replace(" ", "_")
 
-        # Create the selection list safely
-        manage_df['Loan_ID'] = manage_df['Loan_ID'].fillna("0").astype(str)
-        manage_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in manage_df.iterrows()]
-        
-        selected_manage = st.selectbox("🔍 Select Loan to Manage/Edit", manage_options)
+            # Create the selection list safely
+            manage_df['Loan_ID'] = manage_df['Loan_ID'].fillna("0").astype(str)
+            manage_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in manage_df.iterrows()]
+            
+            selected_manage = st.selectbox("🔍 Select Loan to Manage/Edit", manage_options)
 
-        # --- 2. SAFE ID PARSING (Fix for Line 1039) ---
-        try:
-            # We split by the pipe symbol " | " which matches your dropdown format
-            raw_manage_id = selected_manage.split(" | ")[0].replace("ID: ", "")
-            # Convert float first (handles '19.0') then to int
-            m_id = int(float(raw_manage_id))
-        except (ValueError, IndexError):
-            st.error("❌ Could not parse the Loan ID. Please check the Google Sheet row.")
-            return
+            # 2. SAFE ID PARSING
+            try:
+                raw_manage_id = selected_manage.split(" | ")[0].replace("ID: ", "")
+                m_id = int(float(raw_manage_id))
+                
+                # Fetch the specific row data using the ID
+                # We use the original loans_df here to make saving easier later
+                m_row = loans_df[loans_df["Loan_ID"].astype(str).str.contains(str(m_id))].iloc[0]
+                
+            except Exception as e:
+                st.error(f"❌ Error loading loan details: {e}")
+                st.stop() # Stops just this tab, doesn't crash the app
+
+            # --- THE BOXES & BUTTONS (NOW CONNECTED) ---
             with st.container():
+                st.write("")
                 col_e1, col_e2 = st.columns(2)
                 
-                # 2. Left Column Adjustments
-                upd_amt = col_e1.number_input("Adjust Principal", value=float(m_row.get("Principal", 0)), step=10000.0)
+                # Left Column Adjustments
+                # We use .get() to avoid "KeyErrors" if a column name is slightly off
+                upd_amt = col_e1.number_input("Adjust Principal", value=float(m_row.get("Principal") or m_row.get("Amount") or 0), step=10000.0)
                 
-                # Dynamic Rate Recovery
-                try: 
-                    curr_rate = (float(m_row.get("Interest", 0)) / float(m_row.get("Principal", 1))) * 100 
-                except: 
-                    curr_rate = 0.0
+                # Interest Calculation Recovery
+                p_val = float(m_row.get("Principal") or 1)
+                i_val = float(m_row.get("Interest") or 0)
+                curr_rate = (i_val / p_val) * 100 if p_val > 0 else 0.0
                 
                 upd_rate = col_e1.number_input("Adjust Rate (%)", value=float(curr_rate), step=0.5)
                 upd_paid = col_e1.number_input("Adjust Total Paid", value=float(m_row.get("Amount_Paid", 0)))
 
-                # 3. Right Column Adjustments
-                upd_stat = col_e2.selectbox("Change Status", ["Active", "Overdue", "Closed", "Rolled/Overdue"], 
-                                           index=["Active", "Overdue", "Closed", "Rolled/Overdue"].index(m_row.get("Status", "Active")))
+                # Right Column Adjustments
+                status_list = ["Active", "Overdue", "Closed", "Rolled/Overdue"]
+                current_s = m_row.get("Status", "Active")
+                upd_stat = col_e2.selectbox("Change Status", status_list, 
+                                           index=status_list.index(current_s) if current_s in status_list else 0)
                 
                 loan_types = ["Business", "Personal", "Emergency", "Other"]
-                current_type = str(m_row.get("Type", "Business"))
-                if current_type not in loan_types: current_type = "Business"
-                upd_type = col_e2.selectbox("Change Type", loan_types, index=loan_types.index(current_type))
+                current_t = str(m_row.get("Type", "Business"))
+                upd_type = col_e2.selectbox("Change Type", loan_types, 
+                                           index=loan_types.index(current_t) if current_t in loan_types else 0)
                 
-                # 4. Date Adjustments (Indented properly)
-                raw_start = m_row.get("Start_Date", datetime.now().strftime("%Y-%m-%d"))
-                try:
-                    val_start = pd.to_datetime(raw_start).date()
-                except:
-                    val_start = datetime.now().date()
+                # Dates
+                raw_start = m_row.get("Start_Date") or m_row.get("Date")
+                upd_start = col_e2.date_input("Adjust Start Date", value=pd.to_datetime(raw_start).date())
+                upd_end = col_e2.date_input("Adjust End Date", value=pd.to_datetime(m_row.get("End_Date")).date())
 
-                upd_start = col_e2.date_input("Adjust Start Date", value=val_start)
+                st.divider()
                 
-                # End Date Safety
-                try:
-                    val_end = pd.to_datetime(m_row.get("End_Date")).date()
-                except:
-                    val_end = datetime.now().date()
-                upd_end = col_e2.date_input("Adjust End Date", value=val_end)
-
                 # 5. Save & Delete Buttons
                 b_upd, b_del = st.columns(2)
                 
                 if b_upd.button("💾 Save Changes", use_container_width=True):
                     new_int = upd_amt * (upd_rate / 100)
-                    # We map exactly to your NEW Google Sheet headers here
-                    loans_df.loc[loans_df["Loan_ID"] == m_id, ["Principal", "Amount_Paid", "Status", "Start_Date", "End_Date", "Interest", "Total_Repayable", "Type", "Interest_Rate"]] = \
+                    
+                    # Update the main dataframe (using the ID to find the right row)
+                    mask = loans_df["Loan_ID"].astype(str).str.contains(str(m_id))
+                    loans_df.loc[mask, ["Principal", "Amount_Paid", "Status", "Start_Date", "End_Date", "Interest", "Total_Repayable", "Type", "Interest_Rate"]] = \
                         [upd_amt, upd_paid, upd_stat, upd_start.strftime("%Y-%m-%d"), upd_end.strftime("%Y-%m-%d"), new_int, (upd_amt + new_int), upd_type, upd_rate]
                     
                     if save_data("Loans", loans_df):
-                        st.success("Loan records updated!")
+                        st.success("✅ Loan records updated!")
                         st.rerun()
 
                 if b_del.button("🗑️ Delete Permanently", use_container_width=True):
-                    if save_data("Loans", loans_df[loans_df["Loan_ID"] != m_id]):
-                        st.warning("Loan record deleted!")
+                    # Filter out the deleted loan and save
+                    remaining_loans = loans_df[loans_df["Loan_ID"].astype(str) != str(m_id)]
+                    if save_data("Loans", remaining_loans):
+                        st.warning("⚠️ Loan record deleted!")
                         st.rerun()
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
