@@ -1120,51 +1120,49 @@ def show_loans():
                 b_upd, b_del = st.columns(2)
                 
                 if b_upd.button("💾 Save Changes", use_container_width=True):
-                    # 1. Define the math first
+                    # 1. MATH CALCULATIONS
                     new_int = upd_amt * (upd_rate / 100)
+                    new_total = upd_amt + new_int
                     
-                    # 2. CREATE THE MAPPING (The Fix)
-                    # We need to make sure 'm_id' is defined exactly as it was in the selection step
-                    # Let's extract it again right here to be 100% safe
                     try:
                         current_selection_id = selected_manage.split("|")[0].replace("ID:", "").strip()
-                        # We use this clean ID to find the row
                     except:
-                        st.error("Could not verify Loan ID for saving.")
+                        st.error("Could not verify Loan ID.")
                         st.stop()
 
-                    # 3. Create a "Searchable" copy
+                    # 2. SEARCHABLE COPY
                     save_copy = loans_df.copy()
                     save_copy.columns = save_copy.columns.str.strip().str.replace(" ", "_")
                     
-                    # 4. Find the row index using the ID we just grabbed
-                    # This 'mask' uses the 'current_selection_id' we just defined
                     mask = save_copy["Loan_ID"].astype(str).str.contains(current_selection_id)
                     
                     if not mask.any():
-                        st.error(f"❌ Error: Could not find Loan #{current_selection_id} in the database.")
+                        st.error(f"❌ Error: Could not find Loan #{current_selection_id}.")
                     else:
                         target_idx = save_copy[mask].index[0]
                         
-                        # 5. Update the original loans_df (Matching your exact Google Sheet headers)
-                        # Ensure these names match your Google Sheet Columns exactly!
-                        loans_df.at[target_idx, "Principal"] = upd_amt
+                        # 3. UPDATE ORIGINAL DF (Mapping exactly to Sheet)
+                        loans_df.at[target_idx, "Principal"] = float(upd_amt)
                         loans_df.at[target_idx, "Status"] = upd_stat
-                        loans_df.at[target_idx, "Interest Rate"] = upd_rate
-                        loans_df.at[target_idx, "Amount Paid"] = upd_paid
+                        loans_df.at[target_idx, "Interest Rate"] = float(upd_rate)
+                        loans_df.at[target_idx, "Amount Paid"] = float(upd_paid)
                         loans_df.at[target_idx, "Type"] = upd_type
                         loans_df.at[target_idx, "Start Date"] = upd_start.strftime("%Y-%m-%d")
                         loans_df.at[target_idx, "End Date"] = upd_end.strftime("%Y-%m-%d")
-                        loans_df.at[target_idx, "Interest"] = new_int
-                        loans_df.at[target_idx, "Total Repayable"] = upd_amt + new_int
+                        loans_df.at[target_idx, "Interest"] = float(new_int)
+                        loans_df.at[target_idx, "Total Repayable"] = float(new_total)
                         
-                        # 6. Save and Sync
+                        # 🌟 THE "NAN" SHIELD (This fixes your error!)
+                        # This turns any 'NaN' or 'inf' into a clean 0.0
+                        loans_df = loans_df.fillna(0).replace([np.inf, -np.inf], 0)
+
+                        # 4. SAVE AND SYNC
                         if save_data("Loans", loans_df):
                             st.success(f"✅ Changes for Loan #{current_selection_id} saved successfully!")
                             st.session_state.loans = loans_df
                             st.rerun()
                         else:
-                            st.error("❌ Failed to sync with Google Sheets. Please try again.")
+                            st.error("❌ Failed to sync. Check your Google Sheets permissions.")
 
                 if b_del.button("🗑️ Delete Permanently", use_container_width=True):
                     # Filter out the deleted loan and save
