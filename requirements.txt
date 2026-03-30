@@ -10,4 +10,4 @@ xlsxwriter
 streamlit-aggrid
 twilio
 reportlab
-
+jinja2
