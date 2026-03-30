@@ -2534,37 +2534,41 @@ def show_ledger():
             <h3 style="color: {navy_blue}; margin-top: 30px; border-bottom: 2px solid {navy_blue}; padding-bottom: 5px;">💼 Account Summaries</h3>
         """
 
-        # 3. LOOP THROUGH EACH LOAN (Updated with Reverse Math for Trend)
+        # --- 1. INITIALIZE GRAND TOTAL OUTSIDE THE LOOP ---
+        grand_total_balance = 0.0 
+        
         for index, l_row in client_loans.iterrows():
             this_loan_id = str(l_row['Loan_ID'])
             l_ledger = []
             
-            # --- THE TREND MATH ---
+            # --- 2. SET A DEFAULT VALUE FOR THIS SPECIFIC LOAN ---
+            # This ensures current_l_balance is always defined
+            current_l_balance = 0.0 
+            
+            # --- 3. THE TREND MATH ---
             current_p = float(l_row.get('Principal', 0))
-            # Recover the interest amount to show the "jump"
             interest_amt = float(l_row.get('Interest', 0))
             
-            # If interest is 0 in the sheet (common after rollover), 
-            # we calculate what it WAS based on the rate
+            # If interest is 0 in the sheet, back-calculate using the rate
             if interest_amt == 0:
                 rate = float(l_row.get('Interest_Rate', 0)) / 100
-                # Formula: Old Principal = Current / (1 + rate)
                 old_p = current_p / (1 + rate) if rate > 0 else current_p
                 interest_amt = current_p - old_p
             else:
                 old_p = current_p - interest_amt
 
+            # Check status for rollover trail
             is_rolled = "Rolled" in str(l_row.get('Status', ''))
             
             if is_rolled:
-                # 1. Show the starting point (Before Rollover)
+                # Show the starting point (Before Rollover)
                 l_ledger.append({
                     "Date": "Prev Month", 
                     "Description": "Balance Brought Forward", 
                     "Debit": old_p, 
                     "Credit": 0
                 })
-                # 2. Show the "Jump" (The Compounding)
+                # Show the "Jump" (The Compounding)
                 l_ledger.append({
                     "Date": l_row.get('Rollover_Date', '30 Mar'), 
                     "Description": "🔄 Monthly Rollover (Interest Compounded)", 
@@ -2579,7 +2583,7 @@ def show_ledger():
                     "Credit": 0
                 })
 
-            # 3. Fetch payments to show the "Paid" part of the trail
+            # --- 4. FETCH PAYMENTS ---
             l_payments = all_payments_df[all_payments_df["Loan_ID"].astype(str) == this_loan_id] if not all_payments_df.empty else pd.DataFrame()
             for _, p in l_payments.iterrows():
                 l_ledger.append({
@@ -2589,15 +2593,15 @@ def show_ledger():
                     "Credit": pd.to_numeric(p.get('Amount', 0), errors='coerce')
                 })
             
-            # --- CALCULATE BALANCE FOR THIS LOAN ---
+            # --- 5. CALCULATE BALANCE FOR THIS LOAN ---
             temp_df = pd.DataFrame(l_ledger)
             if not temp_df.empty:
+                # Cumulative sum to show the running balance trail
                 temp_df['Balance'] = temp_df['Debit'].cumsum() - temp_df['Credit'].cumsum()
                 current_l_balance = float(temp_df.iloc[-1]['Balance'])
-            else:
-                current_l_balance = 0.0
-
-            # 🚀 NOW add to the grand total safely
+            
+            # --- 6. UPDATE THE GRAND TOTAL ---
+            # Since grand_total_balance was defined at Step 1, this will now work!
             grand_total_balance += current_l_balance
 
             # Add to HTML
