@@ -1923,49 +1923,87 @@ def show_expenses():
         else:
             st.info("💡 No expense data recorded yet.")
 
-    # --- TAB 3: MANAGE / EDIT / DELETE ---
+    # ==============================
+    # TAB 3: MANAGE / EDIT LOANS (Force-Display Version)
+    # ==============================
     with tab_manage:
-        if not df.empty:
-            st.markdown("<h4 style='color: #2B3F87;'>🛠️ Adjust Expense Records</h4>", unsafe_allow_html=True)
-            edit_options = df.apply(lambda x: f"ID: {int(x['Expense_ID'])} | {x['Category']} - {x['Description']}", axis=1).tolist()
-            selected_to_edit = st.selectbox("Select Record", edit_options)
+        st.markdown("### 🛠️ Modify Loan Agreement")
+        
+        # 1. REFRESH & CLEAN DATA
+        # We pull directly from session_state to ensure we have the April updates
+        m_df = st.session_state.get("loans", pd.DataFrame()).copy()
+        
+        if m_df.empty:
+            st.info("ℹ️ No loans found in the system.")
+        else:
+            # Clean headers: "Loan ID" -> "Loan_ID"
+            m_df.columns = m_df.columns.str.strip().str.replace(" ", "_")
+            # Force Loan_ID to be a clean string for matching
+            m_df['Loan_ID'] = m_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip()
             
-            e_id = int(selected_to_edit.split(" | ")[0].replace("ID: ", ""))
-            e_row = df[df["Expense_ID"] == e_id].iloc[0]
+            # Create the dropdown list
+            m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
+            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="manage_final_v3")
 
-            with st.container():
-                c_a, c_b = st.columns(2)
-                # FIXED LOGIC: We look for the current category in our new Master List
-                current_cat = e_row["Category"]
-                if current_cat not in EXPENSE_CATS:
-                    current_cat = "Office Expenses" # Fallback
-                
-                upd_cat = c_a.selectbox("Update Category", EXPENSE_CATS, 
-                                        index=EXPENSE_CATS.index(current_cat))
-                
-                upd_amt = c_b.number_input("Update Amount", value=float(e_row["Amount"]), step=1000.0)
-                
-                c_c, c_d = st.columns(2)
-                upd_date = c_c.text_input("Update Payment Date", value=str(e_row.get("Payment_Date", "")))
-                upd_receipt = c_d.text_input("Update Receipt No", value=str(e_row.get("Receipt_No", "")))
-                
-                upd_desc = st.text_input("Update Description", value=e_row["Description"])
+            # 2. EXTRACT THE ID SAFELY
+            # We split by the pipe '|', take the first part, remove 'ID:', and trim spaces
+            m_id_to_find = selected_m.split("|")[0].replace("ID:", "").strip()
+            
+            # 3. FIND THE LOAN
+            target_loan = m_df[m_df["Loan_ID"] == m_id_to_find]
 
-                btn1, btn2 = st.columns(2)
-                if btn1.button("💾 Save Changes", use_container_width=True):
-                    df.loc[df["Expense_ID"] == e_id, 
-                           ["Category", "Amount", "Description", "Payment_Date", "Receipt_No"]] = \
-                           [upd_cat, upd_amt, upd_desc, upd_date, upd_receipt]
+            if not target_loan.empty:
+                loan_to_edit = target_loan.iloc[0]
+                
+                st.markdown(f"**Editing Record for:** {loan_to_edit['Borrower']} (Loan #{m_id_to_find})")
+                
+                # 4. THE EDIT FORM (Moved out of any sub-blocks to ensure it draws)
+                with st.form("edit_loan_form_v3"):
+                    c1, c2 = st.columns(2)
                     
-                    if save_data("Expenses", df):
-                        st.success("Record updated! ✅")
-                        st.rerun()
+                    with c1:
+                        up_name = st.text_input("Borrower Name", value=str(loan_to_edit.get('Borrower', '')))
+                        up_p = st.number_input("Principal Amount (UGX)", value=float(loan_to_edit.get('Principal', 0)), step=1000.0)
+                        up_rate = st.number_input("Interest Rate (%)", value=float(loan_to_edit.get('Interest_Rate', 0)), step=0.1)
+                    
+                    with c2:
+                        status_opts = ["Active", "Overdue", "Rolled/Overdue", "Cleared", "Defaulted"]
+                        curr_s = str(loan_to_edit.get('Status', 'Active'))
+                        up_status = st.selectbox("Status", status_opts, index=status_opts.index(curr_s) if curr_s in status_opts else 0)
+                        up_date = st.date_input("New Due Date", value=pd.to_datetime(loan_to_edit.get('End_Date', datetime.now())))
 
-                if btn2.button("🗑️ Delete Permanently", use_container_width=True):
-                    df = df[df["Expense_ID"] != e_id]
-                    if save_data("Expenses", df):
-                        st.warning("Expense Record Deleted!")
-                        st.rerun()
+                    # 5. THE SAVE BUTTON
+                    save_clicked = st.form_submit_button("💾 Save Changes to Google Sheets", use_container_width=True)
+                    
+                    if save_clicked:
+                        # Prepare the full dataframe for saving
+                        full_df = st.session_state.loans.copy()
+                        full_df.columns = full_df.columns.str.strip().str.replace(" ", "_")
+                        full_df['Loan_ID'] = full_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip()
+                        
+                        # Find the exact row index
+                        idx_list = full_df[full_df["Loan_ID"] == m_id_to_find].index
+                        
+                        if not idx_list.empty:
+                            row_idx = idx_list[0]
+                            full_df.at[row_idx, 'Borrower'] = up_name
+                            full_df.at[row_idx, 'Principal'] = up_p
+                            full_df.at[row_idx, 'Interest_Rate'] = up_rate
+                            full_df.at[row_idx, 'Status'] = up_status
+                            full_df.at[row_idx, 'End_Date'] = up_date.strftime('%Y-%m-%d')
+                            
+                            # Restore original Google Sheet headers (with spaces)
+                            full_df.columns = [c.replace("_", " ") for c in full_df.columns]
+                            
+                            if save_data("Loans", full_df):
+                                st.success(f"✅ Loan #{m_id_to_find} updated!")
+                                st.session_state.loans = full_df
+                                st.rerun()
+                            else:
+                                st.error("❌ Failed to save to Google Sheets.")
+            else:
+                # DEBUG MESSAGE: This will show if the ID match fails
+                st.error(f"⚠️ Search failed. Looking for ID '{m_id_to_find}' but it wasn't found in the data.")
 # ==============================
 # 19. PETTY CASH MANAGEMENT PAGE
 # ==============================
