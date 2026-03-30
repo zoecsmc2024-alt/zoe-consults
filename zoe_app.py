@@ -2313,17 +2313,35 @@ def show_reports():
         else:
             st.info("No loan data for portfolio analysis.")
 
-    # 6. RISK INDICATOR
+    # 6. RISK INDICATOR (Properly Indented)
     st.markdown("---")
     st.subheader("🚨 Risk Assessment")
-    overdue_val = loans[loans["Status"].isin(["Overdue", "Rolled/Overdue"])].Amount.sum()
+    
+    # Use the same 'val_col' logic we set up for the pie chart
+    val_col = "Principal" if "Principal" in loans.columns else "Amount"
+
+    # Safe filtering for overdue amounts
+    overdue_mask = loans["Status"].isin(["Overdue", "Rolled/Overdue"])
+    overdue_val = pd.to_numeric(loans.loc[overdue_mask, val_col], errors="coerce").fillna(0).sum()
+    
+    # Use the l_amt we calculated in Section 3
     risk_percent = (overdue_val / l_amt * 100) if l_amt > 0 else 0
+    
     r1, r2 = st.columns([2, 1])
-    r1.write(f"Your Portfolio at Risk (PAR) is **{risk_percent:.1f}%**.")
-    r1.progress(min(risk_percent / 100, 1.0))
-    if risk_percent < 10: r2.success("✅ Healthy Portfolio")
-    elif risk_percent < 25: r2.warning("⚠️ Moderate Risk")
-    else: r2.error("🆘 Critical Risk Level")
+    
+    with r1:
+        st.write(f"Your Portfolio at Risk (PAR) is **{risk_percent:.1f}%**.")
+        # Progress bar cap at 1.0 (100%)
+        st.progress(min(float(risk_percent) / 100, 1.0))
+        st.write(f"Total Overdue: **{overdue_val:,.0f} UGX**")
+        
+    with r2:
+        if risk_percent < 10: 
+            st.success("✅ Healthy Portfolio")
+        elif risk_percent < 25: 
+            st.warning("⚠️ Moderate Risk")
+        else: 
+            st.error("🆘 Critical Risk Level")
 
 # ==============================
 # 22. MASTER LEDGER & STATEMENTS
