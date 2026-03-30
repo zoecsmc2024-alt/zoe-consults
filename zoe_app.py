@@ -2463,17 +2463,60 @@ def show_ledger():
         </div>
     """, unsafe_allow_html=True)
 
+    # 2. SELECTION LOGIC
+    # We ensure Loan_ID is a string and handle missing values to prevent "N/A" crashes
+    loans_df['Loan_ID'] = loans_df['Loan_ID'].fillna("0").astype(str)
+    
+    loan_options = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', '0')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
+    selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options)
+    
+    # Extract the ID safely using a float conversion first (handles '3.0')
+    try:
+        raw_id = selected_loan.split(" - ")[0].replace("ID: ", "")
+        l_id_int = int(float(raw_id))
+        l_id_str = str(l_id_int)
+    except:
+        st.error("❌ Invalid Loan ID format selected.")
+        return
+    
+    # Get specific loan info
+    loan_info = loans_df[loans_df["Loan_ID"] == l_id_str].iloc[0]
+    
+    # --- MATH ENGINE ---
+    t_repayable = float(loan_info.get("Total_Repayable", 0))
+    if t_repayable == 0:
+        t_repayable = float(loan_info.get("Principal", 0)) + float(loan_info.get("Interest", 0))
+
+    a_paid = float(loan_info.get("Amount_Paid", 0))
+    current_balance = t_repayable - a_paid
+    
+    # --- DISPLAY BALANCE CARD ---
+    st.markdown(f"""
+        <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;">
+            <p style="margin:0; font-size:14px; color:#666; font-weight:bold;">CURRENT OUTSTANDING BALANCE (INC. INTEREST)</p>
+            <h1 style="margin:0; color:#2B3F87;">{current_balance:,.0f} <span style="font-size:18px;">UGX</span></h1>
+        </div>
+    """, unsafe_allow_html=True)
+
     # 3. BUILD THE LEDGER TABLE
     ledger_data = []
     disburse_date = loan_info.get("Start_Date", datetime.now().strftime("%Y-%m-%d"))
     
-    ledger_data.append({
-        "Date": disburse_date,
-        "Description": "Initial Loan Disbursement (Principal + Interest)",
-        "Debit": t_repayable,
-        "Credit": 0,
-        "Balance": t_repayable
-    })
+    if is_rolled:
+                # 1. Clearer Description for the start
+                l_ledger.append({
+                    "Date": "Prev Month", 
+                    "Description": "Opening Balance (Principal)", 
+                    "Debit": old_p, 
+                    "Credit": 0
+                })
+                # 2. Change the description to emphasize it's INTEREST
+                l_ledger.append({
+                    "Date": l_row.get('Rollover_Date', '30 Mar'), 
+                    "Description": f"➕ Monthly Interest ({l_row.get('Interest_Rate')}% Compounded)", 
+                    "Debit": interest_amt, 
+                    "Credit": 0
+                })
 
     # --- SUBSEQUENT ROWS: PAYMENTS ---
     relevant_payments = pd.DataFrame()
@@ -2494,6 +2537,16 @@ def show_ledger():
         })
 
     ledger_display_df = pd.DataFrame(ledger_data)
+
+    st.dataframe(
+        ledger_display_df.style.format({
+            "Debit": "{:,.0f}",
+            "Credit": "{:,.0f}",
+            "Balance": "{:,.0f}"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
 
     st.dataframe(
         ledger_display_df.style.format({
