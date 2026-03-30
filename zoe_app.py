@@ -944,25 +944,29 @@ def show_loans():
                         <td style="padding:10px; text-align:center; font-size:11px; font-weight:bold; color:#2B3F87;">{pd.to_datetime(r['End_Date']).strftime('%d %b %y')}</td>
                     </tr>"""
 
-                st.markdown(f"""
-                    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden;">
-                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                            <thead>
-                                <tr style="background:#4A90E2; color:white;">
-                                    <th style="padding:12px;">ID</th>
-                                    <th style="padding:12px;">Borrower</th>
-                                    <th style="padding:12px; text-align:right;">Principal</th>
-                                    <th style="padding:12px; text-align:center;">Rate (%)</th>
-                                    <th style="padding:12px; text-align:right;">Balance</th>
-                                    <th style="padding:12px; text-align:center;">Status</th>
-                                    <th style="padding:12px; text-align:center;">Last Rolled</th>
-                                    <th style="padding:12px; text-align:center;">New Due Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>{rows_html}</tbody>
-                        </table>
-                    </div>
-                """, unsafe_allow_html=True)
+                # --- RENDER THE TABLE SAFELY ---
+                final_table_html = f"""
+                <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; background:white;">
+                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
+                        <thead>
+                            <tr style="background:#4A90E2; color:white;">
+                                <th style="padding:12px;">ID</th>
+                                <th style="padding:12px;">Borrower</th>
+                                <th style="padding:12px; text-align:right;">Principal</th>
+                                <th style="padding:12px; text-align:center;">Rate (%)</th>
+                                <th style="padding:12px; text-align:right;">Balance</th>
+                                <th style="padding:12px; text-align:center;">Status</th>
+                                <th style="padding:12px; text-align:center;">Last Rolled</th>
+                                <th style="padding:12px; text-align:center;">New Due Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </div>
+                """
+                
+                # Using components instead of markdown to prevent the "Code Soup"
+                st.components.v1.html(final_table_html, height=500, scrolling=True)
             
 
     # ==============================
