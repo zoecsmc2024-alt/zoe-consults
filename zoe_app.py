@@ -1430,22 +1430,27 @@ def show_collateral():
 # 16. COLLECTIONS & OVERDUE TRACKER (Fixed Amount Recovery)
 # ==============================
 def show_overdue_tracker():
-    global loans_df  # Add this line here!
-    updated_df = loans_df.copy()
-
+    # 1. TELL PYTHON WE ARE USING THE MAIN DATA FIRST
+    global loans_df 
+    
     st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA Safely
-    loan_df = get_cached_data("Loans") 
+    # 2. LOAD DATA SAFELY
+    # If the global version is empty, try to fetch it from the cache
+    if loans_df is None or loans_df.empty:
+        loans_df = get_cached_data("Loans") 
+        
     try:
         ledger_df = get_cached_data("Ledger")
     except:
         ledger_df = pd.DataFrame()
 
-    if loan_df.empty:
+    if loans_df is None or loans_df.empty:
         st.info("No records found in Loans to track.")
         return
 
+    # 3. CREATE YOUR WORKING COPY
+    updated_df = loans_df.copy()
     # 2. Identify Overdue Accounts
     loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date'], errors='coerce')
     today = datetime.now()
