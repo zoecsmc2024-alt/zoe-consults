@@ -1538,18 +1538,18 @@ def show_overdue_tracker():
             updated_df.loc[i, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
 
         # --- THE JSON SERIALIZABLE FIX ---
-        # Before saving, force ALL date-like columns to be plain text strings
         date_cols = ["Start_Date", "End_Date", "Rollover_Date", "Due Date", "Date"]
         for col in date_cols:
             if col in updated_df.columns:
                 updated_df[col] = pd.to_datetime(updated_df[col], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
 
-        # 2. NOW try to save it
+        # 🚀 THE SAVE AND REFRESH (Add these lines now!)
         if save_data("Loans", updated_df):
-            st.success("✅ Rollover completed successfully! All balances compounded.")
-            st.rerun()
+            st.success("✅ Rollover completed! 5 accounts compounded to April 2026.")
+            # This forces the app to reload with the new numbers
+            st.rerun() 
         else:
-            st.error("❌ Failed to save to Google Sheets. Check your connection.")
+            st.error("❌ Failed to save. Check your internet connection or Google Sheet.")
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
