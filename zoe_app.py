@@ -918,36 +918,39 @@ def show_loans():
     # TAB 2: PORTFOLIO INSPECTOR (Zoe Soft Blue)
     # ==============================
     with tab_view:
-    if not loans_df.empty:
-        # 1. Create a fresh copy
-        display_df = loans_df.copy()
-        
-        # 🌟 THE TRANSLATOR (Put this line exactly here!)
-        # This turns "Loan ID" into "Loan_ID" and "End Date" into "End_Date"
-        display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
-        
-        # 2. Now the rest of your code will work perfectly!
-        for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
-            if col in display_df.columns:
-                display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+        if not loans_df.empty:
+            # 1. Create a fresh copy
+            display_df = loans_df.copy()
+            
+            # 🌟 THE TRANSLATOR (Normalization)
+            # This fixes the "Loan ID" vs "Loan_ID" conflict
+            display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
+            
+            # 2. CLEAN DATA TYPES IMMEDIATELY
+            for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
+                if col in display_df.columns:
+                    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 else:
                     display_df[col] = 0.0
 
-            # 2. STATUS FILTERING
+            # 3. STATUS FILTERING
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
+            
+            # Add 'Rolled/Overdue' here so your new compounded loans show up!
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
             display_df = display_df[display_df["Status"].isin(relevant_statuses)].copy()
 
             if display_df.empty:
                 st.info("ℹ️ No active loans found.")
             else:
-                # 3. METRIC CALCULATIONS
+                # 4. METRIC CALCULATIONS
                 actual_p = display_df["Principal"] if "Principal" in display_df.columns else display_df["Amount"]
                 display_df["Total_Repayable"] = actual_p + display_df["Interest"]
                 display_df["Outstanding_Balance"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
                 
                 sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
+                # Filter info for the specific selected loan
                 loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
                 
                 # --- METRIC CARDS (Updated for Principal) ---
@@ -957,26 +960,26 @@ def show_loans():
                 s_color = "#4A90E2" if loan_info.get('Status') != "Overdue" else "#FF4B4B"
                 p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{str(loan_info.get('Status', 'ACTIVE')).upper()}</h3></div>""", unsafe_allow_html=True)
 
-                # --- THE COMPLETE "ZOE" PORTFOLIO TABLE (RESTORING ALL COLUMNS) ---
+                # --- THE COMPLETE "ZOE" PORTFOLIO TABLE ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     stat_bg = "#4A90E2" if r.get('Status') == "Active" else "#FF4B4B" if r.get('Status') == "Overdue" else "#FFA500"
 
-                    # 1. Fetch dates safely (Checking all possible names)
-                    s_date_raw = r.get('Start_Date') or r.get('Issued On') or r.get('Date')
+                    # Fetch dates safely
+                    s_date_raw = r.get('Start_Date') or r.get('Issued_On') or r.get('Date')
                     start_date = pd.to_datetime(s_date_raw).strftime('%d %b %y') if pd.notna(s_date_raw) else "-"
                     
-                    e_date_raw = r.get('End_Date') or r.get('Due Date')
+                    e_date_raw = r.get('End_Date') or r.get('Due_Date')
                     end_date = pd.to_datetime(e_date_raw).strftime('%d %b %y') if pd.notna(e_date_raw) else "-"
                     
-                    # 2. Last Rolled Date logic
+                    # Last Rolled Date logic
                     roll_date = r.get('Rollover_Date', '-')
                     if roll_date and roll_date != '-':
                         try: roll_date = pd.to_datetime(roll_date).strftime('%d %b')
                         except: pass
 
-                    # 3. Principal & Rate Recovery (Checking new Principal header)
+                    # Principal & Rate Recovery
                     p_val = float(r.get('Principal', 0)) if float(r.get('Principal', 0)) > 0 else float(r.get('Amount', 0))
                     
                     raw_rate = float(r.get('Interest_Rate', 0))
