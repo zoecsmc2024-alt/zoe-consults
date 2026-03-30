@@ -2468,7 +2468,7 @@ def show_ledger():
     loans_df['Loan_ID'] = loans_df['Loan_ID'].fillna("0").astype(str)
     
     loan_options = loans_df.apply(lambda x: f"ID: {x.get('Loan_ID', '0')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
-    selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options)
+    selected_loan = st.selectbox("Select Loan to View Full Statement", loan_options, key="ledger_dropdown_v1")
     
     # Extract the ID safely using a float conversion first (handles '3.0')
     try:
