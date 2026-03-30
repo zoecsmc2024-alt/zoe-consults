@@ -2315,7 +2315,7 @@ def show_ledger():
 
     # --- SUBSEQUENT ROWS: PAYMENTS ---
     relevant_payments = payments_df[payments_df["Loan_ID"] == l_id].sort_values("Date")
-    running_balance = float(loan_info["Total_Repayable"])
+    running_balance = float(t_repayable)
     
     for _, pay in relevant_payments.iterrows():
         running_balance -= float(pay["Amount"])
