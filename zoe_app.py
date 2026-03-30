@@ -861,67 +861,52 @@ def show_loans():
     # ==============================
     with tab_view:
         if not loans_df.empty:
+            # Create a fresh copy to work with
             display_df = loans_df.copy()
             
-            # --- THE SAFETY SHIELD ---
+            # 1. CLEAN DATA TYPES IMMEDIATELY
+            for col in ["Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
+                if col in display_df.columns:
+                    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+                else:
+                    display_df[col] = 0.0
+
+            # 2. STATUS FILTERING
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
-            
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
             display_df = display_df[display_df["Status"].isin(relevant_statuses)].copy()
 
             if display_df.empty:
-                actual_statuses = loans_df['Status'].unique()
-                st.info(f"ℹ️ No active loans found. Current statuses in data: {actual_statuses}")
+                st.info("ℹ️ No active loans found.")
             else:
-                for col in ["Amount", "Interest", "Amount_Paid"]:
-                    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
-                
+                # 3. METRIC CALCULATIONS
                 display_df["Total_Repayable"] = display_df["Amount"] + display_df["Interest"]
                 display_df["Outstanding_Balance"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
                 
                 sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
                 loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
                 
-                # --- ZOE SOFT BLUE METRICS ---
+                # --- METRIC CARDS ---
                 p1, p2, p3 = st.columns(3)
-                p1.markdown(f"""
-                    <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">RECEIVED</p>
-                        <h3 style="margin:0; color:#4A90E2; font-size:18px;">{loan_info['Amount_Paid']:,.0f} UGX</h3>
-                    </div>
-                """, unsafe_allow_html=True)
-
-                p2.markdown(f"""
-                    <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #4A90E2; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">OUTSTANDING</p>
-                        <h3 style="margin:0; color:#4A90E2; font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3>
-                    </div>
-                """, unsafe_allow_html=True)
-
+                p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Amount_Paid']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
+                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
                 s_color = "#4A90E2" if loan_info['Status'] != "Overdue" else "#FF4B4B"
-                p3.markdown(f"""
-                    <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {s_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-                        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">LOAN STATUS</p>
-                        <h3 style="margin:0; color:{s_color}; font-size:18px;">{loan_info['Status'].upper()}</h3>
-                    </div>
-                """, unsafe_allow_html=True)
+                p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{loan_info['Status'].upper()}</h3></div>""", unsafe_allow_html=True)
 
-                # --- THE UPDATED "ZOE" PORTFOLIO TABLE ---
+                # --- THE REWRITTEN TABLE LOGIC ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
 
-                    # 1. FETCH THE ACTUAL RATE
-                    # We use .get() to ensure it doesn't crash if the column is missing
-                    actual_rate = r.get('Interest_Rate', 0)
-                    
-                    # 2. FORMAT THE RATE (Handle 0 or empty strings)
-                    try:
-                        formatted_rate = f"{float(actual_rate):.1f}%" if actual_rate != "" else "0.0%"
-                    except:
-                        formatted_rate = "0.0%"
+                    # DYNAMIC RATE RECOVERY
+                    # If the Rate column is 0 but we have Interest, we calculate it: (Interest/Amount)*100
+                    raw_rate = float(r.get('Interest_Rate', 0))
+                    if raw_rate == 0 and float(r['Amount']) > 0:
+                        calculated_rate = (float(r['Interest']) / float(r['Amount'])) * 100
+                    else:
+                        calculated_rate = raw_rate
 
                     roll_date = r.get('Rollover_Date', '-')
                     if roll_date and roll_date != '-':
@@ -933,9 +918,7 @@ def show_loans():
                         <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
                         <td style="padding:10px;">{r['Borrower']}</td>
                         <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{float(r['Amount']):,.0f}</td>
-                        
-                        <td style="padding:10px; text-align:center; color:#2B3F87; font-weight:bold;">{formatted_rate}</td>
-                        
+                        <td style="padding:10px; text-align:center; color:#2B3F87; font-weight:bold;">{calculated_rate:.1f}%</td>
                         <td style="padding:10px; text-align:right; color:#D32F2F;">{float(r['Outstanding_Balance']):,.0f}</td>
                         <td style="padding:10px; text-align:center;">
                             <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
@@ -944,28 +927,21 @@ def show_loans():
                         <td style="padding:10px; text-align:center; font-size:11px; font-weight:bold; color:#2B3F87;">{pd.to_datetime(r['End_Date']).strftime('%d %b %y')}</td>
                     </tr>"""
 
-                # --- RENDER THE TABLE SAFELY ---
                 final_table_html = f"""
                 <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; background:white;">
                     <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
                         <thead>
                             <tr style="background:#4A90E2; color:white;">
-                                <th style="padding:12px;">ID</th>
-                                <th style="padding:12px;">Borrower</th>
-                                <th style="padding:12px; text-align:right;">Principal</th>
-                                <th style="padding:12px; text-align:center;">Rate (%)</th>
-                                <th style="padding:12px; text-align:right;">Balance</th>
-                                <th style="padding:12px; text-align:center;">Status</th>
-                                <th style="padding:12px; text-align:center;">Last Rolled</th>
-                                <th style="padding:12px; text-align:center;">New Due Date</th>
+                                <th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th>
+                                <th style="padding:12px; text-align:right;">Principal</th><th style="padding:12px; text-align:center;">Rate (%)</th>
+                                <th style="padding:12px; text-align:right;">Balance</th><th style="padding:12px; text-align:center;">Status</th>
+                                <th style="padding:12px; text-align:center;">Last Rolled</th><th style="padding:12px; text-align:center;">New Due Date</th>
                             </tr>
                         </thead>
                         <tbody>{rows_html}</tbody>
                     </table>
-                </div>
-                """
+                </div>"""
                 
-                # Using components instead of markdown to prevent the "Code Soup"
                 st.components.v1.html(final_table_html, height=500, scrolling=True)
             
 
