@@ -1109,21 +1109,30 @@ def show_payments():
     # TAB 1: RECORD NEW PAYMENT
     # ==============================
     with tab_new:
-        active_loans = loans_df[loans_df["Status"] != "Closed"]
+        # Use lowercase for status check to be safe
+        active_loans = loans_df[loans_df["Status"].astype(str).str.lower() != "closed"]
+        
         if active_loans.empty:
             st.success("🎉 All loans are currently cleared!")
         else:
-            loan_options = active_loans.apply(lambda x: f"ID: {x['Loan_ID']} - {x['Borrower']}", axis=1).tolist()
+            # 1. Selection logic
+            loan_options = active_loans.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
             selected_option = st.selectbox("Select Loan to Credit", loan_options)
             selected_id = int(selected_option.split(" - ")[0].replace("ID: ", ""))
             loan = active_loans[active_loans["Loan_ID"] == selected_id].iloc[0]
 
-            # Calculation
-            total_rep = pd.to_numeric(loan["Total_Repayable"], errors='coerce')
-            paid_so_far = pd.to_numeric(loan["Amount_Paid"], errors='coerce')
+            # 2. Calculation (Properly Indented)
+            # Safe recovery: Total Repayable or (Principal + Interest)
+            total_rep = float(loan.get("Total_Repayable", 0))
+            if total_rep == 0:
+                total_rep = float(loan.get("Principal", 0)) + float(loan.get("Interest", 0))
+
+            # Convert to numeric safely
+            total_rep = pd.to_numeric(total_rep, errors='coerce')
+            paid_so_far = pd.to_numeric(loan.get("Amount_Paid", 0), errors='coerce')
             outstanding = total_rep - paid_so_far
 
-            # --- STYLED CARDS ---
+            # --- STYLED CARDS (Continue here) ---
             c1, c2, c3 = st.columns(3)
             status_color = "#00ffcc" if loan['Status'] == "Active" else "#FF4B4B"
             
