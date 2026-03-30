@@ -894,14 +894,17 @@ def show_loans():
                 s_color = "#4A90E2" if loan_info['Status'] != "Overdue" else "#FF4B4B"
                 p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{loan_info['Status'].upper()}</h3></div>""", unsafe_allow_html=True)
 
-                # --- THE REWRITTEN TABLE LOGIC ---
+                # --- THE UPDATED "ZOE" PORTFOLIO TABLE WITH START DATE ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
 
-                    # DYNAMIC RATE RECOVERY
-                    # If the Rate column is 0 but we have Interest, we calculate it: (Interest/Amount)*100
+                    # Fetch dates safely
+                    start_date = pd.to_datetime(r.get('Start_Date')).strftime('%d %b %y') if r.get('Start_Date') else "-"
+                    end_date = pd.to_datetime(r.get('End_Date')).strftime('%d %b %y') if r.get('End_Date') else "-"
+
+                    # Rate Calculation (Principal + Interest Logic)
                     raw_rate = float(r.get('Interest_Rate', 0))
                     if raw_rate == 0 and float(r['Amount']) > 0:
                         calculated_rate = (float(r['Interest']) / float(r['Amount'])) * 100
@@ -917,14 +920,14 @@ def show_loans():
                     <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
                         <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
                         <td style="padding:10px;">{r['Borrower']}</td>
+                        <td style="padding:10px; text-align:center; color:#666;">{start_date}</td>
                         <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{float(r['Amount']):,.0f}</td>
                         <td style="padding:10px; text-align:center; color:#2B3F87; font-weight:bold;">{calculated_rate:.1f}%</td>
                         <td style="padding:10px; text-align:right; color:#D32F2F;">{float(r['Outstanding_Balance']):,.0f}</td>
                         <td style="padding:10px; text-align:center;">
                             <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
                         </td>
-                        <td style="padding:10px; text-align:center; font-size:11px; color:#666;">{roll_date}</td>
-                        <td style="padding:10px; text-align:center; font-size:11px; font-weight:bold; color:#2B3F87;">{pd.to_datetime(r['End_Date']).strftime('%d %b %y')}</td>
+                        <td style="padding:10px; text-align:center; font-size:11px; font-weight:bold; color:#2B3F87;">{end_date}</td>
                     </tr>"""
 
                 final_table_html = f"""
@@ -932,10 +935,14 @@ def show_loans():
                     <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
                         <thead>
                             <tr style="background:#4A90E2; color:white;">
-                                <th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th>
-                                <th style="padding:12px; text-align:right;">Principal</th><th style="padding:12px; text-align:center;">Rate (%)</th>
-                                <th style="padding:12px; text-align:right;">Balance</th><th style="padding:12px; text-align:center;">Status</th>
-                                <th style="padding:12px; text-align:center;">Last Rolled</th><th style="padding:12px; text-align:center;">New Due Date</th>
+                                <th style="padding:12px;">ID</th>
+                                <th style="padding:12px;">Borrower</th>
+                                <th style="padding:12px; text-align:center;">Issued On</th>
+                                <th style="padding:12px; text-align:right;">Principal</th>
+                                <th style="padding:12px; text-align:center;">Rate (%)</th>
+                                <th style="padding:12px; text-align:right;">Balance</th>
+                                <th style="padding:12px; text-align:center;">Status</th>
+                                <th style="padding:12px; text-align:center;">Due Date</th>
                             </tr>
                         </thead>
                         <tbody>{rows_html}</tbody>
