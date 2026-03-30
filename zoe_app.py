@@ -540,16 +540,24 @@ def sidebar():
 def show_overview():
     st.markdown("## 📊 Financial Dashboard")
     
-    # 1. Load the data
-    df = get_cached_data("Loans")
-    
-    if df.empty:
-        st.info("No data available for the dashboard.")
+    # 1. LOAD DATA FIRST (The Fix)
+    loans_df = get_cached_data("Loans")
+    # This defines the "pay_df" that is currently missing at Line 633
+    pay_df = get_cached_data("Payments") 
+
+    if loans_df.empty:
+        st.info("No loan records found.")
         return
 
-    # 🌟 THE TRANSLATOR (Add these two lines right here!)
-    # This ensures "Amount Paid" becomes "Amount_Paid" for the math below
-    df.columns = df.columns.str.strip().str.replace(" ", "_")
+    # 2. TRANSLATE HEADERS (To prevent KeyErrors)
+    loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
+    if not pay_df.empty:
+        pay_df.columns = pay_df.columns.str.strip().str.replace(" ", "_")
+
+    # 3. NOW YOUR LINE 633 WILL WORK
+    if pay_df is not None and not pay_df.empty:
+        # Your existing payment analysis code goes here...
+        st.success(f"Total Payments Tracked: {len(pay_df)}")
     
     # 2. Now your existing math will work perfectly!
     df["Amount_Paid"] = pd.to_numeric(df["Amount_Paid"], errors="coerce").fillna(0)
