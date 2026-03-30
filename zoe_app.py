@@ -918,14 +918,18 @@ def show_loans():
     # TAB 2: PORTFOLIO INSPECTOR (Zoe Soft Blue)
     # ==============================
     with tab_view:
-        if not loans_df.empty:
-            # Create a fresh copy to work with
-            display_df = loans_df.copy()
-            
-            # 1. CLEAN DATA TYPES IMMEDIATELY
-            for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
-                if col in display_df.columns:
-                    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+    if not loans_df.empty:
+        # 1. Create a fresh copy
+        display_df = loans_df.copy()
+        
+        # 🌟 THE TRANSLATOR (Put this line exactly here!)
+        # This turns "Loan ID" into "Loan_ID" and "End Date" into "End_Date"
+        display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
+        
+        # 2. Now the rest of your code will work perfectly!
+        for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
+            if col in display_df.columns:
+                display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 else:
                     display_df[col] = 0.0
 
