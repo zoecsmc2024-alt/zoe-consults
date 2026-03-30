@@ -1089,11 +1089,31 @@ def show_loans():
                 upd_type = col_e2.selectbox("Change Type", loan_types, 
                                            index=loan_types.index(current_t) if current_t in loan_types else 0)
                 
-                # Dates
+                # 4. Date Adjustments (Safety First)
                 raw_start = m_row.get("Start_Date") or m_row.get("Date")
-                upd_start = col_e2.date_input("Adjust Start Date", value=pd.to_datetime(raw_start).date())
-                upd_end = col_e2.date_input("Adjust End Date", value=pd.to_datetime(m_row.get("End_Date")).date())
+                raw_end = m_row.get("End_Date") or m_row.get("Due Date")
+                
+                # --- START DATE SAFETY ---
+                try:
+                    if pd.isna(raw_start) or raw_start == "":
+                        start_val = datetime.now().date()
+                    else:
+                        start_val = pd.to_datetime(raw_start).date()
+                except:
+                    start_val = datetime.now().date()
 
+                upd_start = col_e2.date_input("Adjust Start Date", value=start_val)
+                
+                # --- END DATE SAFETY ---
+                try:
+                    if pd.isna(raw_end) or raw_end == "":
+                        end_val = datetime.now().date() + timedelta(days=30)
+                    else:
+                        end_val = pd.to_datetime(raw_end).date()
+                except:
+                    end_val = datetime.now().date() + timedelta(days=30)
+
+                upd_end = col_e2.date_input("Adjust End Date", value=end_val)
                 st.divider()
                 
                 # 5. Save & Delete Buttons
