@@ -1430,133 +1430,79 @@ def show_collateral():
 # 16. COLLECTIONS & OVERDUE TRACKER (Fixed Amount Recovery)
 # ==============================
 def show_overdue_tracker():
-    st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
-    
-    # 1. LOAD DATA (Local Fetch to avoid Global Syntax Errors)
-    current_loans = get_cached_data("Loans") 
-    
-    try:
-        latest_ledger = get_cached_data("Ledger")
-    except:
-        latest_ledger = pd.DataFrame()
+    st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
 
-    if current_loans is None or current_loans.empty:
-        st.info("No records found in Loans to track.")
+    # Use session_state directly to ensure we have the latest data
+    loans = st.session_state.loans.copy()
+    ledger = st.session_state.ledger.copy()
+
+    if loans.empty:
+        st.info("No loan records found.")
         return
 
-    # 2. Identify Overdue Accounts Safely
-    # We create a working copy for the engine
-    updated_df = current_loans.copy()
-    
-    # Ensure dates are in a format Python can compare
-    updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date'], errors='coerce')
+    # --- PREP DATA ---
+    loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
     today = datetime.now()
-    
-    # Filter for loans that are past due and not cleared
-    overdue_df = updated_df[(updated_df['Status'] != "Cleared") & (updated_df['End_Date'] < today)].copy()
+
+    # Filter for loans that are actually past their due date
+    overdue_df = loans[
+        (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) & 
+        (loans['End_Date'] < today)
+    ].copy()
 
     if overdue_df.empty:
-        st.success("✨ All caught up! No accounts require rollover at this time.")
+        st.success("✨ All accounts are up to date!")
         return
 
     st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
-    
+    st.dataframe(overdue_df[["Loan_ID", "Borrower", "Principal", "End_Date", "Status"]], use_container_width=True)
 
-    # 3. BRIDGE MATH: Column-aware balance lookup
-    latest_ledger = pd.DataFrame()
-    if not ledger_df.empty:
-        b_col = 'Borrower_Name' if 'Borrower_Name' in ledger_df.columns else 'Borrower'
-        if b_col in ledger_df.columns:
-            latest_ledger = ledger_df.sort_values('Date').groupby(b_col).tail(1)
-    
-    st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
-
-    # 4. TABLE DISPLAY
-    rows_html = ""
-    for i, r in overdue_df.iterrows():
-        b_name = r['Borrower']
-        
-        # --- AUTO-RECOVERY LOGIC ---
-        # Step A: Try Ledger
-        current_out = 0
-        if not latest_ledger.empty:
-            b_col = 'Borrower_Name' if 'Borrower_Name' in latest_ledger.columns else 'Borrower'
-            match = latest_ledger[latest_ledger[b_col] == b_name]
-            if not match.empty:
-                current_out = float(match['Balance'].values[0])
-        
-        # Step B: If Ledger is 0, Fallback to (Principal + Interest)
-        if current_out == 0:
-            current_out = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
-        
-        new_end_date = r['End_Date'] + pd.DateOffset(months=1)
-        bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-        
-        rows_html += f"""
-        <tr style="background-color: {bg_color};">
-            <td style="padding:10px; border:1px solid #ddd;"><b>{b_name}</b></td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:center;">{r['End_Date'].strftime('%d %b %y')}</td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:right; color:#2B3F87; font-weight:bold;">{current_out:,.0f} UGX</td>
-            <td style="padding:10px; border:1px solid #ddd; text-align:center; color:#2E7D32;"><b>{new_end_date.strftime('%d %b %y')}</b></td>
-        </tr>"""
-
-    st.markdown(f"""
-    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden;">
-        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
-            <tr style="background:#4A90E2; color:white;">
-                <th style="padding:10px;">Borrower</th><th style="padding:10px;">Missed Date</th>
-                <th style="padding:10px;">Balance to Roll (P+I)</th><th style="padding:10px;">New Due Date</th>
-            </tr>
-            <tbody>{rows_html}</tbody>
-        </table>
-    </div>""", unsafe_allow_html=True)
-
-    # 5. EXECUTE ROLLOVER (THE ENGINE)
-    st.write("")
+    # --- ROLLOVER BUTTON ---
     if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-        # We work on a copy of loans_df to be safe
-        global loans_df 
-        # Line 1509
-        updated_df = loans_df.copy()
-        
+        updated_df = loans.copy()
+
         for i, r in overdue_df.iterrows():
-            b_name = r['Borrower']
+            current_id = str(r['Loan_ID'])
             
-            # Use same recovery math for the actual save
-            final_roll_amt = 0
-            if not latest_ledger.empty:
-                b_col = 'Borrower_Name' if 'Borrower_Name' in latest_ledger.columns else 'Borrower'
-                match = latest_ledger[latest_ledger[b_col] == b_name]
-                if not match.empty:
-                    final_roll_amt = float(match['Balance'].values[0])
-            
-            if final_roll_amt == 0:
-                final_roll_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
-            
-            # Math for the new date
-            # We convert to string immediately to avoid the Timestamp error
-            new_date_obj = pd.to_datetime(r['End_Date']) + pd.DateOffset(months=1)
-            new_date_str = new_date_obj.strftime('%Y-%m-%d')
-            
-            # Update the Loan Record in our updated_df
-            updated_df.loc[i, 'Principal'] = final_roll_amt 
-            updated_df.loc[i, 'End_Date'] = new_date_str
+            # 1. Get the most recent balance for THIS SPECIFIC LOAN ID
+            final_amt = 0
+            if not ledger.empty:
+                # Filter ledger for this specific Loan ID to get the correct balance
+                loan_ledger = ledger[ledger['Loan_ID'].astype(str) == current_id]
+                if not loan_ledger.empty:
+                    # Get the very last balance recorded for this loan
+                    final_amt = float(loan_ledger.sort_values('Date').tail(1)['Balance'].values[0])
+
+            # 2. Fallback if no ledger entry exists
+            if final_amt == 0:
+                # Use Principal + Interest from the loan record
+                p_val = float(r.get('Principal', 0))
+                i_val = float(r.get('Interest', 0))
+                final_amt = p_val + i_val
+
+            # 3. Calculate New Date (Move 1 month forward)
+            new_date = r['End_Date'] + pd.DateOffset(months=1)
+
+            # 4. Apply Updates
+            updated_df.loc[i, 'Principal'] = final_amt
+            updated_df.loc[i, 'End_Date'] = new_date
             updated_df.loc[i, 'Status'] = "Rolled/Overdue"
             updated_df.loc[i, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
 
-        # --- THE JSON SERIALIZABLE FIX ---
+        # --- FINAL CLEANING (The "Timestamp" Fix) ---
         date_cols = ["Start_Date", "End_Date", "Rollover_Date", "Due Date", "Date"]
         for col in date_cols:
             if col in updated_df.columns:
                 updated_df[col] = pd.to_datetime(updated_df[col], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
 
-        # 🚀 THE SAVE AND REFRESH (Add these lines now!)
-        if save_data("Loans", updated_df):
-            st.success("✅ Rollover completed! 5 accounts compounded to April 2026.")
-            # This forces the app to reload with the new numbers
-            st.rerun() 
+        # 5. Save to Google Sheets
+        if save_loans(updated_df):
+            # Crucial: Update the session state so the change is instant
+            st.session_state.loans = updated_df
+            st.success("✅ Rollover successful! All balances compounded to next month.")
+            st.rerun()
         else:
-            st.error("❌ Failed to save. Check your internet connection or Google Sheet.")
+            st.error("❌ Save failed. Please check your connection.")
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
