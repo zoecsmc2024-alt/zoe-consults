@@ -2589,13 +2589,16 @@ def show_ledger():
                     "Credit": pd.to_numeric(p.get('Amount', 0), errors='coerce')
                 })
             
+            # --- CALCULATE BALANCE FOR THIS LOAN ---
             temp_df = pd.DataFrame(l_ledger)
             if not temp_df.empty:
                 temp_df['Balance'] = temp_df['Debit'].cumsum() - temp_df['Credit'].cumsum()
-                current_l_balance = temp_df.iloc[-1]['Balance']
-                grand_total_balance += current_l_balance
+                current_l_balance = float(temp_df.iloc[-1]['Balance'])
             else:
-                current_l_balance = 0
+                current_l_balance = 0.0
+
+            # 🚀 NOW add to the grand total safely
+            grand_total_balance += current_l_balance
 
             # Add to HTML
             html_statement += f"""
