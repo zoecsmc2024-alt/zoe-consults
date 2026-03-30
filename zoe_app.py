@@ -1430,35 +1430,37 @@ def show_collateral():
 # 16. COLLECTIONS & OVERDUE TRACKER (Fixed Amount Recovery)
 # ==============================
 def show_overdue_tracker():
-    # 1. TELL PYTHON WE ARE USING THE MAIN DATA FIRST
-    global loans_df 
-    
     st.markdown("<h3 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h3>", unsafe_allow_html=True)
     
-    # 2. LOAD DATA SAFELY
-    # If the global version is empty, try to fetch it from the cache
-    if loans_df is None or loans_df.empty:
-        loans_df = get_cached_data("Loans") 
-        
+    # 1. LOAD DATA (Local Fetch to avoid Global Syntax Errors)
+    current_loans = get_cached_data("Loans") 
+    
     try:
-        ledger_df = get_cached_data("Ledger")
+        latest_ledger = get_cached_data("Ledger")
     except:
-        ledger_df = pd.DataFrame()
+        latest_ledger = pd.DataFrame()
 
-    if loans_df is None or loans_df.empty:
+    if current_loans is None or current_loans.empty:
         st.info("No records found in Loans to track.")
         return
 
-    # 3. CREATE YOUR WORKING COPY
-    updated_df = loans_df.copy()
-    # 2. Identify Overdue Accounts
-    loan_df['End_Date'] = pd.to_datetime(loan_df['End_Date'], errors='coerce')
+    # 2. Identify Overdue Accounts Safely
+    # We create a working copy for the engine
+    updated_df = current_loans.copy()
+    
+    # Ensure dates are in a format Python can compare
+    updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date'], errors='coerce')
     today = datetime.now()
-    overdue_df = loan_df[(loan_df['Status'] != "Cleared") & (loan_df['End_Date'] < today)].copy()
+    
+    # Filter for loans that are past due and not cleared
+    overdue_df = updated_df[(updated_df['Status'] != "Cleared") & (updated_df['End_Date'] < today)].copy()
 
     if overdue_df.empty:
-        st.success("✅ All loans are up to date!")
+        st.success("✨ All caught up! No accounts require rollover at this time.")
         return
+
+    st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
+    
 
     # 3. BRIDGE MATH: Column-aware balance lookup
     latest_ledger = pd.DataFrame()
