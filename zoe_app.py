@@ -907,11 +907,21 @@ def show_loans():
                     </div>
                 """, unsafe_allow_html=True)
 
-                # --- THE COMPLETE "ZOE" PORTFOLIO TABLE WITH RATE COLUMN ---
+                # --- THE UPDATED "ZOE" PORTFOLIO TABLE ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
+
+                    # 1. FETCH THE ACTUAL RATE
+                    # We use .get() to ensure it doesn't crash if the column is missing
+                    actual_rate = r.get('Interest_Rate', 0)
+                    
+                    # 2. FORMAT THE RATE (Handle 0 or empty strings)
+                    try:
+                        formatted_rate = f"{float(actual_rate):.1f}%" if actual_rate != "" else "0.0%"
+                    except:
+                        formatted_rate = "0.0%"
 
                     roll_date = r.get('Rollover_Date', '-')
                     if roll_date and roll_date != '-':
@@ -923,7 +933,9 @@ def show_loans():
                         <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
                         <td style="padding:10px;">{r['Borrower']}</td>
                         <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{float(r['Amount']):,.0f}</td>
-                        <td style="padding:10px; text-align:center; color:#2B3F87;">{r.get('Interest_Rate', 0)}%</td>
+                        
+                        <td style="padding:10px; text-align:center; color:#2B3F87; font-weight:bold;">{formatted_rate}</td>
+                        
                         <td style="padding:10px; text-align:right; color:#D32F2F;">{float(r['Outstanding_Balance']):,.0f}</td>
                         <td style="padding:10px; text-align:center;">
                             <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
