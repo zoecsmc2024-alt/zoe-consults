@@ -1185,38 +1185,29 @@ def show_payments():
                         st.error("Invalid amount. Cannot exceed balance due.")
 
     # ==============================
-    # TAB 2: HISTORY (With Color Formatting)
+    # TAB 2: HISTORY (Stable Color Version)
     # ==============================
     with tab_history:
         if not payments_df.empty:
-            # 1. Data Cleaning (Safe Conversion)
+            # 1. Ensure Amount is numeric and handled safely
             payments_df["Amount"] = pd.to_numeric(payments_df.get("Amount", 0), errors="coerce").fillna(0)
             
-            # 2. Sort by Date (Most Recent at Top)
+            # 2. Sort by Date
             sorted_pay = payments_df.sort_values("Date", ascending=False)
-            
-            # 3. Create a Styled View
-            # - Commas for the Amount (1,000,000)
-            # - Background gradient for Amount (Higher = Darker Green)
-            styled_df = sorted_pay.style.format({
-                "Amount": "{:,.0f} UGX"
-            }).background_gradient(
-                subset=["Amount"], 
-                cmap="Greens"
-            ).set_properties(**{
-                'background-color': '#ffffff',
-                'color': '#2B3F87',
-                'border-color': '#f0f2f6'
-            })
-            
-            # 4. Display the beautiful table
+
+            # 3. Apply stable styling
+            # This uses a standard color map that doesn't require extra imports
+            styled_view = sorted_pay.style.format({"Amount": "{:,.0f} UGX"})\
+                .background_gradient(subset=["Amount"], cmap="YlGnBu")
+
+            # 4. Display
             st.dataframe(
-                styled_df, 
+                styled_view, 
                 use_container_width=True, 
                 hide_index=True
             )
         else:
-            st.info("💡 No payment records found. Record a payment in the first tab to see trends!")
+            st.info("No payment records found.")
 
     # ==============================
     # TAB 3: ADJUST PAYMENTS
