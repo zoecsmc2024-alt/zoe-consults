@@ -550,7 +550,9 @@ def show_overview():
         return
 
     # 2. DATA CLEANING
-    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+    # Updated Line 553
+    # We search for Principal because that's our new header!
+    df["Principal"] = pd.to_numeric(df.get("Principal", 0), errors="coerce").fillna(0)
     df["Interest"] = pd.to_numeric(df["Interest"], errors="coerce").fillna(0)
     df["Amount_Paid"] = pd.to_numeric(df["Amount_Paid"], errors="coerce").fillna(0)
     df["End_Date"] = pd.to_datetime(df["End_Date"], errors="coerce")
