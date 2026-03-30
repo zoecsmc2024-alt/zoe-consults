@@ -1774,7 +1774,8 @@ def show_expenses():
             st.markdown("<h4 style='color: #2B3F87;'>📜 Detailed Expense Log</h4>", unsafe_allow_html=True)
             
             rows_html = ""
-            sorted_df = df.sort_values("Payment_Date", ascending=False)
+            date_col = "Date" if "Date" in df.columns else df.columns[0] 
+            sorted_df = df.sort_values(date_col, ascending=False)
             for i, r in sorted_df.iterrows():
                 bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                 rows_html += f"""
