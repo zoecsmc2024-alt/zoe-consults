@@ -1590,16 +1590,24 @@ def show_calendar():
     if upcoming_df.empty:
         st.info("The next few days look quiet.")
     else:
+        # --- SECTION: UPCOMING (FIXED AMOUNT LOGIC) ---
         upcoming_display = upcoming_df.sort_values("End_Date").copy()
         up_rows = ""
         for i, r in upcoming_display.iterrows():
             bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+            
+            # AUTO-RECOVERY LOGIC:
+            # If Total_Repayable is 0, we try to use Principal + Interest
+            display_amt = float(r.get('Total_Repayable', 0))
+            if display_amt == 0:
+                display_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
+
             up_rows += f"""
             <tr style="background-color: {bg};">
                 <td style="padding:10px; color:#2B3F87; font-weight:bold;">{r['End_Date'].strftime('%d %b (%a)')}</td>
-                <td style="padding:10px;">{r['Borrower']}</td>
-                <td style="padding:10px; text-align:right;">{r['Total_Repayable']:,.0f}</td>
-                <td style="padding:10px; text-align:right; color:#666;">ID: #{r['Loan_ID']}</td>
+                <td style="padding:10px;">{r.get('Borrower', 'Unknown')}</td>
+                <td style="padding:10px; text-align:right; font-weight:bold;">{display_amt:,.0f} UGX</td>
+                <td style="padding:10px; text-align:right; color:#666;">ID: #{r.get('Loan_ID', 'N/A')}</td>
             </tr>"""
 
         st.markdown(f"""
