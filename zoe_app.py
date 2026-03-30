@@ -1432,14 +1432,22 @@ def show_collateral():
 def show_overdue_tracker():
     st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
 
-    # Use session_state directly to ensure we have the latest data
+    # 🛑 THE GATEKEEPER: Check if data exists in session_state
+    if 'loans' not in st.session_state or st.session_state.loans is None:
+        # If it's missing, try to load it manually once
+        with st.spinner("Fetching latest loan data..."):
+            loans_data = get_cached_data("Loans")
+            if loans_data is not None:
+                st.session_state.loans = loans_data
+            else:
+                st.error("❌ Could not load loan data. Please refresh the page.")
+                return
+
+    # Now it's safe to copy because we know it exists
     loans = st.session_state.loans.copy()
-    ledger = st.session_state.ledger.copy()
-
-    if loans.empty:
-        st.info("No loan records found.")
-        return
-
+    
+    # Do the same safety check for ledger if needed
+    ledger = st.session_state.get('ledger', pd.DataFrame())
     # --- PREP DATA ---
     loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
     today = datetime.now()
