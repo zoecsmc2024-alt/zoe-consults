@@ -1561,7 +1561,7 @@ def show_overdue_tracker():
             # Put the spaces back so Google Sheet headers match exactly
             updated_df.columns = [col.replace("_", " ") for col in updated_df.columns]
             
-            if save_loans(updated_df):
+            if save_data("Loans", updated_df):
                 st.session_state.loans = updated_df 
                 st.success(f"✅ Successfully rolled over {count} loans! New cycle starts now.")
                 st.rerun()
