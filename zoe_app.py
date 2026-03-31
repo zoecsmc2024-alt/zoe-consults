@@ -1533,6 +1533,15 @@ def show_collateral():
                     final_df.columns = [c.replace("_", " ") for c in final_df.columns]
                     if save_data("Collateral", final_df):
                         st.warning("⚠️ Asset record deleted!"); st.rerun()
+
+                        new_link = st.text_input("Update Photo URL", value=str(c_row.get("Photo_Link", "")))
+                
+                if st.button("💾 Update Link", use_container_width=True):
+                    collateral_df.loc[collateral_df["Collateral_ID"].astype(str) == c_id_raw, "Photo_Link"] = new_link
+                    final_df = collateral_df.copy()
+                    final_df.columns = [c.replace("_", " ") for c in final_df.columns]
+                    if save_data("Collateral", final_df):
+                        st.success("Link updated!"); st.rerun()
         else:
             st.info("💡 No collateral registered yet.")
 # ==============================
