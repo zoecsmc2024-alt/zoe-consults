@@ -708,23 +708,25 @@ def show_borrowers():
     tab_view, tab_add, tab_audit = st.tabs(["📑 View All", "➕ Add New", "⚙️ Audit & Manage"])
 
     # ==============================
-    # TAB 1: VIEW ALL (The Table)
+    # TAB 1: VIEW ALL (The Master Table)
     # ==============================
     with tab_view:
         col1, col2 = st.columns([3, 1]) 
         with col1:
-            search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...", key="bor_view_search").lower()
+            search = st.text_input("🔍 Search Name, Phone, or ID", placeholder="Search anything...", key="bor_master_search").lower()
         with col2:
-            status_filter = st.selectbox("Filter Status", ["All", "Active", "Inactive"], key="bor_view_status")
+            status_filter = st.selectbox("Filter Status", ["All", "Active", "Inactive"], key="bor_master_status")
 
         if not df.empty:
-            # Prepare filtered view
-            v_df = df.copy()
-            v_df["Name"] = v_df["Name"].astype(str)
-            v_df["Phone"] = v_df["Phone"].astype(str)
+            # 1. Prepare and Search
+            v_df = df.copy().fillna("") # Clean all NaNs immediately
             
-            mask = (v_df["Name"].str.lower().str.contains(search, na=False) | 
-                    v_df["Phone"].str.contains(search, na=False))
+            # Search across multiple columns at once
+            mask = (
+                v_df["Name"].str.lower().str.contains(search, na=False) | 
+                v_df["Phone"].astype(str).str.contains(search, na=False) |
+                v_df["National_ID"].astype(str).str.contains(search, na=False)
+            )
             v_df = v_df[mask]
 
             if status_filter != "All":
@@ -733,33 +735,42 @@ def show_borrowers():
             if not v_df.empty:
                 rows_html = ""
                 for i, r in v_df.iterrows():
+                    # Color coding for the status badge
+                    status_color = "#28a745" if r['Status'] == "Active" else "#6c757d"
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                    
                     rows_html += f"""
-                    <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                        <td style="padding:12px;"><b>{r['Name']}</b></td>
-                        <td style="padding:12px;">{r['Phone']}</td>
-                        <td style="padding:12px; font-size: 11px; color:#666;">{r.get('National_ID', 'N/A')}</td>
+                    <tr style="background-color: {bg_color}; border-bottom: 1px solid #eee; font-size: 12px;">
+                        <td style="padding:12px;"><b>{r['Name']}</b><br><small style='color:#666;'>ID: {r['Borrower_ID']}</small></td>
+                        <td style="padding:12px;">📞 {r['Phone']}<br>✉️ <span style='font-size:10px;'>{r.get('Email', 'N/A')}</span></td>
+                        <td style="padding:12px;">{r.get('National_ID', 'N/A')}</td>
+                        <td style="padding:12px;">📍 {r.get('Address', 'N/A')}</td>
+                        <td style="padding:12px; color:#555;">👤 {r.get('Next_of_Kin', 'N/A')}</td>
                         <td style="padding:12px; text-align:center;">
-                            <span style="background:#4A90E2; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">{r['Status']}</span>
+                            <span style="background:{status_color}; color:white; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:bold;">{r['Status']}</span>
                         </td>
                     </tr>"""
 
                 st.markdown(f"""
-                    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;">
-                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
+                    <div style="border:1px solid #dee2e6; border-radius:10px; overflow-x:auto; margin-top:10px;">
+                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif;">
                             <thead>
-                                <tr style="background:#4A90E2; color:white; text-align:left;">
-                                    <th style="padding:12px;">Borrower Name</th><th style="padding:12px;">Phone</th>
-                                    <th style="padding:12px;">National ID</th><th style="padding:12px; text-align:center;">Status</th>
+                                <tr style="background:#2B3F87; color:white; text-align:left; font-size:13px;">
+                                    <th style="padding:12px;">Borrower & ID</th>
+                                    <th style="padding:12px;">Contact Info</th>
+                                    <th style="padding:12px;">National ID</th>
+                                    <th style="padding:12px;">Physical Address</th>
+                                    <th style="padding:12px;">Next of Kin</th>
+                                    <th style="padding:12px; text-align:center;">Status</th>
                                 </tr>
                             </thead>
                             <tbody>{rows_html}</tbody>
                         </table>
                     </div>""", unsafe_allow_html=True)
             else:
-                st.info("No borrowers match your search.")
+                st.info("No records found matching your search.")
         else:
-            st.info("ℹ️ Borrower list is empty. Add a borrower to get started!")
+            st.info("ℹ️ No borrowers registered yet.")
 
     # ==============================
     # TAB 2: ADD BORROWER (Fixes NaN Error)
