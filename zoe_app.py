@@ -1297,47 +1297,69 @@ def show_payments():
             st.dataframe(df_display[["Level", "Payment_ID", "Loan_ID", "Borrower", "Amount", "Date", "Method"]], use_container_width=True, hide_index=True)
 
     # ==============================
-    # TAB 3: MANAGE / EDIT LOANS (Fixed Indentation)
+    # TAB 3: EDIT/DELETE PAYMENTS
     # ==============================
     with tab_manage:
-        st.markdown("### 🛠️ Modify Loan Agreement")
-        m_df = loans_df.copy()
-        m_df.columns = [str(c).strip().replace(" ", "_") for c in m_df.columns]
+        st.markdown("### ⚙️ Manage Payment Records")
         
-        if not m_df.empty:
-            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
-            m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
-            selected_m = st.selectbox("🔍 Select Loan to Manage", m_options, key="manage_sel_final")
+        # 1. PREPARE THE PAYMENTS DATA
+        p_df = payments_df.copy()
+        
+        if p_df.empty:
+            st.info("ℹ️ No payment records found to manage.")
+        else:
+            # Create a label to help you pick the right payment
+            p_df['Payment_ID'] = p_df['Payment_ID'].astype(str).str.replace(".0", "", regex=False)
+            p_options = [f"PayID: {r['Payment_ID']} | {r['Borrower']} ({r['Amount']})" for _, r in p_df.iterrows()]
+            
+            selected_p = st.selectbox("🔍 Select Payment to Manage", p_options, key="pay_manage_sel")
 
-            # ID Extraction
+            # 2. IDENTIFY THE SELECTED PAYMENT
             import re
-            match = re.search(r'ID:\s*(\d+)', str(selected_m))
-            clean_id = match.group(1) if match else "0"
+            match = re.search(r'PayID:\s*(\d+)', str(selected_p))
+            clean_pay_id = match.group(1) if match else "0"
             
-            loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
+            # Pull the specific payment row
+            pay_row = p_df[p_df["Payment_ID"] == clean_pay_id].iloc[0]
+            pay_idx = p_df[p_df["Payment_ID"] == clean_pay_id].index[0]
+
+            st.divider()
             
-            # --- FORM FIELDS ---
+            # 3. INPUT FIELDS FOR PAYMENTS
             c1, c2 = st.columns(2)
             with c1:
-                up_name = st.text_input("Edit Borrower", value=str(loan_row.get('Borrower', '')))
-                up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)))
+                new_pay_amt = st.number_input("Edit Amount (UGX)", value=float(pay_row.get('Amount', 0)))
+                new_pay_method = st.selectbox("Edit Method", ["Mobile Money", "Cash", "Bank Transfer", "Cheque"], 
+                                            index=["Mobile Money", "Cash", "Bank Transfer", "Cheque"].index(pay_row.get('Method', 'Cash')))
             with c2:
-                status_list = ["Active", "Overdue", "Closed", "Defaulted"]
-                curr_s = str(loan_row.get('Status', 'Active')).strip()
-                up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
+                # Safe date parsing
+                try:
+                    p_date = pd.to_datetime(pay_row.get('Date', datetime.now())).date()
+                except:
+                    p_date = datetime.now().date()
+                new_pay_date = st.date_input("Edit Payment Date", value=p_date)
 
-            if st.button("💾 Save Changes", use_container_width=True):
-                # Update Original Logic
-                id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
-                idx_list = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index
-                if not idx_list.empty:
-                    t_idx = idx_list[0]
-                    loans_df.at[t_idx, 'Borrower'] = up_name
-                    loans_df.at[t_idx, 'Principal'] = up_p
-                    loans_df.at[t_idx, 'Status'] = up_status
-                    
-                    if save_data("Loans", loans_df.fillna("")):
-                        st.success("✅ Loan Updated!"); st.rerun()
+            st.divider()
+
+            # 4. ACTION BUTTONS
+            b_save, b_del = st.columns(2)
+
+            # --- SAVE EDITS ---
+            if b_save.button("💾 Save Payment Edits", use_container_width=True):
+                # Update the original payments_df
+                payments_df.at[pay_idx, 'Amount'] = new_pay_amt
+                payments_df.at[pay_idx, 'Method'] = new_pay_method
+                payments_df.at[pay_idx, 'Date'] = new_pay_date.strftime('%Y-%m-%d')
+                
+                if save_data("Payments", payments_df.fillna("")):
+                    st.success(f"✅ Payment #{clean_pay_id} updated!"); st.rerun()
+
+            # --- DELETE PAYMENT ---
+            if b_del.button(f"🗑️ Delete Payment #{clean_pay_id}", use_container_width=True):
+                # Drop from Payments sheet only
+                updated_payments = payments_df.drop(pay_idx)
+                if save_data("Payments", updated_payments.fillna("")):
+                    st.warning(f"⚠️ Payment #{clean_pay_id} deleted."); st.rerun()
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
