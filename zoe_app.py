@@ -819,23 +819,24 @@ def show_borrowers():
             
             if "Borrower" in u_loans.columns:
                 user_loans = u_loans[u_loans["Borrower"] == target_name].copy()
+                
                 if not user_loans.empty:
-                    st.metric("Total Loans", len(user_loans))
-                    if not user_loans.empty:
+                    # --- INDENTED BLOCK STARTS HERE ---
                     st.metric("Total Loans Found", len(user_loans))
                     st.markdown(f"#### 📜 Loan History: {target_name}")
                     
-                    # 🌟 THE FIX: Select only columns that actually exist in the sheet
+                    # Check which columns exist to avoid KeyErrors
                     all_possible_cols = ["Loan ID", "Loan_ID", "Status", "Principal", "End Date", "Issued On"]
                     available_cols = [c for c in all_possible_cols if c in user_loans.columns]
                     
                     if available_cols:
                         st.table(user_loans[available_cols])
                     else:
-                        # Fallback: Just show the whole thing if we can't find specific ones
                         st.dataframe(user_loans, use_container_width=True)
+                    # --- INDENTED BLOCK ENDS HERE ---
                 else:
                     st.info("ℹ️ No loans recorded for this borrower yet.")
+            
             st.divider()
             
             # --- MODIFY SECTION ---
