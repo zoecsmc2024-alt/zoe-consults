@@ -845,22 +845,47 @@ def show_loans():
     tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
 
     # ==============================
-    # TAB 1: ISSUE LOAN (Branded Form)
+# 13. LOANS MANAGEMENT PAGE
+# ==============================
+
+def show_loans():
+    st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
+    
+    # 1. LOAD DATA
+    borrowers_df = get_cached_data("Borrowers")
+    loans_df = get_cached_data("Loans")
+
+    if borrowers_df.empty:
+        st.warning("⚠️ No borrowers found. Register a client in the Borrowers tab first!")
+        return
+        
+    active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
+
+    # --- TABBED INTERFACE ---
+    tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
+
+    # ==============================
+    # TAB 1: ISSUE LOAN
     # ==============================
     with tab_issue:
         if active_borrowers.empty:
             st.info("💡 Tip: Activate a borrower to issue a loan.")
         else:
+            # 🌟 EVERYTHING STARTS INSIDE THIS FORM
             with st.form("loan_issue_form"):
                 st.markdown("<h4 style='color: #2B3F87;'>📝 Create New Loan Agreement</h4>", unsafe_allow_html=True)
-                col1, col2 = st.columns(2)
-                selected_borrower = col1.selectbox("Select Borrower", active_borrowers["Name"].unique())
-                amount = col1.number_input("Principal Amount (UGX)", min_value=0, step=50000)
-                date_issued = col1.date_input("Date Issued", value=datetime.now())
                 
-                l_type = col2.selectbox("Loan Type", ["Business", "Personal", "Emergency", "Other"])
-                interest_rate = col2.number_input("Monthly Interest Rate (%)", min_value=0.0, step=0.5)
-                date_due = col2.date_input("Due Date", value=date_issued + timedelta(days=30))
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    selected_borrower = st.selectbox("Select Borrower", active_borrowers["Name"].unique())
+                    amount = st.number_input("Principal Amount (UGX)", min_value=0, step=50000)
+                    date_issued = st.date_input("Date Issued", value=datetime.now())
+                
+                with col2:
+                    l_type = st.selectbox("Loan Type", ["Business", "Personal", "Emergency", "Other"])
+                    interest_rate = st.number_input("Monthly Interest Rate (%)", min_value=0.0, step=0.5)
+                    date_due = st.date_input("Due Date", value=date_issued + timedelta(days=30))
 
                 # Math Preview
                 interest = (interest_rate / 100) * amount
@@ -873,49 +898,50 @@ def show_loans():
                 """, unsafe_allow_html=True)
 
                 st.write("")
-if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
-    if amount > 0:
-        # --- 1. FLEX-ID GENERATOR (Bulletproof against spaces) ---
-        # Look for "Loan ID" or "Loan_ID"
-        id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
-        
-        if not loans_df.empty:
-            # Clean non-numbers just in case, then find max
-            clean_ids = pd.to_numeric(loans_df[id_col], errors='coerce').fillna(0)
-            new_id = int(clean_ids.max() + 1)
-        else:
-            new_id = 1
-        
-        # --- 2. CALCULATE VALUES ---
-        safe_interest = float(interest) if pd.notna(interest) else 0.0
-        safe_total = float(total_due) if pd.notna(total_due) else float(amount)
 
-        # --- 3. BUILD THE DATA (Matched to your exact Google Sheet headers) ---
-        # Note: We use the exact names from your Sheet image to avoid sync errors
-        new_loan = pd.DataFrame([{
-            id_col: new_id, 
-            "Borrower": selected_borrower, 
-            "Type": l_type,
-            "Principal": float(amount),
-            "Rate (%)": float(interest_rate), # Matches your Sheet image header
-            "Interest": safe_interest,
-            "Total Repayable": safe_total,    # Matches your Sheet image header
-            "Amount Paid": 0.0,               # Matches your Sheet image header
-            "Issued On": date_issued.strftime("%Y-%m-%d"), # Matches your Sheet image header
-            "End Date": date_due.strftime("%Y-%m-%d"),     # Matches your Sheet image header
-            "Status": "Active"
-        }])
+                # 🌟 CRITICAL: This button is INDENTED to stay inside the form!
+                if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
+                    if amount > 0:
+                        # --- 1. ID GENERATOR ---
+                        id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
+                        
+                        if not loans_df.empty:
+                            clean_ids = pd.to_numeric(loans_df[id_col], errors='coerce').fillna(0)
+                            new_id = int(clean_ids.max() + 1)
+                        else:
+                            new_id = 1
+                        
+                        # --- 2. CALCULATE VALUES ---
+                        safe_interest = float(interest) if pd.notna(interest) else 0.0
+                        safe_total = float(total_due) if pd.notna(total_due) else float(amount)
 
-        # --- 4. SAVE TO GOOGLE SHEETS ---
-        updated_df = pd.concat([loans_df, new_loan], ignore_index=True)
-        if save_data("Loans", updated_df):
-            st.success(f"✅ Loan #{new_id} issued successfully to {selected_borrower}!")
-            st.session_state.loans = updated_df # Update local memory
-            st.rerun()
-        else:
-            st.error("❌ Failed to save to Google Sheets. Check your connection.")
-    else:
-        st.warning("⚠️ Please enter a valid loan amount.")
+                        # --- 3. BUILD THE DATA ---
+                        new_loan = pd.DataFrame([{
+                            id_col: new_id, 
+                            "Borrower": selected_borrower, 
+                            "Type": l_type,
+                            "Principal": float(amount),
+                            "Rate (%)": float(interest_rate), 
+                            "Interest": safe_interest,
+                            "Total Repayable": safe_total,    
+                            "Amount Paid": 0.0,               
+                            "Issued On": date_issued.strftime("%Y-%m-%d"), 
+                            "End Date": date_due.strftime("%Y-%m-%d"),     
+                            "Status": "Active"
+                        }])
+
+                        # --- 4. SAVE TO GOOGLE SHEETS ---
+                        updated_df = pd.concat([loans_df, new_loan], ignore_index=True)
+                        if save_data("Loans", updated_df):
+                            st.success(f"✅ Loan #{new_id} issued successfully to {selected_borrower}!")
+                            st.session_state.loans = updated_df 
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save to Google Sheets.")
+                    else:
+                        st.warning("⚠️ Please enter a valid loan amount.")
+
+
 
     # ==============================
     # TAB 2: PORTFOLIO INSPECTOR (Zoe Soft Blue)
