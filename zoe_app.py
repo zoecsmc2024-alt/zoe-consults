@@ -1203,17 +1203,31 @@ def show_payments():
     # TAB 1: RECORD NEW PAYMENT
     # ==============================
     with tab_new:
-        # Use lowercase for status check to be safe
-        active_loans = loans_df[loans_df["Status"].astype(str).str.lower() != "closed"]
+        # Use lowercase for status check to be safe and remove extra spaces
+        loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
+        active_loans = loans_df[loans_df["Status"].astype(str).str.lower() != "closed"].copy()
         
         if active_loans.empty:
             st.success("🎉 All loans are currently cleared!")
         else:
-            # 1. Selection logic
-            loan_options = active_loans.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
-            selected_option = st.selectbox("Select Loan to Credit", loan_options)
-            selected_id = int(selected_option.split(" - ")[0].replace("ID: ", ""))
-            loan = active_loans[active_loans["Loan_ID"] == selected_id].iloc[0]
+            # 1. Selection logic with Safe ID parsing
+            active_loans['Loan_ID'] = active_loans['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
+            
+            loan_options = active_loans.apply(
+                lambda x: f"ID: {x.get('Loan_ID', 'N/A')} - {x.get('Borrower', 'Unknown')}", 
+                axis=1
+            ).tolist()
+            
+            selected_option = st.selectbox("Select Loan to Credit", loan_options, key="payment_selector_unique")
+            
+            # Safe Parsing of the ID
+            try:
+                raw_id = selected_option.split(" - ")[0].replace("ID: ", "")
+                selected_id_str = str(int(float(raw_id)))
+                loan = active_loans[active_loans["Loan_ID"] == selected_id_str].iloc[0]
+            except Exception as e:
+                st.error("❌ Could not parse the Loan ID. Please check the Google Sheet row.")
+                st.stop()
 
             # 2. Calculation (Properly Indented)
             # Safe recovery: Total Repayable or (Principal + Interest)
@@ -1221,62 +1235,72 @@ def show_payments():
             if total_rep == 0:
                 total_rep = float(loan.get("Principal", 0)) + float(loan.get("Interest", 0))
 
-            # Convert to numeric safely
-            total_rep = pd.to_numeric(total_rep, errors='coerce')
-            paid_so_far = pd.to_numeric(loan.get("Amount_Paid", 0), errors='coerce')
+            paid_so_far = pd.to_numeric(loan.get("Amount_Paid", 0), errors='coerce') or 0.0
             outstanding = total_rep - paid_so_far
 
-            # --- STYLED CARDS (Continue here) ---
+            # --- STYLED CARDS ---
             c1, c2, c3 = st.columns(3)
-            status_color = "#00ffcc" if loan['Status'] == "Active" else "#FF4B4B"
+            # Logic for color: Green for Active, Red for Overdue
+            status_val = str(loan.get('Status', 'Active')).strip()
+            status_color = "#2E7D32" if status_val == "Active" else "#FF4B4B"
             
-            c1.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CLIENT</p><h3 style="margin:0; color:#2B3F87;">{loan['Borrower']}</h3></div>""", unsafe_allow_html=True)
-            c2.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">BALANCE DUE</p><h3 style="margin:0; color:#FF4B4B;">{outstanding:,.0f} <span style="font-size:14px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-            c3.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {status_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">STATUS</p><h3 style="margin:0; color:{status_color}; text-transform:uppercase;">{loan['Status']}</h3></div>""", unsafe_allow_html=True)
+            c1.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CLIENT</p><h3 style="margin:0; color:#2B3F87; font-size:18px;">{loan['Borrower']}</h3></div>""", unsafe_allow_html=True)
+            c2.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">BALANCE DUE</p><h3 style="margin:0; color:#FF4B4B; font-size:18px;">{outstanding:,.0f} <span style="font-size:12px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+            c3.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {status_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">STATUS</p><h3 style="margin:0; color:{status_color}; text-transform:uppercase; font-size:18px;">{status_val}</h3></div>""", unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
+            # --- PAYMENT FORM ---
             with st.form("payment_form", clear_on_submit=True):
-                col_a, col_b, col_c = st.columns(3) # Changed to 3 columns for better fit
+                col_a, col_b, col_c = st.columns(3)
                 
                 pay_amount = col_a.number_input("Amount Received (UGX)", min_value=0, step=10000)
-                pay_method = col_b.selectbox("Method", ["Mobile Money", "Cash", "Bank Transfer"])
-                
-                # --- NEW: MANUAL DATE INPUT ---
-                # Default to today, but you can now pick any date in the past
+                pay_method = col_b.selectbox("Method", ["Mobile Money", "Cash", "Bank Transfer", "Cheque"])
                 pay_date = col_c.date_input("Payment Date", value=datetime.now())
                 
                 if st.form_submit_button("✅ Post Payment", use_container_width=True):
+                    # We allow a tiny 100 UGX margin for rounding issues
                     if 0 < pay_amount <= (outstanding + 100):
                         try:
-                            # Create Payment Record
-                            new_p_id = int(payments_df["Payment_ID"].max() + 1) if not payments_df.empty else 1
+                            # 1. Create Payment Record
+                            if not payments_df.empty:
+                                new_p_id = int(payments_df["Payment_ID"].astype(float).max() + 1)
+                            else:
+                                new_p_id = 1
+                                
                             new_payment = pd.DataFrame([{
                                 "Payment_ID": new_p_id, 
-                                "Loan_ID": selected_id, 
+                                "Loan_ID": selected_id_str, 
                                 "Borrower": loan["Borrower"],
-                                "Amount": pay_amount, 
-                                # Use the manually picked date instead of 'now'
+                                "Amount": float(pay_amount), 
                                 "Date": pay_date.strftime("%Y-%m-%d"), 
                                 "Method": pay_method, 
                                 "Recorded_By": st.session_state.get("user", "Zoe (Admin)")
                             }])
 
-                            # Update Loan Balance logic
-                            idx = loans_df[loans_df["Loan_ID"] == selected_id].index[0]
-                            loans_df.at[idx, "Amount_Paid"] = paid_so_far + pay_amount
+                            # 2. Update Loan Balance logic in the main dataframe
+                            idx = loans_df[loans_df["Loan_ID"] == selected_id_str].index[0]
+                            new_total_paid = float(paid_so_far) + float(pay_amount)
+                            loans_df.at[idx, "Amount_Paid"] = new_total_paid
                             
-                            # Auto-Close logic
-                            if loans_df.at[idx, "Amount_Paid"] >= (total_rep - 10):
+                            # 3. Auto-Close logic
+                            if new_total_paid >= (total_rep - 10):
                                 loans_df.at[idx, "Status"] = "Closed"
 
-                            if save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True)) and save_data("Loans", loans_df):
-                                st.success(f"Payment for {pay_date.strftime('%d %b')} recorded!")
+                            # 4. Save both sheets back to Google
+                            # Convert columns back to spaces for Google Sheets format
+                            save_loans = loans_df.copy()
+                            save_loans.columns = save_loans.columns.str.replace("_", " ")
+                            
+                            if save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True)) and \
+                               save_data("Loans", save_loans):
+                                st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded for {loan['Borrower']}!")
+                                st.session_state.loans = save_loans # Update state
                                 st.rerun()
                         except Exception as e:
-                            st.error(f"Error: {e}")
+                            st.error(f"Error saving data: {e}")
                     else:
-                        st.error("Invalid amount. Cannot exceed balance due.")
+                        st.error(f"⚠️ Invalid amount. Balance due is {outstanding:,.0f} UGX.")
 
     # ==============================
     # TAB 2: HISTORY (Color via Emojis)
