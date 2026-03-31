@@ -780,30 +780,25 @@ def show_borrowers():
     # --- TAB 3: AUDIT PORTFOLIO ---
     with tab_audit:
         if not df.empty:
-            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_select_final")
+            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_final_v5")
             
-            # 1. Standardize the Loans Data
+            # 1. Clean the Loans Data
             u_loans = loans_df.copy()
-            u_loans.columns = [str(c).strip() for c in u_loans.columns] # Just clean spaces
+            u_loans.columns = [str(c).strip() for c in u_loans.columns]
             
-            # 🌟 THE FIX: Look for the column called "Name" in the Loans sheet
-            # We match the "Name" in Loans to the "target_name" selected above
-            if "Name" in u_loans.columns:
-                user_loans = u_loans[u_loans["Name"] == target_name].copy()
+            # 🌟 THE FIX: We are looking for "Borrower" exactly as it is in Excel
+            if "Borrower" in u_loans.columns:
+                user_loans = u_loans[u_loans["Borrower"] == target_name].copy()
                 
                 if not user_loans.empty:
-                    # Show the Metrics
-                    m1, m2 = st.columns(2)
-                    m1.metric("Total Loans", len(user_loans))
-                    
-                    # Display the history table
-                    st.write(f"### 📜 Loan History for {target_name}")
+                    st.markdown(f"### 📜 Loan History for {target_name}")
+                    # Show the loans in a clean table
                     st.dataframe(user_loans, use_container_width=True)
                 else:
-                    st.info(f"ℹ️ No loan records found in the Loans sheet for {target_name}.")
+                    st.info(f"ℹ️ No records found for {target_name} in the Loans sheet.")
             else:
-                # If "Name" isn't found, show what columns ARE actually there so we can fix it
-                st.error(f"⚠️ Column 'Name' not found in Loans sheet. Found: {list(u_loans.columns)}")
+                # This helps us debug if there's a hidden space like "Borrower "
+                st.error(f"⚠️ Column 'Borrower' not found. Actual columns: {list(u_loans.columns)}")
 
 
 
