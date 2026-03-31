@@ -960,7 +960,9 @@ def show_loans():
             display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
             
             # 2. CLEAN DATA TYPES
-            for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
+            # 🌟 FIXED: We ensure pd.to_numeric only runs on the WHOLE column to avoid the Series error
+            numeric_cols = ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]
+            for col in numeric_cols:
                 if col in display_df.columns:
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 else:
@@ -968,7 +970,9 @@ def show_loans():
 
             # 3. STATUS FILTERING
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
-            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
+            # Ensure we handle the ID column string conversion safely
+            if "Loan_ID" in display_df.columns:
+                display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
             display_df = display_df[display_df["Status"].isin(relevant_statuses)].copy()
@@ -1051,7 +1055,6 @@ def show_loans():
                 st.markdown(final_table_html, unsafe_allow_html=True)
         else:
             st.info("ℹ️ No loans recorded in the system yet.")
-
 
             
 
