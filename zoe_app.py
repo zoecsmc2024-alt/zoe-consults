@@ -925,17 +925,11 @@ def show_loans():
                         new_id = int(last_id + 1) if pd.notna(last_id) else 1
                         
                         new_loan = pd.DataFrame([{
-                            "Loan_ID": new_id, 
-                            "Borrower": selected_borrower, 
-                            "Type": l_type,
-                            "Principal": float(amount),
-                            "Interest_Rate": float(interest_rate),
-                            "Interest": float(interest),
-                            "Total_Repayable": float(total_due), 
-                            "Amount_Paid": 0.0,
-                            "Start_Date": date_issued.strftime("%Y-%m-%d"),
-                            "End_Date": date_due.strftime("%Y-%m-%d"),
-                            "Status": "Active"
+                            "Loan_ID": new_id, "Borrower": selected_borrower, "Type": l_type,
+                            "Principal": float(amount), "Interest_Rate": float(interest_rate),
+                            "Interest": float(interest), "Total_Repayable": float(total_due), 
+                            "Amount_Paid": 0.0, "Start_Date": date_issued.strftime("%Y-%m-%d"),
+                            "End_Date": date_due.strftime("%Y-%m-%d"), "Status": "Active"
                         }])
                         
                         updated_df = pd.concat([loans_df, new_loan], ignore_index=True).fillna(0)
@@ -944,33 +938,36 @@ def show_loans():
                             st.rerun()
 
     # ==============================
-    # TAB 2: PORTFOLIO (Fixed ValueError)
+    # TAB 2: PORTFOLIO (The "Zero-Error" Logic)
     # ==============================
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
             display_df.columns = [str(c).strip().replace(" ", "_") for c in display_df.columns]
             
-            # --- THE ULTIMATE FIX: FLATTEN AND CLEAN ---
-            numeric_cols = ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate", "Total_Repayable"]
-            for col in numeric_cols:
+            # 1. Force everything to 1D numeric arrays immediately
+            for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate", "Total_Repayable"]:
                 if col in display_df.columns:
-                    # ravel() ensures 1D array, to_numeric handles types
-                    clean_values = pd.to_numeric(np.array(display_df[col]).ravel(), errors='coerce')
-                    display_df[col] = pd.Series(clean_values).fillna(0)
+                    # np.ravel makes it a flat list; .astype(float) prevents alignment errors
+                    display_df[col] = pd.to_numeric(np.array(display_df[col]).ravel(), errors='coerce').astype(float)
                 else:
                     display_df[col] = 0.0
-
+            
+            display_df = display_df.fillna(0)
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
-            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
             
             active_view = display_df[display_df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].copy()
 
             if active_view.empty:
                 st.info("ℹ️ No active loans currently.")
             else:
-                p_col = "Principal" if "Principal" in active_view.columns else "Amount"
-                active_view["Outstanding_Balance"] = (active_view[p_col] + active_view["Interest"]) - active_view["Amount_Paid"]
+                # 2. FIXED CALCULATION: Using .values to avoid alignment/ValueError
+                p_vals = active_view["Principal"].values if "Principal" in active_view.columns else active_view["Amount"].values
+                int_vals = active_view["Interest"].values
+                paid_vals = active_view["Amount_Paid"].values
+                
+                # Assign the math result directly
+                active_view["Outstanding_Balance"] = (p_vals + int_vals) - paid_vals
                 
                 rows_html = ""
                 for i, r in active_view.iterrows():
@@ -979,9 +976,9 @@ def show_loans():
                     
                     rows_html += f"""
                     <tr style="background-color: {bg}; border-bottom: 1px solid #eee;">
-                        <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
-                        <td style="padding:10px;">{r['Borrower']}</td>
-                        <td style="padding:10px; text-align:right;">{r[p_col]:,.0f}</td>
+                        <td style="padding:10px;"><b>#{r.get('Loan_ID', '0')}</b></td>
+                        <td style="padding:10px;">{r.get('Borrower', 'N/A')}</td>
+                        <td style="padding:10px; text-align:right;">{r.get('Principal', 0):,.0f}</td>
                         <td style="padding:10px; text-align:right; color:#D32F2F; font-weight:bold;">{r['Outstanding_Balance']:,.0f}</td>
                         <td style="padding:10px; text-align:center;"><span style="background:{stat_color}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span></td>
                         <td style="padding:10px; text-align:center;">{r.get('End_Date', 'N/A')}</td>
@@ -996,8 +993,8 @@ def show_loans():
     with tab_manage:
         if not loans_df.empty:
             st.markdown("<h4 style='color: #2B3F87;'>🛠️ Loan Maintenance</h4>", unsafe_allow_html=True)
-            target_id = st.selectbox("Select Loan ID to modify", loans_df["Loan_ID"].unique())
-            action = st.radio("Choose Action", ["Update Balance", "Close Loan", "Delete Record"], horizontal=True)
+            target_id = st.selectbox("Select Loan ID", loans_df["Loan_ID"].unique())
+            action = st.radio("Choose Action", ["Update Balance", "Close Loan"], horizontal=True)
             
             if action == "Update Balance":
                 amt = st.number_input("Amount Paid (UGX)", min_value=0)
@@ -1005,12 +1002,6 @@ def show_loans():
                     loans_df.loc[loans_df["Loan_ID"] == target_id, "Amount_Paid"] += amt
                     save_data("Loans", loans_df)
                     st.success("Successfully updated.")
-                    st.rerun()
-            
-            elif action == "Close Loan":
-                if st.button("Settle Account"):
-                    loans_df.loc[loans_df["Loan_ID"] == target_id, "Status"] = "Settled"
-                    save_data("Loans", loans_df)
                     st.rerun()
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
