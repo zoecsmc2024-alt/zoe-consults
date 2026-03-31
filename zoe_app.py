@@ -950,45 +950,45 @@ def show_loans():
                 # 🌟 INDENTED: This button and logic are now inside the form
                 if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
                     if amount > 0:
-                        # --- 1. ID GENERATOR ---
+                        # 1. ID GENERATOR
                         id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
                         
                         if not loans_df.empty:
+                            # Convert IDs to numeric to find the max safely
                             clean_ids = pd.to_numeric(loans_df[id_col], errors='coerce').fillna(0)
                             new_id = int(clean_ids.max() + 1)
                         else:
                             new_id = 1
                         
-                        # --- 2. CALCULATE VALUES ---
-                        safe_interest = float(interest) if pd.notna(interest) else 0.0
-                        safe_total = float(total_due) if pd.notna(total_due) else float(amount)
+                        # 2. CALCULATE VALUES
+                        interest = (interest_rate / 100) * amount
+                        total_due = amount + interest
 
-                        # --- 3. BUILD THE DATA ---
+                        # 3. BUILD THE NEW LOAN DATA
                         new_loan = pd.DataFrame([{
                             id_col: new_id, 
                             "Borrower": selected_borrower, 
                             "Type": l_type,
                             "Principal": float(amount),
                             "Rate (%)": float(interest_rate), 
-                            "Interest": safe_interest,
-                            "Total Repayable": safe_total,    
+                            "Interest": float(interest),
+                            "Total Repayable": float(total_due),    
                             "Amount Paid": 0.0,               
                             "Issued On": date_issued.strftime("%Y-%m-%d"), 
                             "End Date": date_due.strftime("%Y-%m-%d"),     
                             "Status": "Active"
                         }])
 
-                        # --- 4. SAVE TO GOOGLE SHEETS ---
-                        # Clean entire DataFrame of NaNs to avoid JSON errors
-                        final_loans_df = loans_df.fillna("")
-                        updated_df = pd.concat([final_loans_df, new_loan], ignore_index=True)
+                        # 🌟 THE CRITICAL FIX: Clean the entire sheet of NaNs before saving
+                        updated_loans_df = pd.concat([loans_df, new_loan], ignore_index=True)
+                        final_df_to_save = updated_loans_df.fillna("") # <--- THIS TURNS nan INTO ""
                         
-                        if save_data("Loans", updated_df):
+                        # 4. SAVE TO GOOGLE SHEETS
+                        if save_data("Loans", final_df_to_save):
                             st.success(f"✅ Loan #{new_id} issued successfully to {selected_borrower}!")
-                            st.session_state.loans = updated_df 
                             st.rerun()
                         else:
-                            st.error("❌ Failed to save to Google Sheets.")
+                            st.error("❌ Failed to save to Google Sheets. Check connection.")
                     else:
                         st.warning("⚠️ Please enter a valid loan amount.")
 
