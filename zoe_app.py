@@ -2304,11 +2304,11 @@ def show_payroll():
     # --- TAB 2: HISTORY ---
     with tab_logs:
         if not df.empty:
-            # 1. Header and Button
+            # 1. TOP ROW: Title and Print Button
             p_col1, p_col2 = st.columns([4, 1])
             p_col1.markdown(f"<h3 style='color: #4A90E2;'>{datetime.now().strftime('%B %Y')} Summary</h3>", unsafe_allow_html=True)
             
-            # 2. Build rows logic
+            # 2. Build rows logic (Same as yours)
             def fm(x): 
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
@@ -2318,7 +2318,22 @@ def show_payroll():
                 n5 = float(r.get('NSSF_5', 0))
                 n10 = float(r.get('NSSF_10', 0))
                 n15_total = n5 + n10
-                rows_html += f"<tr><td style='border:1px solid #ddd;padding:8px;'>{i+1}</td><td style='border:1px solid #ddd;padding:8px;'><b>{r['Employee']}</b><br><small>{r.get('Designation','-')}</small></td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['Arrears'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['Basic_Salary'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['Gross_Salary'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['PAYE'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(n5)}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;background:#f0f0f0;'><b>{fm(r['Net_Pay'])}</b></td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(n10)}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(n15_total)}</td></tr>"
+                rows_html += f"""
+                    <td style='text-align:center; border:1px solid #ddd; padding: 15px 10px;'>{i+1}</td>
+                    <td style='border:1px solid #ddd; padding: 15px 10px;'>
+                        <div style="font-weight:bold; font-size:12px;">{r['Employee']}</div>
+                        <div style="font-size:10px; color:#555;">{r.get('Designation', '-')}</div>
+                        <div style="font-size:10px; color:#2B3F87; margin-top:4px;"><b>A/C:</b> {r.get('Account_No', '-')}</div>
+                    </td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Arrears'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Basic_Salary'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['PAYE'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(n5)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4;'>{fm(n10)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_total)}</td>
+                </tr>"""
 
             # 3. THE COMPLETE PRINTABLE HTML
             # We add a script that triggers print() automatically when this specific HTML loads
