@@ -1173,34 +1173,48 @@ def show_loans():
                             st.error("❌ Failed to sync. Check your Google Sheets permissions.")
 
                 if b_del.button("🗑️ Delete Permanently", use_container_width=True):
-                    # 1. Create a "Searchable" copy to find the right ID
-                    delete_copy = loans_df.copy()
-                    delete_copy.columns = delete_copy.columns.str.strip().str.replace(" ", "_")
+                    # 1. Capture the selection immediately
+                    current_val = str(selected_m) 
                     
-                    # 2. Get the current ID from your selection dropdown
                     try:
-                        current_selection_id = selected_m.split("|")[0].replace("ID:", "").strip()
-                        # Clean ID for matching (removes .0 if it exists)
-                        clean_id = str(int(float(current_selection_id)))
-                    except:
-                        st.error("Could not verify ID for deletion.")
+                        # 🌟 SUPER-FLEXIBLE PARSING
+                        # This finds the number regardless of "ID:", "ID :", or "ID  3"
+                        import re
+                        match = re.search(r'ID:\s*(\d+)', current_val)
+                        if match:
+                            clean_id = match.group(1)
+                        else:
+                            # Fallback to the old split method if regex fails
+                            clean_id = current_val.split("|")[0].split(":")[-1].strip()
+                        
+                        # Remove any decimals like "3.0" -> "3"
+                        clean_id = str(int(float(clean_id)))
+                    except Exception as e:
+                        st.error(f"Selection Error: Could not identify ID from '{current_val}'")
                         st.stop()
 
-                    # 3. Create a mask to filter out the row we want to delete
-                    # We use the 'delete_copy' to find which row number matches
-                    mask = delete_copy["Loan_ID"].astype(str).str.replace(".0", "", regex=False) != clean_id
+                    # 2. Prepare the data for searching
+                    delete_copy = loans_df.copy()
+                    # Force headers to strings and replace spaces
+                    delete_copy.columns = [str(c).strip().replace(" ", "_") for c in delete_copy.columns]
                     
-                    # 4. Filter the ORIGINAL loans_df using that mask
-                    # This keeps all rows EXCEPT the one we are deleting
+                    # 3. Apply the mask to the ORIGINAL loans_df
+                    # This ensures we are deleting based on the cleaned ID column
+                    target_col = "Loan_ID" if "Loan_ID" in delete_copy.columns else "Loan ID"
+                    
+                    mask = delete_copy[target_col].astype(str).str.replace(".0", "", regex=False) != clean_id
                     remaining_loans = loans_df[mask.values]
-                    
-                    # 5. Save the new list (without the deleted loan) back to Google Sheets
-                    if save_data("Loans", remaining_loans):
-                        st.warning(f"⚠️ Loan #{clean_id} has been permanently deleted.")
-                        st.session_state.loans = remaining_loans # Update state
-                        st.rerun()
+
+                    # 4. Save and Rerun
+                    if len(remaining_loans) < len(loans_df):
+                        if save_data("Loans", remaining_loans):
+                            st.warning(f"⚠️ Loan #{clean_id} for {current_val.split('|')[-1]} deleted.")
+                            st.session_state.loans = remaining_loans
+                            st.rerun()
+                        else:
+                            st.error("❌ Google Sheets sync failed.")
                     else:
-                        st.error("❌ Failed to delete. Check your connection to Google Sheets.")
+                        st.error(f"❌ Record not found. Could not match ID {clean_id} in the database.")
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
