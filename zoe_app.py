@@ -799,35 +799,32 @@ def show_borrowers():
                     e_addr = st.text_input("Physical Address", value=str(b_data.get('Address', '')))
                     
                     if st.form_submit_button("🚀 Save Borrower Profile", use_container_width=True):
-                        if name and phone:
-                            # 🌟 EVERYTHING BELOW THIS MUST BE INDENTED 🌟
-                            # 1. Generate New ID
-                            new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
-                            
-                            # 2. Create the new entry
-                            new_entry = pd.DataFrame([{
-                                "Borrower_ID": new_id, 
-                                "Name": name, 
-                                "Phone": phone,
-                                "National_ID": nid, 
-                                "Address": addr, 
-                                "Status": "Active",
-                                "Date_Added": datetime.now().strftime("%Y-%m-%d")
-                            }])
-                            
-                            # 3. Combine and Clean
-                            updated_df = pd.concat([df, new_entry], ignore_index=True).fillna("")
-                            # 🌟 THE CRITICAL FIX: Remove all NaNs before saving
-                    # This turns "nan" into "" so the JSON error stops
-                    final_df_to_save = updated_df.fillna("")
+                if name and phone:
+                    # 1. Generate New ID
+                    new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
+                    
+                    # 2. Create the new entry
+                    new_entry = pd.DataFrame([{
+                        "Borrower_ID": new_id, 
+                        "Name": name, 
+                        "Phone": phone,
+                        "National_ID": nid, 
+                        "Address": addr, 
+                        "Status": "Active",
+                        "Date_Added": datetime.now().strftime("%Y-%m-%d")
+                    }])
+                    
+                    # 3. Combine and Clean (Removes JSON NaNs)
+                    updated_df = pd.concat([df, new_entry], ignore_index=True).fillna("")
                     
                     # 4. Save the sanitized data
-                    if save_data("Borrowers", final_df_to_save):
+                    if save_data("Borrowers", updated_df):
                         st.success(f"✅ {name} registered successfully!")
                         st.rerun()
                     else:
                         st.error("❌ Google Sheets connection failed.")
                 else:
+                    # 🌟 This ELSE must line up perfectly with 'if name and phone'
                     st.error("⚠️ Required: Name and Phone Number.")
                     
                     
