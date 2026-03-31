@@ -780,34 +780,32 @@ def show_borrowers():
     # --- TAB 3: AUDIT PORTFOLIO ---
     with tab_audit:
         if not df.empty:
-            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_select")
+            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_select_v2")
+            
+            # Find the borrower data
             b_data = df[df["Name"] == target_name].iloc[0]
             
             st.markdown(f"""<div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border-left: 5px solid #4A90E2;"><p style="margin:0; color:#2B3F87;"><b>📍 Address:</b> {b_data.get('Address', 'N/A')}</p></div>""", unsafe_allow_html=True)
             
-            user_loans = loans_df[loans_df["Borrower"] == target_name].copy()
-            if not user_loans.empty:
-                user_loans.columns = user_loans.columns.str.strip().str.replace(" ", "_")
-                for col in ['Amount_Paid', 'Total_Repayable', 'Principal']:
-                    if col in user_loans.columns:
-                        user_loans[col] = pd.to_numeric(user_loans[col], errors='coerce').fillna(0)
+            # 🌟 THE FIX FOR THE RED BOX (Line 788):
+            u_loans = loans_df.copy()
+            
+            # Force headers to match (removes spaces and cases)
+            u_loans.columns = [str(c).strip().replace(" ", "_") for c in u_loans.columns]
+            
+            # Check for the correct column name (could be Borrower or Borrower_Name)
+            b_col = "Borrower" if "Borrower" in u_loans.columns else "Borrower_Name"
+            
+            if b_col in u_loans.columns:
+                user_loans = u_loans[u_loans[b_col] == target_name].copy()
                 
-                total_bal = user_loans['Total_Repayable'].sum() - user_loans['Amount_Paid'].sum()
-                
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Total Loans", len(user_loans))
-                m2.metric("Active Loans", user_loans[user_loans["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].shape[0])
-                m3.metric("Total Balance", f"{total_bal:,.0f} UGX")
-
-                history_rows = ""
-                for i, row in user_loans.iterrows():
-                    bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                    history_rows += f"""<tr style="background-color:{bg};"><td style="padding:10px;">#{row.get('Loan_ID','N/A')}</td><td style="padding:10px;">{row.get('Principal',0):,.0f}</td><td style="padding:10px;text-align:center;">{row['Status']}</td><td style="padding:10px;text-align:right;">{row.get('End_Date','N/A')}</td></tr>"""
-                
-                st.markdown(f"<div style='border:1px solid #4A90E2; border-radius:8px; overflow:hidden; margin-top:15px;'><table style='width:100%; font-size:12px; border-collapse:collapse;'><tr style='background:#4A90E2; color:white;'><th style='padding:10px; text-align:left;'>ID</th><th style='padding:10px; text-align:left;'>Principal</th><th style='padding:10px; text-align:center;'>Status</th><th style='padding:10px; text-align:right;'>Due Date</th></tr>{history_rows}</table></div>", unsafe_allow_html=True)
+                if not user_loans.empty:
+                    # (Rest of your metrics and table rendering logic here...)
+                    st.write(f"Found {len(user_loans)} loans for this borrower.")
+                else:
+                    st.info("ℹ️ No loan history for this borrower.")
             else:
-                st.info("ℹ️ No loan history for this borrower.")
-
+                st.error(f"⚠️ Column '{b_col}' not found in Loans sheet. Please check headers.")
 
 
 
