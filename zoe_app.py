@@ -780,32 +780,30 @@ def show_borrowers():
     # --- TAB 3: AUDIT PORTFOLIO ---
     with tab_audit:
         if not df.empty:
-            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_select_v2")
+            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_select_final")
             
-            # Find the borrower data
-            b_data = df[df["Name"] == target_name].iloc[0]
-            
-            st.markdown(f"""<div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border-left: 5px solid #4A90E2;"><p style="margin:0; color:#2B3F87;"><b>📍 Address:</b> {b_data.get('Address', 'N/A')}</p></div>""", unsafe_allow_html=True)
-            
-            # 🌟 THE FIX FOR THE RED BOX (Line 788):
+            # 1. Standardize the Loans Data
             u_loans = loans_df.copy()
+            u_loans.columns = [str(c).strip() for c in u_loans.columns] # Just clean spaces
             
-            # Force headers to match (removes spaces and cases)
-            u_loans.columns = [str(c).strip().replace(" ", "_") for c in u_loans.columns]
-            
-            # Check for the correct column name (could be Borrower or Borrower_Name)
-            b_col = "Borrower" if "Borrower" in u_loans.columns else "Borrower_Name"
-            
-            if b_col in u_loans.columns:
-                user_loans = u_loans[u_loans[b_col] == target_name].copy()
+            # 🌟 THE FIX: Look for the column called "Name" in the Loans sheet
+            # We match the "Name" in Loans to the "target_name" selected above
+            if "Name" in u_loans.columns:
+                user_loans = u_loans[u_loans["Name"] == target_name].copy()
                 
                 if not user_loans.empty:
-                    # (Rest of your metrics and table rendering logic here...)
-                    st.write(f"Found {len(user_loans)} loans for this borrower.")
+                    # Show the Metrics
+                    m1, m2 = st.columns(2)
+                    m1.metric("Total Loans", len(user_loans))
+                    
+                    # Display the history table
+                    st.write(f"### 📜 Loan History for {target_name}")
+                    st.dataframe(user_loans, use_container_width=True)
                 else:
-                    st.info("ℹ️ No loan history for this borrower.")
+                    st.info(f"ℹ️ No loan records found in the Loans sheet for {target_name}.")
             else:
-                st.error(f"⚠️ Column '{b_col}' not found in Loans sheet. Please check headers.")
+                # If "Name" isn't found, show what columns ARE actually there so we can fix it
+                st.error(f"⚠️ Column 'Name' not found in Loans sheet. Found: {list(u_loans.columns)}")
 
 
 
