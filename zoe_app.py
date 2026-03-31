@@ -1426,14 +1426,43 @@ def show_payments():
                     if save_data("Loans", loans_df):
                         st.success(f"✅ Loan #{clean_id} updated!"); st.rerun()
 
-            # --- DELETE BUTTON ---
-            if b_del.button("🗑️ Delete Permanently", use_container_width=True):
-                id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
-                # Keep everything EXCEPT the clean_id
-                new_df = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
+            # --- TAB 3: EDIT/DELETE PAYMENTS ---
+    with tab_delete:
+        # 1. LOAD FRESH PAYMENTS DATA
+        pay_df = get_cached_data("Payments") # 🌟 Make sure we look at Payments!
+        
+        if pay_df is None or pay_df.empty:
+            st.info("No payment records found to edit.")
+        else:
+            st.markdown("### ⚙️ Manage Payment Records")
+            
+            # 2. SELECT THE PAYMENT (Not the Loan!)
+            # Create a label that shows ID + Borrower + Amount for clarity
+            pay_df['Selection_Label'] = pay_df['Payment_ID'].astype(str) + " - " + pay_df['Borrower'] + " (" + pay_df['Amount'].astype(str) + ")"
+            
+            target_payment = st.selectbox(
+                "Select Payment Record to Action", 
+                pay_df['Selection_Label'].tolist(),
+                key="payment_manage_select"
+            )
+            
+            # Extract the actual ID from our selection
+            selected_pay_id = int(target_payment.split(" - ")[0])
+            pay_idx = pay_df[pay_df["Payment_ID"] == selected_pay_id].index[0]
+            
+            st.warning(f"⚠️ You are managing Payment ID: {selected_pay_id}")
+
+            # --- DELETE ACTION ---
+            if st.button(f"🗑️ Delete Payment #{selected_pay_id} Permanently", use_container_width=True):
+                # 🌟 THE FIX: We drop from the PAYMENTS dataframe, not the LOANS dataframe
+                new_pay_df = pay_df.drop(pay_idx).drop(columns=['Selection_Label'])
                 
-                if save_data("Loans", new_df):
-                    st.warning(f"⚠️ Loan #{clean_id} deleted."); st.rerun()
+                # Use fillna("") to avoid the JSON nan error we saw earlier
+                if save_data("Payments", new_pay_df.fillna("")):
+                    st.success(f"✅ Payment #{selected_pay_id} has been removed.")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to update the Payments sheet.")
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
