@@ -1343,6 +1343,7 @@ def show_payments():
         # 1. LOAD & CLEAN DATA
         # Ensure we are looking at the latest data
         m_df = st.session_state.get("loans", pd.DataFrame()).copy()
+        m_df.columns = [str(col) for col in m_df.columns]
         m_df.columns = m_df.columns.str.strip().str.replace(" ", "_")
         
         if m_df.empty:
