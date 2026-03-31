@@ -782,18 +782,34 @@ def show_borrowers():
             # --- EDIT FORM ---
             with st.expander(f"📝 Edit Profile: {target_name}"):
                 with st.form(f"edit_bor_{target_name}"):
-                    e_name = st.text_input("Name", value=str(b_data['Name']))
-                    e_phone = st.text_input("Phone", value=str(b_data['Phone']))
-                    e_status = st.selectbox("Status", ["Active", "Inactive"], index=0 if b_data['Status'] == "Active" else 1)
-                    e_addr = st.text_input("Address", value=str(b_data.get('Address', '')))
+                    c1, c2 = st.columns(2)
                     
-                    if st.form_submit_button("💾 Update Profile"):
+                    # Column 1: Core Identity
+                    e_name = c1.text_input("Full Name", value=str(b_data['Name']))
+                    e_phone = c1.text_input("Phone Number", value=str(b_data['Phone']))
+                    e_nid = c1.text_input("National ID / NIN", value=str(b_data.get('National_ID', '')))
+                    
+                    # Column 2: Contact & Status
+                    e_email = c2.text_input("Email Address", value=str(b_data.get('Email', '')))
+                    e_kin = c2.text_input("Next of Kin", value=str(b_data.get('Next_of_Kin', '')))
+                    e_status = c2.selectbox("Account Status", ["Active", "Inactive"], 
+                                          index=0 if b_data['Status'] == "Active" else 1)
+                    
+                    # Full Width: Address
+                    e_addr = st.text_input("Physical Address", value=str(b_data.get('Address', '')))
+                    
+                    if st.form_submit_button("💾 Save Updated Profile", use_container_width=True):
+                        # Update the DataFrame at the correct index
                         df.at[borrower_idx, 'Name'] = e_name
                         df.at[borrower_idx, 'Phone'] = e_phone
+                        df.at[borrower_idx, 'National_ID'] = e_nid
+                        df.at[borrower_idx, 'Email'] = e_email
+                        df.at[borrower_idx, 'Next_of_Kin'] = e_kin
                         df.at[borrower_idx, 'Status'] = e_status
                         df.at[borrower_idx, 'Address'] = e_addr
+                        
                         if save_data("Borrowers", df):
-                            st.success("✅ Profile Updated!"); st.rerun()
+                            st.success(f"✅ {e_name}'s profile has been updated!"); st.rerun()
 
             # --- DELETE ACTION ---
             st.markdown("### ⚠️ Danger Zone")
