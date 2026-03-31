@@ -722,15 +722,30 @@ def show_borrowers():
             )
             display_df = filtered_df[mask]
             
-            # ... render your table ...
-        status_filter = col2.selectbox("Filter Status", ["All", "Active", "Inactive"])
+            # --- SEARCH & FILTER LOGIC ---
+    # 🌟 THE FIX: Create the columns before using them!
+    col1, col2 = st.columns([3, 1]) 
+    
+    with col1:
+        search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...").lower()
+    
+    with col2:
+        # Now col2 exists, so Line 726 won't crash!
+        status_filter = st.selectbox("Filter Status", ["All", "Active", "Inactive"])
 
-        filtered_df = df.copy()
-        if search:
-            filtered_df = filtered_df[
-                filtered_df["Name"].str.contains(search, case=False, na=False) |
-                filtered_df["Phone"].str.contains(search, case=False, na=False)
-            ]
+    if not filtered_df.empty:
+        # Convert to string for safety
+        filtered_df["Name"] = filtered_df["Name"].astype(str)
+        filtered_df["Phone"] = filtered_df["Phone"].astype(str)
+        
+        # 1. Apply Search Filter
+        mask = (
+            filtered_df["Name"].str.lower().str.contains(search, na=False) | 
+            filtered_df["Phone"].str.contains(search, na=False)
+        )
+        filtered_df = filtered_df[mask]
+
+        # 2. Apply Status Filter
         if status_filter != "All":
             filtered_df = filtered_df[filtered_df["Status"] == status_filter]
 
