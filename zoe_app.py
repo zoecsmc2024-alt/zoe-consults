@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from fpdf import FPDF
+from streamlit_calendar import calendar
 # 1. DEFINE YOUR COLORS ONCE
 BRANDING = {
     "navy": "#2B3F87",      # Primary Header / Buttons
@@ -1740,10 +1741,13 @@ def show_calendar():
         return
 
     # 2. DATA PREPARATION (Bulletproofed)
+    # Standardize column names (fixes space issues)
+    loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
+
     # Ensure columns exist before processing
-    for col in ["End_Date", "Total_Repayable", "Status", "Borrower", "Loan_ID"]:
+    for col in ["End_Date", "Total_Repayable", "Status", "Borrower", "Loan_ID", "Principal", "Interest"]:
         if col not in loans_df.columns:
-            loans_df[col] = 0 if col == "Total_Repayable" else "Unknown"
+            loans_df[col] = 0 if col in ["Total_Repayable", "Principal", "Interest"] else "Unknown"
 
     # Convert to proper types
     loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
@@ -1755,7 +1759,39 @@ def show_calendar():
     # Filter for loans that aren't closed
     active_loans = loans_df[loans_df["Status"].astype(str).str.lower() != "closed"].copy()
 
-    # 3. DAILY WORKLOAD METRICS (Zoe Branded Cards)
+    # --- NEW: VISUAL CALENDAR WIDGET ---
+    from streamlit_calendar import calendar
+    
+    calendar_events = []
+    for _, r in active_loans.iterrows():
+        if pd.notna(r['End_Date']):
+            # Color logic: Red for overdue, Blue for upcoming
+            is_overdue = r['End_Date'].date() < today.date()
+            ev_color = "#FF4B4B" if is_overdue else "#4A90E2"
+            
+            # Auto-Recovery for display amount
+            disp_amt = float(r['Total_Repayable']) if r['Total_Repayable'] > 0 else (float(r['Principal']) + float(r['Interest']))
+            
+            calendar_events.append({
+                "title": f"UGX {disp_amt:,.0f} - {r['Borrower']}",
+                "start": r['End_Date'].strftime("%Y-%m-%d"),
+                "end": r['End_Date'].strftime("%Y-%m-%d"),
+                "color": ev_color,
+                "allDay": True,
+            })
+
+    calendar_options = {
+        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,timeGridWeek"},
+        "initialView": "dayGridMonth",
+        "selectable": True,
+    }
+
+    # Render the calendar at the top
+    calendar(events=calendar_events, options=calendar_options, key="collection_cal")
+    
+    st.markdown("---")
+
+    # 3. DAILY WORKLOAD METRICS (Your Branded Cards)
     due_today_df = active_loans[active_loans["End_Date"].dt.date == today.date()]
     upcoming_df = active_loans[
         (active_loans["End_Date"] > today) & 
@@ -1765,29 +1801,9 @@ def show_calendar():
 
     m1, m2, m3 = st.columns(3)
     
-    # Due Today Card (Navy)
-    m1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">📌 DUE TODAY</p>
-            <h3 style="margin:0; color:#2B3F87;">{len(due_today_df)} <span style="font-size:14px;">TASKS</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Upcoming Card (Baby Blue)
-    m2.markdown(f"""
-        <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">⏳ NEXT 7 DAYS</p>
-            <h3 style="margin:0; color:#2B3F87;">{len(upcoming_df)} <span style="font-size:14px;">PENDING</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Overdue Card (Red Alert)
-    m3.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">🔴 OVERDUE CASES</p>
-            <h3 style="margin:0; color:#FF4B4B;">{overdue_count} <span style="font-size:14px;">URGENT</span></h3>
-        </div>
-    """, unsafe_allow_html=True)
+    m1.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">📌 DUE TODAY</p><h3 style="margin:0; color:#2B3F87;">{len(due_today_df)} <span style="font-size:14px;">TASKS</span></h3></div>""", unsafe_allow_html=True)
+    m2.markdown(f"""<div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">⏳ NEXT 7 DAYS</p><h3 style="margin:0; color:#2B3F87;">{len(upcoming_df)} <span style="font-size:14px;">PENDING</span></h3></div>""", unsafe_allow_html=True)
+    m3.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">🔴 OVERDUE CASES</p><h3 style="margin:0; color:#FF4B4B;">{overdue_count} <span style="font-size:14px;">URGENT</span></h3></div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1796,68 +1812,29 @@ def show_calendar():
     if due_today_df.empty:
         st.success("✨ No deadlines for today. Focus on follow-ups!")
     else:
-        st.warning(f"⚠️ You have {len(due_today_df)} collection(s) to finalize today.")
-        
-        # Styled Table for Today
         today_rows = ""
         for i, r in due_today_df.iterrows():
             bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-            today_rows += f"""
-            <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
-                <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
-                <td style="padding:10px;">{r['Borrower']}</td>
-                <td style="padding:10px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Total_Repayable']:,.0f}</td>
-                <td style="padding:10px; text-align:center;"><span style="background:#2B3F87; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">💰 COLLECT NOW</span></td>
-            </tr>"""
+            today_rows += f"""<tr style="background-color: {bg}; border-bottom: 1px solid #ddd;"><td style="padding:10px;"><b>#{r['Loan_ID']}</b></td><td style="padding:10px;">{r['Borrower']}</td><td style="padding:10px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Total_Repayable']:,.0f}</td><td style="padding:10px; text-align:center;"><span style="background:#2B3F87; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">💰 COLLECT NOW</span></td></tr>"""
         
-        st.markdown(f"""
-            <div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;">
-                <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                    <tr style="background:#2B3F87; color:white;">
-                        <th style="padding:10px;">Loan ID</th><th style="padding:10px;">Borrower</th>
-                        <th style="padding:10px; text-align:right;">Amount Due</th><th style="padding:10px; text-align:center;">Action</th>
-                    </tr>
-                    {today_rows}
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div style="border:2px solid #2B3F87; border-radius:10px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;"><tr style="background:#2B3F87; color:white;"><th style="padding:10px;">Loan ID</th><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:right;">Amount Due</th><th style="padding:10px; text-align:center;">Action</th></tr>{today_rows}</table></div>""", unsafe_allow_html=True)
 
     # --- SECTION: UPCOMING ---
     st.markdown("<br><h4 style='color: #2B3F87;'>⏳ Upcoming Deadlines (Next 7 Days)</h4>", unsafe_allow_html=True)
     if upcoming_df.empty:
         st.info("The next few days look quiet.")
     else:
-        # --- SECTION: UPCOMING (FIXED AMOUNT LOGIC) ---
         upcoming_display = upcoming_df.sort_values("End_Date").copy()
         up_rows = ""
         for i, r in upcoming_display.iterrows():
             bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-            
-            # AUTO-RECOVERY LOGIC:
-            # If Total_Repayable is 0, we try to use Principal + Interest
             display_amt = float(r.get('Total_Repayable', 0))
             if display_amt == 0:
                 display_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
 
-            up_rows += f"""
-            <tr style="background-color: {bg};">
-                <td style="padding:10px; color:#2B3F87; font-weight:bold;">{r['End_Date'].strftime('%d %b (%a)')}</td>
-                <td style="padding:10px;">{r.get('Borrower', 'Unknown')}</td>
-                <td style="padding:10px; text-align:right; font-weight:bold;">{display_amt:,.0f} UGX</td>
-                <td style="padding:10px; text-align:right; color:#666;">ID: #{r.get('Loan_ID', 'N/A')}</td>
-            </tr>"""
+            up_rows += f"""<tr style="background-color: {bg};"><td style="padding:10px; color:#2B3F87; font-weight:bold;">{r['End_Date'].strftime('%d %b (%a)')}</td><td style="padding:10px;">{r.get('Borrower', 'Unknown')}</td><td style="padding:10px; text-align:right; font-weight:bold;">{display_amt:,.0f} UGX</td><td style="padding:10px; text-align:right; color:#666;">ID: #{r.get('Loan_ID', 'N/A')}</td></tr>"""
 
-        st.markdown(f"""
-            <div style="border:1px solid #2B3F87; border-radius:10px; overflow:hidden;">
-                <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                    <tr style="background:#2B3F87; color:white;">
-                        <th style="padding:10px;">Due Date</th><th style="padding:10px;">Borrower</th>
-                        <th style="padding:10px; text-align:right;">Amount</th><th style="padding:10px; text-align:right;">Ref</th>
-                    </tr>
-                    {up_rows}
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div style="border:1px solid #2B3F87; border-radius:10px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;"><tr style="background:#2B3F87; color:white;"><th style="padding:10px;">Due Date</th><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:right;">Amount</th><th style="padding:10px; text-align:right;">Ref</th></tr>{up_rows}</table></div>""", unsafe_allow_html=True)
 
     # --- SECTION: IMMEDIATE FOLLOW-UP ---
     st.markdown("<br><h4 style='color: #FF4B4B;'>🔴 Past Due (Immediate Attention)</h4>", unsafe_allow_html=True)
@@ -1868,30 +1845,13 @@ def show_calendar():
     else:
         overdue_df["Days_Late"] = (today - overdue_df["End_Date"]).dt.days
         overdue_df = overdue_df.sort_values("Days_Late", ascending=False)
-        
         od_rows = ""
         for i, r in overdue_df.iterrows():
-            bg = "#FFF5F5" # Slight red tint for rows
+            bg = "#FFF5F5"
             late_color = "#FF4B4B" if r['Days_Late'] > 7 else "#FFA500"
-            od_rows += f"""
-            <tr style="background-color: {bg}; border-bottom: 1px solid #FFDADA;">
-                <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
-                <td style="padding:10px;">{r['Borrower']}</td>
-                <td style="padding:10px; text-align:center; font-weight:bold; color:{late_color};">{r['Days_Late']} Days</td>
-                <td style="padding:10px; text-align:center;"><span style="background:{late_color}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span></td>
-            </tr>"""
+            od_rows += f"""<tr style="background-color: {bg}; border-bottom: 1px solid #FFDADA;"><td style="padding:10px;"><b>#{r['Loan_ID']}</b></td><td style="padding:10px;">{r['Borrower']}</td><td style="padding:10px; text-align:center; font-weight:bold; color:{late_color};">{r['Days_Late']} Days</td><td style="padding:10px; text-align:center;"><span style="background:{late_color}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span></td></tr>"""
 
-        st.markdown(f"""
-            <div style="border:2px solid #FF4B4B; border-radius:10px; overflow:hidden;">
-                <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                    <tr style="background:#FF4B4B; color:white;">
-                        <th style="padding:10px;">Loan ID</th><th style="padding:10px;">Borrower</th>
-                        <th style="padding:10px; text-align:center;">Late By</th><th style="padding:10px; text-align:center;">Status</th>
-                    </tr>
-                    {od_rows}
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div style="border:2px solid #FF4B4B; border-radius:10px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;"><tr style="background:#FF4B4B; color:white;"><th style="padding:10px;">Loan ID</th><th style="padding:10px;">Borrower</th><th style="padding:10px; text-align:center;">Late By</th><th style="padding:10px; text-align:center;">Status</th></tr>{od_rows}</table></div>""", unsafe_allow_html=True)
 # ==============================
 # 18. EXPENSE MANAGEMENT PAGE
 # ==============================
