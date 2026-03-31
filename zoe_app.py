@@ -1173,11 +1173,34 @@ def show_loans():
                             st.error("❌ Failed to sync. Check your Google Sheets permissions.")
 
                 if b_del.button("🗑️ Delete Permanently", use_container_width=True):
-                    # Filter out the deleted loan and save
-                    remaining_loans = loans_df[loans_df["Loan_ID"].astype(str) != str(m_id)]
+                    # 1. Create a "Searchable" copy to find the right ID
+                    delete_copy = loans_df.copy()
+                    delete_copy.columns = delete_copy.columns.str.strip().str.replace(" ", "_")
+                    
+                    # 2. Get the current ID from your selection dropdown
+                    try:
+                        current_selection_id = selected_m.split("|")[0].replace("ID:", "").strip()
+                        # Clean ID for matching (removes .0 if it exists)
+                        clean_id = str(int(float(current_selection_id)))
+                    except:
+                        st.error("Could not verify ID for deletion.")
+                        st.stop()
+
+                    # 3. Create a mask to filter out the row we want to delete
+                    # We use the 'delete_copy' to find which row number matches
+                    mask = delete_copy["Loan_ID"].astype(str).str.replace(".0", "", regex=False) != clean_id
+                    
+                    # 4. Filter the ORIGINAL loans_df using that mask
+                    # This keeps all rows EXCEPT the one we are deleting
+                    remaining_loans = loans_df[mask.values]
+                    
+                    # 5. Save the new list (without the deleted loan) back to Google Sheets
                     if save_data("Loans", remaining_loans):
-                        st.warning("⚠️ Loan record deleted!")
+                        st.warning(f"⚠️ Loan #{clean_id} has been permanently deleted.")
+                        st.session_state.loans = remaining_loans # Update state
                         st.rerun()
+                    else:
+                        st.error("❌ Failed to delete. Check your connection to Google Sheets.")
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
