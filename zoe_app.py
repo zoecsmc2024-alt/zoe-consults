@@ -798,36 +798,30 @@ def show_borrowers():
                     # Full Width: Address
                     e_addr = st.text_input("Physical Address", value=str(b_data.get('Address', '')))
                     
+                    # 🌟 START OF CORRECTED INDENTATION 🌟
                     if st.form_submit_button("🚀 Save Borrower Profile", use_container_width=True):
-                if name and phone:
-                    # 1. Generate New ID
-                    new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
-                    
-                    # 2. Create the new entry
-                    new_entry = pd.DataFrame([{
-                        "Borrower_ID": new_id, 
-                        "Name": name, 
-                        "Phone": phone,
-                        "National_ID": nid, 
-                        "Address": addr, 
-                        "Status": "Active",
-                        "Date_Added": datetime.now().strftime("%Y-%m-%d")
-                    }])
-                    
-                    # 3. Combine and Clean (Removes JSON NaNs)
-                    updated_df = pd.concat([df, new_entry], ignore_index=True).fillna("")
-                    
-                    # 4. Save the sanitized data
-                    if save_data("Borrowers", updated_df):
-                        st.success(f"✅ {name} registered successfully!")
-                        st.rerun()
-                    else:
-                        st.error("❌ Google Sheets connection failed.")
-                else:
-                    # 🌟 This ELSE must line up perfectly with 'if name and phone'
-                    st.error("⚠️ Required: Name and Phone Number.")
-                    
-                    
+                        if e_name and e_phone:
+                            # 1. Update the local DataFrame (df) at the specific index
+                            df.at[borrower_idx, 'Name'] = e_name
+                            df.at[borrower_idx, 'Phone'] = e_phone
+                            df.at[borrower_idx, 'National_ID'] = e_nid
+                            df.at[borrower_idx, 'Email'] = e_email
+                            df.at[borrower_idx, 'Next_of_Kin'] = e_kin
+                            df.at[borrower_idx, 'Status'] = e_status
+                            df.at[borrower_idx, 'Address'] = e_addr
+                            
+                            # 2. Clean for JSON (Removes NaNs)
+                            updated_df = df.fillna("")
+                            
+                            # 3. Save to Google Sheets
+                            if save_data("Borrowers", updated_df):
+                                st.success(f"✅ {e_name}'s profile updated successfully!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Google Sheets connection failed.")
+                        else:
+                            st.error("⚠️ Required: Name and Phone Number.")
+
             # --- DELETE ACTION ---
             st.markdown("### ⚠️ Danger Zone")
             if st.button(f"🗑️ Delete {target_name} Permanently", key="del_bor_btn"):
