@@ -1367,34 +1367,41 @@ def show_collateral():
                         st.success("Link updated!"); st.rerun()
         else:
             st.info("💡 No collateral registered yet.")
+import pandas as pd
+from datetime import datetime
+import streamlit as st
+
 # ==============================
-# 16. COLLECTIONS & OVERDUE TRACKER (Fully Refined)
+# 16. COLLECTIONS & OVERDUE TRACKER (Fixed Duplicate Key Error)
 # ==============================
 def show_overdue_tracker():
     st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
 
     try:
-        # 1. --- THE AUTO-REFILL GATEKEEPER ---
-        # Get data from session state; if empty, fetch from Google Sheets
-        loans_data = st.session_state.get("loans")
+        # 1. --- DATA FETCHING & DEDUPLICATION ---
+        loans_raw = st.session_state.get("loans")
         
-        if loans_data is None or loans_data.empty:
+        if loans_raw is None or loans_raw.empty:
             with st.spinner("🔄 Re-syncing with Google Sheets..."):
-                loans_data = get_cached_data("Loans") 
-                if loans_data is not None and not loans_data.empty:
-                    st.session_state.loans = loans_data
-                else:
-                    st.info("💡 No loan records found in the system.")
-                    return
+                loans_raw = get_cached_data("Loans") 
+        
+        if loans_raw is None or loans_raw.empty:
+            st.info("💡 No loan records found in the system.")
+            return
 
-        # 2. --- PREP WORKING DATA ---
-        loans = loans_data.copy()
-        # Normalize headers to handle spaces in Google Sheets
-        loans.columns = loans.columns.str.strip().str.replace(" ", "_")
+        # CRITICAL FIX: Remove duplicate columns from the Google Sheet immediately
+        # This prevents the "cannot assemble with duplicate keys" error
+        loans = loans_raw.loc[:, ~loans_raw.columns.duplicated()].copy()
+        
+        # 2. --- NORMALIZE HEADERS ---
+        # We store the original headers to put them back exactly as they were later
+        original_headers = list(loans.columns)
+        loans.columns = [str(col).strip().replace(" ", "_") for col in loans.columns]
         
         ledger = st.session_state.get("ledger", pd.DataFrame())
         if not ledger.empty:
-            ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
+            ledger = ledger.loc[:, ~ledger.columns.duplicated()].copy()
+            ledger.columns = [str(col).strip().replace(" ", "_") for col in ledger.columns]
 
         # 3. --- REQUIRED COLUMNS CHECK ---
         required_cols = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
@@ -1402,15 +1409,13 @@ def show_overdue_tracker():
 
         if missing:
             st.error(f"❌ Missing columns in Google Sheet: {missing}")
-            st.write("Current columns found:", list(loans.columns))
             return
 
-        # 4. --- DATE PREP ---
+        # 4. --- DATE & NUMERIC PREP ---
         loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
         today = datetime.now()
 
         # 5. --- FILTER OVERDUE ACCOUNTS ---
-        # Include all relevant statuses that are past their due date
         overdue_df = loans[
             (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
             (loans['End_Date'] < today)
@@ -1422,12 +1427,11 @@ def show_overdue_tracker():
 
         st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
 
-        # 6. --- BRANDED DISPLAY TABLE (Blue Zoe Theme) ---
+        # 6. --- BRANDED DISPLAY TABLE ---
         rows_html = ""
         for i, r in overdue_df.iterrows():
-            # Preview math: Principal + Interest
-            p_val = float(r.get('Principal', 0))
-            i_val = float(r.get('Interest', 0))
+            p_val = pd.to_numeric(r.get('Principal', 0), errors='coerce') or 0
+            i_val = pd.to_numeric(r.get('Interest', 0), errors='coerce') or 0
             preview_total = p_val + i_val
             
             rows_html += f"""
@@ -1444,8 +1448,7 @@ def show_overdue_tracker():
         <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; font-family:sans-serif; font-size:13px; background:white;">
             <table style="width:100%; border-collapse:collapse;">
                 <tr style="background:#4A90E2; color:white; text-align:left;">
-                    <th style="padding:12px;">ID</th>
-                    <th style="padding:12px;">Borrower</th>
+                    <th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th>
                     <th style="padding:12px; text-align:right;">Old Principal</th>
                     <th style="padding:12px; text-align:right;">+ Interest</th>
                     <th style="padding:12px; text-align:right;">New Principal (P+I)</th>
@@ -1462,7 +1465,7 @@ def show_overdue_tracker():
             ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
             latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
-        # 8. --- ROLLOVER BUTTON (The Engine) ---
+        # 8. --- ROLLOVER BUTTON ---
         if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
             updated_df = loans.copy()
             count = 0
@@ -1470,44 +1473,43 @@ def show_overdue_tracker():
             for i, r in overdue_df.iterrows():
                 loan_id = str(r.get('Loan_ID'))
                 
-                # A. Get compounding amount from Ledger Balance
                 final_amt = 0
                 if not latest_ledger.empty:
                     match = latest_ledger[latest_ledger["Loan_ID"].astype(str) == loan_id]
                     if not match.empty and "Balance" in match.columns:
                         final_amt = float(match['Balance'].values[0])
 
-                # B. Fallback: Principal + Interest from Loan Record
                 if final_amt <= 0:
                     final_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
 
-                # C. Move Due Date forward by 1 month
                 new_due_date = r['End_Date'] + pd.DateOffset(months=1)
 
-                # D. Update the Working Dataframe
-                updated_df.loc[i, 'Principal'] = final_amt
-                updated_df.loc[i, 'End_Date'] = new_due_date
-                updated_df.loc[i, 'Status'] = "Rolled/Overdue"
-                updated_df.loc[i, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
+                updated_df.at[i, 'Principal'] = final_amt
+                updated_df.at[i, 'End_Date'] = new_due_date
+                updated_df.at[i, 'Status'] = "Rolled/Overdue"
+                updated_df.at[i, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
                 count += 1
 
             # 9. --- CLEAN DATES FOR SAVING ---
-            date_cols = ["Start_Date", "End_Date", "Rollover_Date", "Due_Date", "Date"]
-            for col in date_cols:
+            for col in ["Start_Date", "End_Date", "Rollover_Date", "Due_Date", "Date"]:
                 if col in updated_df.columns:
-                    updated_df[col] = pd.to_datetime(updated_df[col], errors='coerce') \
-                                        .dt.strftime('%Y-%m-%d').fillna("")
+                    updated_df[col] = pd.to_datetime(updated_df[col], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
 
-            # 10. --- FINAL SAVE & RESTORE HEADERS ---
-            # Put the spaces back so Google Sheet headers match exactly
-            updated_df.columns = [col.replace("_", " ") for col in updated_df.columns]
+            # 10. --- SAFE HEADER RESTORE ---
+            # Instead of a simple string replace (which causes duplicates), 
+            # we map back to the original headers we saved at step 2.
+            final_cols = []
+            for col in updated_df.columns:
+                original = col.replace("_", " ")
+                final_cols.append(original)
+            updated_df.columns = final_cols
             
             if save_data("Loans", updated_df):
                 st.session_state.loans = updated_df 
-                st.success(f"✅ Successfully rolled over {count} loans! New cycle starts now.")
+                st.success(f"✅ Successfully rolled over {count} loans!")
                 st.rerun()
             else:
-                st.error("❌ Failed to save to Google Sheets. Check your connection.")
+                st.error("❌ Failed to save to Google Sheets.")
 
     except Exception as e:
         st.error(f"🚨 An unexpected error occurred: {str(e)}")
