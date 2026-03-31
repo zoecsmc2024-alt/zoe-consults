@@ -1807,6 +1807,22 @@ def show_calendar():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # --- CALENDAR FOOTER: REVENUE PREVIEW ---
+    st.markdown("---")
+    st.markdown("<h4 style='color: #2B3F87;'>📊 Revenue Forecast (This Month)</h4>", unsafe_allow_html=True)
+    
+    # Calculate total expected for the current month shown on calendar
+    current_month = today.month
+    this_month_df = active_loans[active_loans["End_Date"].dt.month == current_month]
+    
+    total_expected = this_month_df["Total_Repayable"].sum()
+    
+    f1, f2 = st.columns(2)
+    f1.metric("Expected Collections", f"{total_expected:,.0f} UGX")
+    f2.metric("Remaining Appointments", len(this_month_df))
+    
+    st.write("💡 *Tip: Click any blue/red bar on the calendar above to see the specific borrower details.*")
+
     # --- SECTION: DUE TODAY ---
     st.markdown("<h4 style='color: #2B3F87;'>📌 Action Items for Today</h4>", unsafe_allow_html=True)
     if due_today_df.empty:
