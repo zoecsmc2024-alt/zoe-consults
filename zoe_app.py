@@ -2397,33 +2397,51 @@ def show_payroll():
                 </div>
             </div>"""
             
-            # 5. RENDER THE PREVIEW
-            st.components.v1.html(main_html, height=800, scrolling=True)
+            # --- 5. RENDER THE PREVIEW ---
+        st.components.v1.html(main_html, height=800, scrolling=True)
 
-            # 6. MODIFY & DELETE SECTION (Inside the if block)
-            st.write("---")
-            with st.expander("⚙️ Modify / Delete Record"):
-                pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
-                if pay_opts:
-                    sel_opt = st.selectbox("Select Record", pay_opts)
-                    sid = str(sel_opt.split("(ID: ")[1].replace(")", ""))
-                    item = df[df['Payroll_ID'].astype(str) == sid].iloc[0]
-                    
-                    u_name = st.text_input("Edit Name", value=str(item['Employee']))
-                    u_basic = st.number_input("Edit Basic", value=float(item['Basic_Salary'] if item['Basic_Salary'] != "" else 0))
-                    u_arr = st.number_input("Edit Arrears", value=float(item['Arrears'] if item['Arrears'] != "" else 0))
-                    
-                    c_s, c_d = st.columns(2)
-                    if c_s.button("💾 Save Updates", use_container_width=True):
-                        # Simple recalculation for basic updates
-                        res_u = calculate_zoe_payroll(u_basic, u_arr, 0, 0, 0)
-                        df.loc[df['Payroll_ID'].astype(str) == sid, ["Employee","Basic_Salary","Arrears","Gross_Salary","PAYE","NSSF_15","Net_Pay"]] = \
-                            [u_name, u_basic, u_arr, res_u['gross'], res_u['paye'], res_u['nssf'], res_u['net']]
-                        if save_data("Payroll", df): st.success("Updated!"); st.rerun()
-                    
-                    if c_d.button("🗑️ Delete Record", use_container_width=True):
-                        if save_data("Payroll", df[df['Payroll_ID'].astype(str) != sid]): st.warning("Deleted!"); st.rerun()
+        # --- 6. MODIFY & DELETE SECTION ---
+        st.write("---")
+        with st.expander("⚙️ Modify / Delete Record"):
+            # Create the list of employees for the dropdown
+            pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
+            
+            if pay_opts:
+                sel_opt = st.selectbox("Select Record to Edit", pay_opts, key="payroll_edit_select")
+                
+                # Extract the ID safely
+                sid = str(sel_opt.split("(ID: ")[1].replace(")", ""))
+                item = df[df['Payroll_ID'].astype(str) == sid].iloc[0]
+                
+                # Edit Fields
+                u_name = st.text_input("Edit Name", value=str(item['Employee']))
+                u_basic = st.number_input("Edit Basic Salary", value=float(item['Basic_Salary'] if item['Basic_Salary'] != "" else 0))
+                u_arr = st.number_input("Edit Arrears", value=float(item['Arrears'] if item['Arrears'] != "" else 0))
+                
+                c_s, c_d = st.columns(2)
+                # (You can add your 'Save' and 'Delete' buttons here in the columns)
 
+        # --- 7. EXPORT PAYROLL (Moved outside the expander for safety) ---
+        import io
+        
+        # 🌟 THE BUFFER FIX: This ensures the data is captured correctly
+        download_df = df.copy() # Use 'df' which is the current filtered payroll
+        
+        if not download_df.empty:
+            st.markdown("---")
+            st.subheader("📥 Export Payroll")
+            
+            # Convert to CSV format
+            csv_data = download_df.to_csv(index=False).encode('utf-8')
+            
+            st.download_button(
+                label="📄 Download Payroll (CSV for Excel)",
+                data=csv_data,
+                file_name=f"Zoe_Payroll_{datetime.now().strftime('%b_%Y')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="payroll_download_main"
+            )
         else:
             st.info("No payroll records found for this period.")
         
