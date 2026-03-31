@@ -692,39 +692,37 @@ def show_overview():
 # ==============================
 
 def show_borrowers():
-    # Primary Header in Soft Blue
-    st.markdown("<h2 style='color: #4A90E2;'>👥 Borrowers Management</h2>", unsafe_allow_html=True)
-
-    # 1. LOAD DATA
-    df = get_cached_data("Borrowers")
-    loans_df = get_cached_data("Loans") 
-
-    if df.empty:
-        df = pd.DataFrame(columns=["Borrower_ID", "Name", "Phone", "Email", "National_ID", "Address", "Next_of_Kin", "Status", "Date_Added"])
-
-    # ==============================
-    # TABBED INTERFACE
-    # ==============================
-    tab_list, tab_add, tab_manage = st.tabs(["📋 View All", "➕ Add New", "⚙️ Audit Portfolio"])
-
-    # --- TAB 1: SEARCH & LIST (Soft Blue Table) ---
-    with tab_list:
-        st.markdown("<br>", unsafe_allow_html=True)
-        col1, col2 = st.columns([2, 1])
-        # --- SEARCH & FILTER LOGIC ---
-    search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...").lower()
+    st.markdown("<h2 style='color: #2B3F87;'>👥 Borrowers Management</h2>", unsafe_allow_html=True)
     
-    if not filtered_df.empty:
-        # 🌟 THE FIX: Convert Name and Phone to strings so search doesn't crash
-        filtered_df["Name"] = filtered_df["Name"].astype(str)
-        filtered_df["Phone"] = filtered_df["Phone"].astype(str)
+    # 1. FETCH DATA
+    borrowers_df = get_cached_data("Borrowers")
+    
+    # 🌟 THE FIX: Always define 'filtered_df' immediately
+    # If the sheet is empty, it becomes an empty DataFrame instead of "Nothing"
+    if borrowers_df is None or borrowers_df.empty:
+        filtered_df = pd.DataFrame(columns=["Name", "Phone", "Location", "ID_No", "Status"])
+    else:
+        filtered_df = borrowers_df.copy()
+
+    # --- TABS ---
+    tab_view, tab_add, tab_audit = st.tabs(["📑 View All", "➕ Add New", "⚙️ Audit Portfolio"])
+
+    with tab_view:
+        # Now when you hit Line 717, filtered_df DEFINITELY exists
+        search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...").lower()
         
-        # Now run the search safely
-        mask = (
-            filtered_df["Name"].str.lower().str.contains(search, na=False) | 
-            filtered_df["Phone"].str.contains(search, na=False)
-        )
-        filtered_df = filtered_df[mask]
+        if not filtered_df.empty:
+            # Safely convert to string for the search tool
+            filtered_df["Name"] = filtered_df["Name"].astype(str)
+            filtered_df["Phone"] = filtered_df["Phone"].astype(str)
+            
+            mask = (
+                filtered_df["Name"].str.lower().str.contains(search, na=False) | 
+                filtered_df["Phone"].str.contains(search, na=False)
+            )
+            display_df = filtered_df[mask]
+            
+            # ... render your table ...
         status_filter = col2.selectbox("Filter Status", ["All", "Active", "Inactive"])
 
         filtered_df = df.copy()
