@@ -696,103 +696,73 @@ def show_borrowers():
     
     # 1. FETCH DATA
     borrowers_df = get_cached_data("Borrowers")
+    loans_df = get_cached_data("Loans") # Needed for Audit tab
     
-    # 🌟 THE FIX: Always define 'filtered_df' immediately
-    # If the sheet is empty, it becomes an empty DataFrame instead of "Nothing"
     if borrowers_df is None or borrowers_df.empty:
-        filtered_df = pd.DataFrame(columns=["Name", "Phone", "Location", "ID_No", "Status"])
+        df = pd.DataFrame(columns=["Borrower_ID", "Name", "Phone", "Location", "ID_No", "Status"])
     else:
-        filtered_df = borrowers_df.copy()
+        df = borrowers_df.copy()
 
     # --- TABS ---
     tab_view, tab_add, tab_audit = st.tabs(["📑 View All", "➕ Add New", "⚙️ Audit Portfolio"])
 
+    # --- TAB 1: VIEW ALL ---
     with tab_view:
-        # Now when you hit Line 717, filtered_df DEFINITELY exists
-        search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...").lower()
-        
+        col1, col2 = st.columns([3, 1]) 
+        with col1:
+            search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...", key="bor_search").lower()
+        with col2:
+            status_filter = st.selectbox("Filter Status", ["All", "Active", "Inactive"], key="bor_status_filt")
+
+        filtered_df = df.copy()
         if not filtered_df.empty:
-            # Safely convert to string for the search tool
             filtered_df["Name"] = filtered_df["Name"].astype(str)
             filtered_df["Phone"] = filtered_df["Phone"].astype(str)
             
-            mask = (
-                filtered_df["Name"].str.lower().str.contains(search, na=False) | 
-                filtered_df["Phone"].str.contains(search, na=False)
-            )
-            display_df = filtered_df[mask]
-            
-            # --- SEARCH & FILTER LOGIC ---
-    # 🌟 THE FIX: Create the columns before using them!
-    col1, col2 = st.columns([3, 1]) 
-    
-    with col1:
-        search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...").lower()
-    
-    with col2:
-        # Now col2 exists, so Line 726 won't crash!
-        status_filter = st.selectbox("Filter Status", ["All", "Active", "Inactive"])
+            # Apply Filters
+            mask = (filtered_df["Name"].str.lower().str.contains(search, na=False) | 
+                    filtered_df["Phone"].str.contains(search, na=False))
+            filtered_df = filtered_df[mask]
 
-    if not filtered_df.empty:
-        # Convert to string for safety
-        filtered_df["Name"] = filtered_df["Name"].astype(str)
-        filtered_df["Phone"] = filtered_df["Phone"].astype(str)
-        
-        # 1. Apply Search Filter
-        mask = (
-            filtered_df["Name"].str.lower().str.contains(search, na=False) | 
-            filtered_df["Phone"].str.contains(search, na=False)
-        )
-        filtered_df = filtered_df[mask]
+            if status_filter != "All":
+                filtered_df = filtered_df[filtered_df["Status"] == status_filter]
 
-        # 2. Apply Status Filter
-        if status_filter != "All":
-            filtered_df = filtered_df[filtered_df["Status"] == status_filter]
+            if not filtered_df.empty:
+                rows_html = ""
+                for i, r in filtered_df.iterrows():
+                    bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                    rows_html += f"""
+                    <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
+                        <td style="padding:12px;"><b>{r['Name']}</b></td>
+                        <td style="padding:12px;">{r['Phone']}</td>
+                        <td style="padding:12px; font-size: 11px; color:#666;">{r.get('National_ID', 'N/A')}</td>
+                        <td style="padding:12px; text-align:center;">
+                            <span style="background:#4A90E2; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">{r['Status']}</span>
+                        </td>
+                    </tr>"""
 
-        if not filtered_df.empty:
-            rows_html = ""
-            for i, r in filtered_df.iterrows():
-                bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                rows_html += f"""
-                <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                    <td style="padding:12px;"><b>{r['Name']}</b></td>
-                    <td style="padding:12px;">{r['Phone']}</td>
-                    <td style="padding:12px; font-size: 11px; color:#666;">{r.get('National_ID', 'N/A')}</td>
-                    <td style="padding:12px; text-align:center;">
-                        <span style="background:#4A90E2; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">
-                            {r['Status']}
-                        </span>
-                    </td>
-                </tr>"""
-
-            st.markdown(f"""
-                <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;">
-                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
-                        <thead>
-                            <tr style="background:#4A90E2; color:white; text-align:left;">
-                                <th style="padding:12px;">Borrower Name</th>
-                                <th style="padding:12px;">Phone</th>
-                                <th style="padding:12px;">National ID</th>
-                                <th style="padding:12px; text-align:center;">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>{rows_html}</tbody>
-                    </table>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("No borrowers found.")
+                st.markdown(f"""
+                    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;">
+                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
+                            <thead>
+                                <tr style="background:#4A90E2; color:white; text-align:left;">
+                                    <th style="padding:12px;">Borrower Name</th><th style="padding:12px;">Phone</th>
+                                    <th style="padding:12px;">National ID</th><th style="padding:12px; text-align:center;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>{rows_html}</tbody>
+                        </table>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.info("No borrowers match your search.")
 
     # --- TAB 2: ADD BORROWER ---
     with tab_add:
-        st.markdown("<br>", unsafe_allow_html=True)
         with st.form("add_borrower_form", clear_on_submit=True):
             st.markdown("<h4 style='color: #4A90E2;'>📝 Register New Borrower</h4>", unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             name = c1.text_input("Full Name*")
             phone = c2.text_input("Phone Number*")
-            email = c1.text_input("Email Address")
-            kin = c2.text_input("Next of Kin")
             nid = c1.text_input("National ID / NIN")
             addr = c2.text_input("Physical Address")
             
@@ -801,68 +771,40 @@ def show_borrowers():
                     new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
                     new_entry = pd.DataFrame([{
                         "Borrower_ID": new_id, "Name": name, "Phone": phone,
-                        "Email": email, "National_ID": nid, "Address": addr, 
-                        "Next_of_Kin": kin, "Status": "Active",
+                        "National_ID": nid, "Address": addr, "Status": "Active",
                         "Date_Added": datetime.now().strftime("%Y-%m-%d")
                     }])
                     if save_data("Borrowers", pd.concat([df, new_entry], ignore_index=True)):
                         st.success(f"✅ {name} registered!"); st.rerun()
-                else:
-                    st.error("⚠️ Required: Name and Phone Number.")
 
-    # --- TAB 3: AUDIT PORTFOLIO (Safety Sync) ---
-    with tab_manage:
+    # --- TAB 3: AUDIT PORTFOLIO ---
+    with tab_audit:
         if not df.empty:
-            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist())
+            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_select")
             b_data = df[df["Name"] == target_name].iloc[0]
             
-            st.markdown(f"""
-                <div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border-left: 5px solid #4A90E2;">
-                    <p style="margin:0; color:#2B3F87;"><b>📍 Address:</b> {b_data.get('Address', 'N/A')} | <b>📞 Kin:</b> {b_data.get('Next_of_Kin', 'N/A')}</p>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border-left: 5px solid #4A90E2;"><p style="margin:0; color:#2B3F87;"><b>📍 Address:</b> {b_data.get('Address', 'N/A')}</p></div>""", unsafe_allow_html=True)
             
-            # THE FIX: Ensure we find ALL active/overdue/rolled loans for this person
             user_loans = loans_df[loans_df["Borrower"] == target_name].copy()
-            
             if not user_loans.empty:
-                for col in ['Amount_Paid', 'Total_Repayable', 'Amount']:
-                    user_loans[col] = pd.to_numeric(user_loans[col], errors='coerce').fillna(0)
+                user_loans.columns = user_loans.columns.str.strip().str.replace(" ", "_")
+                for col in ['Amount_Paid', 'Total_Repayable', 'Principal']:
+                    if col in user_loans.columns:
+                        user_loans[col] = pd.to_numeric(user_loans[col], errors='coerce').fillna(0)
                 
-                total_remaining = user_loans['Total_Repayable'].sum() - user_loans['Amount_Paid'].sum()
+                total_bal = user_loans['Total_Repayable'].sum() - user_loans['Amount_Paid'].sum()
                 
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Total Loans", len(user_loans))
-                # Count both standard and Rolled/Overdue
-                active_count = user_loans[user_loans["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].shape[0]
-                m2.metric("Active/Rolled", active_count)
-                m3.markdown(f"<div style='text-align:center;'><p style='margin:0;font-size:12px;color:#666;font-weight:bold;'>TOTAL BALANCE</p><h3 style='color:#FF4B4B;margin:0;'>{total_remaining:,.0f}</h3></div>", unsafe_allow_html=True)
+                m2.metric("Active Loans", user_loans[user_loans["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].shape[0])
+                m3.metric("Total Balance", f"{total_bal:,.0f} UGX")
 
-                # History Table
                 history_rows = ""
                 for i, row in user_loans.iterrows():
                     bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                    stat_c = "#4A90E2" if row['Status'] in ["Active", "Rolled/Overdue"] else "#FF4B4B" if row['Status'] == "Overdue" else "#666"
-                    history_rows += f"""
-                    <tr style="background-color: {bg};">
-                        <td style="padding:10px;">#{row['Loan_ID']}</td>
-                        <td style="padding:10px; font-weight:bold; color:#2B3F87;">{row['Amount']:,.0f}</td>
-                        <td style="padding:10px; text-align:center;"><span style="background:{stat_c}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{row['Status']}</span></td>
-                        <td style="padding:10px; text-align:right;">{pd.to_datetime(row['End_Date']).strftime('%d %b %Y')}</td>
-                    </tr>"""
+                    history_rows += f"""<tr style="background-color:{bg};"><td style="padding:10px;">#{row.get('Loan_ID','N/A')}</td><td style="padding:10px;">{row.get('Principal',0):,.0f}</td><td style="padding:10px;text-align:center;">{row['Status']}</td><td style="padding:10px;text-align:right;">{row.get('End_Date','N/A')}</td></tr>"""
                 
-                st.markdown(f"""
-                    <div style='border:1px solid #4A90E2; border-radius:8px; overflow:hidden; margin-top:15px;'>
-                        <table style='width:100%; font-size:12px; border-collapse:collapse;'>
-                            <tr style='background:#4A90E2; color:white;'>
-                                <th style='padding:10px; text-align:left;'>ID</th>
-                                <th style='padding:10px; text-align:left;'>Principal</th>
-                                <th style='padding:10px; text-align:center;'>Status</th>
-                                <th style='padding:10px; text-align:right;'>Due Date</th>
-                            </tr>
-                            {history_rows}
-                        </table>
-                    </div>""", unsafe_allow_html=True)
+                st.markdown(f"<div style='border:1px solid #4A90E2; border-radius:8px; overflow:hidden; margin-top:15px;'><table style='width:100%; font-size:12px; border-collapse:collapse;'><tr style='background:#4A90E2; color:white;'><th style='padding:10px; text-align:left;'>ID</th><th style='padding:10px; text-align:left;'>Principal</th><th style='padding:10px; text-align:center;'>Status</th><th style='padding:10px; text-align:right;'>Due Date</th></tr>{history_rows}</table></div>", unsafe_allow_html=True)
             else:
                 st.info("ℹ️ No loan history for this borrower.")
 
