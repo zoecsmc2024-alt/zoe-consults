@@ -1378,57 +1378,45 @@ def show_payments():
     with tab_manage:
         st.markdown("### 🛠️ Modify Loan Agreement")
         
-        # 1. LOAD & NORMALIZE DATA
-        # We work on a copy to prevent "SettingWithCopy" warnings
+        # 1. PREPARE THE DATA
         m_df = loans_df.copy()
-        
-        # Force all headers to strings and replace spaces with underscores
+        # Force column names to match our logic
         m_df.columns = [str(c).strip().replace(" ", "_") for c in m_df.columns]
         
         if m_df.empty:
             st.info("ℹ️ No loans available to edit.")
         else:
-            # 2. SELECTION BOX (Defined at the top so buttons can see it)
-            # Clean the IDs (remove .0) for the dropdown list
+            # 🌟 CRITICAL: Define the dropdown list FIRST
             m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
-            
             m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
             
-            # This is the 'selected_m' variable that was causing the NameError
-            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="manage_loan_selector_v3")
+            # This is the variable the error was missing!
+            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="final_manage_fix_v4")
 
-            # 3. EXTRACT THE TARGET ROW
+            # 2. IDENTIFY THE SELECTED ID IMMEDIATELY
             import re
-            # Use Regex to find the ID number regardless of formatting
             match = re.search(r'ID:\s*(\d+)', str(selected_m))
-            if match:
-                clean_id = match.group(1)
-            else:
-                clean_id = str(selected_m).split("|")[0].replace("ID:", "").strip()
+            clean_id = match.group(1) if match else str(selected_m).split("|")[0].replace("ID:", "").strip()
             
-            # Find the specific row in our dataframe
+            # Pull the data for the inputs
             loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
 
-            # 4. THE EDIT FORM FIELDS
             st.divider()
-            col1, col2 = st.columns(2)
             
-            with col1:
+            # 3. INPUT FORM FIELDS
+            c1, c2 = st.columns(2)
+            with c1:
                 up_name = st.text_input("Edit Borrower Name", value=str(loan_row.get('Borrower', '')))
-                up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)), step=10000.0)
-                up_rate = st.number_input("Adjust Rate (%)", value=float(loan_row.get('Interest_Rate', 0)), step=0.1)
-                up_paid = st.number_input("Adjust Total Paid", value=float(loan_row.get('Amount_Paid', 0)), step=10000.0)
+                up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)))
+                up_rate = st.number_input("Adjust Rate (%)", value=float(loan_row.get('Interest_Rate', 0)))
+                up_paid = st.number_input("Adjust Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
             
-            with col2:
+            with c2:
                 status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
-                curr_stat = str(loan_row.get('Status', 'Active')).strip()
-                up_status = st.selectbox("Change Status", status_list, index=status_list.index(curr_stat) if curr_stat in status_list else 0)
+                curr_s = str(loan_row.get('Status', 'Active')).strip()
+                up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
                 
-                type_list = ["Business", "Personal", "Emergency", "Other"]
-                curr_type = str(loan_row.get('Type', 'Business')).strip()
-                up_type = st.selectbox("Change Type", type_list, index=type_list.index(curr_type) if curr_type in type_list else 0)
-                
-                # Date logic
+                # Date Safety
                 try:
                     s_date = pd.to_datetime(loan_row.get('Start_Date', datetime.now())).date()
                     e_date = pd.to_datetime(loan_row.get('End_Date', datetime.now())).date()
@@ -1440,55 +1428,36 @@ def show_payments():
 
             st.divider()
 
-            # 5. THE ACTION BUTTONS
+            # 4. ACTION BUTTONS (The Red Box Zone)
             b_save, b_del = st.columns(2)
 
-            # --- SAVE LOGIC ---
+            # --- SAVE BUTTON ---
             if b_save.button("💾 Save Changes", use_container_width=True):
-                # We update the original loans_df to preserve Google Sheet formatting
-                # Find the index of the row where Loan ID matches our clean_id
-                # Note: We check the original column name "Loan ID" or "Loan_ID"
+                # We update the ORIGINAL loans_df
                 id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
+                idx_list = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index
                 
-                # Create a mask to find the exact row
-                idx_matches = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index
-                
-                if not idx_matches.empty:
-                    target_idx = idx_matches[0]
-                    
-                    # Update fields
-                    loans_df.at[target_idx, 'Borrower'] = up_name
-                    loans_df.at[target_idx, 'Principal'] = up_p
-                    loans_df.at[target_idx, 'Amount Paid'] = up_paid if 'Amount Paid' in loans_df.columns else up_paid
-                    loans_df.at[target_idx, 'Status'] = up_status
-                    loans_df.at[target_idx, 'End Date'] = up_end.strftime('%Y-%m-%d')
-                    
-                    # Recalculate Total Repayable based on your formula
-                    interest_amt = up_p * (up_rate / 100)
-                    loans_df.at[target_idx, 'Total Repayable'] = up_p + interest_amt
+                if not idx_list.empty:
+                    t_idx = idx_list[0]
+                    loans_df.at[t_idx, 'Borrower'] = up_name
+                    loans_df.at[t_idx, 'Principal'] = up_p
+                    loans_df.at[t_idx, 'Status'] = up_status
+                    # Use exact column names from your sheet for the rest
+                    for col in loans_df.columns:
+                        if "Paid" in col: loans_df.at[t_idx, col] = up_paid
+                        if "End" in col: loans_df.at[t_idx, col] = up_end.strftime('%Y-%m-%d')
                     
                     if save_data("Loans", loans_df):
-                        st.success(f"✅ Loan #{clean_id} updated successfully!")
-                        st.session_state.loans = loans_df
-                        st.rerun()
-                else:
-                    st.error("Could not find the row to update. Please refresh.")
+                        st.success(f"✅ Loan #{clean_id} updated!"); st.rerun()
 
-            # --- DELETE LOGIC ---
+            # --- DELETE BUTTON ---
             if b_del.button("🗑️ Delete Permanently", use_container_width=True):
-                # Filter out the selected ID
                 id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
+                # Keep everything EXCEPT the clean_id
+                new_df = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
                 
-                mask = loans_df[id_col].astype(str).str.replace(".0", "", regex=False) != clean_id
-                remaining_loans = loans_df[mask]
-                
-                if len(remaining_loans) < len(loans_df):
-                    if save_data("Loans", remaining_loans):
-                        st.warning(f"⚠️ Loan #{clean_id} deleted permanently.")
-                        st.session_state.loans = remaining_loans
-                        st.rerun()
-                else:
-                    st.error("Delete failed: ID not found in database.")
+                if save_data("Loans", new_df):
+                    st.warning(f"⚠️ Loan #{clean_id} deleted."); st.rerun()
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
