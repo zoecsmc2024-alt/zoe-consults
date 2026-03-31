@@ -2304,21 +2304,11 @@ def show_payroll():
     # --- TAB 2: HISTORY ---
     with tab_logs:
         if not df.empty:
-            # 1. TOP ROW: Title and Print Button
+            # 1. Header and Button
             p_col1, p_col2 = st.columns([4, 1])
             p_col1.markdown(f"<h3 style='color: #4A90E2;'>{datetime.now().strftime('%B %Y')} Summary</h3>", unsafe_allow_html=True)
             
-            # THE FIX: This script targets ONLY the payroll box and ignores the sidebar
-            if p_col2.button("📥 Print PDF", key="print_payroll_final"):
-                st.components.v1.html("""
-                    <script>
-                        const printContent = window.parent.document.getElementById('payroll-box');
-                        window.parent.focus();
-                        window.parent.print();
-                    </script>
-                """, height=0)
-
-            # 2. Build rows logic (Same as yours)
+            # 2. Build rows logic
             def fm(x): 
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
@@ -2328,83 +2318,55 @@ def show_payroll():
                 n5 = float(r.get('NSSF_5', 0))
                 n10 = float(r.get('NSSF_10', 0))
                 n15_total = n5 + n10
-                rows_html += f"""
-                <tr>
-                    <td style='text-align:center; border:1px solid #ddd; padding: 15px 10px;'>{i+1}</td>
-                    <td style='border:1px solid #ddd; padding: 15px 10px;'>
-                        <div style="font-weight:bold; font-size:12px;">{r['Employee']}</div>
-                        <div style="font-size:10px; color:#555;">{r.get('Designation', '-')}</div>
-                        <div style="font-size:10px; color:#2B3F87; margin-top:4px;"><b>A/C:</b> {r.get('Account_No', '-')}</div>
-                    </td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Arrears'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Basic_Salary'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['PAYE'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(n5)}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4;'>{fm(n10)}</td>
-                    <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_total)}</td>
-                </tr>"""
+                rows_html += f"<tr><td style='border:1px solid #ddd;padding:8px;'>{i+1}</td><td style='border:1px solid #ddd;padding:8px;'><b>{r['Employee']}</b><br><small>{r.get('Designation','-')}</small></td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['Arrears'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['Basic_Salary'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['Gross_Salary'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(r['PAYE'])}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(n5)}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;background:#f0f0f0;'><b>{fm(r['Net_Pay'])}</b></td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(n10)}</td><td style='border:1px solid #ddd;padding:8px;text-align:right;'>{fm(n15_total)}</td></tr>"
 
-            # 3. THE COMPLETE TABLE (With Print-Specific CSS)
-            main_html = f"""
-            <style>
-                @media print {{
-                    @page {{ size: landscape; margin: 1cm; }}
-                    body {{ visibility: hidden; }}
-                    #payroll-box {{ 
-                        visibility: visible; 
-                        position: absolute; 
-                        left: 0; 
-                        top: 0; 
-                        width: 100% !important;
-                        font-size: 10px;
-                    }}
-                    .no-print {{ display: none !important; }}
-                }}
-            </style>
-            <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 25px; background: white; font-family: sans-serif; border-radius: 10px;">
-                <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:10px; margin-bottom:20px;">
-                    <h1 style="color:#2B3F87; margin:0; font-size: 24px;">ZOE CONSULTS SMC LTD</h1>
-                    <p style="margin:5px 0; color:#666;"><b>PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</b></p>
+            # 3. THE COMPLETE PRINTABLE HTML
+            # We add a script that triggers print() automatically when this specific HTML loads
+            printable_html = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: sans-serif; padding: 20px; }}
+                    table {{ width: 100%; border-collapse: collapse; font-size: 11px; }}
+                    th {{ background: #2B3F87; color: white; padding: 10px; border: 1px solid #ddd; }}
+                    @media print {{ @page {{ size: landscape; margin: 1cm; }} }}
+                </style>
+            </head>
+            <body>
+                <div style="text-align:center; border-bottom:3px solid #2B3F87; margin-bottom:20px;">
+                    <h1 style="color:#2B3F87;">ZOE CONSULTS SMC LTD</h1>
+                    <p><b>PAYROLL REPORT - {datetime.now().strftime('%B %Y')}</b></p>
                 </div>
-                <table style="width:100%; border-collapse:collapse; font-size:10px;">
+                <table>
                     <thead>
-                        <tr style="background:#2B3F87; color:white;">
-                            <th style="padding:10px; border:1px solid #ddd;">S/N</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:left;">Employee Details</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Arrears</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Basic</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">Gross</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">P.A.Y.E</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right;">NSSF(5%)</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right; background:#1a285e;">Net Pay</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right; color:black; background:#FFD700;">10% NSSF</th>
-                            <th style="padding:10px; border:1px solid #ddd; text-align:right; color:black; background:#FFD700;">NSSF 15%</th>
+                        <tr>
+                            <th>S/N</th><th>Employee</th><th>Arrears</th><th>Basic</th><th>Gross</th>
+                            <th>P.A.Y.E</th><th>NSSF(5%)</th><th>Net Pay</th><th>NSSF(10%)</th><th>NSSF(15%)</th>
                         </tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
-                <div style="margin-top:60px; display:flex; justify-content:space-around; font-size:11px;">
-                    <div style="text-align:center; border-top:1px solid #000; width:180px; padding-top:5px;"><b>PREPARED BY</b></div>
-                    <div style="text-align:center; border-top:1px solid #000; width:180px; padding-top:5px;"><b>APPROVED BY</b></div>
+                <div style="margin-top:50px; display:flex; justify-content:space-around;">
+                    <p>___________________<br>Prepared By</p>
+                    <p>___________________<br>Approved By</p>
                 </div>
-            </div>"""
-            
-            # --- 4. RENDER PREVIEW ---
-            st.components.v1.html(main_html, height=800, scrolling=True)
+                <script>window.print();</script>
+            </body>
+            </html>
+            """
 
-            # --- 5. CSV DOWNLOAD (Keep this as your backup) ---
+            # 4. THE PRINT BUTTON TRIGGER
+            # When clicked, we show the printable HTML in a hidden way
+            if p_col2.button("📥 Print PDF", key="print_payroll_trigger"):
+                st.components.v1.html(printable_html, height=0)
+
+            # 5. RENDER THE PREVIEW ON SCREEN (Normally)
+            st.components.v1.html(printable_html.replace("<script>window.print();</script>", ""), height=600, scrolling=True)
+
+            # 6. CSV BACKUP
             import io
             csv_text = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📄 Download Excel Copy",
-                data=csv_text,
-                file_name=f"Zoe_Payroll_{datetime.now().strftime('%b_%Y')}.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="payroll_csv_backup"
-            )
+            st.download_button("📄 Download CSV", data=csv_text, file_name="Payroll.csv", mime="text/csv", key="csv_pay")
             # --- 7. MODIFY SECTION ---
             st.write("---")
             with st.expander("⚙️ Modify / Delete Record"):
