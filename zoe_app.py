@@ -711,7 +711,20 @@ def show_borrowers():
     with tab_list:
         st.markdown("<br>", unsafe_allow_html=True)
         col1, col2 = st.columns([2, 1])
-        search = col1.text_input("🔍 Search Name or Phone")
+        # --- SEARCH & FILTER LOGIC ---
+    search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...").lower()
+    
+    if not filtered_df.empty:
+        # 🌟 THE FIX: Convert Name and Phone to strings so search doesn't crash
+        filtered_df["Name"] = filtered_df["Name"].astype(str)
+        filtered_df["Phone"] = filtered_df["Phone"].astype(str)
+        
+        # Now run the search safely
+        mask = (
+            filtered_df["Name"].str.lower().str.contains(search, na=False) | 
+            filtered_df["Phone"].str.contains(search, na=False)
+        )
+        filtered_df = filtered_df[mask]
         status_filter = col2.selectbox("Filter Status", ["All", "Active", "Inactive"])
 
         filtered_df = df.copy()
