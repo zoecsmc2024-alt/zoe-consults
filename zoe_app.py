@@ -1001,23 +1001,24 @@ def show_loans():
             display_df = loans_df.copy()
             
             # 🌟 THE TRANSLATOR (Normalization)
-            # 🌟 THE FIX: Only convert specific columns to numeric
-                display_df = loans_df.copy()
-                
-                # List the columns that should actually be numbers
-                numeric_cols = ["Principal", "Interest", "Total Repayable", "Amount Paid", "Rate (%)"]
-                
-                for col in numeric_cols:
-                    if col in display_df.columns:
-                        # Convert to numeric, turn errors into NaN, then fill with 0
-                        display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
-                
-                # Now the rest of your table display code...
-                st.dataframe(display_df, use_container_width=True)
-                else:
-                    display_df[col] = 0.0
+        # 🌟 THE FIX: Only convert specific columns to numeric
+        display_df = loans_df.copy()
+        
+        # List the columns that should actually be numbers
+        numeric_cols = ["Principal", "Interest", "Total Repayable", "Amount Paid", "Rate (%)"]
+        
+        for col in numeric_cols:
+            if col in display_df.columns:
+                # Convert to numeric, turn errors into NaN, then fill with 0
+                display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+            else:
+                # If the column is missing entirely, create it as zeros
+                display_df[col] = 0.0
 
-            # 3. STATUS FILTERING
+        # Now the table display code sits outside the 'for' loop
+        st.dataframe(display_df, use_container_width=True)
+
+        # 3. STATUS FILTERING (Next steps...)
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
             
