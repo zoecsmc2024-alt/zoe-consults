@@ -696,7 +696,7 @@ def show_borrowers():
     
     # 1. FETCH DATA
     borrowers_df = get_cached_data("Borrowers")
-    loans_df = get_cached_data("Loans") # Needed for Audit tab
+    loans_df = get_cached_data("Loans") 
     
     if borrowers_df is None or borrowers_df.empty:
         df = pd.DataFrame(columns=["Borrower_ID", "Name", "Phone", "Location", "ID_No", "Status"])
@@ -704,9 +704,9 @@ def show_borrowers():
         df = borrowers_df.copy()
 
     # --- TABS ---
-    tab_view, tab_add, tab_audit = st.tabs(["📑 View All", "➕ Add New", "⚙️ Audit Portfolio"])
+    tab_view, tab_add, tab_audit = st.tabs(["📑 View All", "➕ Add New", "⚙️ Audit & Manage"])
 
-    # --- TAB 1: VIEW ALL ---
+    # --- TAB 1: VIEW ALL (Your existing logic) ---
     with tab_view:
         col1, col2 = st.columns([3, 1]) 
         with col1:
@@ -718,12 +718,9 @@ def show_borrowers():
         if not filtered_df.empty:
             filtered_df["Name"] = filtered_df["Name"].astype(str)
             filtered_df["Phone"] = filtered_df["Phone"].astype(str)
-            
-            # Apply Filters
             mask = (filtered_df["Name"].str.lower().str.contains(search, na=False) | 
                     filtered_df["Phone"].str.contains(search, na=False))
             filtered_df = filtered_df[mask]
-
             if status_filter != "All":
                 filtered_df = filtered_df[filtered_df["Status"] == status_filter]
 
@@ -740,23 +737,9 @@ def show_borrowers():
                             <span style="background:#4A90E2; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">{r['Status']}</span>
                         </td>
                     </tr>"""
+                st.markdown(f"<div style='border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;'><table style='width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;'><thead><tr style='background:#4A90E2; color:white; text-align:left;'><th style='padding:12px;'>Borrower Name</th><th style='padding:12px;'>Phone</th><th style='padding:12px;'>National ID</th><th style='padding:12px; text-align:center;'>Status</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
 
-                st.markdown(f"""
-                    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;">
-                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
-                            <thead>
-                                <tr style="background:#4A90E2; color:white; text-align:left;">
-                                    <th style="padding:12px;">Borrower Name</th><th style="padding:12px;">Phone</th>
-                                    <th style="padding:12px;">National ID</th><th style="padding:12px; text-align:center;">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>{rows_html}</tbody>
-                        </table>
-                    </div>""", unsafe_allow_html=True)
-            else:
-                st.info("No borrowers match your search.")
-
-    # --- TAB 2: ADD BORROWER ---
+    # --- TAB 2: ADD BORROWER (Your existing logic) ---
     with tab_add:
         with st.form("add_borrower_form", clear_on_submit=True):
             st.markdown("<h4 style='color: #4A90E2;'>📝 Register New Borrower</h4>", unsafe_allow_html=True)
@@ -765,49 +748,63 @@ def show_borrowers():
             phone = c2.text_input("Phone Number*")
             nid = c1.text_input("National ID / NIN")
             addr = c2.text_input("Physical Address")
-            
             if st.form_submit_button("🚀 Save Borrower Profile", use_container_width=True):
                 if name and phone:
                     new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
-                    new_entry = pd.DataFrame([{
-                        "Borrower_ID": new_id, "Name": name, "Phone": phone,
-                        "National_ID": nid, "Address": addr, "Status": "Active",
-                        "Date_Added": datetime.now().strftime("%Y-%m-%d")
-                    }])
+                    new_entry = pd.DataFrame([{"Borrower_ID": new_id, "Name": name, "Phone": phone, "National_ID": nid, "Address": addr, "Status": "Active", "Date_Added": datetime.now().strftime("%Y-%m-%d")}])
                     if save_data("Borrowers", pd.concat([df, new_entry], ignore_index=True)):
                         st.success(f"✅ {name} registered!"); st.rerun()
 
-    # --- TAB 3: AUDIT PORTFOLIO ---
+    # --- TAB 3: AUDIT & MANAGE (Modified with Edit/Delete) ---
     with tab_audit:
         if not df.empty:
-            target_name = st.selectbox("Select Borrower to Audit", df["Name"].tolist(), key="audit_final_v10")
+            target_name = st.selectbox("Select Borrower to Audit/Manage", df["Name"].tolist(), key="audit_manage_select")
             
-            # 1. FORCE REFRESH LOANS DATA
-            # Adding a small refresh button or clearing cache
+            # Identify the specific borrower record
+            borrower_idx = df[df["Name"] == target_name].index[0]
+            b_data = df.loc[borrower_idx]
+            
+            # --- SHOW LOAN HISTORY FIRST ---
             u_loans = get_cached_data("Loans").copy()
-            
-            # 2. CLEAN HEADERS (Crucial because "Borrower" might have a hidden space)
             u_loans.columns = [str(c).strip() for c in u_loans.columns]
             
-            # Debug: Show headers if it fails again (remove this after it works)
-            # st.write(f"Detected Columns: {list(u_loans.columns)}")
-
             if "Borrower" in u_loans.columns:
-                # 3. FILTER BY THE NAME IN IMAGE 2
                 user_loans = u_loans[u_loans["Borrower"] == target_name].copy()
-                
                 if not user_loans.empty:
-                    # Metrics
-                    m1, m2 = st.columns(2)
-                    m1.metric("Total Loans", len(user_loans))
-                    
-                    # Display History
-                    st.markdown(f"#### 📜 Loan History: {target_name}")
-                    st.table(user_loans[["Loan ID", "Status", "Principal", "Total Repayable", "End Date"]])
+                    st.metric("Total Loans Found", len(user_loans))
+                    st.table(user_loans[["Loan ID", "Status", "Principal", "End Date"]])
                 else:
-                    st.info(f"ℹ️ No loans recorded for {target_name} yet.")
-            else:
-                st.error("⚠️ The app still can't find the 'Borrower' column. Please click 'Rerun' in the top right menu.")
+                    st.info("ℹ️ No loans recorded for this borrower yet.")
+
+            st.markdown("---")
+            st.markdown("### ⚙️ Modify Borrower Details")
+            
+            # --- EDIT FORM ---
+            with st.expander(f"📝 Edit Profile: {target_name}"):
+                with st.form(f"edit_bor_{target_name}"):
+                    e_name = st.text_input("Name", value=str(b_data['Name']))
+                    e_phone = st.text_input("Phone", value=str(b_data['Phone']))
+                    e_status = st.selectbox("Status", ["Active", "Inactive"], index=0 if b_data['Status'] == "Active" else 1)
+                    e_addr = st.text_input("Address", value=str(b_data.get('Address', '')))
+                    
+                    if st.form_submit_button("💾 Update Profile"):
+                        df.at[borrower_idx, 'Name'] = e_name
+                        df.at[borrower_idx, 'Phone'] = e_phone
+                        df.at[borrower_idx, 'Status'] = e_status
+                        df.at[borrower_idx, 'Address'] = e_addr
+                        if save_data("Borrowers", df):
+                            st.success("✅ Profile Updated!"); st.rerun()
+
+            # --- DELETE ACTION ---
+            st.markdown("### ⚠️ Danger Zone")
+            if st.button(f"🗑️ Delete {target_name} Permanently", key="del_bor_btn"):
+                # Safety Check: Do they have loans?
+                if "Borrower" in u_loans.columns and not u_loans[u_loans["Borrower"] == target_name].empty:
+                    st.error("❌ Cannot delete! This borrower has loan records in the system. Close all loans first.")
+                else:
+                    new_df = df.drop(borrower_idx)
+                    if save_data("Borrowers", new_df):
+                        st.warning(f"⚠️ {target_name} removed from system."); st.rerun()
 
 
 
