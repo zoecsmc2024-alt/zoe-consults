@@ -917,7 +917,7 @@ def show_loans():
 
                 st.write("")
 
-                # 🌟 CRITICAL: This button is INDENTED to stay inside the form!
+                # 🌟 INDENTED: This button and logic are now inside the form
                 if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
                     if amount > 0:
                         # --- 1. ID GENERATOR ---
@@ -949,7 +949,10 @@ def show_loans():
                         }])
 
                         # --- 4. SAVE TO GOOGLE SHEETS ---
-                        updated_df = pd.concat([loans_df, new_loan], ignore_index=True)
+                        # Clean entire DataFrame of NaNs to avoid JSON errors
+                        final_loans_df = loans_df.fillna("")
+                        updated_df = pd.concat([final_loans_df, new_loan], ignore_index=True)
+                        
                         if save_data("Loans", updated_df):
                             st.success(f"✅ Loan #{new_id} issued successfully to {selected_borrower}!")
                             st.session_state.loans = updated_df 
@@ -958,8 +961,6 @@ def show_loans():
                             st.error("❌ Failed to save to Google Sheets.")
                     else:
                         st.warning("⚠️ Please enter a valid loan amount.")
-
-
 
     # ==============================
     # TAB 2: PORTFOLIO INSPECTOR (Zoe Soft Blue)
