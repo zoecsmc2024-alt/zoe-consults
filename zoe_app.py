@@ -1001,13 +1001,19 @@ def show_loans():
             display_df = loans_df.copy()
             
             # 🌟 THE TRANSLATOR (Normalization)
-            # This fixes the "Loan ID" vs "Loan_ID" conflict
-            display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
-            
-            # 2. CLEAN DATA TYPES IMMEDIATELY
-            for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
-                if col in display_df.columns:
-                    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+            # 🌟 THE FIX: Only convert specific columns to numeric
+                display_df = loans_df.copy()
+                
+                # List the columns that should actually be numbers
+                numeric_cols = ["Principal", "Interest", "Total Repayable", "Amount Paid", "Rate (%)"]
+                
+                for col in numeric_cols:
+                    if col in display_df.columns:
+                        # Convert to numeric, turn errors into NaN, then fill with 0
+                        display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+                
+                # Now the rest of your table display code...
+                st.dataframe(display_df, use_container_width=True)
                 else:
                     display_df[col] = 0.0
 
