@@ -1036,78 +1036,60 @@ def show_loans():
     with tab_manage:
         st.markdown("### 🛠️ Modify Loan Agreement")
         
-        # 1. PREPARE THE DATA
-        m_df = loans_df.copy()
-        m_df.columns = [str(c).strip().replace(" ", "_") for c in m_df.columns]
-        
-        if m_df.empty:
-            st.info("ℹ️ No loans available to edit.")
-        else:
-            # Clean the IDs (remove .0)
-            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
-            m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
+        if not loans_df.empty:
+            m_df = loans_df.copy()
+            # Clean up ID column names
+            id_col = "Loan ID" if "Loan ID" in m_df.columns else "Loan_ID"
+            m_df[id_col] = m_df[id_col].astype(str).str.replace(".0", "", regex=False)
             
-            # 🌟 SESSION STATE FIX: Save the selection to memory immediately
-            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="manage_sel_box")
-            st.session_state['current_loan_selection'] = selected_m
+            # Create selection dropdown
+            m_options = [f"ID: {r[id_col]} | {r['Borrower']}" for _, r in m_df.iterrows()]
+            selected_m = st.selectbox("🔍 Select Loan to Manage", m_options, key="edit_loan_final_v5")
 
-            # 2. IDENTIFY THE SELECTED ID
-            import re
-            current_val = st.session_state['current_loan_selection']
-            match = re.search(r'ID:\s*(\d+)', str(current_val))
-            clean_id = match.group(1) if match else str(current_val).split("|")[0].replace("ID:", "").strip()
+            # Extract the ID
+            clean_id = selected_m.split(" | ")[0].replace("ID: ", "").strip()
             
-            # Pull the data row
-            loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
-
-            st.divider()
+            # 🌟 THE CRITICAL FIX: Add .iloc[0] to ensure we only get ONE row
+            # Even if there is a duplicate in the sheet, this stops the crash
+            matching_rows = m_df[m_df[id_col] == clean_id]
             
-            # 3. INPUT FORM FIELDS
-            c1, c2 = st.columns(2)
-            with c1:
-                up_name = st.text_input("Edit Borrower Name", value=str(loan_row.get('Borrower', '')))
-                up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)))
-                up_rate = st.number_input("Adjust Rate (%)", value=float(loan_row.get('Interest_Rate', 0)))
-                up_paid = st.number_input("Adjust Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
-            
-            with c2:
-                status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
-                curr_s = str(loan_row.get('Status', 'Active')).strip()
-                up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
-                
-                # Date Safety
-                try:
-                    s_date = pd.to_datetime(loan_row.get('Start_Date', datetime.now())).date()
-                    e_date = pd.to_datetime(loan_row.get('End_Date', datetime.now())).date()
-                except:
-                    s_date, e_date = datetime.now().date(), datetime.now().date()
-                
-                up_start = st.date_input("Adjust Start Date", value=s_date)
-                up_end = st.date_input("Adjust End Date", value=e_date)
+            if not matching_rows.empty:
+                loan_row = matching_rows.iloc[0] # <--- Grab the first match only
 
-            st.divider()
-
-            # 4. ACTION BUTTONS (Using the pinned memory)
-            b_save, b_del = st.columns(2)
-
-            # --- SAVE BUTTON ---
-            if b_save.button("💾 Save Changes", use_container_width=True):
-                # Always use 'clean_id' which we identified at the top of the tab
-                id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
-                idx_list = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index
-                
-                if not idx_list.empty:
-                    t_idx = idx_list[0]
-                    loans_df.at[t_idx, 'Borrower'] = up_name
-                    loans_df.at[t_idx, 'Principal'] = up_p
-                    loans_df.at[t_idx, 'Status'] = up_status
-                    # Update date and paid amount using common column names
-                    for col in loans_df.columns:
-                        if "Paid" in col: loans_df.at[t_idx, col] = up_paid
-                        if "End" in col: loans_df.at[t_idx, col] = up_end.strftime('%Y-%m-%d')
+                st.divider()
+                c1, c2 = st.columns(2)
+                with c1:
+                    up_name = st.text_input("Edit Borrower", value=str(loan_row.get('Borrower', '')))
+                    up_p = st.number_input("Adjust Principal", value=float(pd.to_numeric(loan_row.get('Principal', 0), errors='coerce')))
                     
-                    if save_data("Loans", loans_df):
-                        st.success(f"✅ Loan #{clean_id} updated!"); st.rerun()
+                with c2:
+                    # 🌟 THE LINE 1071 FIX: Safe numeric conversion for Amount Paid
+                    raw_paid = loan_row.get('Amount Paid', loan_row.get('Amount_Paid', 0))
+                    # If raw_paid is a list/series, pd.to_numeric handles it safely
+                    clean_paid = float(pd.to_numeric(raw_paid, errors='coerce')) if not isinstance(raw_paid, pd.Series) else float(pd.to_numeric(raw_paid.iloc[0], errors='coerce'))
+                    
+                    up_paid = st.number_input("Adjust Amount Paid", value=clean_paid)
+                    
+                    status_list = ["Active", "Overdue", "Closed", "Defaulted"]
+                    curr_s = str(loan_row.get('Status', 'Active')).strip()
+                    up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
+
+                if st.button("💾 Save Changes", use_container_width=True):
+                    # Find index in original dataframe
+                    idx = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
+                    
+                    loans_df.at[idx, 'Borrower'] = up_name
+                    loans_df.at[idx, 'Principal'] = up_p
+                    loans_df.at[idx, 'Status'] = up_status
+                    
+                    # Update Amount Paid safely
+                    paid_col = "Amount Paid" if "Amount Paid" in loans_df.columns else "Amount_Paid"
+                    loans_df.at[idx, paid_col] = up_paid
+                    
+                    if save_data("Loans", loans_df.fillna("")):
+                        st.success("✅ Loan Updated!"); st.rerun()
+            else:
+                st.error("Could not find the selected loan data.")
 
             # --- DELETE BUTTON ---
             if b_del.button("🗑️ Delete Permanently", use_container_width=True):
