@@ -1210,41 +1210,34 @@ def show_payments():
     if "status" in loans_df.columns:
         loans_df = loans_df.rename(columns={"status": "Status"})
 
-    # TABS FOR CLEAN UI
+    # 🌟 THE TAB FIX: Ensure these names match the 'with' blocks below
     tab_new, tab_history, tab_manage = st.tabs(["➕ Record Payment", "📜 History & Trends", "⚙️ Edit/Delete"])
 
     # ==============================
     # TAB 1: RECORD NEW PAYMENT
     # ==============================
     with tab_new:
-        # Use lowercase for status check to be safe and remove extra spaces
+        # Standardize columns for processing
         loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
         active_loans = loans_df[loans_df["Status"].astype(str).str.lower() != "closed"].copy()
         
         if active_loans.empty:
             st.success("🎉 All loans are currently cleared!")
         else:
-            # 1. Selection logic with Safe ID parsing
+            # Selection logic
             active_loans['Loan_ID'] = active_loans['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
-            
-            loan_options = active_loans.apply(
-                lambda x: f"ID: {x.get('Loan_ID', 'N/A')} - {x.get('Borrower', 'Unknown')}", 
-                axis=1
-            ).tolist()
-            
+            loan_options = active_loans.apply(lambda x: f"ID: {x.get('Loan_ID', 'N/A')} - {x.get('Borrower', 'Unknown')}", axis=1).tolist()
             selected_option = st.selectbox("Select Loan to Credit", loan_options, key="payment_selector_unique")
             
-            # Safe Parsing of the ID
             try:
                 raw_id = selected_option.split(" - ")[0].replace("ID: ", "")
                 selected_id_str = str(int(float(raw_id)))
                 loan = active_loans[active_loans["Loan_ID"] == selected_id_str].iloc[0]
             except Exception as e:
-                st.error("❌ Could not parse the Loan ID. Please check the Google Sheet row.")
+                st.error("❌ Could not parse the Loan ID.")
                 st.stop()
 
-            # 2. Calculation (Properly Indented)
-            # Safe recovery: Total Repayable or (Principal + Interest)
+            # Calculations
             total_rep = float(loan.get("Total_Repayable", 0))
             if total_rep == 0:
                 total_rep = float(loan.get("Principal", 0)) + float(loan.get("Interest", 0))
@@ -1252,217 +1245,99 @@ def show_payments():
             paid_so_far = pd.to_numeric(loan.get("Amount_Paid", 0), errors='coerce') or 0.0
             outstanding = total_rep - paid_so_far
 
-            # --- STYLED CARDS ---
+            # Styled Cards
             c1, c2, c3 = st.columns(3)
-            # Logic for color: Green for Active, Red for Overdue
             status_val = str(loan.get('Status', 'Active')).strip()
             status_color = "#2E7D32" if status_val == "Active" else "#FF4B4B"
             
             c1.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CLIENT</p><h3 style="margin:0; color:#2B3F87; font-size:18px;">{loan['Borrower']}</h3></div>""", unsafe_allow_html=True)
-            c2.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">BALANCE DUE</p><h3 style="margin:0; color:#FF4B4B; font-size:18px;">{outstanding:,.0f} <span style="font-size:12px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-            c3.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {status_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">STATUS</p><h3 style="margin:0; color:{status_color}; text-transform:uppercase; font-size:18px;">{status_val}</h3></div>""", unsafe_allow_html=True)
+            c2.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">BALANCE DUE</p><h3 style="margin:0; color:#FF4B4B; font-size:18px;">{outstanding:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
+            c3.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {status_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">STATUS</p><h3 style="margin:0; color:{status_color}; font-size:18px;">{status_val}</h3></div>""", unsafe_allow_html=True)
 
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- PAYMENT FORM ---
             with st.form("payment_form", clear_on_submit=True):
                 col_a, col_b, col_c = st.columns(3)
-                
                 pay_amount = col_a.number_input("Amount Received (UGX)", min_value=0, step=10000)
                 pay_method = col_b.selectbox("Method", ["Mobile Money", "Cash", "Bank Transfer", "Cheque"])
                 pay_date = col_c.date_input("Payment Date", value=datetime.now())
                 
                 if st.form_submit_button("✅ Post Payment", use_container_width=True):
-                    # We allow a tiny 100 UGX margin for rounding issues
                     if 0 < pay_amount <= (outstanding + 100):
-                        try:
-                            # 1. Create Payment Record
-                            if not payments_df.empty:
-                                new_p_id = int(payments_df["Payment_ID"].astype(float).max() + 1)
-                            else:
-                                new_p_id = 1
-                                
-                            new_payment = pd.DataFrame([{
-                                "Payment_ID": new_p_id, 
-                                "Loan_ID": selected_id_str, 
-                                "Borrower": loan["Borrower"],
-                                "Amount": float(pay_amount), 
-                                "Date": pay_date.strftime("%Y-%m-%d"), 
-                                "Method": pay_method, 
-                                "Recorded_By": st.session_state.get("user", "Zoe (Admin)")
-                            }])
+                        # Payment Logic
+                        new_p_id = int(payments_df["Payment_ID"].astype(float).max() + 1) if not payments_df.empty else 1
+                        new_payment = pd.DataFrame([{"Payment_ID": new_p_id, "Loan_ID": selected_id_str, "Borrower": loan["Borrower"], "Amount": float(pay_amount), "Date": pay_date.strftime("%Y-%m-%d"), "Method": pay_method, "Recorded_By": "Zoe (Admin)"}])
 
-                            # 2. Update Loan Balance logic in the main dataframe
-                            idx = loans_df[loans_df["Loan_ID"] == selected_id_str].index[0]
-                            new_total_paid = float(paid_so_far) + float(pay_amount)
-                            loans_df.at[idx, "Amount_Paid"] = new_total_paid
-                            
-                            # 3. Auto-Close logic
-                            if new_total_paid >= (total_rep - 10):
-                                loans_df.at[idx, "Status"] = "Closed"
+                        idx = loans_df[loans_df["Loan_ID"] == selected_id_str].index[0]
+                        new_total_paid = float(paid_so_far) + float(pay_amount)
+                        loans_df.at[idx, "Amount_Paid"] = new_total_paid
+                        
+                        if new_total_paid >= (total_rep - 10):
+                            loans_df.at[idx, "Status"] = "Closed"
 
-                            # 4. Save both sheets back to Google
-                            # Convert columns back to spaces for Google Sheets format
-                            save_loans = loans_df.copy()
-                            save_loans.columns = save_loans.columns.str.replace("_", " ")
-                            
-                            if save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True)) and \
-                               save_data("Loans", save_loans):
-                                st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded for {loan['Borrower']}!")
-                                st.session_state.loans = save_loans # Update state
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Error saving data: {e}")
-                    else:
-                        st.error(f"⚠️ Invalid amount. Balance due is {outstanding:,.0f} UGX.")
+                        # Save logic
+                        save_loans = loans_df.copy()
+                        save_loans.columns = save_loans.columns.str.replace("_", " ")
+                        
+                        if save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True)) and save_data("Loans", save_loans):
+                            st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded!")
+                            st.rerun()
 
     # ==============================
-    # TAB 2: HISTORY (Color via Emojis)
+    # TAB 2: HISTORY 
     # ==============================
     with tab_history:
         if not payments_df.empty:
-            # 1. Clean the data
             df_display = payments_df.copy()
             df_display["Amount"] = pd.to_numeric(df_display.get("Amount", 0), errors="coerce").fillna(0)
-            
-            # 2. Add a "Trend" Emoji Column based on Amount
             def get_color_emoji(amt):
-                if amt >= 5000000: return "🟢 Large"  # Over 5M
-                if amt >= 1000000: return "🔵 Medium" # Over 1M
+                if amt >= 5000000: return "🟢 Large"
+                if amt >= 1000000: return "🔵 Medium"
                 return "⚪ Small"
-            
             df_display["Level"] = df_display["Amount"].apply(get_color_emoji)
-            
-            # 3. Sort by Date
             df_display = df_display.sort_values("Date", ascending=False)
-
-            # 4. Reorder columns to put the "Level" first for visual impact
-            cols = ["Level"] + [c for c in df_display.columns if c != "Level"]
-            
-            # 5. Display (Safe version, no .style)
-            st.dataframe(
-                df_display[cols], 
-                use_container_width=True, 
-                hide_index=True
-            )
-        else:
-            st.info("No payment records found.")
+            st.dataframe(df_display[["Level", "Payment_ID", "Loan_ID", "Borrower", "Amount", "Date", "Method"]], use_container_width=True, hide_index=True)
 
     # ==============================
-    # TAB 3: MANAGE / EDIT LOANS
+    # TAB 3: MANAGE / EDIT LOANS (Fixed Indentation)
     # ==============================
     with tab_manage:
         st.markdown("### 🛠️ Modify Loan Agreement")
-        
-        # 1. PREPARE THE DATA
         m_df = loans_df.copy()
-        # Force column names to match our logic
         m_df.columns = [str(c).strip().replace(" ", "_") for c in m_df.columns]
         
-        if m_df.empty:
-            st.info("ℹ️ No loans available to edit.")
-        else:
-            # 🌟 CRITICAL: Define the dropdown list FIRST
+        if not m_df.empty:
             m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
             m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
-            
-            # This is the variable the error was missing!
-            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="final_manage_fix_v4")
+            selected_m = st.selectbox("🔍 Select Loan to Manage", m_options, key="manage_sel_final")
 
-            # 2. IDENTIFY THE SELECTED ID IMMEDIATELY
+            # ID Extraction
             import re
             match = re.search(r'ID:\s*(\d+)', str(selected_m))
-            clean_id = match.group(1) if match else str(selected_m).split("|")[0].replace("ID:", "").strip()
+            clean_id = match.group(1) if match else "0"
             
-            # Pull the data for the inputs
             loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
-
-            st.divider()
             
-            # 3. INPUT FORM FIELDS
+            # --- FORM FIELDS ---
             c1, c2 = st.columns(2)
             with c1:
-                up_name = st.text_input("Edit Borrower Name", value=str(loan_row.get('Borrower', '')))
+                up_name = st.text_input("Edit Borrower", value=str(loan_row.get('Borrower', '')))
                 up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)))
-                up_rate = st.number_input("Adjust Rate (%)", value=float(loan_row.get('Interest_Rate', 0)))
-                up_paid = st.number_input("Adjust Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
-            
             with c2:
-                status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
+                status_list = ["Active", "Overdue", "Closed", "Defaulted"]
                 curr_s = str(loan_row.get('Status', 'Active')).strip()
                 up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
-                
-                # Date Safety
-                try:
-                    s_date = pd.to_datetime(loan_row.get('Start_Date', datetime.now())).date()
-                    e_date = pd.to_datetime(loan_row.get('End_Date', datetime.now())).date()
-                except:
-                    s_date, e_date = datetime.now().date(), datetime.now().date()
-                
-                up_start = st.date_input("Adjust Start Date", value=s_date)
-                up_end = st.date_input("Adjust End Date", value=e_date)
 
-            st.divider()
-
-            # 4. ACTION BUTTONS (The Red Box Zone)
-            b_save, b_del = st.columns(2)
-
-            # --- SAVE BUTTON ---
-            if b_save.button("💾 Save Changes", use_container_width=True):
-                # We update the ORIGINAL loans_df
+            if st.button("💾 Save Changes", use_container_width=True):
+                # Update Original Logic
                 id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
                 idx_list = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index
-                
                 if not idx_list.empty:
                     t_idx = idx_list[0]
                     loans_df.at[t_idx, 'Borrower'] = up_name
                     loans_df.at[t_idx, 'Principal'] = up_p
                     loans_df.at[t_idx, 'Status'] = up_status
-                    # Use exact column names from your sheet for the rest
-                    for col in loans_df.columns:
-                        if "Paid" in col: loans_df.at[t_idx, col] = up_paid
-                        if "End" in col: loans_df.at[t_idx, col] = up_end.strftime('%Y-%m-%d')
                     
-                    if save_data("Loans", loans_df):
-                        st.success(f"✅ Loan #{clean_id} updated!"); st.rerun()
-
-            # --- TAB 3: EDIT/DELETE PAYMENTS ---
-    with tab_delete:
-        # 1. LOAD FRESH PAYMENTS DATA
-        pay_df = get_cached_data("Payments") # 🌟 Make sure we look at Payments!
-        
-        if pay_df is None or pay_df.empty:
-            st.info("No payment records found to edit.")
-        else:
-            st.markdown("### ⚙️ Manage Payment Records")
-            
-            # 2. SELECT THE PAYMENT (Not the Loan!)
-            # Create a label that shows ID + Borrower + Amount for clarity
-            pay_df['Selection_Label'] = pay_df['Payment_ID'].astype(str) + " - " + pay_df['Borrower'] + " (" + pay_df['Amount'].astype(str) + ")"
-            
-            target_payment = st.selectbox(
-                "Select Payment Record to Action", 
-                pay_df['Selection_Label'].tolist(),
-                key="payment_manage_select"
-            )
-            
-            # Extract the actual ID from our selection
-            selected_pay_id = int(target_payment.split(" - ")[0])
-            pay_idx = pay_df[pay_df["Payment_ID"] == selected_pay_id].index[0]
-            
-            st.warning(f"⚠️ You are managing Payment ID: {selected_pay_id}")
-
-            # --- DELETE ACTION ---
-            if st.button(f"🗑️ Delete Payment #{selected_pay_id} Permanently", use_container_width=True):
-                # 🌟 THE FIX: We drop from the PAYMENTS dataframe, not the LOANS dataframe
-                new_pay_df = pay_df.drop(pay_idx).drop(columns=['Selection_Label'])
-                
-                # Use fillna("") to avoid the JSON nan error we saw earlier
-                if save_data("Payments", new_pay_df.fillna("")):
-                    st.success(f"✅ Payment #{selected_pay_id} has been removed.")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to update the Payments sheet.")
+                    if save_data("Loans", loans_df.fillna("")):
+                        st.success("✅ Loan Updated!"); st.rerun()
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
