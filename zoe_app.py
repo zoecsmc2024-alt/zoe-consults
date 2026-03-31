@@ -798,19 +798,37 @@ def show_borrowers():
                     # Full Width: Address
                     e_addr = st.text_input("Physical Address", value=str(b_data.get('Address', '')))
                     
-                    if st.form_submit_button("💾 Save Updated Profile", use_container_width=True):
-                        # Update the DataFrame at the correct index
-                        df.at[borrower_idx, 'Name'] = e_name
-                        df.at[borrower_idx, 'Phone'] = e_phone
-                        df.at[borrower_idx, 'National_ID'] = e_nid
-                        df.at[borrower_idx, 'Email'] = e_email
-                        df.at[borrower_idx, 'Next_of_Kin'] = e_kin
-                        df.at[borrower_idx, 'Status'] = e_status
-                        df.at[borrower_idx, 'Address'] = e_addr
-                        
-                        if save_data("Borrowers", df):
-                            st.success(f"✅ {e_name}'s profile has been updated!"); st.rerun()
-
+                    if st.form_submit_button("🚀 Save Borrower Profile", use_container_width=True):
+                if name and phone:
+                    # 1. Generate New ID
+                    new_id = int(df["Borrower_ID"].max() + 1) if not df.empty else 1
+                    
+                    # 2. Create the new entry
+                    new_entry = pd.DataFrame([{
+                        "Borrower_ID": new_id, 
+                        "Name": name, 
+                        "Phone": phone,
+                        "National_ID": nid, 
+                        "Address": addr, 
+                        "Status": "Active",
+                        "Date_Added": datetime.now().strftime("%Y-%m-%d")
+                    }])
+                    
+                    # 3. Combine with old data
+                    updated_df = pd.concat([df, new_entry], ignore_index=True)
+                    
+                    # 🌟 THE CRITICAL FIX: Remove all NaNs before saving
+                    # This turns "nan" into "" so the JSON error stops
+                    final_df_to_save = updated_df.fillna("")
+                    
+                    # 4. Save the sanitized data
+                    if save_data("Borrowers", final_df_to_save):
+                        st.success(f"✅ {name} registered successfully!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Google Sheets connection failed.")
+                else:
+                    st.error("⚠️ Required: Name and Phone Number.")
             # --- DELETE ACTION ---
             st.markdown("### ⚠️ Danger Zone")
             if st.button(f"🗑️ Delete {target_name} Permanently", key="del_bor_btn"):
