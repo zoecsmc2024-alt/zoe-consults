@@ -62,8 +62,8 @@ SHEET_ID = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
 # ==============================
 # 2. HIGH-SPEED DATA LOADING
 # ==============================
-@st.cache_data(ttl=600)  # Remembers data for 10 minutes to stay fast
-def get_cached_data(worksheet_name):
+@st.cache_data(ttl=300) 
+def get_cached_data(sheet_name):
     """
     Fetches a specific sheet and converts it to a DataFrame.
     Uses the cached client for speed.
