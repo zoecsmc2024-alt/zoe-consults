@@ -2248,35 +2248,21 @@ def show_payroll():
             if col not in df.columns: df[col] = 0
         df = df.fillna(0)
 
-    # 2. THE EXACT MATH ENGINE (From your Manual Sheet)
+    # 2. THE EXACT MATH ENGINE
     def run_manual_sync_calculations(basic, arrears, absent_deduct, advance, other):
-        # Gross = (Basic + Arrears) - Absenteeism
         gross = (float(basic) + float(arrears)) - float(absent_deduct)
-        
-        # Taxes
         lst = 100000 / 12 if gross > 1000000 else 0
-        
-        # NSSF SPLIT (Match your yellow columns)
-        n5 = gross * 0.05   # Employee Part
-        n10 = gross * 0.10  # Employer Part
-        n15 = n5 + n10      # Total
-        
-        # PAYE (Standard UG formula)
-        taxable = gross - n5 # TAXABLE is Gross minus the 5% NSSF
+        n5 = gross * 0.05
+        n10 = gross * 0.10
+        n15 = n5 + n10
+        taxable = gross - n5
         paye = 0
         if taxable > 410000: paye = 25000 + (0.30 * (taxable - 410000))
         elif taxable > 282000: paye = (taxable - 282000) * 0.20 + 4700
         elif taxable > 235000: paye = (taxable - 235000) * 0.10
-
-        # Total Deductions = PAYE + LST + NSSF(5%) + Advance + Others
-        # Note: We only subtract the 5% NSSF from the employee's pay!
         total_deductions = paye + lst + n5 + float(advance) + float(other)
         net = gross - total_deductions
-        
-        return {
-            "gross": round(gross), "lst": round(lst), "n5": round(n5),
-            "n10": round(n10), "n15": round(n15), "paye": round(paye), "net": round(net)
-        }
+        return {"gross": round(gross), "lst": round(lst), "n5": round(n5), "n10": round(n10), "n15": round(n15), "paye": round(paye), "net": round(net)}
 
     tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
 
@@ -2318,37 +2304,23 @@ def show_payroll():
     # --- TAB 2: HISTORY ---
     with tab_logs:
         if not df.empty:
-            # 1. TOP ROW: Title and Print Button
+            # 1. Header Row
             p_col1, p_col2 = st.columns([4, 1])
             p_col1.markdown(f"<h3 style='color: #4A90E2;'>{datetime.now().strftime('%B %Y')} Summary</h3>", unsafe_allow_html=True)
             
             if p_col2.button("📥 Print PDF", key="print_payroll_final"):
                 st.components.v1.html("""<script>window.parent.focus(); window.parent.print();</script>""", height=0)
 
-            # 2. CSS PRINT SHIELD (Keeps the printout clean)
-            st.markdown("""
-                <style>
-                @media print {
-                    body * { visibility: hidden; }
-                    #payroll-box, #payroll-box * { visibility: visible; -webkit-print-color-adjust: exact !important; }
-                    #payroll-box { position: absolute; left: 0; top: 0; width: 100% !important; border: 2px solid #2B3F87 !important; padding: 40px !important; background-color: white !important; }
-                    [data-testid="stSidebar"], [data-testid="stHeader"], .stButton { display: none !important; }
-                }
-                </style>
-            """, unsafe_allow_html=True)
-
+            # 2. Build rows logic
             def fm(x): 
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
 
-            # 3. BUILD ROWS (With A/C Provision & NSSF 15% Math)
             rows_html = ""
             for i, r in df.iterrows():
-                # Force math for the 15% column so it's never zero
-                n5 = float(r.get('NSSF_5', 0)) if r.get('NSSF_5') != "" else 0
-                n10 = float(r.get('NSSF_10', 0)) if r.get('NSSF_10') != "" else 0
+                n5 = float(r.get('NSSF_5', 0))
+                n10 = float(r.get('NSSF_10', 0))
                 n15_total = n5 + n10
-
                 rows_html += f"""
                 <tr>
                     <td style='text-align:center; border:1px solid #ddd; padding: 15px 10px;'>{i+1}</td>
@@ -2367,7 +2339,6 @@ def show_payroll():
                     <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_total)}</td>
                 </tr>"""
 
-            # 4. FINAL HTML STRUCTURE (Merged into one clean variable)
             main_html = f"""
             <div id="payroll-box" style="border: 2px solid #4A90E2; padding: 35px; background: white; font-family: sans-serif; border-radius: 10px;">
                 <div style="text-align:center; border-bottom:3px solid #2B3F87; padding-bottom:15px; margin-bottom:25px;">
@@ -2391,61 +2362,38 @@ def show_payroll():
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
-                <div style="margin-top:100px; display:flex; justify-content:space-around; font-size:12px;">
-                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:8px;"><b>PREPARED BY</b></div>
-                    <div style="text-align:center; border-top:1px solid #000; width:200px; padding-top:8px;"><b>APPROVED BY</b></div>
-                </div>
             </div>"""
             
-            # --- 5. RENDER THE PREVIEW ---
-        st.components.v1.html(main_html, height=800, scrolling=True)
+            # --- 5. RENDER THE PREVIEW (Aligned with 'if not df.empty') ---
+            st.components.v1.html(main_html, height=800, scrolling=True)
 
-        # --- 6. PREPARE DOWNLOAD DATA (Do this BEFORE the expander) ---
-        import io
-        
-        # We create the download data immediately so it's ready for the button
-        if not df.empty:
-            # Convert the current view (df) to CSV
-            csv_buffer = io.BytesIO()
+            # --- 6. EXPORT SECTION ---
+            import io
             csv_text = df.to_csv(index=False).encode('utf-8')
-            
             st.markdown("---")
-            st.subheader("📥 Export Payroll")
-            
-            # THE DOWNLOAD BUTTON
             st.download_button(
                 label="📄 Download Payroll (CSV for Excel)",
                 data=csv_text,
                 file_name=f"Zoe_Payroll_{datetime.now().strftime('%b_%Y')}.csv",
                 mime="text/csv",
                 use_container_width=True,
-                key="payroll_export_final" # Unique key is CRITICAL
+                key="payroll_export_fixed"
             )
+
+            # --- 7. MODIFY SECTION ---
+            st.write("---")
+            with st.expander("⚙️ Modify / Delete Record"):
+                pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
+                if pay_opts:
+                    sel_opt = st.selectbox("Select Record to Edit", pay_opts, key="payroll_edit_selectbox")
+                    try:
+                        sid = str(sel_opt.split("(ID: ")[1].replace(")", ""))
+                        item = df[df['Payroll_ID'].astype(str) == sid].iloc[0]
+                        st.text_input("Edit Name", value=str(item['Employee']))
+                    except Exception as e:
+                        st.error(f"Selection error: {e}")
         else:
             st.info("No payroll records found for this period.")
-
-        # --- 7. MODIFY & DELETE SECTION (Moved to the bottom) ---
-        st.write("---")
-        with st.expander("⚙️ Modify / Delete Record"):
-            # Create list for selection
-            pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
-            
-            if pay_opts:
-                sel_opt = st.selectbox("Select Record to Edit", pay_opts, key="payroll_edit_selectbox")
-                
-                # Extract ID safely
-                try:
-                    sid = str(sel_opt.split("(ID: ")[1].replace(")", ""))
-                    item = df[df['Payroll_ID'].astype(str) == sid].iloc[0]
-                    
-                    # Edit Inputs
-                    u_name = st.text_input("Edit Name", value=str(item['Employee']))
-                    u_basic = st.number_input("Edit Basic Salary", value=float(item['Basic_Salary'] if item['Basic_Salary'] != "" else 0))
-                    u_arr = st.number_input("Edit Arrears", value=float(item['Arrears'] if item['Arrears'] != "" else 0))
-                    
-                    # (Add your Save/Delete buttons here if needed)
-                except Exception as e:
-                    st.error(f"Select a valid record: {e}")
         
     
  
