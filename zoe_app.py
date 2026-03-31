@@ -921,7 +921,7 @@ def show_loans():
 
                 if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
                     if amount > 0:
-                        last_id = loans_df["Loan_ID"].max()
+                        last_id = loans_df["Loan_ID"].max() if "Loan_ID" in loans_df.columns else 0
                         new_id = int(last_id + 1) if pd.notna(last_id) else 1
                         
                         new_loan = pd.DataFrame([{
@@ -944,20 +944,20 @@ def show_loans():
                             st.rerun()
 
     # ==============================
-    # TAB 2: PORTFOLIO (Fixed Error)
+    # TAB 2: PORTFOLIO (Fixed ValueError)
     # ==============================
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
-            # Normalize column names
             display_df.columns = [str(c).strip().replace(" ", "_") for c in display_df.columns]
             
-            # --- ROBUST TYPE CONVERSION ---
+            # --- THE ULTIMATE FIX: FLATTEN AND CLEAN ---
             numeric_cols = ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate", "Total_Repayable"]
             for col in numeric_cols:
                 if col in display_df.columns:
-                    # Explicitly convert to series to prevent pd.to_numeric TypeError
-                    display_df[col] = pd.to_numeric(pd.Series(display_df[col]), errors='coerce').fillna(0)
+                    # ravel() ensures 1D array, to_numeric handles types
+                    clean_values = pd.to_numeric(np.array(display_df[col]).ravel(), errors='coerce')
+                    display_df[col] = pd.Series(clean_values).fillna(0)
                 else:
                     display_df[col] = 0.0
 
@@ -967,13 +967,11 @@ def show_loans():
             active_view = display_df[display_df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].copy()
 
             if active_view.empty:
-                st.info("ℹ️ No active loans in portfolio.")
+                st.info("ℹ️ No active loans currently.")
             else:
-                # Calculations
                 p_col = "Principal" if "Principal" in active_view.columns else "Amount"
                 active_view["Outstanding_Balance"] = (active_view[p_col] + active_view["Interest"]) - active_view["Amount_Paid"]
                 
-                # Table Generation
                 rows_html = ""
                 for i, r in active_view.iterrows():
                     bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
@@ -989,7 +987,7 @@ def show_loans():
                         <td style="padding:10px; text-align:center;">{r.get('End_Date', 'N/A')}</td>
                     </tr>"""
 
-                full_html = f"""<div style="border:1px solid #2B3F87; border-radius:10px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;"><thead><tr style="background:#2B3F87; color:white;"><th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th><th style="padding:12px; text-align:right;">Principal</th><th style="padding:12px; text-align:right;">Balance</th><th style="padding:12px; text-align:center;">Status</th><th style="padding:12px; text-align:center;">Due Date</th></tr></thead><tbody>{rows_html}</tbody></table></div>"""
+                full_html = f"""<div style="border:1px solid #4A90E2; border-radius:10px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;"><thead><tr style="background:#4A90E2; color:white;"><th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th><th style="padding:12px; text-align:right;">Principal</th><th style="padding:12px; text-align:right;">Balance</th><th style="padding:12px; text-align:center;">Status</th><th style="padding:12px; text-align:center;">Due Date</th></tr></thead><tbody>{rows_html}</tbody></table></div>"""
                 st.components.v1.html(full_html, height=400, scrolling=True)
 
     # ==============================
@@ -997,23 +995,22 @@ def show_loans():
     # ==============================
     with tab_manage:
         if not loans_df.empty:
-            st.markdown("<h4 style='color: #2B3F87;'>🛠️ Manage Active Loans</h4>", unsafe_allow_html=True)
-            target_id = st.selectbox("Select Loan ID", loans_df["Loan_ID"].unique())
-            action = st.radio("Action", ["Add Payment", "Settle Loan", "Delete Record"], horizontal=True)
+            st.markdown("<h4 style='color: #2B3F87;'>🛠️ Loan Maintenance</h4>", unsafe_allow_html=True)
+            target_id = st.selectbox("Select Loan ID to modify", loans_df["Loan_ID"].unique())
+            action = st.radio("Choose Action", ["Update Balance", "Close Loan", "Delete Record"], horizontal=True)
             
-            if action == "Add Payment":
-                p_amt = st.number_input("Payment Amount (UGX)", min_value=0)
-                if st.button("Confirm Payment"):
-                    loans_df.loc[loans_df["Loan_ID"] == target_id, "Amount_Paid"] += p_amt
+            if action == "Update Balance":
+                amt = st.number_input("Amount Paid (UGX)", min_value=0)
+                if st.button("Apply Payment"):
+                    loans_df.loc[loans_df["Loan_ID"] == target_id, "Amount_Paid"] += amt
                     save_data("Loans", loans_df)
-                    st.success("Payment saved!")
+                    st.success("Successfully updated.")
                     st.rerun()
             
-            elif action == "Settle Loan":
-                if st.button("Close Loan"):
+            elif action == "Close Loan":
+                if st.button("Settle Account"):
                     loans_df.loc[loans_df["Loan_ID"] == target_id, "Status"] = "Settled"
                     save_data("Loans", loans_df)
-                    st.success("Loan marked as Settled.")
                     st.rerun()
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
