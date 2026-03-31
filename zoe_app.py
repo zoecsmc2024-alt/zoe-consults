@@ -1347,68 +1347,80 @@ def show_payments():
         
         if m_df.empty:
             st.info("ℹ️ No loans available to edit.")
+        # ... (Your existing Load & Clean code above) ...
         else:
-            # Create the list for the dropdown
-            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str)
+            # 1. Create the list for the dropdown
+            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
             m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
             
             selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="final_manage_select")
 
-            # 2. EXTRACT THE ID
-            # We use a very flexible split to make sure we don't miss it
-            m_id_raw = selected_m.split("|")[0].replace("ID:", "").strip()
-            
-            # Find the specific row
-            target_loan = m_df[m_df["Loan_ID"] == m_id_raw]
+            # 2. EXTRACT THE ID SAFELY
+            # We split by '|' to get just the ID number
+            try:
+                m_id_raw = selected_m.split("|")[0].replace("ID:", "").strip()
+                # Find the specific row in our cleaned dataframe
+                target_loan = m_df[m_df["Loan_ID"] == m_id_raw]
+            except:
+                st.error("❌ Identification error. Please refresh the page.")
+                st.stop()
 
             if not target_loan.empty:
                 loan_to_edit = target_loan.iloc[0]
-                
                 st.divider()
-                
-                # 3. THE EDIT FORM (Moved outside a sub-block to ensure visibility)
-                with st.form("edit_form_final"):
+
+                # 3. THE EDIT FORM (Ensures the Save Button always shows)
+                with st.form("edit_loan_management_form"):
                     c1, c2 = st.columns(2)
                     
                     with c1:
                         up_name = st.text_input("Borrower Name", value=str(loan_to_edit.get('Borrower', '')))
-                        up_p = st.number_input("Principal Amount (UGX)", value=float(loan_to_edit.get('Principal', 0)))
-                        up_i = st.number_input("Interest Amount (UGX)", value=float(loan_to_edit.get('Interest', 0)))
+                        up_p = st.number_input("Principal Amount (UGX)", value=float(loan_to_edit.get('Principal', 0)), step=10000.0)
+                        # Recover interest amount for manual adjustment
+                        up_i = st.number_input("Interest Amount (UGX)", value=float(loan_to_edit.get('Interest', 0)), step=1000.0)
                     
                     with c2:
-                        status_opts = ["Active", "Overdue", "Rolled/Overdue", "Cleared", "Defaulted"]
+                        status_opts = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
                         curr_s = str(loan_to_edit.get('Status', 'Active'))
                         up_status = st.selectbox("Loan Status", status_opts, index=status_opts.index(curr_s) if curr_s in status_opts else 0)
-                        up_date = st.date_input("Due Date", value=pd.to_datetime(loan_to_edit.get('End_Date', datetime.now())))
+                        
+                        # Date Safety
+                        try:
+                            d_val = pd.to_datetime(loan_to_edit.get('End_Date', datetime.now())).date()
+                        except:
+                            d_val = datetime.now().date()
+                        up_date = st.date_input("New Due Date", value=d_val)
 
                     # 4. THE SAVE BUTTON
-                    submitted = st.form_submit_button("💾 Save Changes to Google Sheets", use_container_width=True)
-                    
-                    if submitted:
-                        # Create the update
+                    if st.form_submit_button("💾 Save Changes to Google Sheets", use_container_width=True):
+                        # Create a full copy of current state to update
                         updated_loans = st.session_state.loans.copy()
-                        # Normalize headers on the original state too
-                        updated_loans.columns = updated_loans.columns.str.strip().str.replace(" ", "_")
+                        # Normalize headers on the copy to find the right row
+                        updated_loans.columns = [str(c).strip().replace(" ", "_") for c in updated_loans.columns]
                         
-                        # Apply changes
-                        idx = updated_loans[updated_loans["Loan_ID"].astype(str) == m_id_raw].index[0]
-                        updated_loans.at[idx, 'Borrower'] = up_name
-                        updated_loans.at[idx, 'Principal'] = up_p
-                        updated_loans.at[idx, 'Interest'] = up_i
-                        updated_loans.at[idx, 'Status'] = up_status
-                        updated_loans.at[idx, 'End_Date'] = up_date.strftime('%Y-%m-%d')
+                        # Find index and update values
+                        idx_list = updated_loans[updated_loans["Loan_ID"].astype(str).str.replace(".0", "", regex=False) == m_id_raw].index
                         
-                        # Put spaces back for saving
-                        updated_loans.columns = [c.replace("_", " ") for c in updated_loans.columns]
-                        
-                        if save_data("Loans", updated_loans):
-                            st.success(f"✅ Changes for Loan #{m_id_raw} saved!")
-                            st.session_state.loans = updated_loans
-                            st.rerun()
-                        else:
-                            st.error("❌ Failed to save to Google Sheets.")
+                        if not idx_list.empty:
+                            target_idx = idx_list[0]
+                            updated_loans.at[target_idx, 'Borrower'] = up_name
+                            updated_loans.at[target_idx, 'Principal'] = up_p
+                            updated_loans.at[target_idx, 'Interest'] = up_i
+                            updated_loans.at[target_idx, 'Status'] = up_status
+                            updated_loans.at[target_idx, 'End_Date'] = up_date.strftime('%Y-%m-%d')
+                            updated_loans.at[target_idx, 'Total_Repayable'] = up_p + up_i
+                            
+                            # Restore original headers (with spaces) for Google Sheets
+                            updated_loans.columns = [c.replace("_", " ") for c in updated_loans.columns]
+                            
+                            if save_data("Loans", updated_loans):
+                                st.success(f"✅ Changes for Loan #{m_id_raw} successfully saved!")
+                                st.session_state.loans = updated_loans
+                                st.rerun()
+                            else:
+                                st.error("❌ Failed to sync. Check Google Sheets connection.")
             else:
-                st.error("⚠️ Could not find details for the selected Loan ID.")
+                st.warning("⚠️ Could not locate that specific record. Please re-select.")
     
 # ==============================
 # 15. COLLATERAL MANAGEMENT PAGE
