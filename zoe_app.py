@@ -923,18 +923,17 @@ def show_loans():
                 st.write("")
                 if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
                     if amount > 0:
-                        last_id = loans_df["Loan_ID"].max()
+                        last_id = loans_df["Loan_ID"].max() if "Loan_ID" in loans_df.columns else 0
                         new_id = int(last_id + 1) if pd.notna(last_id) else 1
                         
                         safe_interest = float(interest) if pd.notna(interest) else 0.0
                         safe_total = float(total_due) if pd.notna(total_due) else float(amount)
 
-                        # --- CORRECTED INDENTATION BELOW ---
                         new_loan = pd.DataFrame([{
                             "Loan_ID": new_id, 
                             "Borrower": selected_borrower, 
                             "Type": l_type,
-                            "Principal": float(amount),  # Matched to your Google Sheet header
+                            "Principal": float(amount),
                             "Interest_Rate": float(interest_rate),
                             "Interest": safe_interest,
                             "Total_Repayable": safe_total, 
@@ -955,14 +954,12 @@ def show_loans():
     # ==============================
     with tab_view:
         if not loans_df.empty:
-            # 1. Create a fresh copy
             display_df = loans_df.copy()
             
-            # 🌟 THE TRANSLATOR (Normalization)
-            # This fixes the "Loan ID" vs "Loan_ID" conflict
+            # 1. TRANSLATOR (Normalization)
             display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
             
-            # 2. CLEAN DATA TYPES IMMEDIATELY
+            # 2. CLEAN DATA TYPES
             for col in ["Principal", "Amount", "Interest", "Amount_Paid", "Interest_Rate"]:
                 if col in display_df.columns:
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
@@ -971,9 +968,8 @@ def show_loans():
 
             # 3. STATUS FILTERING
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
-            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
+            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
-            # Add 'Rolled/Overdue' here so your new compounded loans show up!
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
             display_df = display_df[display_df["Status"].isin(relevant_statuses)].copy()
 
@@ -986,10 +982,9 @@ def show_loans():
                 display_df["Outstanding_Balance"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
                 
                 sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
-                # Filter info for the specific selected loan
                 loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
                 
-                # --- METRIC CARDS (Updated for Principal) ---
+                # --- METRIC CARDS ---
                 p1, p2, p3 = st.columns(3)
                 p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info.get('Amount_Paid', 0):,.0f} UGX</h3></div>""", unsafe_allow_html=True)
                 p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info.get('Outstanding_Balance', 0):,.0f} UGX</h3></div>""", unsafe_allow_html=True)
@@ -1002,27 +997,21 @@ def show_loans():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     stat_bg = "#4A90E2" if r.get('Status') == "Active" else "#FF4B4B" if r.get('Status') == "Overdue" else "#FFA500"
 
-                    # Fetch dates safely
                     s_date_raw = r.get('Start_Date') or r.get('Issued_On') or r.get('Date')
                     start_date = pd.to_datetime(s_date_raw).strftime('%d %b %y') if pd.notna(s_date_raw) else "-"
                     
                     e_date_raw = r.get('End_Date') or r.get('Due_Date')
                     end_date = pd.to_datetime(e_date_raw).strftime('%d %b %y') if pd.notna(e_date_raw) else "-"
                     
-                    # Last Rolled Date logic
                     roll_date = r.get('Rollover_Date', '-')
                     if roll_date and roll_date != '-':
                         try: roll_date = pd.to_datetime(roll_date).strftime('%d %b')
                         except: pass
 
-                    # Principal & Rate Recovery
                     p_val = float(r.get('Principal', 0)) if float(r.get('Principal', 0)) > 0 else float(r.get('Amount', 0))
                     
                     raw_rate = float(r.get('Interest_Rate', 0))
-                    if raw_rate == 0 and p_val > 0:
-                        calculated_rate = (float(r.get('Interest', 0)) / p_val) * 100
-                    else:
-                        calculated_rate = raw_rate
+                    calculated_rate = (float(r.get('Interest', 0)) / p_val) * 100 if raw_rate == 0 and p_val > 0 else raw_rate
 
                     rows_html += f"""
                     <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
@@ -1040,7 +1029,7 @@ def show_loans():
                     </tr>"""
 
                 final_table_html = f"""
-                <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; background:white;">
+                <div style="border:2px solid #4A90E2; border-radius:10px; overflow-x:auto; background:white;">
                     <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
                         <thead>
                             <tr style="background:#4A90E2; color:white;">
@@ -1059,7 +1048,9 @@ def show_loans():
                     </table>
                 </div>"""
                 
-                st.components.v1.html(final_table_html, height=600, scrolling=True)
+                st.markdown(final_table_html, unsafe_allow_html=True)
+        else:
+            st.info("ℹ️ No loans recorded in the system yet.")
 
 
             
