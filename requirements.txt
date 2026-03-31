@@ -11,3 +11,4 @@ streamlit-aggrid
 twilio
 reportlab
 jinja2
+streamlit-calendar
