@@ -952,72 +952,80 @@ def show_loans():
     # TAB 2: PORTFOLIO (The Fixed Section)
     # ==============================
     with tab_view:
-        if not loans_df.empty:
-            # 1. NORMALIZE NUMERIC COLUMNS (Prevents the TypeError)
+        if loans_df is not None and not loans_df.empty:
+            # 1. NORMALIZE NUMERIC COLUMNS (The ultimate safety fix)
             display_df = loans_df.copy()
-            numeric_cols = ["Principal", "Interest", "Total Repayable", "Amount Paid", "Rate (%)"]
+            
+            # These are the columns we MUST have as numbers for the math to work
+            numeric_cols = ["Principal", "Interest", "Total Repayable", "Amount Paid"]
             
             for col in numeric_cols:
+                # If the column exists, force it to be a number. 
+                # If it's empty or has text, it becomes 0.
                 if col in display_df.columns:
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
                 else:
+                    # If the column is missing from the sheet entirely, create it with 0s
                     display_df[col] = 0.0
 
-            # 2. STATUS FILTERING
+            # 2. CLEAN UP STATUS & IDs
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
-            display_df["Loan_ID"] = display_df.get("Loan ID", display_df.get("Loan_ID", "0")).astype(str)
+            # Handle different possible ID column names
+            id_col = "Loan ID" if "Loan ID" in display_df.columns else "Loan_ID"
+            display_df[id_col] = display_df[id_col].astype(str).str.replace(".0", "", regex=False)
             
+            # Filter for active-style loans
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
             display_df = display_df[display_df["Status"].isin(relevant_statuses)].copy()
 
             if display_df.empty:
-                st.info("ℹ️ No active loans found.")
+                st.info("ℹ️ No active loans found in the system.")
             else:
-                # 3. CALCULATE OUTSTANDING
-                display_df["Outstanding_Balance"] = display_df["Total Repayable"] - display_df["Amount_Paid"]
+                # 3. THE MATH (Safe now because of Step 1)
+                display_df["Outstanding_Balance"] = display_df["Total Repayable"] - display_df["Amount Paid"]
                 
-                sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
-                loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
+                sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df[id_col].unique())
+                loan_info = display_df[display_df[id_col] == sel_id].iloc[0]
                 
                 # --- METRIC CARDS ---
                 p1, p2, p3 = st.columns(3)
-                p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Amount_Paid']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
-                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
-                s_color = "#4A90E2" if loan_info['Status'] != "Overdue" else "#FF4B4B"
+                p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #2B3F87;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#2B3F87;font-size:18px;">{loan_info['Amount Paid']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
+                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #FF4B4B;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#FF4B4B;font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
+                s_color = "#2B3F87" if loan_info['Status'] != "Overdue" else "#FF4B4B"
                 p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{str(loan_info['Status']).upper()}</h3></div>""", unsafe_allow_html=True)
 
-                # --- HTML TABLE ---
+                # --- STYLED TABLE ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                    stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
+                    stat_bg = "#2B3F87" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
                     
                     rows_html += f"""
                     <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                        <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
-                        <td style="padding:10px;">{r['Borrower']}</td>
-                        <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{r['Principal']:,.0f}</td>
-                        <td style="padding:10px; text-align:right; color:#D32F2F;">{r['Outstanding_Balance']:,.0f}</td>
-                        <td style="padding:10px; text-align:center;">
-                            <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span>
+                        <td style="padding:12px;"><b>#{r[id_col]}</b></td>
+                        <td style="padding:12px;">{r['Borrower']}</td>
+                        <td style="padding:12px; text-align:right; font-weight:bold; color:#2B3F87;">{r['Principal']:,.0f}</td>
+                        <td style="padding:12px; text-align:right; color:#D32F2F; font-weight:bold;">{r['Outstanding_Balance']:,.0f}</td>
+                        <td style="padding:12px; text-align:center;">
+                            <span style="background:{stat_bg}; color:white; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:bold;">{r['Status']}</span>
                         </td>
                     </tr>"""
 
                 st.markdown(f"""
-                    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;">
-                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                            <thead style="background:#4A90E2; color:white; text-align:left;">
+                    <div style="border:1px solid #dee2e6; border-radius:10px; overflow:hidden; margin-top:20px;">
+                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
+                            <thead style="background:#2B3F87; color:white; text-align:left;">
                                 <tr>
-                                    <th style="padding:10px;">ID</th><th style="padding:10px;">Borrower</th>
-                                    <th style="padding:10px; text-align:right;">Principal</th><th style="padding:10px; text-align:right;">Balance</th>
-                                    <th style="padding:10px; text-align:center;">Status</th>
+                                    <th style="padding:12px;">Loan ID</th><th style="padding:12px;">Borrower</th>
+                                    <th style="padding:12px; text-align:right;">Principal</th><th style="padding:12px; text-align:right;">Balance</th>
+                                    <th style="padding:12px; text-align:center;">Status</th>
                                 </tr>
                             </thead>
                             <tbody>{rows_html}</tbody>
                         </table>
                     </div>""", unsafe_allow_html=True)
         else:
-            st.info("ℹ️ No loans issued yet.")
+            st.info("ℹ️ No loans have been issued yet.")
 
 
             
