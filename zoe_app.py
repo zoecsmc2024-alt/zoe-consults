@@ -2400,50 +2400,52 @@ def show_payroll():
             # --- 5. RENDER THE PREVIEW ---
         st.components.v1.html(main_html, height=800, scrolling=True)
 
-        # --- 6. MODIFY & DELETE SECTION ---
-        st.write("---")
-        with st.expander("⚙️ Modify / Delete Record"):
-            # Create the list of employees for the dropdown
-            pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
-            
-            if pay_opts:
-                sel_opt = st.selectbox("Select Record to Edit", pay_opts, key="payroll_edit_select")
-                
-                # Extract the ID safely
-                sid = str(sel_opt.split("(ID: ")[1].replace(")", ""))
-                item = df[df['Payroll_ID'].astype(str) == sid].iloc[0]
-                
-                # Edit Fields
-                u_name = st.text_input("Edit Name", value=str(item['Employee']))
-                u_basic = st.number_input("Edit Basic Salary", value=float(item['Basic_Salary'] if item['Basic_Salary'] != "" else 0))
-                u_arr = st.number_input("Edit Arrears", value=float(item['Arrears'] if item['Arrears'] != "" else 0))
-                
-                c_s, c_d = st.columns(2)
-                # (You can add your 'Save' and 'Delete' buttons here in the columns)
-
-        # --- 7. EXPORT PAYROLL (Moved outside the expander for safety) ---
+        # --- 6. PREPARE DOWNLOAD DATA (Do this BEFORE the expander) ---
         import io
         
-        # 🌟 THE BUFFER FIX: This ensures the data is captured correctly
-        download_df = df.copy() # Use 'df' which is the current filtered payroll
-        
-        if not download_df.empty:
+        # We create the download data immediately so it's ready for the button
+        if not df.empty:
+            # Convert the current view (df) to CSV
+            csv_buffer = io.BytesIO()
+            csv_text = df.to_csv(index=False).encode('utf-8')
+            
             st.markdown("---")
             st.subheader("📥 Export Payroll")
             
-            # Convert to CSV format
-            csv_data = download_df.to_csv(index=False).encode('utf-8')
-            
+            # THE DOWNLOAD BUTTON
             st.download_button(
                 label="📄 Download Payroll (CSV for Excel)",
-                data=csv_data,
+                data=csv_text,
                 file_name=f"Zoe_Payroll_{datetime.now().strftime('%b_%Y')}.csv",
                 mime="text/csv",
                 use_container_width=True,
-                key="payroll_download_main"
+                key="payroll_export_final" # Unique key is CRITICAL
             )
         else:
             st.info("No payroll records found for this period.")
+
+        # --- 7. MODIFY & DELETE SECTION (Moved to the bottom) ---
+        st.write("---")
+        with st.expander("⚙️ Modify / Delete Record"):
+            # Create list for selection
+            pay_opts = [f"{r['Employee']} (ID: {r['Payroll_ID']})" for _, r in df.iterrows()]
+            
+            if pay_opts:
+                sel_opt = st.selectbox("Select Record to Edit", pay_opts, key="payroll_edit_selectbox")
+                
+                # Extract ID safely
+                try:
+                    sid = str(sel_opt.split("(ID: ")[1].replace(")", ""))
+                    item = df[df['Payroll_ID'].astype(str) == sid].iloc[0]
+                    
+                    # Edit Inputs
+                    u_name = st.text_input("Edit Name", value=str(item['Employee']))
+                    u_basic = st.number_input("Edit Basic Salary", value=float(item['Basic_Salary'] if item['Basic_Salary'] != "" else 0))
+                    u_arr = st.number_input("Edit Arrears", value=float(item['Arrears'] if item['Arrears'] != "" else 0))
+                    
+                    # (Add your Save/Delete buttons here if needed)
+                except Exception as e:
+                    st.error(f"Select a valid record: {e}")
         
     
  
