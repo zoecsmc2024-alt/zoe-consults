@@ -1035,186 +1035,92 @@ def show_loans():
             
 
     # ==============================
-    # TAB 3: MANAGE (Zoe Settings)
+    # TAB 3: MANAGE / EDIT LOANS
     # ==============================
     with tab_manage:
-        if not loans_df.empty:
-            st.markdown("<h4 style='color: #2B3F87;'>🛠️ Modify Loan Agreement</h4>", unsafe_allow_html=True)
+        st.markdown("### 🛠️ Modify Loan Agreement")
+        
+        # 1. PREPARE THE DATA
+        m_df = loans_df.copy()
+        m_df.columns = [str(c).strip().replace(" ", "_") for c in m_df.columns]
+        
+        if m_df.empty:
+            st.info("ℹ️ No loans available to edit.")
+        else:
+            # Clean the IDs (remove .0)
+            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
+            m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
             
-            # 1. NORMALIZE HEADERS
-            manage_df = loans_df.copy()
-            manage_df.columns = manage_df.columns.str.strip().str.replace(" ", "_")
+            # 🌟 SESSION STATE FIX: Save the selection to memory immediately
+            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="manage_sel_box")
+            st.session_state['current_loan_selection'] = selected_m
 
-            # Create the selection list safely
-            manage_df['Loan_ID'] = manage_df['Loan_ID'].fillna("0").astype(str)
-            manage_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in manage_df.iterrows()]
+            # 2. IDENTIFY THE SELECTED ID
+            import re
+            current_val = st.session_state['current_loan_selection']
+            match = re.search(r'ID:\s*(\d+)', str(current_val))
+            clean_id = match.group(1) if match else str(current_val).split("|")[0].replace("ID:", "").strip()
             
-            selected_manage = st.selectbox("🔍 Select Loan to Manage/Edit", manage_options)
+            # Pull the data row
+            loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
 
-            # 2. SAFE ID PARSING
-            # 2. SAFE ID PARSING
-            try:
-                # First, extract the ID from the dropdown text
-                raw_manage_id = selected_manage.split("|")[0].replace("ID:", "").strip()
-                m_id_str = str(int(float(raw_manage_id))) # Cleans '3.0' to '3'
+            st.divider()
+            
+            # 3. INPUT FORM FIELDS
+            c1, c2 = st.columns(2)
+            with c1:
+                up_name = st.text_input("Edit Borrower Name", value=str(loan_row.get('Borrower', '')))
+                up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)))
+                up_rate = st.number_input("Adjust Rate (%)", value=float(loan_row.get('Interest_Rate', 0)))
+                up_paid = st.number_input("Adjust Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
+            
+            with c2:
+                status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
+                curr_s = str(loan_row.get('Status', 'Active')).strip()
+                up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
                 
-                # --- THE FIX: Normalize the main loans list headers ---
-                temp_loans = loans_df.copy()
-                temp_loans.columns = temp_loans.columns.str.strip().str.replace(" ", "_")
-                
-                # Now find the row using the clean 'Loan_ID' name
-                m_row = temp_loans[temp_loans["Loan_ID"].astype(str) == m_id_str].iloc[0]
-                
-            except Exception as e:
-                st.error(f"❌ Error loading loan details: {e}")
-                st.stop()
-
-            # --- THE BOXES & BUTTONS (NOW CONNECTED) ---
-            with st.container():
-                st.write("")
-                col_e1, col_e2 = st.columns(2)
-                
-                # Left Column Adjustments
-                # We use .get() to avoid "KeyErrors" if a column name is slightly off
-                upd_amt = col_e1.number_input("Adjust Principal", value=float(m_row.get("Principal") or m_row.get("Amount") or 0), step=10000.0)
-                
-                # Interest Calculation Recovery
-                p_val = float(m_row.get("Principal") or 1)
-                i_val = float(m_row.get("Interest") or 0)
-                curr_rate = (i_val / p_val) * 100 if p_val > 0 else 0.0
-                
-                upd_rate = col_e1.number_input("Adjust Rate (%)", value=float(curr_rate), step=0.5)
-                upd_paid = col_e1.number_input("Adjust Total Paid", value=float(m_row.get("Amount_Paid", 0)))
-
-                # Right Column Adjustments
-                status_list = ["Active", "Overdue", "Closed", "Rolled/Overdue"]
-                current_s = m_row.get("Status", "Active")
-                upd_stat = col_e2.selectbox("Change Status", status_list, 
-                                           index=status_list.index(current_s) if current_s in status_list else 0)
-                
-                loan_types = ["Business", "Personal", "Emergency", "Other"]
-                current_t = str(m_row.get("Type", "Business"))
-                upd_type = col_e2.selectbox("Change Type", loan_types, 
-                                           index=loan_types.index(current_t) if current_t in loan_types else 0)
-                
-                # 4. Date Adjustments (Safety First)
-                raw_start = m_row.get("Start_Date") or m_row.get("Date")
-                raw_end = m_row.get("End_Date") or m_row.get("Due Date")
-                
-                # --- START DATE SAFETY ---
+                # Date Safety
                 try:
-                    if pd.isna(raw_start) or raw_start == "":
-                        start_val = datetime.now().date()
-                    else:
-                        start_val = pd.to_datetime(raw_start).date()
+                    s_date = pd.to_datetime(loan_row.get('Start_Date', datetime.now())).date()
+                    e_date = pd.to_datetime(loan_row.get('End_Date', datetime.now())).date()
                 except:
-                    start_val = datetime.now().date()
-
-                upd_start = col_e2.date_input("Adjust Start Date", value=start_val)
+                    s_date, e_date = datetime.now().date(), datetime.now().date()
                 
-                # --- END DATE SAFETY ---
-                try:
-                    if pd.isna(raw_end) or raw_end == "":
-                        end_val = datetime.now().date() + timedelta(days=30)
-                    else:
-                        end_val = pd.to_datetime(raw_end).date()
-                except:
-                    end_val = datetime.now().date() + timedelta(days=30)
+                up_start = st.date_input("Adjust Start Date", value=s_date)
+                up_end = st.date_input("Adjust End Date", value=e_date)
 
-                upd_end = col_e2.date_input("Adjust End Date", value=end_val)
-                st.divider()
+            st.divider()
+
+            # 4. ACTION BUTTONS (Using the pinned memory)
+            b_save, b_del = st.columns(2)
+
+            # --- SAVE BUTTON ---
+            if b_save.button("💾 Save Changes", use_container_width=True):
+                # Always use 'clean_id' which we identified at the top of the tab
+                id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
+                idx_list = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index
                 
-                # 5. Save & Delete Buttons
-                b_upd, b_del = st.columns(2)
+                if not idx_list.empty:
+                    t_idx = idx_list[0]
+                    loans_df.at[t_idx, 'Borrower'] = up_name
+                    loans_df.at[t_idx, 'Principal'] = up_p
+                    loans_df.at[t_idx, 'Status'] = up_status
+                    # Update date and paid amount using common column names
+                    for col in loans_df.columns:
+                        if "Paid" in col: loans_df.at[t_idx, col] = up_paid
+                        if "End" in col: loans_df.at[t_idx, col] = up_end.strftime('%Y-%m-%d')
+                    
+                    if save_data("Loans", loans_df):
+                        st.success(f"✅ Loan #{clean_id} updated!"); st.rerun()
+
+            # --- DELETE BUTTON ---
+            if b_del.button("🗑️ Delete Permanently", use_container_width=True):
+                id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
+                # Keep everything EXCEPT the clean_id
+                new_df = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
                 
-                if b_upd.button("💾 Save Changes", use_container_width=True):
-                    # 1. MATH CALCULATIONS
-                    new_int = upd_amt * (upd_rate / 100)
-                    new_total = upd_amt + new_int
-                    
-                    try:
-                        current_selection_id = selected_manage.split("|")[0].replace("ID:", "").strip()
-                    except:
-                        st.error("Could not verify Loan ID.")
-                        st.stop()
-
-                    # 2. SEARCHABLE COPY
-                    save_copy = loans_df.copy()
-                    save_copy.columns = save_copy.columns.str.strip().str.replace(" ", "_")
-                    
-                    mask = save_copy["Loan_ID"].astype(str).str.contains(current_selection_id)
-                    
-                    if not mask.any():
-                        st.error(f"❌ Error: Could not find Loan #{current_selection_id}.")
-                    else:
-                        target_idx = save_copy[mask].index[0]
-                        
-                        # 3. UPDATE ORIGINAL DF (Mapping exactly to Sheet)
-                        loans_df.at[target_idx, "Principal"] = float(upd_amt)
-                        loans_df.at[target_idx, "Status"] = upd_stat
-                        loans_df.at[target_idx, "Interest Rate"] = float(upd_rate)
-                        loans_df.at[target_idx, "Amount Paid"] = float(upd_paid)
-                        loans_df.at[target_idx, "Type"] = upd_type
-                        loans_df.at[target_idx, "Start Date"] = upd_start.strftime("%Y-%m-%d")
-                        loans_df.at[target_idx, "End Date"] = upd_end.strftime("%Y-%m-%d")
-                        loans_df.at[target_idx, "Interest"] = float(new_int)
-                        loans_df.at[target_idx, "Total Repayable"] = float(new_total)
-                        
-                        # 🌟 THE "NAN" SHIELD (This fixes your error!)
-                        # This turns any 'NaN' or 'inf' into a clean 0.0
-                        loans_df = loans_df.fillna(0).replace([np.inf, -np.inf], 0)
-
-                        # 4. SAVE AND SYNC
-                        if save_data("Loans", loans_df):
-                            st.success(f"✅ Changes for Loan #{current_selection_id} saved successfully!")
-                            st.session_state.loans = loans_df
-                            st.rerun()
-                        else:
-                            st.error("❌ Failed to sync. Check your Google Sheets permissions.")
-
-                if b_del.button("🗑️ Delete Permanently", use_container_width=True):
-                    # 1. Capture the selection immediately
-                    current_val = str(selected_m) 
-                    
-                    try:
-                        # 🌟 SUPER-FLEXIBLE PARSING
-                        # This finds the number regardless of "ID:", "ID :", or "ID  3"
-                        import re
-                        match = re.search(r'ID:\s*(\d+)', current_val)
-                        if match:
-                            clean_id = match.group(1)
-                        else:
-                            # Fallback to the old split method if regex fails
-                            clean_id = current_val.split("|")[0].split(":")[-1].strip()
-                        
-                        # Remove any decimals like "3.0" -> "3"
-                        clean_id = str(int(float(clean_id)))
-                    except Exception as e:
-                        st.error(f"Selection Error: Could not identify ID from '{current_val}'")
-                        st.stop()
-
-                    # 2. Prepare the data for searching
-                    delete_copy = loans_df.copy()
-                    # Force headers to strings and replace spaces
-                    delete_copy.columns = [str(c).strip().replace(" ", "_") for c in delete_copy.columns]
-                    
-                    # 3. Apply the mask to the ORIGINAL loans_df
-                    # This ensures we are deleting based on the cleaned ID column
-                    target_col = "Loan_ID" if "Loan_ID" in delete_copy.columns else "Loan ID"
-                    
-                    mask = delete_copy[target_col].astype(str).str.replace(".0", "", regex=False) != clean_id
-                    remaining_loans = loans_df[mask.values]
-
-                    # 4. Save and Rerun
-                    if len(remaining_loans) < len(loans_df):
-                        if save_data("Loans", remaining_loans):
-                            st.warning(f"⚠️ Loan #{clean_id} for {current_val.split('|')[-1]} deleted.")
-                            st.session_state.loans = remaining_loans
-                            st.rerun()
-                        else:
-                            st.error("❌ Google Sheets sync failed.")
-                    else:
-                        st.error(f"❌ Record not found. Could not match ID {clean_id} in the database.")
+                if save_data("Loans", new_df):
+                    st.warning(f"⚠️ Loan #{clean_id} deleted."); st.rerun()
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
