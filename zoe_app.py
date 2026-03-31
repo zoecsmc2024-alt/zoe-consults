@@ -706,27 +706,33 @@ def show_borrowers():
     # --- TABS ---
     tab_view, tab_add, tab_audit = st.tabs(["📑 View All", "➕ Add New", "⚙️ Audit & Manage"])
 
-    # --- TAB 1: VIEW ALL (Your existing logic) ---
+    # --- TAB 1: VIEW ALL ---
     with tab_view:
         col1, col2 = st.columns([3, 1]) 
         with col1:
-            search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...", key="bor_search").lower()
+            search = st.text_input("🔍 Search Name or Phone", placeholder="Type to filter...", key="bor_view_search").lower()
         with col2:
-            status_filter = st.selectbox("Filter Status", ["All", "Active", "Inactive"], key="bor_status_filt")
+            status_filter = st.selectbox("Filter Status", ["All", "Active", "Inactive"], key="bor_view_status")
 
-        filtered_df = df.copy()
-        if not filtered_df.empty:
-            filtered_df["Name"] = filtered_df["Name"].astype(str)
-            filtered_df["Phone"] = filtered_df["Phone"].astype(str)
-            mask = (filtered_df["Name"].str.lower().str.contains(search, na=False) | 
-                    filtered_df["Phone"].str.contains(search, na=False))
-            filtered_df = filtered_df[mask]
+        # 🌟 CRITICAL: This part must be outside the 'with col' blocks
+        if not df.empty:
+            # 1. Prepare filtered data
+            v_df = df.copy()
+            v_df["Name"] = v_df["Name"].astype(str)
+            v_df["Phone"] = v_df["Phone"].astype(str)
+            
+            mask = (v_df["Name"].str.lower().str.contains(search, na=False) | 
+                    v_df["Phone"].str.contains(search, na=False))
+            v_df = v_df[mask]
+
             if status_filter != "All":
-                filtered_df = filtered_df[filtered_df["Status"] == status_filter]
+                v_df = v_df[v_df["Status"] == status_filter]
 
-            if not filtered_df.empty:
+            # 2. Render the Table
+            if not v_df.empty:
+                # --- YOUR HTML TABLE CODE STARTS HERE ---
                 rows_html = ""
-                for i, r in filtered_df.iterrows():
+                for i, r in v_df.iterrows():
                     bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     rows_html += f"""
                     <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
@@ -737,8 +743,23 @@ def show_borrowers():
                             <span style="background:#4A90E2; color:white; padding:3px 8px; border-radius:12px; font-size:10px;">{r['Status']}</span>
                         </td>
                     </tr>"""
-                st.markdown(f"<div style='border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;'><table style='width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;'><thead><tr style='background:#4A90E2; color:white; text-align:left;'><th style='padding:12px;'>Borrower Name</th><th style='padding:12px;'>Phone</th><th style='padding:12px;'>National ID</th><th style='padding:12px; text-align:center;'>Status</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
 
+                st.markdown(f"""
+                    <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; margin-top:20px;">
+                        <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:13px;">
+                            <thead>
+                                <tr style="background:#4A90E2; color:white; text-align:left;">
+                                    <th style="padding:12px;">Borrower Name</th><th style="padding:12px;">Phone</th>
+                                    <th style="padding:12px;">National ID</th><th style="padding:12px; text-align:center;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>{rows_html}</tbody>
+                        </table>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.info("No borrowers match your current search/filter.")
+        else:
+            st.info("ℹ️ Your borrower list is empty. Add a new borrower to see the table!")
     # --- TAB 2: ADD BORROWER (Your existing logic) ---
     with tab_add:
         with st.form("add_borrower_form", clear_on_submit=True):
