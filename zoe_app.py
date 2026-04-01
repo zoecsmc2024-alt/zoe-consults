@@ -847,7 +847,8 @@ def show_loans():
     num_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
     for col in num_cols:
         if col in loans_df.columns:
-            loans_df[col] = pd.to_numeric(loans_df[col], errors='coerce').fillna(0)
+            if col in loans_df.columns:
+    loans_df[col] = pd.to_numeric(loans_df.get(col), errors='coerce').fillna(0)
     
     # Date Safety Shield
     if "End_Date" in loans_df.columns:
