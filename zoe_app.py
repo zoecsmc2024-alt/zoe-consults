@@ -831,32 +831,31 @@ def show_borrowers():
 def show_loans():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. DATA ENGINE (Load and Clean)
+    # 1. LOAD DATA
     loans_df = get_cached_data("Loans")
-    borrowers_df = get_cached_data("Borrowers")
+    
+    # 2. EMERGENCY STRUCTURE CHECK
+    # If the sheet is empty or columns are missing, we build a fresh structure
+    required_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
     
     if loans_df.empty:
-        st.info("No loan records found. Start by adding a new loan in the 'Add New' tab.")
-        # Create an empty template so the rest of the code doesn't crash
-        loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Principal", "Interest", "Amount_Paid", "Status", "End_Date"])
-    # 1. CLEAN HEADERS: This fixes "Amount Paid" vs "Amount_Paid" automatically
+        loans_df = pd.DataFrame(columns=required_cols + ["Borrower", "Loan_ID", "Status", "End_Date"])
+    
+    # Clean the headers (remove spaces)
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
     
-    # 2. SAFE CONVERSION: This ensures the app won't crash if a column is missing
-    num_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
-    
-    for col in num_cols:
+    # 3. THE "CRASH-PROOF" NUMERIC CONVERSION
+    for col in required_cols:
+        # Use 'df[col]' directly only if it exists; otherwise, create a series of 0s
         if col in loans_df.columns:
-            # We use pd.Series to ensure the data is in the format Python expects
-            loans_df[col] = pd.to_numeric(pd.Series(loans_df[col]), errors='coerce').fillna(0)
+            # We use fillna(0) BEFORE to_numeric to ensure there are no 'None' types
+            loans_df[col] = pd.to_numeric(loans_df[col].fillna(0), errors='coerce').fillna(0)
         else:
-            # If the column is completely missing, we create it as 0 to keep the page running
             loans_df[col] = 0.0
-    
-    # 3. DATE SAFETY SHIELD
+
+    # 4. DATE CONVERSION
     if "End_Date" in loans_df.columns:
         loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
-
     # 4. TABBED INTERFACE (Correctly Indented)
     tab_view, tab_add, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "⚙️ Loan Actions"])
     # ==============================
