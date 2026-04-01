@@ -127,18 +127,20 @@ def create_pdf(html_content):
 
 @st.cache_data(ttl=600)
 def get_cached_data(sheet_name):
-    global client # This tells the function to use the 'client' defined at the top
+    # --- THE CRITICAL LINE ---
+    global client 
+    
     try:
+        # Now the function can 'see' the client connection
         sheet = client.open(SHEET_NAME).worksheet(sheet_name)
         
-        # Try loading raw values first to handle duplicates safely
         raw_values = sheet.get_all_values()
         if not raw_values or len(raw_values) < 1:
             return pd.DataFrame()
             
         headers = [str(h).strip() for h in raw_values[0]]
         
-        # Create a unique list of headers to stop the "Duplicate" error
+        # Shield against duplicate headers in Google Sheets
         unique_headers = []
         for i, h in enumerate(headers):
             if h in unique_headers or h == "":
@@ -148,17 +150,18 @@ def get_cached_data(sheet_name):
                 
         df = pd.DataFrame(raw_values[1:], columns=unique_headers)
         
-        # Standardize internal names (underscores instead of spaces)
+        # Standardize for internal logic (Spaces to Underscores)
         df.columns = [c.replace(" ", "_") for c in df.columns]
         
-        # Final cleanup: Remove any columns we accidentally created during the "unique" fix
+        # Clean up any temporary '_0', '_1' column names we made
         df = df.loc[:, ~df.columns.str.contains(r'_\d+$')] 
         
         return df
+        
     except Exception as e:
+        # If the 'client' still isn't found, this will catch it gracefully
         st.error(f"⚠️ Error loading {sheet_name}: {e}")
         return pd.DataFrame()
-
 @st.cache_data(ttl=3600)
 def get_logo():
     """
