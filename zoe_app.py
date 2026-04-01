@@ -994,6 +994,7 @@ def show_loans():
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
+            # Format IDs for display
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
@@ -1011,15 +1012,30 @@ def show_loans():
                 p2.metric("OUTSTANDING", f"{float(loan_info['Balance']):,.0f} UGX")
                 p3.metric("STATUS", str(loan_info['Status']).upper())
 
-                # --- THE UPDATE: ADDED START_DATE AND COMMA FORMATTING ---
-                # Formatting numeric columns with commas for the table view
-                for col in ["Principal", "Balance", "Total_Repayable", "Amount_Paid"]:
+                # --- THE FIX: FORMAT NUMBERS WITH COMMAS SAFELY ---
+                format_cols = ["Principal", "Balance", "Total_Repayable", "Amount_Paid"]
+                for col in format_cols:
                     if col in active_view.columns:
-                        active_view[col] = active_view[col].map("{:,.0f}".format)
+                        active_view[col] = pd.to_numeric(active_view[col], errors='coerce').fillna(0).map("{:,.0f}".format)
 
-                # Added 'Start_Date' to the column list below
+                # --- THE FIX: DYNAMIC COLUMN LIST (Checks if Start_Date exists) ---
+                # This prevents the KeyError crash!
+                base_columns = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
+                
+                # Check for Start Date (with or without underscore)
+                if "Start_Date" in active_view.columns:
+                    base_columns.append("Start_Date")
+                elif "Start Date" in active_view.columns:
+                    base_columns.append("Start Date")
+                
+                # Check for End Date (with or without underscore)
+                if "End_Date" in active_view.columns:
+                    base_columns.append("End_Date")
+                elif "End Date" in active_view.columns:
+                    base_columns.append("End Date")
+
                 st.dataframe(
-                    active_view[["Loan_ID", "Borrower", "Principal", "Balance", "Status", "Start_Date", "End_Date"]], 
+                    active_view[base_columns], 
                     use_container_width=True, 
                     hide_index=True
                 )
