@@ -37,15 +37,21 @@ except Exception as e:
 # 3. GLOBAL DATA LOADER (RE-CHECKING CLIENT)
 @st.cache_data(ttl=600)
 def get_cached_data(sheet_name):
-    global client # Points back to the 'client' we just authorized above
+    global client 
     try:
+        # Open the specific worksheet
         sheet = client.open(SHEET_NAME).worksheet(sheet_name)
-        raw_values = sheet.get_all_values()
         
-        if not raw_values or len(raw_values) < 1:
+        # --- THE FIX: FETCH VALUES SAFELY ---
+        # Using get_all_values() is more stable than get_all_records()
+        # when dealing with weird server responses
+        raw_data = sheet.get_all_values()
+        
+        if not raw_data or len(raw_data) < 1:
             return pd.DataFrame()
             
-        headers = [str(h).strip() for h in raw_values[0]]
+        # Extract headers and clean them
+        headers = [str(h).strip() for h in raw_data[0]]
         
         # Shield against duplicate headers
         unique_headers = []
@@ -55,15 +61,25 @@ def get_cached_data(sheet_name):
             else:
                 unique_headers.append(h)
                 
-        df = pd.DataFrame(raw_values[1:], columns=unique_headers)
+        # Create DataFrame from the rest of the rows
+        df = pd.DataFrame(raw_data[1:], columns=unique_headers)
+        
         # Standardize for internal logic (Spaces to Underscores)
         df.columns = [c.replace(" ", "_") for c in df.columns]
-        # Clean up temporary duplicate names
+        
+        # Final cleanup: Remove temp duplicate markers
         df = df.loc[:, ~df.columns.str.contains(r'_\d+$')] 
         
+        # Clean numeric columns so they don't break the dashboard
+        for col in ["Principal", "Balance", "Amount_Paid", "Amount", "Interest"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
         return df
+        
     except Exception as e:
-        st.error(f"⚠️ Error loading {sheet_name}: {e}")
+        # This will now give you a clearer error if something actually fails
+        st.error(f"⚠️ Error loading {sheet_name}: {str(e)}")
         return pd.DataFrame()
 # ==============================
 # 1. BRANDING & COLOR PALETTE
