@@ -918,60 +918,63 @@ def show_loans():
     tab_view, tab_add, tab_manage, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "🛠️ Manage/Edit", "⚙️ Actions"])
 
     # ==============================
-    # TAB: PORTFOLIO VIEW (Theme: Midnight & Baby Blue)
+    # TAB: PORTFOLIO VIEW (Theme: Midnight & Luxe Status Colors)
     # ==============================
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
-            relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-            active_view = display_df[display_df["Status"].isin(relevant_statuses)].copy()
+            # --- THE FIX: DON'T FILTER OUT CLOSED LOANS ---
+            # We want to see EVERYTHING in this list now
+            active_view = display_df.copy()
 
             if active_view.empty:
-                st.info("ℹ️ No active loans found.")
+                st.info("ℹ️ No loan records found.")
             else:
-                # --- 1. THE BRANDED METRIC CARDS (Midnight Blue Theme) ---
-                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel_v2")
+                # SELECT LOAN FOR INSPECTION CARDS
+                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel_v3")
                 loan_info = active_view[active_view["Loan_ID"] == sel_id].iloc[0]
                 
-                # Colors: Navy (#0A192F) and Baby Blue (#F0F8FF)
+                # CARDS (Keeping your beautiful Midnight style)
                 c1, c2, c3 = st.columns(3)
-                
-                # Received Card
-                c1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">✅ RECEIVED</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{float(loan_info['Amount_Paid']):,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-                
-                # Outstanding Card
-                c2.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">🚨 OUTSTANDING</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{float(loan_info['Balance']):,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-                
-                # Status Card
-                c3.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">📑 STATUS</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{str(loan_info['Status']).upper()}</h3></div>""", unsafe_allow_html=True)
+                c1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">✅ RECEIVED</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{float(loan_info['Amount_Paid']):,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                c2.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">🚨 OUTSTANDING</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{float(loan_info['Balance']):,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                c3.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">📑 STATUS</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{str(loan_info['Status']).upper()}</h3></div>""", unsafe_allow_html=True)
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # --- 2. STYLED TABLE (Navy Headers & Commas) ---
-                # Build Safe Column List
+                # --- THE COLOR LOGIC ENGINE ---
+                def style_status(val):
+                    # Colors for different statuses
+                    if val == "Active": color = "#4A90E2"     # Baby Blue
+                    elif val == "Closed": color = "#2E7D32"   # Emerald Green
+                    elif val == "Overdue": color = "#FF4B4B"  # Hot Red
+                    elif "Rolled" in str(val): color = "#FFA500" # Orange
+                    else: color = "#666666"                   # Default Grey
+                    return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
+
+                # Prepare safe columns
                 show_cols = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
                 for d_col in ["Start_Date", "Start Date", "End_Date", "End Date"]:
                     if d_col in active_view.columns: show_cols.append(d_col)
                 
-                # We apply styling via the Styler object for colors without "causing a mess"
-                styled_view = active_view[show_cols].copy()
-                
-                # Formatting numeric columns for the table with commas
-                for col in ["Principal", "Balance"]:
-                    if col in styled_view.columns:
-                        styled_view[col] = pd.to_numeric(styled_view[col], errors='coerce').fillna(0)
+                final_table = active_view[show_cols].copy()
 
+                # Clean numeric formatting
+                for col in ["Principal", "Balance"]:
+                    if col in final_table.columns:
+                        final_table[col] = pd.to_numeric(final_table[col], errors='coerce').fillna(0)
+
+                # RENDER TABLE WITH COLORFUL STATUSES
                 st.dataframe(
-                    styled_view.style.format({
+                    final_table.style.format({
                         "Principal": "{:,.0f}",
                         "Balance": "{:,.0f}"
-                    }),
+                    }).applymap(style_status, subset=['Status']),
                     use_container_width=True, 
                     hide_index=True
                 )
-
     # ==============================
     # TAB: NEW LOAN (Standardized)
     # ==============================
