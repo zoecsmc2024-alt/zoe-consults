@@ -848,10 +848,17 @@ def show_borrower_details(df, u_loans, borrower_idx, target_name, b_data):
 def show_loans():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA (Everything stays inside this function)
-def show_loans():
+    # 1. LOAD DATA
     loans_df = get_cached_data("Loans")
     borrowers_df = get_cached_data("Borrowers")
+    
+    # FIX: Define active_borrowers immediately to stop NameErrors
+    if borrowers_df is not None and not borrowers_df.empty:
+        # Standardize status check
+        borrowers_df.columns = [str(c).strip().replace(" ", "_") for c in borrowers_df.columns]
+        active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
+    else:
+        active_borrowers = pd.DataFrame()
     
     # 2. EMERGENCY STRUCTURE CHECK
     required_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
@@ -862,45 +869,41 @@ def show_loans():
     # 3. CLEAN HEADERS
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
 
-    # 4. FIX NUMERIC COLUMNS
+    # 4. FIX NUMERIC COLUMNS (ValueError Shield)
     num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
 
     for col in num_cols:
         if col in loans_df.columns:
-            # Step A: Convert to list to bypass sanitization errors
+            # Bypass sanitization errors by converting to list first
             raw_values = list(loans_df[col])
-            
-            # Step B: Clean blanks (common in rows 30+ of your sheet)
             series_data = pd.Series(raw_values).replace('', 0).fillna(0)
-            
-            # Step C: Final numeric conversion
             loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
         else:
             loans_df[col] = 0.0
 
-    # 5. AUTO-CALC BALANCE (Now properly indented inside show_loans)
+    # 5. AUTO-CALC BALANCE
     if "Total_Repayable" in loans_df.columns and "Amount_Paid" in loans_df.columns:
         loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
     
-    # 6. DATE CONVERSION (Now properly indented inside show_loans)
+    # 6. DATE CONVERSION
     if "End_Date" in loans_df.columns:
         loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
 
-    # 7. NOW YOU CAN PROCEED TO DISPLAY THE DATA
-    # st.write(loans_df) or other form logic goes here...
-    # 4. TABBED INTERFACE (Naming must match the 'with' blocks below)
-    tab_view, tab_add, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "⚙️ Loan Actions"])
+    # 7. TABBED INTERFACE
+    # Added 'tab_manage' to match your bottom code
+    tab_view, tab_add, tab_manage, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "🛠️ Manage/Edit", "⚙️ Actions"])
 
     # ==============================
-    # TAB: NEW LOAN (Mapped to tab_add)
+    # TAB: NEW LOAN
     # ==============================
     with tab_add:
         if active_borrowers.empty:
-            st.info("💡 Tip: Activate a borrower to issue a loan.")
+            st.info("💡 Tip: Activate a borrower in the 'Borrowers' section to issue a loan.")
         else:
             with st.form("loan_issue_form"):
                 st.markdown("<h4 style='color: #2B3F87;'>📝 Create New Loan Agreement</h4>", unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
+                
                 selected_borrower = col1.selectbox("Select Borrower", active_borrowers["Name"].unique())
                 amount = col1.number_input("Principal Amount (UGX)", min_value=0, step=50000)
                 date_issued = col1.date_input("Date Issued", value=datetime.now())
@@ -921,7 +924,8 @@ def show_loans():
 
                 if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
                     if amount > 0:
-                        last_id = loans_df["Loan_ID"].max()
+                        # Safety ID generation
+                        last_id = loans_df["Loan_ID"].replace('', 0).astype(float).max()
                         new_id = int(last_id + 1) if pd.notna(last_id) else 1
                         
                         new_loan = pd.DataFrame([{
@@ -943,13 +947,11 @@ def show_loans():
                             st.rerun()
 
     # ==============================
-    # TAB: PORTFOLIO INSPECTOR (Mapped to tab_view)
+    # TAB: PORTFOLIO INSPECTOR
     # ==============================
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
-            display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
-            
             # Clean display types
             cols_to_fix = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
             for col in cols_to_fix:
@@ -957,146 +959,77 @@ def show_loans():
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
 
             display_df["Status"] = display_df["Status"].astype(str).str.strip()
-            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str)
+            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-            display_df = display_df[display_df["Status"].isin(relevant_statuses)].copy()
+            active_view = display_df[display_df["Status"].isin(relevant_statuses)].copy()
 
-            if display_df.empty:
+            if active_view.empty:
                 st.info("ℹ️ No active loans found.")
             else:
-                # Calculations for display
-                display_df["Outstanding_Balance"] = display_df["Total_Repayable"] - display_df["Amount_Paid"]
-                
-                sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
-                loan_info = display_df[display_df["Loan_ID"] == sel_id].iloc[0]
+                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique())
+                loan_info = active_view[active_view["Loan_ID"] == sel_id].iloc[0]
                 
                 # Metric Cards
                 p1, p2, p3 = st.columns(3)
-                p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info.get('Amount_Paid', 0):,.0f} UGX</h3></div>""", unsafe_allow_html=True)
-                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info.get('Outstanding_Balance', 0):,.0f} UGX</h3></div>""", unsafe_allow_html=True)
-                s_color = "#4A90E2" if loan_info.get('Status') != "Overdue" else "#FF4B4B"
-                p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{str(loan_info.get('Status', 'ACTIVE')).upper()}</h3></div>""", unsafe_allow_html=True)
+                p1.metric("RECEIVED", f"{loan_info['Amount_Paid']:,.0f} UGX")
+                p2.metric("OUTSTANDING", f"{loan_info['Balance']:,.0f} UGX")
+                p3.metric("STATUS", str(loan_info['Status']).upper())
 
                 # Table Generation
-                rows_html = ""
-                for i, r in display_df.iterrows():
-                    bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                    stat_bg = "#4A90E2" if r.get('Status') == "Active" else "#FF4B4B" if r.get('Status') == "Overdue" else "#FFA500"
-                    
-                    p_val = float(r.get('Principal', 0))
-                    bal = float(r.get('Outstanding_Balance', 0))
-                    
-                    rows_html += f"""
-                    <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd;">
-                        <td style="padding:10px;"><b>#{r.get('Loan_ID', '0')}</b></td>
-                        <td style="padding:10px;">{r.get('Borrower', 'Unknown')}</td>
-                        <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{p_val:,.0f}</td>
-                        <td style="padding:10px; text-align:right; color:#D32F2F;">{bal:,.0f}</td>
-                        <td style="padding:10px; text-align:center;">
-                            <span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r.get('Status', 'Active')}</span>
-                        </td>
-                    </tr>"""
-
-                final_table_html = f"""
-                <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; background:white;">
-                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px;">
-                        <thead>
-                            <tr style="background:#4A90E2; color:white;">
-                                <th style="padding:12px;">ID</th>
-                                <th style="padding:12px;">Borrower</th>
-                                <th style="padding:12px; text-align:right;">Principal</th>
-                                <th style="padding:12px; text-align:right;">Balance</th>
-                                <th style="padding:12px; text-align:center;">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>{rows_html}</tbody>
-                    </table>
-                </div>"""
-                st.components.v1.html(final_table_html, height=400, scrolling=True)
-
-    with tab_actions:
-        st.info("Loan actions like Rollovers or Settlements go here.")
-            
+                st.dataframe(active_view[["Loan_ID", "Borrower", "Principal", "Balance", "Status", "End_Date"]], use_container_width=True)
 
     # ==============================
-    # TAB 3: MANAGE / EDIT LOANS
+    # TAB: MANAGE / EDIT LOANS
     # ==============================
     with tab_manage:
         st.markdown("### 🛠️ Modify Loan Agreement")
-        
-        # 1. PREPARE THE DATA
         m_df = loans_df.copy()
-        m_df.columns = [str(c).strip().replace(" ", "_") for c in m_df.columns]
         
         if m_df.empty:
             st.info("ℹ️ No loans available to edit.")
         else:
-            # Clean the IDs (remove .0)
             m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
             m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
             
-            # 🌟 SESSION STATE FIX: Save the selection to memory immediately
-            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="manage_sel_box")
-            st.session_state['current_loan_selection'] = selected_m
-
-            # 2. IDENTIFY THE SELECTED ID
-            import re
-            current_val = st.session_state['current_loan_selection']
-            match = re.search(r'ID:\s*(\d+)', str(current_val))
-            clean_id = match.group(1) if match else str(current_val).split("|")[0].replace("ID:", "").strip()
+            selected_m = st.selectbox("🔍 Select Loan to Manage", m_options, key="manage_sel_box")
             
-            # Pull the data row
+            import re
+            match = re.search(r'ID:\s*(\d+)', str(selected_m))
+            clean_id = match.group(1) if match else "0"
+            
             loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
 
-            st.divider()
-            
-            # 3. INPUT FORM FIELDS
-            c1, c2 = st.columns(2)
-            with c1:
-                up_name = st.text_input("Edit Borrower Name", value=str(loan_row.get('Borrower', '')))
-                up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)))
-                up_rate = st.number_input("Adjust Rate (%)", value=float(loan_row.get('Interest_Rate', 0)))
-                up_paid = st.number_input("Adjust Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
-            
-            with c2:
+            with st.form("edit_loan_form"):
+                c1, c2 = st.columns(2)
+                up_name = c1.text_input("Borrower Name", value=str(loan_row.get('Borrower', '')))
+                up_p = c1.number_input("Principal", value=float(loan_row.get('Principal', 0)))
+                up_paid = c1.number_input("Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
+                
                 status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
                 curr_s = str(loan_row.get('Status', 'Active')).strip()
-                up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
+                up_status = c2.selectbox("Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
                 
-                # Date Safety
                 try:
-                    s_date = pd.to_datetime(loan_row.get('Start_Date', datetime.now())).date()
                     e_date = pd.to_datetime(loan_row.get('End_Date', datetime.now())).date()
                 except:
-                    s_date, e_date = datetime.now().date(), datetime.now().date()
+                    e_date = datetime.now().date()
                 
-                up_start = st.date_input("Adjust Start Date", value=s_date)
-                up_end = st.date_input("Adjust End Date", value=e_date)
+                up_end = c2.date_input("End Date", value=e_date)
 
-            st.divider()
-
-            # 4. ACTION BUTTONS (Using the pinned memory)
-            b_save, b_del = st.columns(2)
-
-            # --- SAVE BUTTON ---
-            if b_save.button("💾 Save Changes", use_container_width=True):
-                # Always use 'clean_id' which we identified at the top of the tab
-                id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
-                idx_list = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index
-                
-                if not idx_list.empty:
-                    t_idx = idx_list[0]
-                    loans_df.at[t_idx, 'Borrower'] = up_name
-                    loans_df.at[t_idx, 'Principal'] = up_p
-                    loans_df.at[t_idx, 'Status'] = up_status
-                    # Update date and paid amount using common column names
-                    for col in loans_df.columns:
-                        if "Paid" in col: loans_df.at[t_idx, col] = up_paid
-                        if "End" in col: loans_df.at[t_idx, col] = up_end.strftime('%Y-%m-%d')
+                if st.form_submit_button("💾 Save Changes"):
+                    idx = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
+                    loans_df.at[idx, 'Borrower'] = up_name
+                    loans_df.at[idx, 'Principal'] = up_p
+                    loans_df.at[idx, 'Amount_Paid'] = up_paid
+                    loans_df.at[idx, 'Status'] = up_status
+                    loans_df.at[idx, 'End_Date'] = up_end.strftime('%Y-%m-%d')
                     
                     if save_data("Loans", loans_df):
-                        st.success(f"✅ Loan #{clean_id} updated!"); st.rerun()
+                        st.success("✅ Updated!"); st.rerun()
+
+    with tab_actions:
+        st.info("⚙️ Loan Settlements and Rollover actions will appear here in the next update.")
 
             # --- DELETE BUTTON ---
             if b_del.button("🗑️ Delete Permanently", use_container_width=True):
