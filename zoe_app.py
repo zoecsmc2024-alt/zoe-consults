@@ -779,13 +779,12 @@ def show_borrowers():
             st.markdown("---")
             st.markdown("### ⚙️ Modify Borrower Details")
             
-     # Assuming this is inside your borrower management function
-def manage_borrower_profile(df, b_data, borrower_idx, target_name, u_loans):
+    # This must be indented inside your main show_loans or borrower management function
+def show_borrower_details(df, u_loans, borrower_idx, target_name, b_data):
     
     # --- 1. EDIT FORM SECTION ---
-    # Everything inside this 'with' block is indented once
     with st.expander(f"📝 Edit Profile: {target_name}"):
-        # Everything inside the form is indented twice
+        # The form name must be unique for each borrower
         with st.form(f"edit_bor_{target_name}"):
             c1, c2 = st.columns(2)
             
@@ -799,15 +798,14 @@ def manage_borrower_profile(df, b_data, borrower_idx, target_name, u_loans):
             e_kin = c2.text_input("Next of Kin", value=str(b_data.get('Next_of_Kin', '')))
             
             # Account Status logic
-            current_status_index = 0 if b_data['Status'] == "Active" else 1
-            e_status = c2.selectbox("Account Status", ["Active", "Inactive"], index=current_status_index)
+            status_idx = 0 if b_data['Status'] == "Active" else 1
+            e_status = c2.selectbox("Account Status", ["Active", "Inactive"], index=status_idx)
             
             # Full Width: Address
             e_addr = st.text_input("Physical Address", value=str(b_data.get('Address', '')))
             
-            # SAVE BUTTON LOGIC
-            # This 'if' block handles the actual update to your Google Sheet
             if st.form_submit_button("💾 Save Updated Profile", use_container_width=True):
+                # Update the DataFrame at the specific index found in your sheet
                 df.at[borrower_idx, 'Name'] = e_name
                 df.at[borrower_idx, 'Phone'] = e_phone
                 df.at[borrower_idx, 'National_ID'] = e_nid
@@ -816,20 +814,19 @@ def manage_borrower_profile(df, b_data, borrower_idx, target_name, u_loans):
                 df.at[borrower_idx, 'Status'] = e_status
                 df.at[borrower_idx, 'Address'] = e_addr
                 
-                # Save to "Borrowers" sheet
+                # Save specifically to the Borrowers tab
                 if save_data("Borrowers", df):
                     st.success(f"✅ {e_name}'s profile has been updated!")
                     st.rerun()
 
     # --- 2. DELETE ACTION SECTION ---
-    # This section is 'outside' the expander but 'inside' the main function
     st.markdown("### ⚠️ Danger Zone")
     
-    # We use a unique key for the button to avoid Streamlit errors
-    if st.button(f"🗑️ Delete {target_name} Permanently", key=f"del_{target_name}"):
+    # Using a unique key prevents the 'Duplicate Widget ID' error
+    if st.button(f"🗑️ Delete {target_name} Permanently", key=f"del_btn_{target_name}"):
         
-        # SAFETY CHECK: Check if the borrower has any existing loans
-        # This prevents breaking the 'Loans' data integrity
+        # Safety Check: Does this person have existing loans?
+        # This prevents breaking the relationship between your 'Loans' and 'Borrowers' sheets
         has_loans = False
         if not u_loans.empty and "Borrower" in u_loans.columns:
             has_loans = not u_loans[u_loans["Borrower"] == target_name].empty
@@ -837,7 +834,7 @@ def manage_borrower_profile(df, b_data, borrower_idx, target_name, u_loans):
         if has_loans:
             st.error("❌ Cannot delete! This borrower has loan records in the system. Close all loans first.")
         else:
-            # If no loans, proceed with deletion
+            # Drop the row from the dataframe and save
             new_df = df.drop(borrower_idx)
             if save_data("Borrowers", new_df):
                 st.warning(f"⚠️ {target_name} removed from system.")
