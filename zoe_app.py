@@ -2676,9 +2676,16 @@ def show_ledger():
                     "Credit": 0
                 })
 
-            # 3. FETCH PAYMENTS
-            l_pay = payments_df[payments_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) == this_loan_id] if not payments_df.empty else pd.DataFrame()
-            for _, p_row in l_pay.iterrows():
+            # --- FETCH PAYMENTS FOR THIS SPECIFIC LOAN ID ---
+            # We force everything to strings to make sure "7" matches "7"
+            p_loan_id_col = "Loan_ID" if "Loan_ID" in payments_df.columns else "Loan ID"
+            
+            # This is the "Magic Filter" that finds the missing payment
+            l_payments = payments_df[
+                payments_df[p_loan_id_col].astype(str).str.replace(".0", "", regex=False).str.strip() == str(this_loan_id).strip()
+            ] if not payments_df.empty else pd.DataFrame()
+
+            for _, p_row in l_payments.iterrows():
                 l_ledger.append({
                     "Date": p_row.get('Date', '-'), 
                     "Description": f"Payment (Ref: {p_row.get('Payment_ID', 'N/A')})", 
