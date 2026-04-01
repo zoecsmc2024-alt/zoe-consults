@@ -1547,7 +1547,6 @@ def show_overdue_tracker():
 
     try:
         # 1. --- THE AUTO-REFILL GATEKEEPER ---
-        # Pull from session state or force a refresh from Sheets
         loans_data = st.session_state.get("loans")
         
         if loans_data is None or loans_data.empty:
@@ -1561,10 +1560,8 @@ def show_overdue_tracker():
 
         # 2. --- PREP WORKING DATA ---
         loans = loans_data.copy()
-        # Normalize headers to handle spaces/formatting in Google Sheets
         loans.columns = loans.columns.str.strip().str.replace(" ", "_")
         
-        # Load ledger context if available to get the most accurate current balance
         ledger = st.session_state.get("ledger", pd.DataFrame())
         if not ledger.empty:
             ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
@@ -1583,7 +1580,6 @@ def show_overdue_tracker():
         today = datetime.now()
 
         # 5. --- FILTER OVERDUE ACCOUNTS ---
-        # Logic: Status must be active-related and date must be in the past
         overdue_df = loans[
             (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
             (loans['End_Date'] < today)
@@ -1598,7 +1594,6 @@ def show_overdue_tracker():
         # 6. --- BRANDED DISPLAY TABLE (Blue Zoe Theme) ---
         rows_html = ""
         for i, r in overdue_df.iterrows():
-            # Preview math: Principal + Interest becomes the basis for the next month
             p_val = float(r.get('Principal', 0))
             i_val = float(r.get('Interest', 0))
             preview_total = p_val + i_val
@@ -1633,50 +1628,39 @@ def show_overdue_tracker():
         latest_ledger = pd.DataFrame()
         if not ledger.empty and "Loan_ID" in ledger.columns:
             ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-            # Get the very last balance recorded for each loan
             latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
         # 8. --- ROLLOVER BUTTON (The Engine) ---
         if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-            
-            # --- CRITICAL FIX: MOVE THIS OUTSIDE THE TRY BLOCK ---
             updated_df = loans.copy() 
             count = 0
             
             try: 
                 for i, r in overdue_df.iterrows():
-                    # Standardize ID lookup
                     loan_id = str(r.get('Loan_ID')).replace(".0", "").strip()
-                    
-                    # Find matching row in main update dataframe
                     main_idx_list = updated_df[updated_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip() == loan_id].index
                     
                     if not main_idx_list.empty:
                         main_idx = main_idx_list[0]
-                        
-                        # A. Calculate the New Compounded Amount (P + I)
                         current_pri = float(r.get('Principal', 0))
                         current_int = float(r.get('Interest', 0))
                         final_amt = current_pri + current_int
 
-                        # B. Push Due Date forward
                         orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
                         if pd.isna(orig_end_date):
                             new_due_date = datetime.now() + timedelta(days=30)
                         else:
                             new_due_date = orig_end_date + pd.DateOffset(months=1)
 
-                        # C. UPDATE THE DATAFRAME
                         updated_df.at[main_idx, 'Principal'] = final_amt
                         updated_df.at[main_idx, 'Balance'] = final_amt
                         updated_df.at[main_idx, 'Amount_Paid'] = 0
                         updated_df.at[main_idx, 'End_Date'] = new_due_date
                         updated_df.at[main_idx, 'Status'] = "Rolled/Overdue"
                         updated_df.at[main_idx, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
-                        
                         count += 1
 
-                # 9. --- CLEAN DATA FOR SAVING (STILL INSIDE TRY) ---
+                # 9. --- CLEAN DATA FOR SAVING ---
                 money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest']
                 for m_col in money_cols:
                     if m_col in updated_df.columns:
@@ -1685,7 +1669,7 @@ def show_overdue_tracker():
                 if 'End_Date' in updated_df.columns:
                     updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date']).dt.strftime('%Y-%m-%d')
 
-                # 10. --- FINAL SAVE & REFRESH (STILL INSIDE TRY) ---
+                # 10. --- FINAL SAVE & REFRESH ---
                 save_ready_df = updated_df.copy()
                 save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
                 
@@ -1696,9 +1680,11 @@ def show_overdue_tracker():
                 else:
                     st.error("❌ Failed to save to Google Sheets.")
 
-            # --- THE FIX: This line MUST be here to close the try block ---
-        except Exception as e:
-            st.error(f"🚨 Rollover Error: {str(e)}")
+            except Exception as e:
+                st.error(f"🚨 Rollover Error: {str(e)}")
+
+    except Exception as e:
+        st.error(f"🚨 Unexpected Error in Tracker: {str(e)}")
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
@@ -1707,23 +1693,18 @@ def show_calendar():
     st.markdown("## 🗓️ Loan Activity Calendar")
     st.markdown("<h2 style='color: #2B3F87;'>📅 Activity Calendar</h2>", unsafe_allow_html=True)
 
-    # 1. FETCH DATA
     loans_df = get_cached_data("Loans")
 
     if loans_df.empty:
         st.info("📅 Calendar is clear! No active loans to track.")
         return
 
-    # 2. DATA PREPARATION (Bulletproofed)
-    # Standardize column names (fixes space issues from Google Sheets)
     loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
 
-    # Ensure required columns exist to prevent "KeyError"
     required_keys = ["End_Date", "Total_Repayable", "Status", "Borrower", "Loan_ID", "Principal", "Interest"]
     for col in required_keys:
         if col not in loans_df.columns:
             loans_df[col] = 0 if col in ["Total_Repayable", "Principal", "Interest"] else "Unknown"
-
     # Convert to proper types for logic
     loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors="coerce")
     loans_df["Total_Repayable"] = pd.to_numeric(loans_df["Total_Repayable"], errors="coerce").fillna(0)
