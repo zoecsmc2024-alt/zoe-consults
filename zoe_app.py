@@ -1640,66 +1640,65 @@ def show_overdue_tracker():
         if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
             
             # --- CRITICAL FIX: MOVE THIS OUTSIDE THE TRY BLOCK ---
-            # This ensures 'updated_df' is created BEFORE any crash can happen
             updated_df = loans.copy() 
             count = 0
             
             try: 
-            for i, r in overdue_df.iterrows():
-                # Standardize ID lookup
-                loan_id = str(r.get('Loan_ID')).replace(".0", "").strip()
-                
-                # Find matching row in main update dataframe
-                main_idx_list = updated_df[updated_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip() == loan_id].index
-                
-                if not main_idx_list.empty:
-                    main_idx = main_idx_list[0]
+                for i, r in overdue_df.iterrows():
+                    # Standardize ID lookup
+                    loan_id = str(r.get('Loan_ID')).replace(".0", "").strip()
                     
-                    # A. Calculate the New Compounded Amount (P + I)
-                    current_pri = float(r.get('Principal', 0))
-                    current_int = float(r.get('Interest', 0))
-                    final_amt = current_pri + current_int
-
-                    # B. Push Due Date forward
-                    orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
-                    if pd.isna(orig_end_date):
-                        new_due_date = datetime.now() + timedelta(days=30)
-                    else:
-                        new_due_date = orig_end_date + pd.DateOffset(months=1)
-
-                    # C. UPDATE THE DATAFRAME
-                    updated_df.at[main_idx, 'Principal'] = final_amt
-                    updated_df.at[main_idx, 'Balance'] = final_amt
-                    updated_df.at[main_idx, 'Amount_Paid'] = 0
-                    updated_df.at[main_idx, 'End_Date'] = new_due_date
-                    updated_df.at[main_idx, 'Status'] = "Rolled/Overdue"
-                    updated_df.at[main_idx, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
+                    # Find matching row in main update dataframe
+                    main_idx_list = updated_df[updated_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip() == loan_id].index
                     
-                    count += 1
+                    if not main_idx_list.empty:
+                        main_idx = main_idx_list[0]
+                        
+                        # A. Calculate the New Compounded Amount (P + I)
+                        current_pri = float(r.get('Principal', 0))
+                        current_int = float(r.get('Interest', 0))
+                        final_amt = current_pri + current_int
 
-            # 9. --- CLEAN DATA FOR SAVING (STILL INSIDE TRY) ---
-            money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest']
-            for m_col in money_cols:
-                if m_col in updated_df.columns:
-                    updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
+                        # B. Push Due Date forward
+                        orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
+                        if pd.isna(orig_end_date):
+                            new_due_date = datetime.now() + timedelta(days=30)
+                        else:
+                            new_due_date = orig_end_date + pd.DateOffset(months=1)
 
-            if 'End_Date' in updated_df.columns:
-                updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date']).dt.strftime('%Y-%m-%d')
+                        # C. UPDATE THE DATAFRAME
+                        updated_df.at[main_idx, 'Principal'] = final_amt
+                        updated_df.at[main_idx, 'Balance'] = final_amt
+                        updated_df.at[main_idx, 'Amount_Paid'] = 0
+                        updated_df.at[main_idx, 'End_Date'] = new_due_date
+                        updated_df.at[main_idx, 'Status'] = "Rolled/Overdue"
+                        updated_df.at[main_idx, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
+                        
+                        count += 1
 
-            # 10. --- FINAL SAVE & REFRESH (STILL INSIDE TRY) ---
-            save_ready_df = updated_df.copy()
-            save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
-            
-            if save_data("Loans", save_ready_df):
-                st.success(f"✅ Successfully rolled over {count} loans!")
-                st.cache_data.clear() 
-                st.rerun()
-            else:
-                st.error("❌ Failed to save to Google Sheets.")
+                # 9. --- CLEAN DATA FOR SAVING (STILL INSIDE TRY) ---
+                money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest']
+                for m_col in money_cols:
+                    if m_col in updated_df.columns:
+                        updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
 
-        # --- THE FIX: This now correctly follows the 'try' block ---
-        except Exception as e:
-            st.error(f"🚨 Rollover Error: {str(e)}")
+                if 'End_Date' in updated_df.columns:
+                    updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date']).dt.strftime('%Y-%m-%d')
+
+                # 10. --- FINAL SAVE & REFRESH (STILL INSIDE TRY) ---
+                save_ready_df = updated_df.copy()
+                save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
+                
+                if save_data("Loans", save_ready_df):
+                    st.success(f"✅ Successfully rolled over {count} loans!")
+                    st.cache_data.clear() 
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to save to Google Sheets.")
+
+            # --- THE FIX: Aligned with 'try' ---
+            except Exception as e:
+                st.error(f"🚨 Rollover Error: {str(e)}")
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
