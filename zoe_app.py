@@ -1209,63 +1209,50 @@ def show_payments():
                 pay_date = col_c.date_input("Payment Date", value=datetime.now())
                 
                 if st.form_submit_button("✅ Post Payment", use_container_width=True):
-                    if 0 < pay_amount <= (outstanding + 100):
+                    if pay_amount > 0:
                         try:
-                            # --- 1. FIND THE LOAN ---
+                            # 1. Standardize the Loans ID lookup
                             loans_df['Loan_ID'] = loans_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip()
                             search_id = str(selected_id_str).strip()
-                            matching_indices = loans_df[loans_df["Loan_ID"] == search_id].index
-                            
-                            if matching_indices.empty:
-                                st.error(f"❌ Loan ID {search_id} not found.")
-                                st.stop()
-                            
-                            idx = matching_indices[0]
+                            idx = loans_df[loans_df["Loan_ID"] == search_id].index[0]
 
-                            # --- 2. GENERATE NEXT PAYMENT ID (The Anti-NaN Fix!) ---
-                            p_id_col = "Payment_ID" if "Payment_ID" in payments_df.columns else "Payment ID"
-                            
-                            if not payments_df.empty and p_id_col in payments_df.columns:
-                                # pd.to_numeric with fillna(0) ensures we NEVER have a 'nan'
-                                last_id = pd.to_numeric(payments_df[p_id_col], errors='coerce').fillna(0).max()
-                                new_p_id = int(last_id + 1)
-                            else:
-                                new_p_id = 1
-
-                            # --- 3. CREATE PAYMENT ENTRY ---
+                            # 2. MATCH YOUR SHEET HEADERS EXACTLY (The Fix!)
+                            # We use spaces to match your screenshot: A=Payment ID, B=Loan ID, etc.
                             new_payment = pd.DataFrame([{
-                                p_id_col: new_p_id, 
-                                "Loan_ID": search_id, 
+                                "Payment ID": int(pd.to_numeric(payments_df.iloc[:,0], errors='coerce').max() + 1) if not payments_df.empty else 1,
+                                "Loan ID": search_id,
                                 "Borrower": loan["Borrower"],
-                                "Amount": float(pay_amount), 
-                                "Date": pay_date.strftime("%Y-%m-%d"), 
-                                "Method": pay_method, 
-                                "Recorded_By": st.session_state.get("user", "Zoe (Admin)")
+                                "Amount": float(pay_amount),
+                                "Date": pay_date.strftime("%Y-%m-%d"),
+                                "Method": pay_method,
+                                "Recorded By": st.session_state.get("user", "Zoe (Admin)")
                             }])
 
-                            # --- 4. UPDATE LOAN BALANCE ---
+                            # 3. Update Loan Balance
                             new_total_paid = float(paid_so_far) + float(pay_amount)
                             loans_df.at[idx, "Amount_Paid"] = new_total_paid
-                            
                             if new_total_paid >= (total_rep - 10):
                                 loans_df.at[idx, "Status"] = "Closed"
 
-                            # --- 5. CLEAN ALL DATA BEFORE SAVING (Final Shield) ---
-                            # This replaces any 'nan' values in the whole table with 0 or empty text
-                            save_loans = loans_df.copy().fillna(0)
+                            # 4. STRICT SYNC (Ensures no new columns are created)
+                            # We force the column names to match the exact ones in your screenshot
+                            save_payments = pd.concat([payments_df, new_payment], ignore_index=True)
+                            
+                            # Clean up any accidental "extra" columns before saving
+                            expected_cols = ["Payment ID", "Loan ID", "Borrower", "Amount", "Date", "Method", "Recorded By"]
+                            save_payments = save_payments[expected_cols] 
+                            
+                            # Final Save
+                            save_loans = loans_df.copy()
                             save_loans.columns = [c.replace("_", " ") for c in save_loans.columns]
                             
-                            save_payments = pd.concat([payments_df, new_payment], ignore_index=True).fillna("")
-                            save_payments.columns = [c.replace("_", " ") for c in save_payments.columns]
-                            
-                            # Final Check: Ensure No float('nan') exists in the save package
-                            if save_data("Payments", save_payments) and save_data("Loans", save_loans):
-                                st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded!")
+                            if save_data("Payments", save_payments.fillna("")) and save_data("Loans", save_loans.fillna(0)):
+                                st.success("✅ Payment recorded successfully!")
                                 st.cache_data.clear()
                                 st.rerun()
                                 
                         except Exception as e:
-                            st.error(f"🚨 Error saving data: {str(e)}")
+                            st.error(f"🚨 Error: {str(e)}")
                     else:
                         st.error(f"⚠️ Invalid amount. Balance due is {outstanding:,.0f} UGX.")
     # ==============================
