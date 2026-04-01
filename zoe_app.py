@@ -1031,7 +1031,7 @@ def show_loans():
     with tab_actions:
         st.info("⚙️ Loan Settlements and Rollover actions will appear here in the next update.")
 
-            # --- DELETE BUTTON ---
+        # --- DELETE BUTTON ---
             if b_del.button("🗑️ Delete Permanently", use_container_width=True):
                 id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
                 # Keep everything EXCEPT the clean_id
@@ -1039,6 +1039,8 @@ def show_loans():
                 
                 if save_data("Loans", new_df):
                     st.warning(f"⚠️ Loan #{clean_id} deleted."); st.rerun()
+
+            
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
