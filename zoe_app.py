@@ -1786,8 +1786,20 @@ def show_calendar():
             </p>
         </div>
         """, unsafe_allow_html=True)
-    m2.markdown(f"""<div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">⏳ NEXT 7 DAYS</p><h3 style="margin:0; color:#2B3F87;">{len(upcoming_df)} <span style="font-size:14px;">PENDING</span></h3></div>""", unsafe_allow_html=True)
-    m3.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">🔴 OVERDUE CASES</p><h3 style="margin:0; color:#FF4B4B;">{overdue_count} <span style="font-size:14px;">URGENT</span></h3></div>""", unsafe_allow_html=True)
+    # --- SAFE DISPLAY BOXES (Line 1778 - 1795) ---
+        m1.markdown(f"""
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">NOTES & STATUS |</p>
+            <p style="margin:0; font-size:16px; color:#2B3F87; font-weight:bold;">{r['Borrower']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        m2.markdown(f"""
+        <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">PAYMENT DUE BY |</p>
+            <p style="margin:0; font-size:16px; color:#2B3F87; font-weight:bold;">{pd.to_datetime(r['End_Date']).strftime('%d %b %Y')}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
