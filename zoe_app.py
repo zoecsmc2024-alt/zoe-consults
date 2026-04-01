@@ -1696,15 +1696,14 @@ def show_overdue_tracker():
                 else:
                     st.error("❌ Failed to save to Google Sheets.")
 
-            # --- THE FIX: Aligned with 'try' ---
-            except Exception as e:
-                st.error(f"🚨 Rollover Error: {str(e)}")
+            # --- THE FIX: This line MUST be here to close the try block ---
+        except Exception as e:
+            st.error(f"🚨 Rollover Error: {str(e)}")
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
 def show_calendar():
-    """
     st.markdown("## 🗓️ Loan Activity Calendar")
     st.markdown("<h2 style='color: #2B3F87;'>📅 Activity Calendar</h2>", unsafe_allow_html=True)
 
