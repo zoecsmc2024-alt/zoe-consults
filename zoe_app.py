@@ -1693,19 +1693,19 @@ def show_overdue_tracker():
                 updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date']).dt.strftime('%Y-%m-%d')
 
             # 10. --- FINAL SAVE & REFRESH ---
-            save_ready_df = updated_df.copy()
-            save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
-            
-            if save_data("Loans", save_ready_df):
-                st.success(f"✅ Successfully rolled over {count} loans!")
-                st.cache_data.clear() 
-                st.rerun()
-            else:
-                st.error("❌ Failed to save to Google Sheets.")
+        save_ready_df = updated_df.copy()
+        save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
+        
+        if save_data("Loans", save_ready_df):
+            st.success(f"✅ Successfully rolled over {count} loans!")
+            st.cache_data.clear() 
+            st.rerun()
+        else:
+            st.error("❌ Failed to save to Google Sheets.")
 
-        # --- THIS IS THE MISSING PIECE THAT FIXES THE ERROR ---
-        except Exception as e:
-            st.error(f"🚨 Rollover Error: {str(e)}")
+    # --- THIS LINE MUST BE AT THE SAME INDENT LEVEL AS THE 'TRY' ---
+    except Exception as e:
+        st.error(f"🚨 Rollover Error: {str(e)}")
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
