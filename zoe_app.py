@@ -357,95 +357,66 @@ def generate_ledger_pdf(loan_data, ledger_df):
 # to comply with Streamlit's "Must be first command" rule.
 
 def apply_ui_theme():
-    """
-    Injects the deep CSS overrides for Zoe Admin.
-    Ensures metric cards, sidebar buttons, and tables match branding.
-    """
     st.markdown("""
     <style>
-        /* 1. FORCE MAIN BACKGROUND */
-        .stApp {
-            background-color: #F0F8FF !important; /* Baby Blue */
+        /* 1. MAIN APP PADDING */
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+            padding-left: 3rem !important;
+            padding-right: 3rem !important;
         }
 
-        /* 2. FORCE SIDEBAR NAVY */
+        /* 2. FORCE MAIN BACKGROUND */
+        .stApp {
+            background-color: #F0F8FF !important;
+        }
+
+        /* 3. SIDEBAR SPACING */
         [data-testid="stSidebar"] {
             background-color: #2B3F87 !important;
         }
-        [data-testid="stSidebar"] * {
-            color: #F0F8FF !important;
+        
+        /* Add gap between sidebar logo/text and buttons */
+        [data-testid="stSidebarNav"] {
+            margin-top: 20px !important;
         }
 
-        /* 3. FORCE METRIC CARD COLORS */
-        /* Targets the standard st.metric boxes */
+        /* 4. METRIC CARD SPACING & BREATHING ROOM */
         div[data-testid="stMetric"] {
             background-color: #FFFFFF !important;
             border: 1px solid #2B3F87 !important;
             border-left: 5px solid #2B3F87 !important;
             border-radius: 15px !important;
             box-shadow: 0 4px 12px rgba(43, 63, 135, 0.1) !important;
+            padding: 25px !important; /* Increased padding inside cards */
+            margin-bottom: 15px !important; /* Gap between cards if they stack */
         }
         
-        /* Force the Metric Label (e.g., "PAID") to Gray */
-        div[data-testid="stMetricLabel"] > div {
-            color: #666666 !important;
-            font-weight: bold !important;
-        }
-        
-        /* Force the Metric Value (the amount) to Zoe Navy */
-        div[data-testid="stMetricValue"] > div {
-            color: #2B3F87 !important;
-        }
-
-        /* 4. COMPACT SIDEBAR BUTTONS */
+        /* 5. SIDEBAR BUTTON SPACING (The 'Smooth' Look) */
         section[data-testid="stSidebar"] .stButton > button {
             background-color: transparent !important;
-            color: #F0F8FF !important; /* Baby Blue Text */
+            color: #F0F8FF !important;
             border: 1px solid rgba(240, 248, 255, 0.1) !important;
             width: 100% !important;
             text-align: left !important;
-            padding: 6px 12px !important; 
-            margin-bottom: 2px !important; 
-            border-radius: 6px !important;
-            font-size: 14px !important; 
+            padding: 10px 15px !important; /* Increased from 6px for better clickable area */
+            margin-bottom: 8px !important;  /* Added gap between buttons */
+            border-radius: 8px !important;
+            font-size: 14px !important;
             transition: all 0.2s ease !important;
         }
 
-        /* 5. THE ULTIMATE CLICK FIX */
-        section[data-testid="stSidebar"] .stButton > button:focus,
-        section[data-testid="stSidebar"] .stButton > button:active,
-        section[data-testid="stSidebar"] .stButton > button:focus-visible,
-        section[data-testid="stSidebar"] .stButton > button:focus:not(:active) {
-            background-color: #F0F8FF !important; /* Force Baby Blue on click */
-            color: #2B3F87 !important;            /* Force Navy Text on click */
-            border: 1px solid #F0F8FF !important;
-            box-shadow: none !important;          
-            outline: none !important;             
+        /* 6. SECTION HEADER SPACING */
+        h2, h3, h4 {
+            margin-top: 1.5rem !important;
+            margin-bottom: 1rem !important;
+            font-weight: 700 !important;
         }
 
-        /* 6. MAKE BUTTONS SLIMMER (SAVE SPACE) */
-        section[data-testid="stSidebar"] .stButton > button {
-            padding: 4px 10px !important;         
-            min-height: 35px !important;          
-            margin-top: -5px !important;          
-        }
-
-        /* 7. ACTIVE TAB HIGHLIGHT */
-        .active-menu-item {
-            background-color: #F0F8FF !important;
-            color: #2B3F87 !important;
-            padding: 10px 15px !important;
-            border-radius: 8px !important;
-            font-weight: bold !important;
-            margin-bottom: 5px !important;
-            display: flex !important;
-            align-items: center !important;
-        }
-
-        /* 8. DATA FRAME / TABLE HEADERS */
-        thead tr th {
-            background-color: #2B3F87 !important;
-            color: white !important;
+        /* 7. TABLE SPACING */
+        .stTable {
+            margin-top: 15px !important;
         }
     </style>
     """, unsafe_allow_html=True)
