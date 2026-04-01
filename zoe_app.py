@@ -9,31 +9,26 @@ import base64
 import json
 import bcrypt
 import os
-import re  # Added re for ID parsing logic used later in the app
+import re  # Added for ID parsing
 from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from fpdf import FPDF
+from xhtml2pdf import pisa # Added for the create_pdf function
 from streamlit_calendar import calendar
 
-# --- TOP OF YOUR SCRIPT ---
-# 1. DEFINE SCOPES
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-SHEET_NAME = "Zoe_Consults_Data"
+# 1. MUST BE FIRST STREAMLIT COMMAND
+st.set_page_config(page_title="Zoe Admin", layout="wide", initial_sidebar_state="expanded")
 
-# 2. INITIALIZE CONNECTION (MATCHING YOUR IMPORTS)
-try:
-    # This uses the 'Credentials' you already imported at the top!
-    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-    client = gspread.authorize(creds) 
-    
-    # Check if the connection works immediately
-    # sheet_test = client.open(SHEET_NAME) 
-except Exception as e:
-    st.error(f"❌ Connection to Google Sheets failed: {e}")
-    st.info("Check your 'gcp_service_account' in Streamlit Secrets.")
-    st.stop() 
+# 2. BRANDING COLORS
+BRANDING = {
+    "navy": "#2B3F87",      # Primary Header / Buttons
+    "baby_blue": "#F0F8FF", # Row Highlights / Hover
+    "white": "#FFFFFF",     # Backgrounds
+    "text_gray": "#666666"  # Captions / Timestamps
+}
 
+SHEET_ID = "1XV1k6EuPLVo5TlmrNAq3FAVGTtCmJQKupF3HrFxLcwg"
 # 3. GLOBAL DATA LOADER (RE-CHECKING CLIENT)
 @st.cache_resource
 def connect_to_gsheets():
