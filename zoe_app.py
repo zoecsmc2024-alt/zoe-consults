@@ -379,56 +379,54 @@ def apply_ui_theme():
             min-width: 260px !important;
         }
 
-        /* Sidebar Title and Online Status */
+        /* Sidebar Branding Text */
         [data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] b {
-            color: #F0F8FF !important; /* Force Baby Blue text */
+            color: #F0F8FF !important;
         }
 
-        /* 4. BABY BLUE BUTTON BLEND */
+        /* 4. REMOVE BUTTON BOXES - TEXT ONLY NAV */
         section[data-testid="stSidebar"] .stButton > button {
-            background-color: rgba(240, 248, 255, 0.05) !important; /* Very subtle transparent fill */
+            background-color: transparent !important;
             color: #F0F8FF !important; /* Baby Blue Text */
-            border: 1px solid #F0F8FF !important; /* Baby Blue Border */
+            border: none !important;     /* REMOVES THE BOX */
+            box-shadow: none !important; /* REMOVES ANY GLOW/SHADOW */
             width: 100% !important;
             text-align: left !important;
-            padding: 12px 20px !important;
-            margin-bottom: 12px !important;
-            border-radius: 12px !important;
-            font-size: 15px !important;
-            font-weight: 500 !important;
+            padding: 8px 15px !important;
+            margin-bottom: 5px !important;
+            font-size: 16px !important;
+            font-weight: 400 !important;
             transition: all 0.3s ease !important;
         }
 
-        /* Hover Effect: Glow Baby Blue */
+        /* Hover Effect: Text Glows & Slides Right Slightly */
         section[data-testid="stSidebar"] .stButton > button:hover {
-            background-color: #F0F8FF !important; /* Fill with Baby Blue */
-            color: #0A192F !important;            /* Text turns Deep Blue */
-            box-shadow: 0px 0px 15px rgba(240, 248, 255, 0.4) !important;
-            border: 1px solid #F0F8FF !important;
+            color: #FFFFFF !important; /* Brighter on hover */
+            background-color: rgba(240, 248, 255, 0.1) !important; /* Very faint highlight */
+            padding-left: 25px !important; /* Subtle "slide" effect */
+            text-decoration: none !important;
         }
 
-        /* Active/Focus State */
+        /* Active Page Indicator (Optional - subtle underline) */
         section[data-testid="stSidebar"] .stButton > button:focus {
-            background-color: #F0F8FF !important;
-            color: #0A192F !important;
-            box-shadow: none !important;
-            outline: none !important;
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+            background-color: transparent !important;
         }
 
-        /* 5. METRIC CARDS (Matching the Deep Blue Theme) */
+        /* 5. METRIC CARDS (Clean Matching Style) */
         div[data-testid="stMetric"] {
             background-color: #FFFFFF !important;
-            border: 1px solid #0A192F !important;
-            border-left: 10px solid #0A192F !important; /* Deep Blue Accent */
-            border-radius: 15px !important;
-            box-shadow: 0 4px 12px rgba(10, 25, 47, 0.1) !important;
-            padding: 25px !important;
+            border: 1px solid #E0E0E0 !important;
+            border-left: 8px solid #0A192F !important; 
+            border-radius: 12px !important;
+            padding: 20px !important;
         }
 
-        /* 6. TABLE HEADERS */
-        thead tr th {
-            background-color: #0A192F !important; /* Deep Blue Table Header */
-            color: #F0F8FF !important;            /* Baby Blue Text */
+        /* 6. HIDE THE DEFAULT OVERLAY ON HOVER */
+        button:focus:not(:focus-visible) {
+            outline: none !important;
+            box-shadow: none !important;
         }
         
     </style>
