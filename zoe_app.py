@@ -720,117 +720,167 @@ def show_overview():
 # 12. BORROWERS MANAGEMENT PAGE
 # ==============================
 
+import pandas as pd
+from datetime import datetime
+import streamlit as st
+
 def show_borrowers():
     st.markdown("<h2 style='color: #2B3F87;'>👥 Borrowers Management</h2>", unsafe_allow_html=True)
     
-    borrowers_df = get_cached_data("Borrowers")
-    loans_df = get_cached_data("Loans") 
+    # 1. LOAD DATA & APPLY SAFETY SHIELD
+    borrowers_raw = get_cached_data("Borrowers")
     
-    if borrowers_df.empty:
-        df = pd.DataFrame(columns=["Borrower_ID", "Name", "Phone", "National_ID", "Address", "Email", "Next_of_Kin", "Status", "Date_Added"])
+    # --- THE SAFETY SHIELD ---
+    # Removes duplicate headers (e.g. two 'Name' columns) to prevent crashes
+    if borrowers_raw.empty:
+        df = pd.DataFrame(columns=[
+            "Borrower_ID", "Name", "Phone", "National_ID", 
+            "Address", "Status", "Date_Added", "Email", "Next_of_Kin"
+        ])
     else:
-        df = borrowers_df.copy()
+        df = borrowers_raw.loc[:, ~borrowers_raw.columns.duplicated()].copy()
         df.columns = [str(c).strip().replace(" ", "_") for c in df.columns]
         df = df.fillna("")
 
-    tab_view, tab_add, tab_audit = st.tabs(["📑 View All", "➕ Add New", "⚙️ Audit & Manage"])
+    # 2. TABS INTERFACE
+    tab_view, tab_add, tab_audit = st.tabs(["📑 Client Directory", "➕ Register New", "⚙️ Manage & Audit"])
 
+    # ==============================
+    # TAB 1: CLIENT DIRECTORY
+    # ==============================
     with tab_view:
-        search = st.text_input("🔍 Search Name, Phone, or ID", key="bor_search").lower()
-        v_df = df[df["Name"].str.lower().str.contains(search) | df["Phone"].astype(str).str.contains(search)].copy()
-        
-        # Original Table Design Restored
+        search_col1, search_col2 = st.columns([3, 1])
+        search_query = search_col1.text_input("🔍 Search by Name, Phone, or National ID", placeholder="Search...").lower()
+        status_filter = search_col2.selectbox("Status", ["All", "Active", "Inactive", "Blacklisted"])
+
+        # Filter Logic
+        filtered_df = df.copy()
+        if search_query:
+            filtered_df = filtered_df[
+                filtered_df["Name"].str.lower().str.contains(search_query) |
+                filtered_df["Phone"].astype(str).str.contains(search_query) |
+                filtered_df["National_ID"].astype(str).str.contains(search_query)
+            ]
+        if status_filter != "All":
+            filtered_df = filtered_df[filtered_df["Status"] == status_filter]
+
+        # --- ZOE STYLED DIRECTORY TABLE ---
         rows_html = ""
-        for i, r in v_df.iterrows():
-            bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+        for i, r in filtered_df.iterrows():
+            bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+            status_color = "#2E7D32" if r['Status'] == "Active" else "#D32F2F"
+            
             rows_html += f"""
-            <tr style="background-color: {bg}; border-bottom: 1px solid #eee; font-size: 12px;">
-                <td style="padding:12px;"><b>{r['Name']}</b><br><small>ID: {r['Borrower_ID']}</small></td>
-                <td style="padding:12px;">📞 {r['Phone']}<br><span style='font-size:10px;'>{r.get('Email', '')}</span></td>
-                <td style="padding:12px;">{r.get('National_ID', 'N/A')}</td>
+            <tr style="background-color: {bg_color}; border-bottom: 1px solid #eee; font-size: 13px;">
+                <td style="padding:12px;"><b>{r['Name']}</b><br><small style='color:#666;'>ID: {r['Borrower_ID']}</small></td>
+                <td style="padding:12px;">📞 {r['Phone']}<br><small>{r.get('Email', '-')}</small></td>
+                <td style="padding:12px;">🪪 {r.get('National_ID', 'N/A')}</td>
                 <td style="padding:12px;">📍 {r.get('Address', 'N/A')}</td>
                 <td style="padding:12px; text-align:center;">
-                    <span style="background:#2B3F87; color:white; padding:4px 10px; border-radius:12px; font-size:10px;">{r['Status']}</span>
+                    <span style="background:{status_color}; color:white; padding:3px 10px; border-radius:12px; font-size:10px; font-weight:bold;">
+                        {str(r['Status']).upper()}
+                    </span>
                 </td>
             </tr>"""
-        st.markdown(f"""<table style="width:100%; border-collapse:collapse; border:1px solid #ddd;">
-            <thead style="background:#2B3F87; color:white;"><tr><th>Borrower</th><th>Contact</th><th>NIN</th><th>Address</th><th>Status</th></tr></thead>
-            <tbody>{rows_html}</tbody></table>""", unsafe_allow_html=True)
 
+        table_html = f"""
+        <div style="border:1px solid #ddd; border-radius:10px; overflow:hidden; background:white;">
+            <table style="width:100%; border-collapse:collapse; font-family:sans-serif;">
+                <thead style="background:#2B3F87; color:white; text-align:left;">
+                    <tr>
+                        <th style="padding:12px;">Name</th>
+                        <th style="padding:12px;">Contact</th>
+                        <th style="padding:12px;">NIN/ID</th>
+                        <th style="padding:12px;">Address</th>
+                        <th style="padding:12px; text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>{rows_html}</tbody>
+            </table>
+        </div>"""
+        st.components.v1.html(table_html, height=500, scrolling=True)
+
+    # ==============================
+    # TAB 2: REGISTER NEW CLIENT
+    # ==============================
     with tab_add:
-        with st.form("add_bor_form", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            name = c1.text_input("Name*")
-            phone = c2.text_input("Phone*")
-            nid = c1.text_input("National ID")
-            addr = c2.text_input("Address")
-            if st.form_submit_button("🚀 Register Borrower"):
-                if name and phone:
+        with st.form("add_borrower_form", clear_on_submit=True):
+            st.markdown("<h4 style='color: #2B3F87;'>📝 New Client Registration</h4>", unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            f_name = col1.text_input("Full Name*")
+            f_phone = col2.text_input("Phone Number*")
+            f_nid = col1.text_input("National ID (NIN)")
+            f_email = col2.text_input("Email Address")
+            f_addr = st.text_area("Residential Address", height=70)
+            f_kin = st.text_input("Next of Kin / Emergency Contact")
+
+            if st.form_submit_button("🚀 Register & Save to Database", use_container_width=True):
+                if f_name and f_phone:
+                    # Generate ID
                     last_id = pd.to_numeric(df["Borrower_ID"], errors='coerce').max()
                     new_id = int(last_id + 1) if pd.notna(last_id) else 1
-                    new_entry = pd.DataFrame([{"Borrower_ID": new_id, "Name": name, "Phone": phone, "National_ID": nid, "Address": addr, "Status": "Active", "Date_Added": datetime.now().strftime("%Y-%m-%d")}])
-                    if save_data("Borrowers", pd.concat([df, new_entry], ignore_index=True)):
-                        st.success("Registered!"); st.rerun()
+                    
+                    new_client = pd.DataFrame([{
+                        "Borrower_ID": new_id,
+                        "Name": f_name,
+                        "Phone": f_phone,
+                        "National_ID": f_nid,
+                        "Address": f_addr,
+                        "Status": "Active",
+                        "Date_Added": datetime.now().strftime("%Y-%m-%d"),
+                        "Email": f_email,
+                        "Next_of_Kin": f_kin
+                    }])
+                    
+                    # Merge and Restore Spaces for Google Sheets
+                    final_df = pd.concat([df, new_client], ignore_index=True)
+                    final_df.columns = [c.replace("_", " ") for c in final_df.columns]
+                    
+                    if save_data("Borrowers", final_df):
+                        st.success(f"✅ Successfully registered {f_name} (ID: {new_id})")
+                        st.rerun()
+                else:
+                    st.error("⚠️ Please provide at least the Name and Phone Number.")
+
     # ==============================
-    # TAB 3: AUDIT & MANAGE (Restored Loan History Check)
+    # TAB 3: MANAGE & AUDIT
     # ==============================
     with tab_audit:
         if not df.empty:
-            target_name = st.selectbox("Select Borrower to Manage", df["Name"].tolist(), key="audit_m_sel")
-            bor_idx = df[df["Name"] == target_name].index[0]
-            b_data = df.loc[bor_idx]
+            st.markdown("### 🛠️ Update Client Records")
+            client_options = [f"ID: {str(r['Borrower_ID']).replace('.0','')} | {r['Name']}" for _, r in df.iterrows()]
+            selected_client = st.selectbox("Select Client to Edit", client_options)
             
-            # Restored Loan History Check Logic
-            if not loans_df.empty:
-                l_check = loans_df.copy()
-                l_check.columns = [str(c).strip() for c in l_check.columns]
-                user_loans = l_check[l_check.get("Borrower") == target_name]
-                
-                if not user_loans.empty:
-                    st.metric("Total Loans Found", len(user_loans))
-                    st.markdown(f"#### 📜 Loan History: {target_name}")
-                    st.table(user_loans.head(5)) # Shows the recent loans
-                else:
-                    st.info("ℹ️ No loans recorded for this borrower yet.")
-            
-            st.divider()
-            
-            # Edit Section (Restored all fields)
-            with st.expander(f"⚙️ Edit Profile: {target_name}"):
-                with st.form(f"edit_bor_{target_name}"):
-                    ec1, ec2 = st.columns(2)
-                    e_name = ec1.text_input("Name", value=str(b_data['Name']))
-                    e_phone = ec1.text_input("Phone", value=str(b_data['Phone']))
-                    e_nid = ec1.text_input("NIN", value=str(b_data.get('National_ID', '')))
-                    e_mail = ec2.text_input("Email", value=str(b_data.get('Email', '')))
-                    e_kin = ec2.text_input("Kin", value=str(b_data.get('Next_of_Kin', '')))
-                    e_stat = ec2.selectbox("Status", ["Active", "Inactive"], index=0 if b_data['Status'] == "Active" else 1)
-                    e_adr = st.text_input("Address", value=str(b_data.get('Address', '')))
-                    
-                    if st.form_submit_button("💾 Update Profile", use_container_width=True):
-                        df.at[bor_idx, 'Name'] = e_name
-                        df.at[bor_idx, 'Phone'] = e_phone
-                        df.at[bor_idx, 'National_ID'] = e_nid
-                        df.at[bor_idx, 'Email'] = e_mail
-                        df.at[bor_idx, 'Next_of_Kin'] = e_kin
-                        df.at[bor_idx, 'Status'] = e_stat
-                        df.at[bor_idx, 'Address'] = e_adr
-                        
-                        save_ready = df.copy()
-                        save_ready.columns = [c.replace("_", " ") for c in save_ready.columns]
-                        if save_data("Borrowers", save_ready):
-                            st.success("✅ Profile Updated!"); st.rerun()
+            # Extract ID
+            clean_id = selected_client.split("|")[0].replace("ID: ", "").strip()
+            idx = df[df["Borrower_ID"].astype(str).str.replace(".0", "") == clean_id].index[0]
+            row = df.loc[idx]
 
-            st.markdown("### ⚠️ Danger Zone")
-            if st.button(f"🗑️ Delete {target_name} Permanently"):
-                # Safety check against breaking existing loan records
-                if not loans_df.empty and not loans_df[loans_df.iloc[:, 1] == target_name].empty:
-                    st.error("❌ Cannot delete borrower with active or past loan history.")
-                else:
-                    new_df = df.drop(bor_idx)
-                    new_df.columns = [c.replace("_", " ") for c in new_df.columns]
-                    if save_data("Borrowers", new_df):
-                        st.warning("⚠️ Borrower removed."); st.rerun()
+            ce1, ce2 = st.columns(2)
+            up_name = ce1.text_input("Update Name", value=str(row['Name']))
+            up_phone = ce2.text_input("Update Phone", value=str(row['Phone']))
+            up_status = st.selectbox("Update Status", ["Active", "Inactive", "Blacklisted"], 
+                                    index=["Active", "Inactive", "Blacklisted"].index(row['Status']) if row['Status'] in ["Active", "Inactive", "Blacklisted"] else 0)
+
+            # Action Buttons
+            b_save, b_del = st.columns(2)
+            
+            if b_save.button("💾 Save Record Changes", use_container_width=True):
+                df.at[idx, 'Name'] = up_name
+                df.at[idx, 'Phone'] = up_phone
+                df.at[idx, 'Status'] = up_status
+                
+                final_save = df.copy()
+                final_save.columns = [c.replace("_", " ") for c in final_save.columns]
+                if save_data("Borrowers", final_save):
+                    st.success("✅ Record Updated!"); st.rerun()
+
+            if b_del.button("🗑️ Remove Record Permanently", use_container_width=True):
+                final_save = df.drop(idx)
+                final_save.columns = [c.replace("_", " ") for c in final_save.columns]
+                if save_data("Borrowers", final_save):
+                    st.warning("⚠️ Record Deleted."); st.rerun()
 # ==============================
 # 13. LOANS MANAGEMENT PAGE
 # ==============================
