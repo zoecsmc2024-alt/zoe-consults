@@ -839,17 +839,18 @@ def show_loans():
         st.info("No loan records found. Start by adding a new loan in the 'Add New' tab.")
         # Create an empty template so the rest of the code doesn't crash
         loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Principal", "Interest", "Amount_Paid", "Status", "End_Date"])
-    # 1. CLEAN HEADERS (This prevents hidden spaces from breaking the math)
+    # 1. CLEAN HEADERS: This fixes "Amount Paid" vs "Amount_Paid" automatically
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
     
-    # 2. NUMERIC SAFETY SHIELD (The Fix for the TypeError on line 852)
+    # 2. SAFE CONVERSION: This ensures the app won't crash if a column is missing
     num_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
     
     for col in num_cols:
-        # We check if the column exists; if not, we create it to avoid the crash
         if col in loans_df.columns:
-            loans_df[col] = pd.to_numeric(loans_df[col], errors='coerce').fillna(0)
+            # We use pd.Series to ensure the data is in the format Python expects
+            loans_df[col] = pd.to_numeric(pd.Series(loans_df[col]), errors='coerce').fillna(0)
         else:
+            # If the column is completely missing, we create it as 0 to keep the page running
             loans_df[col] = 0.0
     
     # 3. DATE SAFETY SHIELD
