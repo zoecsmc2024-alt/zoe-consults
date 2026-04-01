@@ -16,6 +16,12 @@ from twilio.rest import Client
 from fpdf import FPDF
 from streamlit_calendar import calendar
 
+# --- TOP OF YOUR SCRIPT ---
+# Initialize the connection globally so EVERY function can see it
+creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], SCOPES)
+client = gspread.authorize(creds) # <--- THIS IS THE 'CLIENT' THE APP IS MISSING
+SHEET_NAME = "Zoe_Consults_Data" # Ensure this matches your actual sheet name
+
 # ==============================
 # 1. BRANDING & COLOR PALETTE
 # ==============================
@@ -127,20 +133,19 @@ def create_pdf(html_content):
 
 @st.cache_data(ttl=600)
 def get_cached_data(sheet_name):
-    # --- THE CRITICAL LINE ---
+    # This tells the function: "Go look at the top of the script for the 'client'"
     global client 
-    
     try:
-        # Now the function can 'see' the client connection
         sheet = client.open(SHEET_NAME).worksheet(sheet_name)
         
+        # Load values and handle potential duplicates/empty rows
         raw_values = sheet.get_all_values()
         if not raw_values or len(raw_values) < 1:
             return pd.DataFrame()
             
         headers = [str(h).strip() for h in raw_values[0]]
         
-        # Shield against duplicate headers in Google Sheets
+        # Standardize headers to handle spaces vs underscores
         unique_headers = []
         for i, h in enumerate(headers):
             if h in unique_headers or h == "":
@@ -150,16 +155,14 @@ def get_cached_data(sheet_name):
                 
         df = pd.DataFrame(raw_values[1:], columns=unique_headers)
         
-        # Standardize for internal logic (Spaces to Underscores)
+        # Internal standardization (Internal code uses Loan_ID, Sheets use Loan ID)
         df.columns = [c.replace(" ", "_") for c in df.columns]
         
-        # Clean up any temporary '_0', '_1' column names we made
+        # Drop the temp duplicate columns we made during the safety check
         df = df.loc[:, ~df.columns.str.contains(r'_\d+$')] 
         
         return df
-        
     except Exception as e:
-        # If the 'client' still isn't found, this will catch it gracefully
         st.error(f"⚠️ Error loading {sheet_name}: {e}")
         return pd.DataFrame()
 @st.cache_data(ttl=3600)
