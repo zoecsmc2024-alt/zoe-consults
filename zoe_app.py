@@ -359,66 +359,78 @@ def generate_ledger_pdf(loan_data, ledger_df):
 def apply_ui_theme():
     st.markdown("""
     <style>
-        /* 1. THE BIG FIX: FORCE FULL SCREEN WIDTH */
-        /* This removes the narrow center-only layout */
+        /* 1. PAGE LAYOUT: FULL WIDTH */
         .block-container {
             max-width: 100% !important;
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
-            padding-left: 5rem !important;  /* Space from sidebar */
-            padding-right: 5rem !important; /* Space from right edge */
+            padding-left: 5rem !important;
+            padding-right: 5rem !important;
         }
 
         /* 2. MAIN APP BACKGROUND */
         .stApp {
-            background-color: #F0F8FF !important;
+            background-color: #F0F8FF !important; /* Baby Blue Page BG */
         }
 
-        /* 3. SIDEBAR BRANDING */
+        /* 3. THE DEEP BLUE SIDEBAR */
         [data-testid="stSidebar"] {
-            background-color: #2B3F87 !important;
-            min-width: 250px !important; /* Makes sidebar slightly wider for elegance */
+            background-color: #0A192F !important; /* Deep Midnight Blue */
+            min-width: 260px !important;
         }
 
-        /* 4. METRIC CARDS (Spaced out for the new wide look) */
-        div[data-testid="stMetric"] {
-            background-color: #FFFFFF !important;
-            border: 1px solid #2B3F87 !important;
-            border-left: 10px solid #2B3F87 !important; /* Thicker accent for wide view */
-            border-radius: 15px !important;
-            box-shadow: 0 4px 12px rgba(43, 63, 135, 0.1) !important;
-            padding: 25px !important;
+        /* Sidebar Title and Online Status */
+        [data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] b {
+            color: #F0F8FF !important; /* Force Baby Blue text */
         }
-        
-        /* 5. SIDEBAR BUTTON ELEGANCE */
+
+        /* 4. BABY BLUE BUTTON BLEND */
         section[data-testid="stSidebar"] .stButton > button {
-            background-color: transparent !important;
-            color: #F0F8FF !important;
-            border: 1px solid rgba(240, 248, 255, 0.1) !important;
+            background-color: rgba(240, 248, 255, 0.05) !important; /* Very subtle transparent fill */
+            color: #F0F8FF !important; /* Baby Blue Text */
+            border: 1px solid #F0F8FF !important; /* Baby Blue Border */
             width: 100% !important;
             text-align: left !important;
             padding: 12px 20px !important;
-            margin-bottom: 10px !important;
-            border-radius: 10px !important;
+            margin-bottom: 12px !important;
+            border-radius: 12px !important;
             font-size: 15px !important;
-            transition: all 0.2s ease !important;
+            font-weight: 500 !important;
+            transition: all 0.3s ease !important;
         }
 
-        /* 6. TABLE & CHART WIDTHS */
-        /* This ensures charts stretch into the new space */
-        iframe {
-            width: 100% !important;
+        /* Hover Effect: Glow Baby Blue */
+        section[data-testid="stSidebar"] .stButton > button:hover {
+            background-color: #F0F8FF !important; /* Fill with Baby Blue */
+            color: #0A192F !important;            /* Text turns Deep Blue */
+            box-shadow: 0px 0px 15px rgba(240, 248, 255, 0.4) !important;
+            border: 1px solid #F0F8FF !important;
+        }
+
+        /* Active/Focus State */
+        section[data-testid="stSidebar"] .stButton > button:focus {
+            background-color: #F0F8FF !important;
+            color: #0A192F !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+
+        /* 5. METRIC CARDS (Matching the Deep Blue Theme) */
+        div[data-testid="stMetric"] {
+            background-color: #FFFFFF !important;
+            border: 1px solid #0A192F !important;
+            border-left: 10px solid #0A192F !important; /* Deep Blue Accent */
+            border-radius: 15px !important;
+            box-shadow: 0 4px 12px rgba(10, 25, 47, 0.1) !important;
+            padding: 25px !important;
+        }
+
+        /* 6. TABLE HEADERS */
+        thead tr th {
+            background-color: #0A192F !important; /* Deep Blue Table Header */
+            color: #F0F8FF !important;            /* Baby Blue Text */
         }
         
-        .stTable, .stDataFrame {
-            width: 100% !important;
-        }
-
-        /* 7. TITLE SPACING */
-        h1, h2 {
-            margin-bottom: 2rem !important;
-            color: #2B3F87 !important;
-        }
     </style>
     """, unsafe_allow_html=True)
 # Execute the UI theme application
