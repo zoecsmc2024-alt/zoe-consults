@@ -122,51 +122,40 @@ def create_pdf(html_content):
     pisa.CreatePDF(io.StringIO(html_content), dest=pdf_buffer)
     return pdf_buffer.getvalue()
 
+# Ensure your client is initialized at the top of the script
+# client = gspread.authorize(creds) 
+
 @st.cache_data(ttl=600)
 def get_cached_data(sheet_name):
-    """
-    Fetches data from Google Sheets and automatically cleans 
-    duplicate headers to prevent app crashes.
-    """
+    global client # This tells the function to use the 'client' defined at the top
     try:
-        # 1. Access the worksheet
         sheet = client.open(SHEET_NAME).worksheet(sheet_name)
         
-        # 2. Get all records
-        data = sheet.get_all_records()
-        
-        if not data:
+        # Try loading raw values first to handle duplicates safely
+        raw_values = sheet.get_all_values()
+        if not raw_values or len(raw_values) < 1:
             return pd.DataFrame()
             
-        df = pd.DataFrame(data)
-
-        # --- THE SHIELD: AUTO-FIX DUPLICATE HEADERS ---
-        # If Google Sheets accidentally added 'Loan ID' twice, this kills the second one.
-        df = df.loc[:, ~df.columns.duplicated()]
-
-        # 3. Standardize column names (Remove spaces, add underscores for internal logic)
-        df.columns = [str(c).strip().replace(" ", "_") for c in df.columns]
+        headers = [str(h).strip() for h in raw_values[0]]
+        
+        # Create a unique list of headers to stop the "Duplicate" error
+        unique_headers = []
+        for i, h in enumerate(headers):
+            if h in unique_headers or h == "":
+                unique_headers.append(f"{h}_{i}")
+            else:
+                unique_headers.append(h)
+                
+        df = pd.DataFrame(raw_values[1:], columns=unique_headers)
+        
+        # Standardize internal names (underscores instead of spaces)
+        df.columns = [c.replace(" ", "_") for c in df.columns]
+        
+        # Final cleanup: Remove any columns we accidentally created during the "unique" fix
+        df = df.loc[:, ~df.columns.str.contains(r'_\d+$')] 
         
         return df
     except Exception as e:
-        # If the duplicate error happens during 'get_all_records', we use a fallback:
-        if "duplicates" in str(e).lower():
-            # Fallback: Load raw values and force unique headers
-            raw_values = sheet.get_all_values()
-            headers = raw_values[0]
-            # Force headers to be unique
-            unique_headers = []
-            for i, h in enumerate(headers):
-                if h in unique_headers or h == "":
-                    unique_headers.append(f"{h}_dup_{i}")
-                else:
-                    unique_headers.append(h)
-            
-            df = pd.DataFrame(raw_values[1:], columns=unique_headers)
-            df = df.loc[:, ~df.columns.str.contains("_dup_")] # Drop the duplicates
-            df.columns = [str(c).strip().replace(" ", "_") for c in df.columns]
-            return df
-            
         st.error(f"⚠️ Error loading {sheet_name}: {e}")
         return pd.DataFrame()
 
@@ -1248,9 +1237,11 @@ def show_payments():
                             idx = loans_df[loans_df["Loan_ID"] == search_id].index[0]
 
                             # 2. MATCH YOUR SHEET HEADERS EXACTLY (The Fix!)
-                            # We use spaces to match your screenshot: A=Payment ID, B=Loan ID, etc.
+                            p_id_col = "Payment ID"
+                            last_p_id = pd.to_numeric(payments_df[p_id_col], errors='coerce').fillna(0).max() if not payments_df.empty else 0
+                            
                             new_payment = pd.DataFrame([{
-                                "Payment ID": int(pd.to_numeric(payments_df.iloc[:,0], errors='coerce').max() + 1) if not payments_df.empty else 1,
+                                "Payment ID": int(last_p_id + 1),
                                 "Loan ID": search_id,
                                 "Borrower": loan["Borrower"],
                                 "Amount": float(pay_amount),
@@ -1266,18 +1257,14 @@ def show_payments():
                                 loans_df.at[idx, "Status"] = "Closed"
 
                             # 4. STRICT SYNC (Ensures no new columns are created)
-                            # We force the column names to match the exact ones in your screenshot
                             save_payments = pd.concat([payments_df, new_payment], ignore_index=True)
-                            
-                            # Clean up any accidental "extra" columns before saving
                             expected_cols = ["Payment ID", "Loan ID", "Borrower", "Amount", "Date", "Method", "Recorded By"]
-                            save_payments = save_payments[expected_cols] 
+                            save_payments = save_payments[expected_cols].fillna("") 
                             
-                            # Final Save
                             save_loans = loans_df.copy()
                             save_loans.columns = [c.replace("_", " ") for c in save_loans.columns]
                             
-                            if save_data("Payments", save_payments.fillna("")) and save_data("Loans", save_loans.fillna(0)):
+                            if save_data("Payments", save_payments) and save_data("Loans", save_loans.fillna(0)):
                                 st.success("✅ Payment recorded successfully!")
                                 st.cache_data.clear()
                                 st.rerun()
