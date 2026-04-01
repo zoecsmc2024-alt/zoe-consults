@@ -1688,27 +1688,30 @@ def show_overdue_tracker():
                     updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date']).dt.strftime('%Y-%m-%d')
 
                 # 10. --- FINAL SAVE & REFRESH ---
-                save_ready_df = updated_df.copy()
-                save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
-                
-                if save_data("Loans", save_ready_df):
-                    st.success(f"✅ Successfully rolled over {count} loans!")
-                    st.cache_data.clear() 
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to save to Google Sheets.")
+        save_ready_df = updated_df.copy()
+        save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
+        
+        if save_data("Loans", save_ready_df):
+            st.success(f"✅ Successfully rolled over {count} loans!")
+            st.cache_data.clear() 
+            st.rerun()
+        else:
+            st.error("❌ Failed to save to Google Sheets.")
 
-            except Exception as e:
-                # Now that updated_df was born at line 5, this block will work perfectly!
-                st.error(f"🚨 Rollover Error: {str(e)}")
+    # --- THIS LINE CLOSES THE TRY BLOCK ---
+    # It must be aligned with the 'try' above it!
+    except Exception as e:
+        st.error(f"🚨 Rollover Error: {str(e)}")
+
+# --- NOW WE CAN START THE CALENDAR PAGE ---
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
 def show_calendar():
     """
     Visualizes loan deadlines and revenue forecasts.
-    Categorizes tasks by urgency: Due Today, Upcoming, and Overdue.
     """
+    st.markdown("## 🗓️ Loan Activity Calendar")
     st.markdown("<h2 style='color: #2B3F87;'>📅 Activity Calendar</h2>", unsafe_allow_html=True)
 
     # 1. FETCH DATA
