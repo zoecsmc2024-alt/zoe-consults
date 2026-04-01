@@ -1190,11 +1190,24 @@ def show_payments():
                 if st.form_submit_button("✅ Post Payment", use_container_width=True):
                     if 0 < pay_amount <= (outstanding + 100): # Small margin for rounding
                         try:
-                            # A. Create Payment Entry
+                            # --- 1. SEARCH FOR THE LOAN (THE FIX) ---
+                            # We force both the ID and the Column to strings to ensure a match
+                            loans_df['Loan_ID'] = loans_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip()
+                            search_id = str(selected_id_str).strip()
+                            
+                            matching_indices = loans_df[loans_df["Loan_ID"] == search_id].index
+                            
+                            if matching_indices.empty:
+                                st.error(f"❌ Critical Error: Loan ID {search_id} not found in the Loans sheet. Please refresh cache.")
+                                st.stop()
+                            
+                            idx = matching_indices[0]
+
+                            # --- 2. CREATE PAYMENT ENTRY ---
                             new_p_id = int(payments_df["Payment_ID"].astype(float).max() + 1) if not payments_df.empty else 1
                             new_payment = pd.DataFrame([{
                                 "Payment_ID": new_p_id, 
-                                "Loan_ID": selected_id_str, 
+                                "Loan_ID": search_id, 
                                 "Borrower": loan["Borrower"],
                                 "Amount": float(pay_amount), 
                                 "Date": pay_date.strftime("%Y-%m-%d"), 
@@ -1202,26 +1215,30 @@ def show_payments():
                                 "Recorded_By": st.session_state.get("user", "Zoe (Admin)")
                             }])
 
-                            # B. Update Main Loans Dataframe
-                            idx = loans_df[loans_df["Loan_ID"] == selected_id_str].index[0]
+                            # --- 3. UPDATE MAIN LOANS DATAFRAME ---
                             new_total_paid = float(paid_so_far) + float(pay_amount)
                             loans_df.at[idx, "Amount_Paid"] = new_total_paid
                             
-                            # C. Auto-Close Logic
+                            # Auto-Close Logic
                             if new_total_paid >= (total_rep - 10):
                                 loans_df.at[idx, "Status"] = "Closed"
 
-                            # D. Sync back to Google
-                            # Convert underscores back to spaces for Sheet consistency
+                            # --- 4. SYNC BACK TO GOOGLE ---
+                            # Restore spaces for Sheet consistency
                             save_loans = loans_df.copy()
-                            save_loans.columns = save_loans.columns.str.replace("_", " ")
+                            save_loans.columns = [c.replace("_", " ") for c in save_loans.columns]
                             
-                            if save_data("Payments", pd.concat([payments_df, new_payment], ignore_index=True)) and \
-                               save_data("Loans", save_loans):
+                            save_payments = pd.concat([payments_df, new_payment], ignore_index=True)
+                            save_payments.columns = [c.replace("_", " ") for c in save_payments.columns]
+                            
+                            if save_data("Payments", save_payments) and save_data("Loans", save_loans):
                                 st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded for {loan['Borrower']}!")
+                                # Important: Clear cache so the new balance shows up everywhere
+                                st.cache_data.clear()
                                 st.rerun()
+                                
                         except Exception as e:
-                            st.error(f"Error saving data: {e}")
+                            st.error(f"🚨 Error saving data: {str(e)}")
                     else:
                         st.error(f"⚠️ Invalid amount. Balance due is {outstanding:,.0f} UGX.")
 
