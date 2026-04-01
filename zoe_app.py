@@ -847,15 +847,20 @@ def show_loans():
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
     
     # 2. NUMERIC CONVERSION (Safety Shield)
-    num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
-    
-    for col in num_cols:
-        if col in loans_df.columns:
-            # pd.Series wrapper fixes "arg must be a list..." TypeError
-            series_data = pd.Series(loans_df[col]).replace('', 0).fillna(0)
-            loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
-        else:
-            loans_df[col] = 0.0
+num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
+
+for col in num_cols:
+    if col in loans_df.columns:
+        # Step 1: Convert to list to bypass sanitization errors
+        # Step 2: Ensure it's a Series and replace empty strings
+        raw_values = list(loans_df[col]) 
+        series_data = pd.Series(raw_values).replace('', 0).fillna(0)
+        
+        # Step 3: Final numeric conversion with 'coerce' to handle text
+        loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
+    else:
+        # Create missing columns automatically
+        loans_df[col] = 0.0
 
     # 3. AUTO-CALC BALANCE (Fix for line 920/853)
     if 'Balance' not in loans_df.columns or (loans_df['Balance'] == 0).all():
