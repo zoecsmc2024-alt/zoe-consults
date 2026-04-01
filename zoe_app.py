@@ -967,31 +967,65 @@ def show_loans():
                             st.rerun()
 
     # ==============================
-    # TAB: PORTFOLIO VIEW (Added Start Date Column & Commas)
+    # TAB: PORTFOLIO VIEW (The Full Restore)
     # ==============================
     with tab_view:
         if not loans_df.empty:
-            active_view = loans_df[loans_df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].copy()
+            # 1. Prepare Display Data
+            display_df = loans_df.copy()
+            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
+            
+            # Filter for Active/Overdue/Rolled
+            active_statuses = ["Active", "Overdue", "Rolled/Overdue"]
+            active_view = display_df[display_df["Status"].isin(active_statuses)].copy()
 
             if active_view.empty:
                 st.info("ℹ️ No active loans found.")
             else:
-                # Comma formatting for the big numbers
-                display_df = active_view.copy()
-                for col in ["Principal", "Balance", "Total_Repayable"]:
-                    if col in display_df.columns:
-                        display_df[col] = display_df[col].map("{:,.0f}".format)
-
-                # DYNAMIC COLUMN LIST (Safety check to prevent KeyError)
-                cols_to_show = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
+                # 2. SELECT LOAN FOR THE CARDS
+                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel")
+                loan_info = active_view[active_view["Loan_ID"] == sel_id].iloc[0]
                 
-                # Check for Start/End date versions (Google Sheets often adds/removes underscores)
-                for d_col in ["Start_Date", "Start Date", "End_Date", "End Date"]:
-                    if d_col in display_df.columns:
-                        cols_to_show.append(d_col)
+                # 3. THE BRANDED METRIC CARDS (Restored & Formatted)
+                # We calculate these numbers once so the HTML is clean
+                rec_val = float(loan_info.get('Amount_Paid', 0))
+                out_val = float(loan_info.get('Balance', 0))
+                stat_val = str(loan_info.get('Status', 'Active')).upper()
 
-                st.dataframe(display_df[list(set(cols_to_show))], use_container_width=True, hide_index=True)
+                p1, p2, p3 = st.columns(3)
+                
+                # Received Card
+                p1.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #2E7D32;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">✅ RECEIVED</p><h3 style="margin:0;color:#2E7D32;font-size:18px;">{rec_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                
+                # Outstanding Card
+                p2.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #FF4B4B;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">🚨 OUTSTANDING</p><h3 style="margin:0;color:#FF4B4B;font-size:18px;">{out_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                
+                # Status Card
+                p3.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">📑 STATUS</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{stat_val}</h3></div>""", unsafe_allow_html=True)
 
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # 4. THE TABLE WITH START DATE & COMMAS
+                # Format numeric columns for the table
+                for col in ["Principal", "Balance", "Total_Repayable"]:
+                    if col in active_view.columns:
+                        active_view[col] = pd.to_numeric(active_view[col], errors='coerce').fillna(0).map("{:,.0f}".format)
+
+                # Build column list safely
+                show_cols = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
+                
+                # Append dates if they exist in the sheet
+                if "Start_Date" in active_view.columns: show_cols.append("Start_Date")
+                elif "Start Date" in active_view.columns: show_cols.append("Start Date")
+                
+                if "End_Date" in active_view.columns: show_cols.append("End_Date")
+                elif "End Date" in active_view.columns: show_cols.append("End Date")
+
+                st.dataframe(
+                    active_view[show_cols], 
+                    use_container_width=True, 
+                    hide_index=True
+                )
     # ... (Keep Manage/Edit and Actions tabs exactly as they were) ...
     # ==============================
     # TAB: MANAGE / EDIT LOANS
