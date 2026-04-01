@@ -918,25 +918,24 @@ def show_loans():
     tab_view, tab_add, tab_manage, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "🛠️ Manage/Edit", "⚙️ Actions"])
 
     # ==============================
-    # TAB: PORTFOLIO VIEW (Theme: Midnight Luxe & Status Badges)
+    # TAB: PORTFOLIO VIEW (Restored Peach Luxe Theme)
     # ==============================
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
-            # Standardize IDs
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
-            # No filtering - show all records (including Closed ones)
+            # Show all records (Persistence for Christine!)
             active_view = display_df.copy()
 
             if active_view.empty:
                 st.info("ℹ️ No loan records found.")
             else:
                 # 1. SELECT LOAN FOR INSPECTION CARDS
-                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel_v4")
+                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel_v5")
                 loan_info = active_view[active_view["Loan_ID"] == sel_id].iloc[0]
                 
-                # 2. BRANDED METRIC CARDS (Refined CSS for perfect spacing)
+                # 2. BRANDED METRIC CARDS (Restored Peach/Navy Blend)
                 c1, c2, c3 = st.columns(3)
                 
                 # Logic values
@@ -944,7 +943,8 @@ def show_loans():
                 out_val = float(loan_info.get('Balance', 0))
                 stat_val = str(loan_info.get('Status', 'Active')).upper()
 
-                card_style = "background-color:#F0F8FF; padding:20px; border-radius:15px; border-left:10px solid #0A192F; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"
+                # Using that warm Peachish/Alice background for cards
+                card_style = "background-color:#FFF9F5; padding:20px; border-radius:15px; border-left:10px solid #0A192F; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"
                 text_style = "margin:0; color:#0A192F;"
 
                 c1.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">✅ RECEIVED</p><h3 style="{text_style} font-size:18px;">{rec_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
@@ -953,20 +953,30 @@ def show_loans():
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # 3. COLOR LOGIC FOR TABLE BADGES
-                def style_status(val):
-                    if val == "Active": color = "#4A90E2"      # Baby Blue
-                    elif val == "Closed": color = "#2E7D32"    # Emerald Green
-                    elif val == "Overdue": color = "#FF4B4B"   # Hot Red
-                    elif "Rolled" in str(val): color = "#FFA500"  # Orange
-                    else: color = "#666666"                    # Grey
-                    return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
+                # --- 3. THE LUXE ROW & BADGE STYLING ---
+                def style_loan_table(row):
+                    # Default row color (Peachish-White)
+                    bg_color = "#FFF9F5" 
+                    
+                    # Logic for the Status column Badges
+                    status = row["Status"]
+                    if status == "Active": s_color = "#4A90E2"      # Baby Blue
+                    elif status == "Closed": s_color = "#2E7D32"    # Emerald Green
+                    elif status == "Overdue": s_color = "#FF4B4B"   # Hot Red
+                    elif "Rolled" in str(status): s_color = "#FFA500" # Orange
+                    else: s_color = "#666666"
 
-                # 4. DATA PREP & DYNAMIC COLUMNS
+                    # Build the styles
+                    styles = [f'background-color: {bg_color}; color: #0A192F;'] * len(row)
+                    # Overwrite the Status column with a Badge look
+                    status_idx = row.index.get_loc("Status")
+                    styles[status_idx] = f'background-color: {s_color}; color: white; font-weight: bold; border-radius: 5px;'
+                    return styles
+
+                # 4. PREP DATA
                 show_cols = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
                 for d_col in ["Start_Date", "Start Date", "End_Date", "End Date"]:
-                    if d_col in active_view.columns: 
-                        show_cols.append(d_col)
+                    if d_col in active_view.columns: show_cols.append(d_col)
                 
                 final_table = active_view[show_cols].copy()
 
@@ -974,12 +984,12 @@ def show_loans():
                     if col in final_table.columns:
                         final_table[col] = pd.to_numeric(final_table[col], errors='coerce').fillna(0)
 
-                # --- THE BIG FIX: Use .map instead of .applymap ---
+                # 5. RENDER THE PEACHY TABLE
                 st.dataframe(
                     final_table.style.format({
                         "Principal": "{:,.0f}",
                         "Balance": "{:,.0f}"
-                    }).map(style_status, subset=['Status']), 
+                    }).apply(style_loan_table, axis=1), # Apply peach rows & status badges
                     use_container_width=True, 
                     hide_index=True
                 )
