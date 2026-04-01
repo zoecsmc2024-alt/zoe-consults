@@ -546,90 +546,113 @@ def sidebar():
         st.session_state.clear()
         st.rerun()
 
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+# ==============================
+# 12. OVERVIEW PAGE
+# ==============================
 def show_overview():
-    st.markdown("## 📊 Financial Dashboard")
+    st.markdown("<h2 style='color: #2B3F87;'>📊 Financial Dashboard</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA
-    df_raw = get_cached_data("Loans")
-    pay_df = get_cached_data("Payments")
+    # 1. LOAD DATA & ARMOR (Fixes the TypeError)
+    loans_raw = get_cached_data("Loans")
+    pay_raw = get_cached_data("Payments")
+    exp_raw = get_cached_data("Expenses")
 
-    if df_raw.empty:
-        st.info("No loan records found.")
+    if loans_raw.empty:
+        st.info("👋 Welcome! Record your first loan to see the dashboard analytics.")
         return
 
-    # 2. NORMALIZE
-    df = df_raw.copy()
+    # --- THE SAFETY SHIELD ---
+    # Drops duplicate columns so math like df['Principal'] only returns ONE column
+    df = loans_raw.loc[:, ~loans_raw.columns.duplicated()].copy()
     df.columns = [str(c).strip().replace(" ", "_") for c in df.columns]
-
-    # 3. SAFE NUMERIC CLEANING (Prevents math crashes)
-    for col in ["Interest", "Amount_Paid", "Principal"]:
-        # If col doesn't exist, we use a Series of 0s to keep pd.to_numeric happy
-        target = df[col] if col in df.columns else pd.Series([0] * len(df))
-        df[col] = pd.to_numeric(target, errors="coerce").fillna(0)
-
-    df["End_Date"] = pd.to_datetime(df.get("End_Date"), errors="coerce")
-    today = pd.Timestamp.today().normalize()
     
-    # Filter Active Portfolio
-    active_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-    active_df = df[df["Status"].isin(active_statuses)].copy()
+    pay_df = pay_raw.loc[:, ~pay_raw.columns.duplicated()].copy() if not pay_raw.empty else pd.DataFrame()
+    exp_df = exp_raw.loc[:, ~exp_raw.columns.duplicated()].copy() if not exp_raw.empty else pd.DataFrame()
 
-    # 4. METRICS ROW
-    total_issued = active_df["Principal"].sum()
+    # 2. SAFE NUMERIC CLEANING
+    # This loop ensures the code doesn't crash if a column is missing or messy
+    for col in ["Principal", "Interest", "Amount_Paid", "Total_Repayable"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        else:
+            df[col] = 0.0
+
+    # 3. KPI CALCULATIONS
+    active_df = df[df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])]
+    
+    total_principal = active_df["Principal"].sum()
     total_interest = active_df["Interest"].sum()
-    total_collected = df["Amount_Paid"].sum() 
-    
+    total_collected = df["Amount_Paid"].sum()
+    total_outstanding = active_df["Total_Repayable"].sum() - active_df["Amount_Paid"].sum()
+
+    # 4. BRANDED METRIC CARDS (Zoe Soft Blue)
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 ACTIVE PRINCIPAL", f"{total_issued:,.0f} UGX")
-    m2.metric("📈 EXPECTED INTEREST", f"{total_interest:,.0f} UGX")
-    m3.metric("✅ TOTAL COLLECTED", f"{total_collected:,.0f} UGX")
     
-    overdue_count = active_df[active_df["End_Date"] < today].shape[0]
-    m4.metric("🚨 OVERDUE FILES", overdue_count)
+    m1.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:12px;border-left:5px solid #2B3F87;box-shadow:2px 2px 8px rgba(0,0,0,0.05);">
+        <p style="margin:0;font-size:11px;color:#666;font-weight:bold;">ACTIVE PRINCIPAL</p>
+        <h4 style="margin:0;color:#2B3F87;">{total_principal:,.0f}</h4></div>""", unsafe_allow_html=True)
+        
+    m2.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:12px;border-left:5px solid #4A90E2;box-shadow:2px 2px 8px rgba(0,0,0,0.05);">
+        <p style="margin:0;font-size:11px;color:#666;font-weight:bold;">EXPECTED INTEREST</p>
+        <h4 style="margin:0;color:#4A90E2;">{total_interest:,.0f}</h4></div>""", unsafe_allow_html=True)
+        
+    m3.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:12px;border-left:5px solid #2E7D32;box-shadow:2px 2px 8px rgba(0,0,0,0.05);">
+        <p style="margin:0;font-size:11px;color:#666;font-weight:bold;">TOTAL COLLECTED</p>
+        <h4 style="margin:0;color:#2E7D32;">{total_collected:,.0f}</h4></div>""", unsafe_allow_html=True)
+        
+    m4.markdown(f"""<div style="background-color:#fff;padding:15px;border-radius:12px;border-left:5px solid #D32F2F;box-shadow:2px 2px 8px rgba(0,0,0,0.05);">
+        <p style="margin:0;font-size:11px;color:#666;font-weight:bold;">PORTFOLIO BALANCE</p>
+        <h4 style="margin:0;color:#D32F2F;">{total_outstanding:,.0f}</h4></div>""", unsafe_allow_html=True)
 
-    # ... Keep your charts logic, but ensure they use these cleaned dataframes!
-    
-    # ... rest of charts logic ...
-    # ... (Keep the rest of your Chart/Table logic as is)
-    # 6. RECENT ACTIVITY TABLES
     st.write("---")
-    t1, t2 = st.columns(2)
 
-    with t1:
-        st.markdown("<h4 style='color: #4A90E2;'>📝 Recent Portfolio Activity</h4>", unsafe_allow_html=True)
-        rows_html = ""
-        
-        if not active_df.empty:
-            recent_loans = active_df.sort_values(by="End_Date", ascending=False).head(5)
-            for i, (idx, r) in enumerate(recent_loans.iterrows()):
-                bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
-                b_name = r.get('Borrower', 'Unknown')
-                p_amt = float(r.get('Principal', 0))
-                b_stat = r.get('Status', 'Active')
-                e_date_raw = r.get('End_Date')
-                e_date = pd.to_datetime(e_date_raw).strftime('%d %b') if pd.notna(e_date_raw) else "-"
+    # 5. CHARTS SECTION
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.markdown("**💰 Loan Status Distribution**")
+        status_counts = df["Status"].value_counts().reset_index()
+        fig_pie = px.pie(status_counts, names="Status", values="count", 
+                         hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig_pie.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=250)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-                rows_html += f"""
-                <tr style="background-color: {bg}; border-bottom: 1px solid #ddd;">
-                    <td style="padding:10px;">{b_name}</td>
-                    <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{p_amt:,.0f}</td>
-                    <td style="padding:10px; text-align:center;"><span style="font-size:10px; background:#e1f5fe; padding:2px 5px; border-radius:5px;">{b_stat}</span></td>
-                    <td style="padding:10px; text-align:center; color:#666;">{e_date}</td>
-                </tr>"""
-        
-        st.markdown(f"""
-            <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:12px; border: 1px solid #4A90E2;">
-                <thead>
-                    <tr style="background:#4A90E2; color:white;">
-                        <th style="padding:10px;">Borrower</th>
-                        <th style="padding:10px; text-align:right;">Principal</th>
-                        <th style="padding:10px; text-align:center;">Status</th>
-                        <th style="padding:10px; text-align:center;">Due</th>
-                    </tr>
-                </thead>
-                <tbody>{rows_html if rows_html else "<tr><td colspan='4' style='text-align:center;padding:10px;'>No active loans</td></tr>"}</tbody>
-            </table>
-        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown("**📊 Collections vs. Outstanding**")
+        compare_data = pd.DataFrame({
+            "Category": ["Collected", "Outstanding"],
+            "Amount": [total_collected, total_outstanding]
+        })
+        fig_bar = px.bar(compare_data, x="Category", y="Amount", 
+                         color="Category", color_discrete_map={"Collected":"#2E7D32", "Outstanding":"#D32F2F"})
+        fig_bar.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=250)
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    # 6. RECENT ACTIVITY LIST
+    st.markdown("### 🕒 Recent Loan Book Entries")
+    recent_df = df.sort_index(ascending=False).head(5)
+    rows_html = ""
+    for _, r in recent_df.iterrows():
+        rows_html += f"""
+        <tr style="border-bottom:1px solid #eee; font-size:13px;">
+            <td style="padding:10px;">#{str(r['Loan_ID']).replace('.0','')}</td>
+            <td><b>{r['Borrower']}</b></td>
+            <td style="text-align:right;">{r['Principal']:,.0f}</td>
+            <td style="text-align:center;">{r['Status']}</td>
+            <td style="text-align:right;">{r['End_Date']}</td>
+        </tr>"""
+    
+    st.markdown(f"""
+        <table style="width:100%; border-collapse:collapse; background:white; border-radius:10px; overflow:hidden;">
+            <thead style="background:#F0F8FF; color:#2B3F87;">
+                <tr><th style="padding:10px;">ID</th><th>Borrower</th><th style="text-align:right;">Principal</th><th style="text-align:center;">Status</th><th style="text-align:right;">Due Date</th></tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+    """, unsafe_allow_html=True)
 
     with t2:
         st.markdown("<h4 style='color: #2E7D32;'>💸 Recent Cash Inflows</h4>", unsafe_allow_html=True)
