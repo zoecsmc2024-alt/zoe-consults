@@ -844,29 +844,31 @@ def show_loans():
         loans_df = pd.DataFrame(columns=required_cols + ["Borrower", "Loan_ID", "Status", "End_Date"])
     
     # 1. CLEAN HEADERS
-    loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
-    
-    # 1. Define the list of columns to convert
+loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
+
+# 2. This list defines which columns we want to fix
 num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
 
-# 2. Start the loop (This defines 'col' for each step)
+# 3. This loop starts the process for each column name in the list
 for col in num_cols:
-    # Everything inside this loop must be indented
+    # --- EVERYTHING BELOW IS INDENTED ---
     if col in loans_df.columns:
-        # Safety: Convert to list first to bypass pandas sanitization errors
+        # Step A: Convert to a list first to clean out hidden formatting
         raw_values = list(loans_df[col]) 
+        
+        # Step B: Turn it back into a Series and fill empty cells with 0
         series_data = pd.Series(raw_values).replace('', 0).fillna(0)
         
-        # Final numeric conversion
+        # Step C: Final conversion to actual numbers
         loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
     else:
-        # Create the column if it doesn't exist in the sheet
+        # If a column is missing from the sheet, create it with 0.0
         loans_df[col] = 0.0
+    # --- END OF INDENTED SECTION ---
 
-    # 3. AUTO-CALC BALANCE (Fix for line 920/853)
-    if 'Balance' not in loans_df.columns or (loans_df['Balance'] == 0).all():
-        loans_df['Balance'] = loans_df['Total_Repayable'] - loans_df['Amount_Paid']
-
+# 4. AUTO-CALC BALANCE (Out of the loop)
+if "Total_Repayable" in loans_df.columns and "Amount_Paid" in loans_df.columns:
+    loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
     # 4. DATE CONVERSION
     if "End_Date" in loans_df.columns:
         loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
