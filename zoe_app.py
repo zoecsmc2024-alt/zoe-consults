@@ -17,11 +17,54 @@ from fpdf import FPDF
 from streamlit_calendar import calendar
 
 # --- TOP OF YOUR SCRIPT ---
-# Initialize the connection globally so EVERY function can see it
-creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], SCOPES)
-client = gspread.authorize(creds) # <--- THIS IS THE 'CLIENT' THE APP IS MISSING
-SHEET_NAME = "Zoe_Consults_Data" # Ensure this matches your actual sheet name
+# 1. DEFINE SCOPES
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+SHEET_NAME = "Zoe_Consults_Data"
 
+# 2. INITIALIZE CONNECTION (MATCHING YOUR IMPORTS)
+try:
+    # This uses the 'Credentials' you already imported at the top!
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
+    client = gspread.authorize(creds) 
+    
+    # Check if the connection works immediately
+    # sheet_test = client.open(SHEET_NAME) 
+except Exception as e:
+    st.error(f"❌ Connection to Google Sheets failed: {e}")
+    st.info("Check your 'gcp_service_account' in Streamlit Secrets.")
+    st.stop() 
+
+# 3. GLOBAL DATA LOADER (RE-CHECKING CLIENT)
+@st.cache_data(ttl=600)
+def get_cached_data(sheet_name):
+    global client # Points back to the 'client' we just authorized above
+    try:
+        sheet = client.open(SHEET_NAME).worksheet(sheet_name)
+        raw_values = sheet.get_all_values()
+        
+        if not raw_values or len(raw_values) < 1:
+            return pd.DataFrame()
+            
+        headers = [str(h).strip() for h in raw_values[0]]
+        
+        # Shield against duplicate headers
+        unique_headers = []
+        for i, h in enumerate(headers):
+            if h in unique_headers or h == "":
+                unique_headers.append(f"{h}_{i}")
+            else:
+                unique_headers.append(h)
+                
+        df = pd.DataFrame(raw_values[1:], columns=unique_headers)
+        # Standardize for internal logic (Spaces to Underscores)
+        df.columns = [c.replace(" ", "_") for c in df.columns]
+        # Clean up temporary duplicate names
+        df = df.loc[:, ~df.columns.str.contains(r'_\d+$')] 
+        
+        return df
+    except Exception as e:
+        st.error(f"⚠️ Error loading {sheet_name}: {e}")
+        return pd.DataFrame()
 # ==============================
 # 1. BRANDING & COLOR PALETTE
 # ==============================
@@ -131,40 +174,7 @@ def create_pdf(html_content):
 # Ensure your client is initialized at the top of the script
 # client = gspread.authorize(creds) 
 
-@st.cache_data(ttl=600)
-def get_cached_data(sheet_name):
-    # This tells the function: "Go look at the top of the script for the 'client'"
-    global client 
-    try:
-        sheet = client.open(SHEET_NAME).worksheet(sheet_name)
-        
-        # Load values and handle potential duplicates/empty rows
-        raw_values = sheet.get_all_values()
-        if not raw_values or len(raw_values) < 1:
-            return pd.DataFrame()
-            
-        headers = [str(h).strip() for h in raw_values[0]]
-        
-        # Standardize headers to handle spaces vs underscores
-        unique_headers = []
-        for i, h in enumerate(headers):
-            if h in unique_headers or h == "":
-                unique_headers.append(f"{h}_{i}")
-            else:
-                unique_headers.append(h)
-                
-        df = pd.DataFrame(raw_values[1:], columns=unique_headers)
-        
-        # Internal standardization (Internal code uses Loan_ID, Sheets use Loan ID)
-        df.columns = [c.replace(" ", "_") for c in df.columns]
-        
-        # Drop the temp duplicate columns we made during the safety check
-        df = df.loc[:, ~df.columns.str.contains(r'_\d+$')] 
-        
-        return df
-    except Exception as e:
-        st.error(f"⚠️ Error loading {sheet_name}: {e}")
-        return pd.DataFrame()
+
 @st.cache_data(ttl=3600)
 def get_logo():
     """
