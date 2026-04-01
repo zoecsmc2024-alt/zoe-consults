@@ -829,7 +829,6 @@ def show_loans():
         return
         
     # --- THE SAFETY SHIELD (Header Deduplication & Normalization) ---
-    # This specifically stops the "arg must be a list" TypeError from your screenshots
     if loans_raw.empty:
         loans_df = pd.DataFrame(columns=[
             "Loan_ID", "Borrower", "Type", "Principal", "Interest_Rate", 
@@ -1318,7 +1317,9 @@ def show_collateral():
                 final_c.columns = [c.replace("_", " ") for c in final_c.columns]
                 if save_data("Collateral", final_c):
                     st.warning("⚠️ Asset record deleted."); st.rerun()
-
+# ==============================
+# 17. OVERDUE TRACKER PAGE
+# ==============================
 import pandas as pd
 from datetime import datetime
 import streamlit as st
@@ -1328,7 +1329,7 @@ def show_overdue_tracker():
 
     try:
         # 1. --- DATA FETCHING & DEDUPLICATION ---
-        # We fetch fresh to avoid compounding stale session data
+        # Fetch fresh data to ensure we aren't using stale numbers
         loans_raw = get_cached_data("Loans") 
         ledger_raw = get_cached_data("Ledger")
         
@@ -1336,11 +1337,12 @@ def show_overdue_tracker():
             st.info("💡 No loan records found in the system.")
             return
 
-        # CRITICAL FIX: Kill duplicate columns immediately so math doesn't break
+        # CRITICAL FIX: Identify and drop duplicate columns immediately
+        # This prevents the "cannot assemble with duplicate keys" error
         loans = loans_raw.loc[:, ~loans_raw.columns.duplicated()].copy()
         
-        # 2. --- NORMALIZE HEADERS (Internal Logic) ---
-        # Store original headers to restore them perfectly for Google Sheets later
+        # 2. --- NORMALIZE HEADERS ---
+        # We store original headers to restore them perfectly before saving back to Sheets
         original_headers = list(loans.columns)
         loans.columns = [str(col).strip().replace(" ", "_") for col in loans.columns]
         
@@ -1350,19 +1352,19 @@ def show_overdue_tracker():
         else:
             ledger = pd.DataFrame()
 
-        # 3. --- REQUIRED COLUMNS CHECK ---
+        # 3. --- COLUMN INTEGRITY CHECK ---
         required = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
         missing = [col for col in required if col not in loans.columns]
         if missing:
-            st.error(f"❌ Missing required columns: {missing}")
+            st.error(f"❌ Sheet structure error. Missing columns: {missing}")
             return
 
-        # 4. --- DATE & NUMERIC PREP ---
+        # 4. --- DATE & NUMERIC CONVERSION ---
         loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
         today = datetime.now()
 
         # 5. --- FILTER OVERDUE ACCOUNTS ---
-        # Logic: Status must be Active/Overdue AND the Due Date must be in the past
+        # Only target Active/Overdue loans where the Due Date has passed
         overdue_df = loans[
             (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
             (loans['End_Date'] < today)
@@ -1374,12 +1376,12 @@ def show_overdue_tracker():
 
         st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
 
-        # 6. --- BRANDED PREVIEW TABLE ---
+        # 6. --- COMPREHENSIVE PREVIEW TABLE (Zoe Styling) ---
         rows_html = ""
         for i, r in overdue_df.iterrows():
+            # Force numeric for math preview
             p_val = pd.to_numeric(r.get('Principal', 0), errors='coerce') or 0
             i_val = pd.to_numeric(r.get('Interest', 0), errors='coerce') or 0
-            # Preview Total = what the NEW principal will likely be
             preview_total = p_val + i_val
             
             rows_html += f"""
@@ -1406,14 +1408,14 @@ def show_overdue_tracker():
             </table>
         </div>""", height=300, scrolling=True)
 
-        # 7. --- PREP LEDGER BALANCES ---
+        # 7. --- LEDGER BALANCE FETCHING ---
         latest_ledger = pd.DataFrame()
         if not ledger.empty and "Loan_ID" in ledger.columns:
             ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-            # Get the very last balance recorded for each loan
+            # Fetch the actual last known balance for accuracy
             latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
-        # 8. --- THE ROLLOVER ENGINE ---
+        # 8. --- THE ROLLOVER EXECUTION ENGINE ---
         st.write("")
         if st.button("🔄 Execute Monthly Rollover & Compound Interest", use_container_width=True):
             updated_df = loans.copy()
@@ -1422,20 +1424,20 @@ def show_overdue_tracker():
             for i, r in overdue_df.iterrows():
                 l_id = str(r.get('Loan_ID')).replace(".0", "")
                 
-                # A. Identify the compounding amount (Try Ledger first)
+                # A. Determine Compounding Base
                 final_amt = 0
                 if not latest_ledger.empty:
                     match = latest_ledger[latest_ledger["Loan_ID"].astype(str).str.replace(".0","") == l_id]
                     if not match.empty and "Balance" in match.columns:
                         final_amt = float(match['Balance'].values[0])
 
-                # B. Fallback: If Ledger has no record, use Principal + Interest from the Loans sheet
+                # B. Fallback to Loans Sheet Math if Ledger is empty
                 if final_amt <= 0:
                     final_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
 
-                # C. Data Transformation
-                # New Principal = The calculated balance
-                # End Date = Old End Date + 30 Days
+                # C. Transformation Logic
+                # The New Principal is the total balance (P+I)
+                # The New Due Date is pushed exactly 30 days / 1 month forward
                 new_due_date = r['End_Date'] + pd.DateOffset(months=1)
 
                 updated_df.at[i, 'Principal'] = final_amt
@@ -1444,24 +1446,26 @@ def show_overdue_tracker():
                 updated_df.at[i, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
                 count += 1
 
-            # 9. --- CLEAN DATES FOR GOOGLE SHEETS ---
-            for col in ["Start_Date", "End_Date", "Rollover_Date", "Due_Date"]:
+            # 9. --- CLEANUP & STRING CONVERSION ---
+            # Google Sheets doesn't support Python datetime objects, must be strings
+            date_cols = ["Start_Date", "End_Date", "Rollover_Date", "Due_Date"]
+            for col in date_cols:
                 if col in updated_df.columns:
                     updated_df[col] = pd.to_datetime(updated_df[col], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
 
-            # 10. --- SAFE RESTORE & SAVE ---
-            # Restore the EXACT original headers to keep all other pages working
+            # 10. --- HEADER RESTORATION & SAVE ---
+            # Maps internal underscores back to the spaced headers of your sheet
             updated_df.columns = original_headers
             
             if save_data("Loans", updated_df):
                 st.session_state.loans = updated_df 
-                st.success(f"✅ Success! {count} loans have been rolled over and compounded.")
+                st.success(f"✅ Mission Accomplished! {count} loans compounded and rolled forward.")
                 st.rerun()
             else:
-                st.error("❌ Failed to update Google Sheets. Please check your internet.")
+                st.error("❌ Save failed. Connection to Google Sheets was interrupted.")
 
     except Exception as e:
-        st.error(f"🚨 An error occurred during the rollover process: {str(e)}")
+        st.error(f"🚨 Logic Error: {str(e)}")
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
