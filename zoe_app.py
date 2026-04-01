@@ -839,26 +839,24 @@ def show_loans():
         st.info("No loan records found. Start by adding a new loan in the 'Add New' tab.")
         # Create an empty template so the rest of the code doesn't crash
         loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Principal", "Interest", "Amount_Paid", "Status", "End_Date"])
-    
-    # 1. CLEAN HEADERS (Ensure no hidden spaces)
+    # 1. CLEAN HEADERS (This prevents hidden spaces from breaking the math)
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
     
-    # 2. NUMERIC SAFETY SHIELD (The Fix for the TypeError)
+    # 2. NUMERIC SAFETY SHIELD (The Fix for the TypeError on line 852)
     num_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
     
     for col in num_cols:
+        # We check if the column exists; if not, we create it to avoid the crash
         if col in loans_df.columns:
-            # This ensures we are passing a full column (Series) to the math function
             loans_df[col] = pd.to_numeric(loans_df[col], errors='coerce').fillna(0)
         else:
-            # If the column is missing in the Google Sheet, we create it so the app doesn't crash
             loans_df[col] = 0.0
     
     # 3. DATE SAFETY SHIELD
     if "End_Date" in loans_df.columns:
         loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
 
-    # 4. TABBED INTERFACE (This should be indented to match the logic above)
+    # 4. TABBED INTERFACE (Correctly Indented)
     tab_view, tab_add, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "⚙️ Loan Actions"])
     # ==============================
     # TAB 1: ISSUE LOAN (Branded Form)
