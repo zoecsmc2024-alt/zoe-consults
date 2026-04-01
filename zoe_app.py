@@ -1209,25 +1209,31 @@ def show_payments():
                 pay_date = col_c.date_input("Payment Date", value=datetime.now())
                 
                 if st.form_submit_button("✅ Post Payment", use_container_width=True):
-                    if 0 < pay_amount <= (outstanding + 100): # Small margin for rounding
+                    if 0 < pay_amount <= (outstanding + 100):
                         try:
-                            # --- 1. SEARCH FOR THE LOAN (THE FIX) ---
-                            # We force both the ID and the Column to strings to ensure a match
+                            # --- 1. FIND THE LOAN ---
                             loans_df['Loan_ID'] = loans_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip()
                             search_id = str(selected_id_str).strip()
-                            
                             matching_indices = loans_df[loans_df["Loan_ID"] == search_id].index
                             
                             if matching_indices.empty:
-                                st.error(f"❌ Critical Error: Loan ID {search_id} not found in the Loans sheet. Please refresh cache.")
+                                st.error(f"❌ Loan ID {search_id} not found.")
                                 st.stop()
                             
                             idx = matching_indices[0]
 
-                            # --- 2. CREATE PAYMENT ENTRY ---
-                            new_p_id = int(payments_df["Payment_ID"].astype(float).max() + 1) if not payments_df.empty else 1
+                            # --- 2. GENERATE NEXT PAYMENT ID (THE FIX!) ---
+                            # Check for both "Payment_ID" and "Payment ID"
+                            p_id_col = "Payment_ID" if "Payment_ID" in payments_df.columns else "Payment ID"
+                            
+                            if not payments_df.empty and p_id_col in payments_df.columns:
+                                new_p_id = int(pd.to_numeric(payments_df[p_id_col], errors='coerce').max() + 1)
+                            else:
+                                new_p_id = 1
+
+                            # --- 3. CREATE PAYMENT ENTRY ---
                             new_payment = pd.DataFrame([{
-                                "Payment_ID": new_p_id, 
+                                p_id_col: new_p_id, 
                                 "Loan_ID": search_id, 
                                 "Borrower": loan["Borrower"],
                                 "Amount": float(pay_amount), 
@@ -1236,16 +1242,15 @@ def show_payments():
                                 "Recorded_By": st.session_state.get("user", "Zoe (Admin)")
                             }])
 
-                            # --- 3. UPDATE MAIN LOANS DATAFRAME ---
+                            # --- 4. UPDATE LOAN BALANCE ---
                             new_total_paid = float(paid_so_far) + float(pay_amount)
                             loans_df.at[idx, "Amount_Paid"] = new_total_paid
                             
-                            # Auto-Close Logic
                             if new_total_paid >= (total_rep - 10):
                                 loans_df.at[idx, "Status"] = "Closed"
 
-                            # --- 4. SYNC BACK TO GOOGLE ---
-                            # Restore spaces for Sheet consistency
+                            # --- 5. SYNC TO GOOGLE ---
+                            # Restore spaces for Google Sheets
                             save_loans = loans_df.copy()
                             save_loans.columns = [c.replace("_", " ") for c in save_loans.columns]
                             
@@ -1253,8 +1258,7 @@ def show_payments():
                             save_payments.columns = [c.replace("_", " ") for c in save_payments.columns]
                             
                             if save_data("Payments", save_payments) and save_data("Loans", save_loans):
-                                st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded for {loan['Borrower']}!")
-                                # Important: Clear cache so the new balance shows up everywhere
+                                st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded!")
                                 st.cache_data.clear()
                                 st.rerun()
                                 
@@ -1262,7 +1266,6 @@ def show_payments():
                             st.error(f"🚨 Error saving data: {str(e)}")
                     else:
                         st.error(f"⚠️ Invalid amount. Balance due is {outstanding:,.0f} UGX.")
-
     # ==============================
     # TAB 2: HISTORY (Color via Emojis)
     # ==============================
