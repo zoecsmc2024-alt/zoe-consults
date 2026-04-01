@@ -1032,13 +1032,18 @@ def show_loans():
         st.info("⚙️ Loan Settlements and Rollover actions will appear here in the next update.")
 
         # --- DELETE BUTTON ---
-            if b_del.button("🗑️ Delete Permanently", use_container_width=True):
-                id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
-                # Keep everything EXCEPT the clean_id
-                new_df = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
-                
-                if save_data("Loans", new_df):
-                    st.warning(f"⚠️ Loan #{clean_id} deleted."); st.rerun()
+if b_del.button("🗑️ Delete Permanently", use_container_width=True):
+    # Everything below is indented exactly 4 spaces (one level)
+    id_col = "Loan ID" if "Loan ID" in loans_df.columns else "Loan_ID"
+    
+    # Step 1: Filter the dataframe to keep everything EXCEPT the clean_id
+    # We convert to string and strip .0 to ensure a perfect match with Google Sheets
+    new_df = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
+    
+    # Step 2: Save the new list back to the "Loans" sheet
+    if save_data("Loans", new_df):
+        st.warning(f"⚠️ Loan #{clean_id} deleted.")
+        st.rerun()
 
             
 # ==============================
