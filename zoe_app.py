@@ -831,18 +831,30 @@ def show_borrowers():
 def show_loans():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA
-    borrowers_df = get_cached_data("Borrowers")
+    # 1. DATA ENGINE (Load and Clean)
     loans_df = get_cached_data("Loans")
+    borrowers_df = get_cached_data("Borrowers")
+    
+    if loans_df.empty:
+        st.info("No loan records found. Start by adding a new loan in the 'Add New' tab.")
+        # Create an empty template so the rest of the code doesn't crash
+        loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Principal", "Interest", "Amount_Paid", "Status", "End_Date"])
+    
+    # Fix headers: "Amount Paid" -> "Amount_Paid"
+    loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
+    
+    # Numeric Safety Shield: Convert strings to numbers, replace errors with 0
+    num_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
+    for col in num_cols:
+        if col in loans_df.columns:
+            loans_df[col] = pd.to_numeric(loans_df[col], errors='coerce').fillna(0)
+    
+    # Date Safety Shield
+    if "End_Date" in loans_df.columns:
+        loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
 
-    if borrowers_df.empty:
-        st.warning("⚠️ No borrowers found. Register a client in the Borrowers tab first!")
-        return
-        
-    active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
-
-    # --- TABBED INTERFACE ---
-    tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
+    # 2. TABBED INTERFACE
+    tab_view, tab_add, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "⚙️ Loan Actions"])
 
     # ==============================
     # TAB 1: ISSUE LOAN (Branded Form)
