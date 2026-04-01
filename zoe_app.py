@@ -1705,9 +1705,6 @@ def show_overdue_tracker():
 # ==============================
 def show_calendar():
     """
-    Visualizes loan deadlines and revenue forecasts.
-    """
-
     st.markdown("## 🗓️ Loan Activity Calendar")
     st.markdown("<h2 style='color: #2B3F87;'>📅 Activity Calendar</h2>", unsafe_allow_html=True)
 
