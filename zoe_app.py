@@ -845,23 +845,22 @@ def show_loans():
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
     
     # 2. NUMERIC CONVERSION (Safety Shield)
-    # These are the columns we expect to have numbers
-    num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid"]
+    # List every column you use for money/numbers here
+    num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
     
     for col in num_cols:
         if col in loans_df.columns:
-            loans_df[col] = pd.to_numeric(loans_df[col], errors='coerce').fillna(0)
+            # We wrap loans_df[col] in pd.Series() to fix the TypeError
+            # and replace empty strings with 0 to prevent the ValueError
+            series_data = pd.Series(loans_df[col]).replace('', 0).fillna(0)
+            loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
         else:
-            # Create the column if it's missing from the sheet
+            # Create missing columns (like Balance) automatically
             loans_df[col] = 0.0
 
-    # 3. AUTO-CALCULATE BALANCE (The fix for line 920)
-    # Since 'Balance' isn't in your sheet, we create it here:
-    loans_df['Balance'] = loans_df['Total_Repayable'] - loans_df['Amount_Paid']
-
-    # 3. AUTO-CALCULATE BALANCE (The fix for line 920)
-    # Since 'Balance' isn't in your sheet, we create it here:
-    loans_df['Balance'] = loans_df['Total_Repayable'] - loans_df['Amount_Paid']
+    # 3. AUTO-CALC BALANCE (Just in case it's missing in the sheet)
+    if 'Balance' not in loans_df.columns or (loans_df['Balance'] == 0).all():
+        loans_df['Balance'] = loans_df['Total_Repayable'] - loans_df['Amount_Paid']
 
     # 4. DATE CONVERSION
     if "End_Date" in loans_df.columns:
