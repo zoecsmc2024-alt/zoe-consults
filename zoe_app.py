@@ -831,9 +831,9 @@ def show_borrowers():
 def show_loans():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA
+    # 1. LOAD DATA (Inside your function)
+def show_loans():
     loans_df = get_cached_data("Loans")
-    # We also need borrowers to populate the selectbox in the form
     borrowers_df = get_cached_data("Borrowers")
     active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"] if not borrowers_df.empty else pd.DataFrame()
     
@@ -843,27 +843,30 @@ def show_loans():
     if loans_df.empty:
         loans_df = pd.DataFrame(columns=required_cols + ["Borrower", "Loan_ID", "Status", "End_Date"])
     
-    # 1. CLEAN HEADERS
-loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
+    # --- EVERYTHING BELOW MUST BE INDENTED TO MATCH THE LOAD DATA SECTION ---
+    
+    # 3. CLEAN HEADERS
+    loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
 
-# 2. This list defines which columns we want to fix
-num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
+    # 4. FIX NUMERIC COLUMNS
+    num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
 
-# 3. This loop starts the process for each column name in the list
-for col in num_cols:
-    # --- EVERYTHING BELOW IS INDENTED ---
-    if col in loans_df.columns:
-        # Step A: Convert to a list first to clean out hidden formatting
-        raw_values = list(loans_df[col]) 
-        
-        # Step B: Turn it back into a Series and fill empty cells with 0
-        series_data = pd.Series(raw_values).replace('', 0).fillna(0)
-        
-        # Step C: Final conversion to actual numbers
-        loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
-    else:
-        # If a column is missing from the sheet, create it with 0.0
-        loans_df[col] = 0.0
+    for col in num_cols:
+        if col in loans_df.columns:
+            # Step A: Convert to list to bypass sanitization errors found in your logs
+            raw_values = list(loans_df[col])
+            
+            # Step B: Clean blanks (common in rows 30+ of your sheet)
+            series_data = pd.Series(raw_values).replace('', 0).fillna(0)
+            
+            # Step C: Final numeric conversion
+            loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
+        else:
+            # Create missing columns as 0.0
+            loans_df[col] = 0.0
+
+    # 5. NOW YOU CAN USE loans_df FOR YOUR FORM OR TABLE
+    # ... rest of your show_loans code ...
     # --- END OF INDENTED SECTION ---
 
 # 4. AUTO-CALC BALANCE (Out of the loop)
