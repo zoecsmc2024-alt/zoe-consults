@@ -840,22 +840,26 @@ def show_loans():
         # Create an empty template so the rest of the code doesn't crash
         loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Principal", "Interest", "Amount_Paid", "Status", "End_Date"])
     
-    # Fix headers: "Amount Paid" -> "Amount_Paid"
+    # 1. CLEAN HEADERS (Ensure no hidden spaces)
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
     
-    # Numeric Safety Shield: Convert strings to numbers, replace errors with 0
+    # 2. NUMERIC SAFETY SHIELD (The Fix for the TypeError)
     num_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
+    
     for col in num_cols:
         if col in loans_df.columns:
-            loans_df[col] = pd.to_numeric(loans_df.get(col), errors='coerce').fillna(0)
+            # This ensures we are passing a full column (Series) to the math function
+            loans_df[col] = pd.to_numeric(loans_df[col], errors='coerce').fillna(0)
+        else:
+            # If the column is missing in the Google Sheet, we create it so the app doesn't crash
+            loans_df[col] = 0.0
     
-    # Date Safety Shield
+    # 3. DATE SAFETY SHIELD
     if "End_Date" in loans_df.columns:
         loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
 
-    # 2. TABBED INTERFACE
+    # 4. TABBED INTERFACE (This should be indented to match the logic above)
     tab_view, tab_add, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "⚙️ Loan Actions"])
-
     # ==============================
     # TAB 1: ISSUE LOAN (Branded Form)
     # ==============================
