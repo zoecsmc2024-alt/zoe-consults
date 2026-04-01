@@ -1021,7 +1021,7 @@ def show_loans():
     # (Keep Manage/Edit and Actions tabs exactly as they were...)
     # ... (Keep Manage/Edit and Actions tabs exactly as they were) ...
     # ==============================
-    # TAB: MANAGE / EDIT LOANS
+    # TAB: MANAGE / EDIT LOANS (Safety Fix)
     # ==============================
     with tab_manage:
         st.markdown("### 🛠️ Modify Loan Agreement")
@@ -1033,15 +1033,17 @@ def show_loans():
             m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
             m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
             
-            selected_m = st.selectbox("🔍 Select Loan to Manage", m_options, key="manage_sel_box")
+            selected_m = st.selectbox("🔍 Select Loan to Manage", m_options, key="manage_sel_box_v3")
             
-            # Parsing ID safely using regex
+            # Parsing ID safely
+            import re
             match = re.search(r'ID:\s*(\d+)', str(selected_m))
             clean_id = match.group(1) if match else "0"
             
             loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
 
-            with st.form("edit_loan_form"):
+            # --- THE FORM START ---
+            with st.form("edit_loan_form_luxe"):
                 c1, c2 = st.columns(2)
                 up_name = c1.text_input("Borrower Name", value=str(loan_row.get('Borrower', '')))
                 up_p = c1.number_input("Principal", value=float(loan_row.get('Principal', 0)))
@@ -1051,36 +1053,56 @@ def show_loans():
                 curr_s = str(loan_row.get('Status', 'Active')).strip()
                 up_status = c2.selectbox("Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
                 
+                # --- DATE SAFETY FIX (Prevents ValueError) ---
                 try:
-                    current_end = pd.to_datetime(loan_row.get('End_Date', datetime.now())).date()
+                    # Try to parse the date from the sheet
+                    raw_date = loan_row.get('End_Date')
+                    if pd.isna(raw_date) or raw_date == "":
+                        current_end = datetime.now().date()
+                    else:
+                        current_end = pd.to_datetime(raw_date).date()
                 except:
+                    # Fallback to today if it fails
                     current_end = datetime.now().date()
                 
                 up_end = c2.date_input("End Date", value=current_end)
 
-                b_save, b_del = st.columns(2)
+                # --- SUBMIT BUTTONS MUST BE INSIDE THE FORM ---
+                b_save = st.form_submit_button("💾 Save Changes", use_container_width=True)
 
-                if b_save.form_submit_button("💾 Save Changes", use_container_width=True):
-                    idx = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
+                if b_save:
+                    # Logic to find the row index in the original loans_df
+                    # (Standardizing ID column check)
+                    id_check_col = "Loan_ID" if "Loan_ID" in loans_df.columns else "Loan ID"
+                    idx = loans_df[loans_df[id_check_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
+                    
                     loans_df.at[idx, 'Borrower'] = up_name
                     loans_df.at[idx, 'Principal'] = up_p
                     loans_df.at[idx, 'Amount_Paid'] = up_paid
                     loans_df.at[idx, 'Status'] = up_status
                     loans_df.at[idx, 'End_Date'] = up_end.strftime('%Y-%m-%d')
                     
-                    if save_data("Loans", loans_df):
+                    # Restore spaces for Google Sheets save
+                    final_save_df = loans_df.copy()
+                    final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
+                    
+                    if save_data("Loans", final_save_df):
                         st.success("✅ Updated Successfully!")
                         st.rerun()
-            
-            # --- DELETE BUTTON (Outside Form for direct action) ---
-            if st.button("🗑️ Delete Permanently", use_container_width=True):
-                id_col = "Loan_ID" if "Loan_ID" in loans_df.columns else "Loan ID"
-                new_df = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
+
+            # --- DELETE BUTTON (Outside the Edit Form for safety) ---
+            st.markdown("---")
+            if st.button("🗑️ Delete Permanently", use_container_width=True, key="del_loan_btn"):
+                id_check_col = "Loan_ID" if "Loan_ID" in loans_df.columns else "Loan ID"
+                new_df = loans_df[loans_df[id_check_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
                 
-                if save_data("Loans", new_df):
+                # Restore spaces for Google Sheets save
+                final_save_df = new_df.copy()
+                final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
+                
+                if save_data("Loans", final_save_df):
                     st.warning(f"⚠️ Loan #{clean_id} deleted.")
                     st.rerun()
-
     with tab_actions:
         st.info("⚙️ Loan Settlements and Rollover actions will appear here in the next update.")
             # ==============================
