@@ -881,62 +881,42 @@ def show_borrowers():
 
 
 # ==============================
-# 13. LOANS MANAGEMENT PAGE
+# 13. LOANS MANAGEMENT PAGE (Final Version)
 # ==============================
 
 def show_loans():
-    """
-    Core engine for issuing and managing loan agreements.
-    Handles mathematical previews, status tracking, and portfolio inspections.
-    """
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
     # 1. LOAD DATA
     loans_df = get_cached_data("Loans")
     borrowers_df = get_cached_data("Borrowers")
     
-    # FIX: Define active_borrowers immediately to stop NameErrors
+    # Standardize active borrowers list
     if borrowers_df is not None and not borrowers_df.empty:
-        # Standardize headers for status check
         borrowers_df.columns = [str(c).strip().replace(" ", "_") for c in borrowers_df.columns]
         active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
     else:
         active_borrowers = pd.DataFrame()
     
-    # 2. EMERGENCY STRUCTURE CHECK
-    required_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
-    
+    # 2. EMERGENCY STRUCTURE & CLEANING
     if loans_df is None or loans_df.empty:
-        loans_df = pd.DataFrame(columns=required_cols + ["Borrower", "Loan_ID", "Status", "End_Date"])
+        loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance", "Status", "Start_Date", "End_Date"])
     
-    # 3. CLEAN HEADERS
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
 
-    # 4. FIX NUMERIC COLUMNS (ValueError Shield)
+    # Clean numeric columns for math
     num_cols = ["Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance"]
-
     for col in num_cols:
         if col in loans_df.columns:
-            # Bypass sanitization errors by converting to list first
-            raw_values = list(loans_df[col])
-            series_data = pd.Series(raw_values).replace('', 0).fillna(0)
-            loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
-        else:
-            loans_df[col] = 0.0
+            loans_df[col] = pd.to_numeric(loans_df[col], errors='coerce').fillna(0)
 
-    # 5. AUTO-CALC BALANCE
-    if "Total_Repayable" in loans_df.columns and "Amount_Paid" in loans_df.columns:
-        loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
+    # Auto-Calc Balance
+    loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
     
-    # 6. DATE CONVERSION
-    if "End_Date" in loans_df.columns:
-        loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
-
-    # 7. TABBED INTERFACE
     tab_view, tab_add, tab_manage, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "🛠️ Manage/Edit", "⚙️ Actions"])
 
     # ==============================
-    # TAB: NEW LOAN
+    # TAB: NEW LOAN (Added Start Date Field)
     # ==============================
     with tab_add:
         if active_borrowers.empty:
@@ -948,25 +928,21 @@ def show_loans():
                 
                 selected_borrower = col1.selectbox("Select Borrower", active_borrowers["Name"].unique())
                 amount = col1.number_input("Principal Amount (UGX)", min_value=0, step=50000)
-                date_issued = col1.date_input("Date Issued", value=datetime.now())
+                
+                # --- THE START DATE INPUT ---
+                date_issued = col1.date_input("Start Date (Issued)", value=datetime.now())
                 
                 l_type = col2.selectbox("Loan Type", ["Business", "Personal", "Emergency", "Other"])
                 interest_rate = col2.number_input("Monthly Interest Rate (%)", min_value=0.0, step=0.5)
-                date_due = col2.date_input("Due Date", value=date_issued + timedelta(days=30))
+                date_due = col2.date_input("Due Date (End Date)", value=date_issued + timedelta(days=30))
 
-                # Math Preview
                 interest = (interest_rate / 100) * amount
                 total_due = amount + interest
                 
-                st.markdown(f"""
-                    <div style="background-color: #F0F8FF; padding: 10px; border-radius: 8px; border-left: 5px solid #2B3F87;">
-                        <p style="margin:0; color:#2B3F87;"><b>Summary:</b> Total Repayable Amount will be <b>{total_due:,.0f} UGX</b></p>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.info(f"Summary: Total Repayable Amount will be {total_due:,.0f} UGX")
 
                 if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
                     if amount > 0:
-                        # Safety ID generation
                         last_id = pd.to_numeric(loans_df["Loan_ID"], errors='coerce').max()
                         new_id = int(last_id + 1) if pd.notna(last_id) else 1
                         
@@ -979,66 +955,44 @@ def show_loans():
                             "Total_Repayable": float(total_due), 
                             "Amount_Paid": 0.0,
                             "Status": "Active",
+                            "Start_Date": date_issued.strftime("%Y-%m-%d"), # SAVING START DATE
                             "End_Date": date_due.strftime("%Y-%m-%d")
                         }])
                         
                         updated_df = pd.concat([loans_df, new_loan], ignore_index=True).fillna(0)
+                        updated_df.columns = [c.replace("_", " ") for c in updated_df.columns]
                         
                         if save_data("Loans", updated_df):
-                            st.success(f"✅ Loan #{new_id} successfully issued to {selected_borrower}!")
+                            st.success(f"✅ Loan #{new_id} issued!")
                             st.rerun()
 
     # ==============================
-    # TAB: PORTFOLIO INSPECTOR
+    # TAB: PORTFOLIO VIEW (Added Start Date Column & Commas)
     # ==============================
     with tab_view:
         if not loans_df.empty:
-            display_df = loans_df.copy()
-            # Format IDs for display
-            display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
-            
-            relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-            active_view = display_df[display_df["Status"].isin(relevant_statuses)].copy()
+            active_view = loans_df[loans_df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])].copy()
 
             if active_view.empty:
                 st.info("ℹ️ No active loans found.")
             else:
-                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique())
-                loan_info = active_view[active_view["Loan_ID"] == sel_id].iloc[0]
-                
-                # Metric Cards
-                p1, p2, p3 = st.columns(3)
-                p1.metric("RECEIVED", f"{float(loan_info['Amount_Paid']):,.0f} UGX")
-                p2.metric("OUTSTANDING", f"{float(loan_info['Balance']):,.0f} UGX")
-                p3.metric("STATUS", str(loan_info['Status']).upper())
+                # Comma formatting for the big numbers
+                display_df = active_view.copy()
+                for col in ["Principal", "Balance", "Total_Repayable"]:
+                    if col in display_df.columns:
+                        display_df[col] = display_df[col].map("{:,.0f}".format)
 
-                # --- THE FIX: FORMAT NUMBERS WITH COMMAS SAFELY ---
-                format_cols = ["Principal", "Balance", "Total_Repayable", "Amount_Paid"]
-                for col in format_cols:
-                    if col in active_view.columns:
-                        active_view[col] = pd.to_numeric(active_view[col], errors='coerce').fillna(0).map("{:,.0f}".format)
-
-                # --- THE FIX: DYNAMIC COLUMN LIST (Checks if Start_Date exists) ---
-                # This prevents the KeyError crash!
-                base_columns = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
+                # DYNAMIC COLUMN LIST (Safety check to prevent KeyError)
+                cols_to_show = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
                 
-                # Check for Start Date (with or without underscore)
-                if "Start_Date" in active_view.columns:
-                    base_columns.append("Start_Date")
-                elif "Start Date" in active_view.columns:
-                    base_columns.append("Start Date")
-                
-                # Check for End Date (with or without underscore)
-                if "End_Date" in active_view.columns:
-                    base_columns.append("End_Date")
-                elif "End Date" in active_view.columns:
-                    base_columns.append("End Date")
+                # Check for Start/End date versions (Google Sheets often adds/removes underscores)
+                for d_col in ["Start_Date", "Start Date", "End_Date", "End Date"]:
+                    if d_col in display_df.columns:
+                        cols_to_show.append(d_col)
 
-                st.dataframe(
-                    active_view[base_columns], 
-                    use_container_width=True, 
-                    hide_index=True
-                )
+                st.dataframe(display_df[list(set(cols_to_show))], use_container_width=True, hide_index=True)
+
+    # ... (Keep Manage/Edit and Actions tabs exactly as they were) ...
     # ==============================
     # TAB: MANAGE / EDIT LOANS
     # ==============================
