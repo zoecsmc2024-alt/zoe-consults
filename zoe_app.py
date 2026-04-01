@@ -1753,26 +1753,30 @@ def show_calendar():
     ]
     overdue_count = active_loans[active_loans["End_Date"] < today].shape[0]
 
+    # These three columns are the "starting point"
     m1, m2, m3 = st.columns(3)
     
-    # Update the markdown line (around line 1778)
-        m1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">
-                NOTES & STATUS -
-            </p>
-            <p style="margin:0; font-size:16px; color:#2B3F87; font-weight:bold;">
-                {r['Borrower']}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    # --- SAFE DISPLAY BOXES (Line 1778 - 1795) ---
-        m1.markdown(f"""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">NOTES & STATUS |</p>
-            <p style="margin:0; font-size:16px; color:#2B3F87; font-weight:bold;">{r['Borrower']}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # FIX: These must line up perfectly under the 'm1, m2, m3' line
+    m1.markdown(f"""
+    <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">DUE TODAY |</p>
+        <p style="margin:0; font-size:18px; color:#2B3F87; font-weight:bold;">{len(due_today_df)} Accounts</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    m2.markdown(f"""
+    <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+        <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">UPCOMING (7 DAYS) |</p>
+        <p style="margin:0; font-size:18px; color:#2B3F87; font-weight:bold;">{len(upcoming_df)} Accounts</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    m3.markdown(f"""
+    <div style="background-color: #FFF5F5; padding: 20px; border-radius: 15px; border-left: 5px solid #D32F2F; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
+        <p style="margin:0; font-size:12px; color:#D32F2F; font-weight:bold;">TOTAL OVERDUE |</p>
+        <p style="margin:0; font-size:18px; color:#D32F2F; font-weight:bold;">{overdue_count} Accounts</p>
+    </div>
+    """, unsafe_allow_html=True)
 
         m2.markdown(f"""
         <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
