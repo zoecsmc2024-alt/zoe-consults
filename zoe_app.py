@@ -2608,28 +2608,33 @@ def show_ledger():
 
         grand_total_balance = 0.0 
         
+        # ... (Inside the loop for client_loans) ...
         for _, l_row in client_loans.iterrows():
             this_loan_id = str(l_row['Loan_ID'])
             l_ledger = []
             
-            # Internal math for each individual loan in the summary
             c_p = float(l_row.get('Principal', 0))
             i_a = float(l_row.get('Interest', 0))
             
-            if i_a == 0:
-                i_r = float(l_row.get('Interest_Rate', 0)) / 100
-                o_p = c_p / (1 + i_r) if i_r > 0 else c_p
-                i_a = c_p - o_p
-            else:
-                o_p = c_p - i_a
+            # 1. ADD THE PRINCIPAL DEBIT
+            l_ledger.append({
+                "Date": l_row.get('Start_Date', 'N/A'), 
+                "Description": "Loan Disbursement (Principal)", 
+                "Debit": c_p, 
+                "Credit": 0
+            })
 
-            if "Rolled" in str(l_row.get('Status', '')):
-                l_ledger.append({"Date": "B/F", "Description": "Balance Brought Forward", "Debit": o_p, "Credit": 0})
-                l_ledger.append({"Date": l_row.get('Rollover_Date', 'Rollover'), "Description": "🔄 Monthly Interest Compounded", "Debit": i_a, "Credit": 0})
-            else:
-                l_ledger.append({"Date": l_row.get('Start_Date', 'N/A'), "Description": "Disbursement", "Debit": c_p, "Credit": 0})
+            # 2. ADD THE INTEREST DEBIT (THE FIX!)
+            # This ensures the total "Debt" matches the total "Payment"
+            if i_a > 0:
+                l_ledger.append({
+                    "Date": l_row.get('Start_Date', 'N/A'), 
+                    "Description": "Interest Charged", 
+                    "Debit": i_a, 
+                    "Credit": 0
+                })
 
-            # Fetch payments for this specific loan ID
+            # 3. FETCH PAYMENTS
             l_pay = payments_df[payments_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) == this_loan_id] if not payments_df.empty else pd.DataFrame()
             for _, p_row in l_pay.iterrows():
                 l_ledger.append({
@@ -2639,13 +2644,18 @@ def show_ledger():
                     "Credit": float(p_row.get('Amount', 0))
                 })
             
+            # 4. CALCULATE RUNNING BALANCE
             temp_df = pd.DataFrame(l_ledger)
             loan_bal = 0.0
             if not temp_df.empty:
+                # Math: (All Debits) - (All Credits)
                 temp_df['Balance'] = temp_df['Debit'].cumsum() - temp_df['Credit'].cumsum()
-                loan_bal = float(temp_df.iloc[-1]['Balance'])
+                # We round to 0 to avoid tiny decimal leftovers (like 0.0000001)
+                loan_bal = round(float(temp_df.iloc[-1]['Balance']))
             
             grand_total_balance += loan_bal
+            
+            # ... (Rest of the HTML generation remains the same) ...
 
             # Add Individual Loan Table to HTML
             html_statement += f"""
