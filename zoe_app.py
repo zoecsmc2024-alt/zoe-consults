@@ -831,19 +831,16 @@ def show_borrowers():
 def show_loans():
     st.markdown("<h2 style='color: #2B3F87;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD DATA (Inside your function)
+    # 1. LOAD DATA (Everything stays inside this function)
 def show_loans():
     loans_df = get_cached_data("Loans")
     borrowers_df = get_cached_data("Borrowers")
-    active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"] if not borrowers_df.empty else pd.DataFrame()
     
     # 2. EMERGENCY STRUCTURE CHECK
     required_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
     
-    if loans_df.empty:
+    if loans_df is None or loans_df.empty:
         loans_df = pd.DataFrame(columns=required_cols + ["Borrower", "Loan_ID", "Status", "End_Date"])
-    
-    # --- EVERYTHING BELOW MUST BE INDENTED TO MATCH THE LOAD DATA SECTION ---
     
     # 3. CLEAN HEADERS
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
@@ -853,7 +850,7 @@ def show_loans():
 
     for col in num_cols:
         if col in loans_df.columns:
-            # Step A: Convert to list to bypass sanitization errors found in your logs
+            # Step A: Convert to list to bypass sanitization errors
             raw_values = list(loans_df[col])
             
             # Step B: Clean blanks (common in rows 30+ of your sheet)
@@ -862,20 +859,18 @@ def show_loans():
             # Step C: Final numeric conversion
             loans_df[col] = pd.to_numeric(series_data, errors='coerce').fillna(0)
         else:
-            # Create missing columns as 0.0
             loans_df[col] = 0.0
 
-    # 5. NOW YOU CAN USE loans_df FOR YOUR FORM OR TABLE
-    # ... rest of your show_loans code ...
-    # --- END OF INDENTED SECTION ---
-
-# 4. AUTO-CALC BALANCE (Out of the loop)
-if "Total_Repayable" in loans_df.columns and "Amount_Paid" in loans_df.columns:
-    loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
-    # 4. DATE CONVERSION
+    # 5. AUTO-CALC BALANCE (Now properly indented inside show_loans)
+    if "Total_Repayable" in loans_df.columns and "Amount_Paid" in loans_df.columns:
+        loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
+    
+    # 6. DATE CONVERSION (Now properly indented inside show_loans)
     if "End_Date" in loans_df.columns:
         loans_df["End_Date"] = pd.to_datetime(loans_df["End_Date"], errors='coerce')
 
+    # 7. NOW YOU CAN PROCEED TO DISPLAY THE DATA
+    # st.write(loans_df) or other form logic goes here...
     # 4. TABBED INTERFACE (Naming must match the 'with' blocks below)
     tab_view, tab_add, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "⚙️ Loan Actions"])
 
