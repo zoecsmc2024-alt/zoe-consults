@@ -1222,12 +1222,13 @@ def show_payments():
                             
                             idx = matching_indices[0]
 
-                            # --- 2. GENERATE NEXT PAYMENT ID (THE FIX!) ---
-                            # Check for both "Payment_ID" and "Payment ID"
+                            # --- 2. GENERATE NEXT PAYMENT ID (The Anti-NaN Fix!) ---
                             p_id_col = "Payment_ID" if "Payment_ID" in payments_df.columns else "Payment ID"
                             
                             if not payments_df.empty and p_id_col in payments_df.columns:
-                                new_p_id = int(pd.to_numeric(payments_df[p_id_col], errors='coerce').max() + 1)
+                                # pd.to_numeric with fillna(0) ensures we NEVER have a 'nan'
+                                last_id = pd.to_numeric(payments_df[p_id_col], errors='coerce').fillna(0).max()
+                                new_p_id = int(last_id + 1)
                             else:
                                 new_p_id = 1
 
@@ -1249,14 +1250,15 @@ def show_payments():
                             if new_total_paid >= (total_rep - 10):
                                 loans_df.at[idx, "Status"] = "Closed"
 
-                            # --- 5. SYNC TO GOOGLE ---
-                            # Restore spaces for Google Sheets
-                            save_loans = loans_df.copy()
+                            # --- 5. CLEAN ALL DATA BEFORE SAVING (Final Shield) ---
+                            # This replaces any 'nan' values in the whole table with 0 or empty text
+                            save_loans = loans_df.copy().fillna(0)
                             save_loans.columns = [c.replace("_", " ") for c in save_loans.columns]
                             
-                            save_payments = pd.concat([payments_df, new_payment], ignore_index=True)
+                            save_payments = pd.concat([payments_df, new_payment], ignore_index=True).fillna("")
                             save_payments.columns = [c.replace("_", " ") for c in save_payments.columns]
                             
+                            # Final Check: Ensure No float('nan') exists in the save package
                             if save_data("Payments", save_payments) and save_data("Loans", save_loans):
                                 st.success(f"✅ Payment of {pay_amount:,.0f} UGX recorded!")
                                 st.cache_data.clear()
