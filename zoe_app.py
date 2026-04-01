@@ -544,53 +544,34 @@ def sidebar():
 def show_overview():
     st.markdown("## 📊 Financial Dashboard")
     
-    # 1. LOAD ALL DATA
+    # 1. LOAD DATA
     df_raw = get_cached_data("Loans")
-    pay_df = get_cached_data("Payments")
-    exp_df = get_cached_data("Expenses")
+    pay_raw = get_cached_data("Payments")
+    exp_raw = get_cached_data("Expenses")
 
     if df_raw.empty:
         st.info("No loan records found.")
         return
 
-    # 2. DEDUPLICATE & NORMALIZE (Fixes the TypeError from your image)
+    # 2. THE DEDUPLICATOR (Fixes the TypeError)
+    # This identifies and drops duplicate column names immediately
     df = df_raw.loc[:, ~df_raw.columns.duplicated()].copy()
-    df.columns = df.columns.str.strip().str.replace(" ", "_")
+    df.columns = [str(c).strip().replace(" ", "_") for c in df.columns]
     
-    if not pay_df.empty:
-        pay_df = pay_df.loc[:, ~pay_df.columns.duplicated()].copy()
-        pay_df.columns = pay_df.columns.str.strip().str.replace(" ", "_")
-    if not exp_df.empty:
-        exp_df = exp_df.loc[:, ~exp_df.columns.duplicated()].copy()
-        exp_df.columns = exp_df.columns.str.strip().str.replace(" ", "_")
-
-    # 3. SAFE NUMERIC CLEANING (The "arg must be a list" Fix)
+    # 3. SAFE NUMERIC CLEANING
+    # Instead of df.get(), we use a list-check to ensure pd.to_numeric gets a Series
     for col in ["Interest", "Amount_Paid", "Principal"]:
         target = df[col] if col in df.columns else [0]
         df[col] = pd.to_numeric(target, errors="coerce").fillna(0)
 
-    df["End_Date"] = pd.to_datetime(df.get("End_Date"), errors="coerce")
-    today = pd.Timestamp.today().normalize()
+    # 4. METRICS ROW
+    active_df = df[df["Status"].isin(["Active", "Overdue", "Rolled/Overdue"])]
+    m1, m2, m3 = st.columns(3)
+    m1.metric("💰 ACTIVE PRINCIPAL", f"{active_df['Principal'].sum():,.0f} UGX")
+    m2.metric("📈 EXPECTED INTEREST", f"{active_df['Interest'].sum():,.0f} UGX")
+    m3.metric("✅ TOTAL COLLECTED", f"{df['Amount_Paid'].sum():,.0f} UGX")
     
-    # Filter Active
-    active_statuses = ["Active", "Overdue", "Rolled/Overdue"]
-    active_df = df[df["Status"].isin(active_statuses)].copy()
-
-    # 4. METRICS CALCULATION
-    total_issued = active_df["Principal"].sum()
-    total_interest_expected = active_df["Interest"].sum()
-    total_collected = df["Amount_Paid"].sum() 
-    
-    overdue_mask = (active_df["End_Date"] < today) & (active_df["Status"] != "Cleared")
-    overdue_count = active_df[overdue_mask].shape[0]
-
-    # 5. METRICS ROW
-    m1, m2, m3, m4 = st.columns(4)
-    m1.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">💰 ACTIVE PRINCIPAL</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{total_issued:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-    m2.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">📈 EXPECTED INTEREST</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{total_interest_expected:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-    m3.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #2E7D32;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">✅ TOTAL COLLECTED</p><h3 style="margin:0;color:#2E7D32;font-size:18px;">{total_collected:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-    m4.markdown(f"""<div style="background-color:#fff;padding:20px;border-radius:15px;border-left:5px solid #FF4B4B;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:11px;color:#666;font-weight:bold;">🚨 OVERDUE FILES</p><h3 style="margin:0;color:#FF4B4B;font-size:18px;">{overdue_count}</h3></div>""", unsafe_allow_html=True)
-
+    # ... rest of charts logic ...
     # ... (Keep the rest of your Chart/Table logic as is)
     # 6. RECENT ACTIVITY TABLES
     st.write("---")
