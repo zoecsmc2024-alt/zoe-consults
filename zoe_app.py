@@ -847,7 +847,6 @@ def show_loans():
     num_cols = ["Principal", "Interest", "Amount_Paid", "Total_Repayable", "Balance"]
     for col in num_cols:
         if col in loans_df.columns:
-            if col in loans_df.columns:
             loans_df[col] = pd.to_numeric(loans_df.get(col), errors='coerce').fillna(0)
     
     # Date Safety Shield
