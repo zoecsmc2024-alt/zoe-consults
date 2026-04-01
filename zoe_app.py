@@ -122,11 +122,10 @@ def get_cached_data(worksheet_name):
         data = sheet.worksheet(worksheet_name).get_all_records()
         df = pd.DataFrame(data)
         
-        # --- THE MASTER FIX ---
-        # Identify and remove duplicate columns immediately
+        # identify and drop duplicate columns immediately to prevent crashes
         df = df.loc[:, ~df.columns.duplicated()].copy()
         
-        # Clean up any purely empty rows Google Sheets might include
+        # Clean up empty rows
         df = df.dropna(how='all').reset_index(drop=True)
         return df
     except Exception as e:
@@ -829,7 +828,8 @@ def show_loans():
         st.warning("⚠️ No borrowers found. Register a client in the Borrowers tab first!")
         return
         
-    # --- THE SAFETY SHIELD (Deduplicate & Normalize) ---
+    # --- THE SAFETY SHIELD (Header Deduplication & Normalization) ---
+    # This specifically stops the "arg must be a list" TypeError from your screenshots
     if loans_raw.empty:
         loans_df = pd.DataFrame(columns=[
             "Loan_ID", "Borrower", "Type", "Principal", "Interest_Rate", 
@@ -850,16 +850,17 @@ def show_loans():
     active_borrowers = borrowers_df[borrowers_df["Status"] == "Active"]
     tab_issue, tab_view, tab_manage = st.tabs(["➕ Issue Loan", "📊 Portfolio", "⚙️ Manage Loans"])
 
-    # ==============================
-    # TAB 1: ISSUE LOAN (Restored Design)
-    # ==============================
+    # ==========================================
+    # TAB 1: ISSUE LOAN (Registration Logic)
+    # ==========================================
     with tab_issue:
         if active_borrowers.empty:
-            st.info("💡 Tip: Activate a borrower to issue a loan.")
+            st.info("💡 Tip: Activate a borrower in the Borrowers tab to issue a loan.")
         else:
             with st.form("loan_issue_form"):
                 st.markdown("<h4 style='color: #2B3F87;'>📝 Create New Loan Agreement</h4>", unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
+                
                 selected_borrower = col1.selectbox("Select Borrower", active_borrowers["Name"].unique())
                 amount = col1.number_input("Principal Amount (UGX)", min_value=0, step=50000)
                 date_issued = col1.date_input("Date Issued", value=datetime.now())
@@ -874,12 +875,13 @@ def show_loans():
                 
                 st.markdown(f"""
                     <div style="background-color: #F0F8FF; padding: 10px; border-radius: 8px; border-left: 5px solid #2B3F87;">
-                        <p style="margin:0; color:#2B3F87;"><b>Summary:</b> Total Repayable Amount will be <b>{total_due:,.0f} UGX</b></p>
+                        <p style="margin:0; color:#2B3F87;"><b>Summary:</b> Total Repayable Amount: <b>{total_due:,.0f} UGX</b></p>
                     </div>
                 """, unsafe_allow_html=True)
 
                 if st.form_submit_button("🚀 Confirm & Issue Loan", use_container_width=True):
                     if amount > 0:
+                        # Safe ID Generation
                         last_id = pd.to_numeric(loans_df["Loan_ID"], errors='coerce').max()
                         new_id = int(last_id + 1) if pd.notna(last_id) else 1
                         
@@ -898,84 +900,103 @@ def show_loans():
                             "Rollover_Date": "-"
                         }])
                         
+                        # Merge and restore Google Sheet Spaced Headers
                         final_save = pd.concat([loans_df, new_loan], ignore_index=True).fillna(0)
                         final_save.columns = [c.replace("_", " ") for c in final_save.columns]
                         
                         if save_data("Loans", final_save):
-                            st.success(f"✅ Loan #{new_id} issued!"); st.rerun()
+                            st.success(f"✅ Loan #{new_id} successfully issued to {selected_borrower}!")
+                            st.rerun()
 
-    # ==============================
-    # TAB 2: PORTFOLIO (Zoe Soft Blue)
-    # ==============================
+    # ==========================================
+    # TAB 2: PORTFOLIO (The Zoe Styled Table)
+    # ==========================================
     with tab_view:
         if not loans_df.empty:
-            # Re-calculate balance
-            loans_df["Outstanding_Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
+            # Internal balance calculation for the view
+            loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
             
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
             display_df = loans_df[loans_df["Status"].isin(relevant_statuses)].copy()
 
             if display_df.empty:
-                st.info("ℹ️ No active loans found.")
+                st.info("ℹ️ No active loans found in the portfolio.")
             else:
-                sel_id = st.selectbox("🔍 Select Loan to Inspect", display_df["Loan_ID"].unique())
+                sel_id = st.selectbox("🔍 Select Loan ID to Inspect", display_df["Loan_ID"].unique())
                 loan_info = display_df[display_df["Loan_ID"].astype(str) == str(sel_id)].iloc[0]
                 
                 # --- METRIC CARDS ---
                 p1, p2, p3 = st.columns(3)
                 p1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">RECEIVED</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Amount_Paid']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
-                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Outstanding_Balance']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
+                p2.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid #4A90E2;box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">OUTSTANDING</p><h3 style="margin:0;color:#4A90E2;font-size:18px;">{loan_info['Balance']:,.0f} UGX</h3></div>""", unsafe_allow_html=True)
                 s_color = "#4A90E2" if loan_info['Status'] != "Overdue" else "#FF4B4B"
                 p3.markdown(f"""<div style="background-color:#ffffff;padding:20px;border-radius:15px;border-left:5px solid {s_color};box-shadow:2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0;font-size:12px;color:#666;font-weight:bold;">STATUS</p><h3 style="margin:0;color:{s_color};font-size:18px;">{str(loan_info['Status']).upper()}</h3></div>""", unsafe_allow_html=True)
 
-                # --- ZOE TABLE ---
+                # --- THE COMPLETE "ZOE" PORTFOLIO TABLE ---
                 rows_html = ""
                 for i, r in display_df.iterrows():
-                    bg = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
+                    bg_color = "#F0F8FF" if i % 2 == 0 else "#FFFFFF"
                     stat_bg = "#4A90E2" if r['Status'] == "Active" else "#FF4B4B" if r['Status'] == "Overdue" else "#FFA500"
                     
                     rows_html += f"""
-                    <tr style="background-color: {bg}; border-bottom: 1px solid #ddd; font-size: 12px;">
+                    <tr style="background-color: {bg_color}; border-bottom: 1px solid #ddd; font-size: 12px;">
                         <td style="padding:10px;"><b>#{str(r['Loan_ID']).replace('.0','')}</b></td>
                         <td style="padding:10px;">{r['Borrower']}</td>
                         <td style="padding:10px; text-align:center;">{r.get('Start_Date', '-')}</td>
                         <td style="padding:10px; text-align:right; font-weight:bold; color:#4A90E2;">{r['Principal']:,.0f}</td>
                         <td style="padding:10px; text-align:center;">{r['Interest_Rate']:.1f}%</td>
-                        <td style="padding:10px; text-align:right; color:#D32F2F;">{r['Outstanding_Balance']:,.0f}</td>
+                        <td style="padding:10px; text-align:right; color:#D32F2F;">{r['Balance']:,.0f}</td>
                         <td style="padding:10px; text-align:center;"><span style="background:{stat_bg}; color:white; padding:2px 8px; border-radius:10px; font-size:10px;">{r['Status']}</span></td>
+                        <td style="padding:10px; text-align:center;">{r.get('Rollover_Date', '-')}</td>
                         <td style="padding:10px; text-align:center; font-weight:bold; color:#2B3F87;">{r.get('End_Date', '-')}</td>
                     </tr>"""
 
-                final_html = f"""<div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-family:sans-serif;">
-                    <thead><tr style="background:#4A90E2; color:white; text-align:left;"><th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th><th style="padding:12px; text-align:center;">Issued</th><th style="padding:12px; text-align:right;">Principal</th><th style="padding:12px; text-align:center;">Rate</th><th style="padding:12px; text-align:right;">Balance</th><th style="padding:12px; text-align:center;">Status</th><th style="padding:12px; text-align:center;">Due Date</th></tr></thead>
-                    <tbody>{rows_html}</tbody></table></div>"""
-                st.components.v1.html(final_html, height=500, scrolling=True)
+                final_table_html = f"""
+                <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; background:white; margin-top:20px;">
+                    <table style="width:100%; border-collapse:collapse; font-family:sans-serif;">
+                        <thead>
+                            <tr style="background:#4A90E2; color:white; text-align:left;">
+                                <th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th><th style="padding:12px; text-align:center;">Issued</th>
+                                <th style="padding:12px; text-align:right;">Principal</th><th style="padding:12px; text-align:center;">Rate (%)</th><th style="padding:12px; text-align:right;">Balance</th>
+                                <th style="padding:12px; text-align:center;">Status</th><th style="padding:12px; text-align:center;">Rolled</th><th style="padding:12px; text-align:center;">Due Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </div>"""
+                st.components.v1.html(final_table_html, height=500, scrolling=True)
 
-    # ==============================
-    # TAB 3: MANAGE LOANS (Fixing NameError)
-    # ==============================
+    # ==========================================
+    # TAB 3: MANAGE LOANS (The Editor)
+    # ==========================================
     with tab_manage:
-        if not loans_df.empty:
+        if loans_df.empty:
+            st.info("ℹ️ No loans available to edit.")
+        else:
+            # Selection logic
             m_options = [f"ID: {str(r['Loan_ID']).replace('.0','')} | {r['Borrower']}" for _, r in loans_df.iterrows()]
-            selected_m = st.selectbox("🔍 Select Loan to Edit", m_options)
+            selected_m = st.selectbox("🔍 Select Loan to Modify", m_options)
             
             clean_id = re.search(r'ID:\s*(\d+)', selected_m).group(1)
             idx = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0","") == clean_id].index[0]
             row = loans_df.loc[idx]
 
+            st.write(f"Editing Loan Agreement for: **{row['Borrower']}**")
             c1, c2 = st.columns(2)
             with c1:
-                up_name = st.text_input("Edit Borrower Name", value=str(row['Borrower']))
-                up_p = st.number_input("Adjust Principal", value=float(row['Principal']))
-                up_paid = st.number_input("Adjust Amount Paid", value=float(row['Amount_Paid']))
+                up_name = st.text_input("Borrower Name", value=str(row['Borrower']))
+                up_p = st.number_input("Update Principal", value=float(row['Principal']))
+                up_paid = st.number_input("Update Amount Paid", value=float(row['Amount_Paid']))
             with c2:
-                up_status = st.selectbox("Update Status", ["Active", "Overdue", "Rolled/Overdue", "Closed"], index=0)
-                up_end = st.date_input("Adjust End Date", value=pd.to_datetime(row['End_Date']).date())
+                status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
+                curr_s = str(row['Status'])
+                up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
+                up_end = st.date_input("Update Due Date", value=pd.to_datetime(row['End_Date']).date())
 
-            # ACTION BUTTONS DEFINED CLEARLY
-            b_save, b_del = st.columns(2)
+            # Action Buttons (Fixed NameError Scope)
+            btn_col1, btn_col2 = st.columns(2)
             
-            if b_save.button("💾 Save Changes", use_container_width=True):
+            if btn_col1.button("💾 Save Changes", use_container_width=True):
                 loans_df.at[idx, 'Borrower'] = up_name
                 loans_df.at[idx, 'Principal'] = up_p
                 loans_df.at[idx, 'Amount_Paid'] = up_paid
@@ -983,15 +1004,20 @@ def show_loans():
                 loans_df.at[idx, 'End_Date'] = up_end.strftime('%Y-%m-%d')
                 
                 final_save = loans_df.copy()
+                # Remove the internal 'Balance' column before saving
+                if 'Balance' in final_save.columns: final_save = final_save.drop(columns=['Balance'])
                 final_save.columns = [c.replace("_", " ") for c in final_save.columns]
+                
                 if save_data("Loans", final_save):
-                    st.success("✅ Loan Updated!"); st.rerun()
+                    st.success("✅ Loan details updated successfully!"); st.rerun()
 
-            if b_del.button("🗑️ Delete Permanently", use_container_width=True):
+            if btn_col2.button("🗑️ Delete Permanently", use_container_width=True):
                 final_save = loans_df.drop(idx)
+                if 'Balance' in final_save.columns: final_save = final_save.drop(columns=['Balance'])
                 final_save.columns = [c.replace("_", " ") for c in final_save.columns]
+                
                 if save_data("Loans", final_save):
-                    st.warning("⚠️ Loan Deleted."); st.rerun()
+                    st.warning("⚠️ Loan record has been removed."); st.rerun()
 # ==============================
 # 14. PAYMENTS & COLLECTIONS PAGE (Upgraded)
 # ==============================
@@ -1298,11 +1324,11 @@ from datetime import datetime
 import streamlit as st
 
 def show_overdue_tracker():
-    st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
+    st.markdown("<h2 style='color: #2B3F87;'>🚨 Loan Overdue & Rollover Tracker</h2>", unsafe_allow_html=True)
 
     try:
-        # 1. --- THE DATA FETCH & DEDUPLICATOR ---
-        # We fetch fresh to ensure we aren't compounding old data from session memory
+        # 1. --- DATA FETCHING & DEDUPLICATION ---
+        # We fetch fresh to avoid compounding stale session data
         loans_raw = get_cached_data("Loans") 
         ledger_raw = get_cached_data("Ledger")
         
@@ -1310,10 +1336,11 @@ def show_overdue_tracker():
             st.info("💡 No loan records found in the system.")
             return
 
-        # CRITICAL FIX: Kill duplicate columns immediately so math doesn't return a "Table"
+        # CRITICAL FIX: Kill duplicate columns immediately so math doesn't break
         loans = loans_raw.loc[:, ~loans_raw.columns.duplicated()].copy()
         
-        # 2. --- NORMALIZE HEADERS (Logic Use Only) ---
+        # 2. --- NORMALIZE HEADERS (Internal Logic) ---
+        # Store original headers to restore them perfectly for Google Sheets later
         original_headers = list(loans.columns)
         loans.columns = [str(col).strip().replace(" ", "_") for col in loans.columns]
         
@@ -1327,7 +1354,7 @@ def show_overdue_tracker():
         required = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
         missing = [col for col in required if col not in loans.columns]
         if missing:
-            st.error(f"❌ Sheet structure error. Missing: {missing}")
+            st.error(f"❌ Missing required columns: {missing}")
             return
 
         # 4. --- DATE & NUMERIC PREP ---
@@ -1335,7 +1362,7 @@ def show_overdue_tracker():
         today = datetime.now()
 
         # 5. --- FILTER OVERDUE ACCOUNTS ---
-        # Logic: Only Active/Overdue loans where the clock has run out
+        # Logic: Status must be Active/Overdue AND the Due Date must be in the past
         overdue_df = loans[
             (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
             (loans['End_Date'] < today)
@@ -1347,16 +1374,16 @@ def show_overdue_tracker():
 
         st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
 
-        # 6. --- BRANDED PREVIEW TABLE (Blue Zoe Theme) ---
+        # 6. --- BRANDED PREVIEW TABLE ---
         rows_html = ""
         for i, r in overdue_df.iterrows():
-            # Force numeric for preview math
             p_val = pd.to_numeric(r.get('Principal', 0), errors='coerce') or 0
             i_val = pd.to_numeric(r.get('Interest', 0), errors='coerce') or 0
+            # Preview Total = what the NEW principal will likely be
             preview_total = p_val + i_val
             
             rows_html += f"""
-            <tr style="border-bottom: 1px solid #eee;">
+            <tr style="border-bottom: 1px solid #eee; font-size: 12px;">
                 <td style="padding:10px;"><b>#{str(r['Loan_ID']).replace('.0','')}</b></td>
                 <td style="padding:10px;">{r['Borrower']}</td>
                 <td style="padding:10px; text-align:right;">{p_val:,.0f}</td>
@@ -1366,12 +1393,12 @@ def show_overdue_tracker():
             </tr>"""
 
         st.components.v1.html(f"""
-        <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; font-family:sans-serif; font-size:13px; background:white;">
+        <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; font-family:sans-serif; background:white;">
             <table style="width:100%; border-collapse:collapse;">
-                <tr style="background:#4A90E2; color:white; text-align:left;">
+                <tr style="background:#4A90E2; color:white; text-align:left; font-size:13px;">
                     <th style="padding:12px;">ID</th><th style="padding:12px;">Borrower</th>
-                    <th style="padding:12px; text-align:right;">Old Principal</th>
-                    <th style="padding:12px; text-align:right;">+ Interest</th>
+                    <th style="padding:12px; text-align:right;">Current Principal</th>
+                    <th style="padding:12px; text-align:right;">+ Unpaid Interest</th>
                     <th style="padding:12px; text-align:right;">New Principal (P+I)</th>
                     <th style="padding:12px; text-align:center;">Missed Date</th>
                 </tr>
@@ -1383,28 +1410,32 @@ def show_overdue_tracker():
         latest_ledger = pd.DataFrame()
         if not ledger.empty and "Loan_ID" in ledger.columns:
             ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
+            # Get the very last balance recorded for each loan
             latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
         # 8. --- THE ROLLOVER ENGINE ---
-        if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+        st.write("")
+        if st.button("🔄 Execute Monthly Rollover & Compound Interest", use_container_width=True):
             updated_df = loans.copy()
             count = 0
 
             for i, r in overdue_df.iterrows():
                 l_id = str(r.get('Loan_ID')).replace(".0", "")
                 
-                # A. Get compounding amount from Ledger Balance (The most accurate source)
+                # A. Identify the compounding amount (Try Ledger first)
                 final_amt = 0
                 if not latest_ledger.empty:
                     match = latest_ledger[latest_ledger["Loan_ID"].astype(str).str.replace(".0","") == l_id]
                     if not match.empty and "Balance" in match.columns:
                         final_amt = float(match['Balance'].values[0])
 
-                # B. Fallback: If Ledger is empty, use the math from the Loan record
+                # B. Fallback: If Ledger has no record, use Principal + Interest from the Loans sheet
                 if final_amt <= 0:
                     final_amt = float(r.get('Principal', 0)) + float(r.get('Interest', 0))
 
-                # C. The logic shift: Principal = New Amount, Date = Date + 30 days
+                # C. Data Transformation
+                # New Principal = The calculated balance
+                # End Date = Old End Date + 30 Days
                 new_due_date = r['End_Date'] + pd.DateOffset(months=1)
 
                 updated_df.at[i, 'Principal'] = final_amt
@@ -1413,25 +1444,24 @@ def show_overdue_tracker():
                 updated_df.at[i, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
                 count += 1
 
-            # 9. --- DATE STRINGIFICATION ---
-            # Google Sheets hates Python Datetime objects
+            # 9. --- CLEAN DATES FOR GOOGLE SHEETS ---
             for col in ["Start_Date", "End_Date", "Rollover_Date", "Due_Date"]:
                 if col in updated_df.columns:
                     updated_df[col] = pd.to_datetime(updated_df[col], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
 
-            # 10. --- SAFE HEADER RESTORE ---
-            # We map back to the EXACT original headers from the sheet to avoid name drifts
+            # 10. --- SAFE RESTORE & SAVE ---
+            # Restore the EXACT original headers to keep all other pages working
             updated_df.columns = original_headers
             
             if save_data("Loans", updated_df):
-                st.session_state.loans = updated_df # Update local memory
-                st.success(f"✅ Mission Accomplished! {count} loans compounded and rolled over.")
+                st.session_state.loans = updated_df 
+                st.success(f"✅ Success! {count} loans have been rolled over and compounded.")
                 st.rerun()
             else:
-                st.error("❌ Save failed. Connection to Google Sheets was interrupted.")
+                st.error("❌ Failed to update Google Sheets. Please check your internet.")
 
     except Exception as e:
-        st.error(f"🚨 Logic Error: {str(e)}")
+        st.error(f"🚨 An error occurred during the rollover process: {str(e)}")
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
