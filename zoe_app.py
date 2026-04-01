@@ -1290,93 +1290,68 @@ def show_payments():
             st.info("No payment records found.")
 
     # ==============================
-    # TAB 3: MANAGE / EDIT LOANS
+    # TAB: EDIT / DELETE PAYMENTS (The Payment-Only Fix)
     # ==============================
     with tab_manage:
-        st.markdown("### 🛠️ Modify Loan Agreement")
-        m_df = loans_df.copy()
-        m_df.columns = [str(c).strip().replace(" ", "_") for c in m_df.columns]
+        st.markdown("### 🛠️ Modify Payment Records")
         
-        if m_df.empty:
-            st.info("ℹ️ No loans available to edit.")
+        if payments_df.empty:
+            st.info("ℹ️ No payments recorded to manage.")
         else:
-            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
-            m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
+            # 1. Standardize IDs
+            p_id_col = "Payment_ID" if "Payment_ID" in payments_df.columns else "Payment ID"
+            m_p_df = payments_df.copy()
+            m_p_df[p_id_col] = m_p_df[p_id_col].fillna(0).astype(str).str.replace(".0", "", regex=False)
             
-            selected_m = st.selectbox("🔍 Select Loan to Manage/Edit", m_options, key="manage_final_v4")
-
-            # Extract clean ID using split logic for speed
-            clean_id = selected_m.split("|")[0].replace("ID:", "").strip()
-            loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
-
-            st.divider()
+            # Create a selection list
+            p_options = [f"Receipt: {r[p_id_col]} | {r['Borrower']} - {float(r['Amount']):,.0f} UGX" for _, r in m_p_df.iterrows()]
+            selected_p = st.selectbox("🔍 Select Receipt to Edit/Delete", p_options, key="edit_pay_sel")
             
-            c1, c2 = st.columns(2)
-            with c1:
-                up_name = st.text_input("Edit Borrower Name", value=str(loan_row.get('Borrower', '')))
-                up_p = st.number_input("Adjust Principal", value=float(loan_row.get('Principal', 0)))
-                up_rate = st.number_input("Adjust Rate (%)", value=float(loan_row.get('Interest_Rate', 0)))
-                up_paid = st.number_input("Adjust Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
+            # Extract ID
+            import re
+            p_match = re.search(r'Receipt:\s*(\d+)', str(selected_p))
+            p_clean_id = p_match.group(1) if p_match else "0"
             
-            with c2:
-                status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
-                curr_s = str(loan_row.get('Status', 'Active')).strip()
-                up_status = st.selectbox("Update Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
+            p_row = m_p_df[m_p_df[p_id_col] == p_clean_id].iloc[0]
+
+            # --- THE PAYMENT FORM ---
+            with st.form("edit_payment_form_luxe"):
+                st.info(f"Editing Receipt #{p_clean_id} for {p_row['Borrower']}")
+                c1, c2 = st.columns(2)
                 
-                try:
-                    s_date = pd.to_datetime(loan_row.get('Start_Date', datetime.now())).date()
-                    e_date = pd.to_datetime(loan_row.get('End_Date', datetime.now())).date()
-                except:
-                    s_date, e_date = datetime.now().date(), datetime.now().date()
+                new_p_amt = c1.number_input("Adjust Amount (UGX)", value=float(p_row.get('Amount', 0)))
+                new_p_date = c2.date_input("Adjust Date", value=pd.to_datetime(p_row.get('Date')).date())
+                new_p_method = st.selectbox("Update Method", ["Cash", "Mobile Money", "Bank Transfer"], index=0)
+
+                # --- SAVE BUTTON ---
+                if st.form_submit_button("💾 Save Payment Changes", use_container_width=True):
+                    # Find and update row in payments_df
+                    p_idx = payments_df[payments_df[p_id_col].astype(str).str.replace(".0", "", regex=False) == p_clean_id].index[0]
+                    
+                    payments_df.at[p_idx, 'Amount'] = new_p_amt
+                    payments_df.at[p_idx, 'Date'] = new_p_date.strftime('%Y-%m-%d')
+                    payments_df.at[p_idx, 'Method'] = new_p_method
+                    
+                    # Clean headers for save
+                    save_pay_df = payments_df.copy()
+                    save_pay_df.columns = [c.replace("_", " ") for c in save_pay_df.columns]
+                    
+                    if save_data("Payments", save_pay_df):
+                        st.success(f"✅ Receipt #{p_clean_id} updated! Remember to check the Loan Balance if you changed the amount.")
+                        st.cache_data.clear()
+                        st.rerun()
+
+            # --- DELETE BUTTON ---
+            st.markdown("---")
+            if st.button("🗑️ Delete Receipt Permanently", use_container_width=True):
+                new_pay_df = payments_df[payments_df[p_id_col].astype(str).str.replace(".0", "", regex=False) != p_clean_id]
                 
-                up_start = st.date_input("Adjust Start Date", value=s_date)
-                up_end = st.date_input("Adjust End Date", value=e_date)
-
-            st.divider()
-
-            b_save, b_del = st.columns(2)
-
-            if st.button("💾 Save Changes", use_container_width=True):
-                # Standardizing ID lookup
-                id_col = "Loan_ID" 
-                idx = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
+                # Clean headers for save
+                save_pay_df = new_pay_df.copy()
+                save_pay_df.columns = [c.replace("_", " ") for c in save_pay_df.columns]
                 
-                # Updating the main dataframe
-                loans_df.at[idx, 'Borrower'] = up_name
-                loans_df.at[idx, 'Principal'] = up_p
-                loans_df.at[idx, 'Status'] = up_status
-                loans_df.at[idx, 'End_Date'] = up_end.strftime('%Y-%m-%d')
-                loans_df.at[idx, 'Amount_Paid'] = up_paid
-
-                # --- THE "NO DUPLICATES" SYNC LOGIC ---
-                # Cleaning up payments and handling headers
-                save_payments = payments_df.copy() # Using current payments state
-                save_payments.columns = [c.replace("_", " ").strip() for c in save_payments.columns]
-                save_payments = save_payments.loc[:, ~save_payments.columns.duplicated()]
-                save_payments = save_payments.fillna("")
-                
-                # Same cleaning for loans
-                save_loans = loans_df.copy()
-                save_loans.columns = [c.replace("_", " ").strip() for c in save_loans.columns]
-                save_loans = save_loans.loc[:, ~save_loans.columns.duplicated()]
-                save_loans = save_loans.fillna(0)
-
-                if save_data("Payments", save_payments) and save_data("Loans", save_loans):
-                    st.success("✅ Changes saved and headers cleaned!")
-                    st.cache_data.clear()
-                    st.rerun()
-
-            st.markdown("---") # Visual separator
-
-            if st.button("🗑️ Delete Permanently", use_container_width=True):
-                # Filter out the selected ID
-                new_df = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) != clean_id]
-                
-                final_save_df = new_df.copy()
-                final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
-                
-                if save_data("Loans", final_save_df):
-                    st.warning(f"⚠️ Loan #{clean_id} deleted.")
+                if save_data("Payments", save_pay_df):
+                    st.warning(f"⚠️ Receipt #{p_clean_id} has been deleted.")
                     st.cache_data.clear()
                     st.rerun()
     
