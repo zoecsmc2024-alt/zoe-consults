@@ -2,7 +2,7 @@ streamlit
 pandas
 plotly
 gspread
-fpdf
+fpdf2
 bcrypt
 streamlit-option-menu
 google-auth
