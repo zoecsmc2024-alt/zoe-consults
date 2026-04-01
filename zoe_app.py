@@ -994,7 +994,6 @@ def show_loans():
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
-            # Format IDs for display
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
             relevant_statuses = ["Active", "Overdue", "Rolled/Overdue"]
@@ -1012,9 +1011,18 @@ def show_loans():
                 p2.metric("OUTSTANDING", f"{float(loan_info['Balance']):,.0f} UGX")
                 p3.metric("STATUS", str(loan_info['Status']).upper())
 
-                # Table Generation
-                st.dataframe(active_view[["Loan_ID", "Borrower", "Principal", "Balance", "Status", "End_Date"]], use_container_width=True, hide_index=True)
+                # --- THE UPDATE: ADDED START_DATE AND COMMA FORMATTING ---
+                # Formatting numeric columns with commas for the table view
+                for col in ["Principal", "Balance", "Total_Repayable", "Amount_Paid"]:
+                    if col in active_view.columns:
+                        active_view[col] = active_view[col].map("{:,.0f}".format)
 
+                # Added 'Start_Date' to the column list below
+                st.dataframe(
+                    active_view[["Loan_ID", "Borrower", "Principal", "Balance", "Status", "Start_Date", "End_Date"]], 
+                    use_container_width=True, 
+                    hide_index=True
+                )
     # ==============================
     # TAB: MANAGE / EDIT LOANS
     # ==============================
