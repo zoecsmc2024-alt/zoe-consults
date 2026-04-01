@@ -123,20 +123,51 @@ def create_pdf(html_content):
     return pdf_buffer.getvalue()
 
 @st.cache_data(ttl=600)
-def get_cached_data(worksheet_name):
+def get_cached_data(sheet_name):
     """
-    Fetches and caches a specific worksheet. 
-    Uses the global SHEET_ID and cached connection.
-    Cleans up empty rows/columns automatically.
+    Fetches data from Google Sheets and automatically cleans 
+    duplicate headers to prevent app crashes.
     """
     try:
-        sheet = open_main_sheet()
-        data = sheet.worksheet(worksheet_name).get_all_records()
+        # 1. Access the worksheet
+        sheet = client.open(SHEET_NAME).worksheet(sheet_name)
+        
+        # 2. Get all records
+        data = sheet.get_all_records()
+        
+        if not data:
+            return pd.DataFrame()
+            
         df = pd.DataFrame(data)
-        # Clean up any empty rows/columns that Google Sheets often includes
-        return df.dropna(how='all').reset_index(drop=True)
+
+        # --- THE SHIELD: AUTO-FIX DUPLICATE HEADERS ---
+        # If Google Sheets accidentally added 'Loan ID' twice, this kills the second one.
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        # 3. Standardize column names (Remove spaces, add underscores for internal logic)
+        df.columns = [str(c).strip().replace(" ", "_") for c in df.columns]
+        
+        return df
     except Exception as e:
-        st.error(f"⚠️ Error loading {worksheet_name}: {e}")
+        # If the duplicate error happens during 'get_all_records', we use a fallback:
+        if "duplicates" in str(e).lower():
+            # Fallback: Load raw values and force unique headers
+            raw_values = sheet.get_all_values()
+            headers = raw_values[0]
+            # Force headers to be unique
+            unique_headers = []
+            for i, h in enumerate(headers):
+                if h in unique_headers or h == "":
+                    unique_headers.append(f"{h}_dup_{i}")
+                else:
+                    unique_headers.append(h)
+            
+            df = pd.DataFrame(raw_values[1:], columns=unique_headers)
+            df = df.loc[:, ~df.columns.str.contains("_dup_")] # Drop the duplicates
+            df.columns = [str(c).strip().replace(" ", "_") for c in df.columns]
+            return df
+            
+        st.error(f"⚠️ Error loading {sheet_name}: {e}")
         return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
