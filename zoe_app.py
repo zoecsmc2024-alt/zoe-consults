@@ -918,60 +918,68 @@ def show_loans():
     tab_view, tab_add, tab_manage, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "🛠️ Manage/Edit", "⚙️ Actions"])
 
     # ==============================
-    # TAB: PORTFOLIO VIEW (Theme: Midnight & Luxe Status Colors)
+    # TAB: PORTFOLIO VIEW (Theme: Midnight Luxe & Status Badges)
     # ==============================
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
+            # Standardize IDs
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
-            # --- THE FIX: DON'T FILTER OUT CLOSED LOANS ---
-            # We want to see EVERYTHING in this list now
+            # No filtering - show all records (including Closed ones)
             active_view = display_df.copy()
 
             if active_view.empty:
                 st.info("ℹ️ No loan records found.")
             else:
-                # SELECT LOAN FOR INSPECTION CARDS
-                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel_v3")
+                # 1. SELECT LOAN FOR INSPECTION CARDS
+                sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel_v4")
                 loan_info = active_view[active_view["Loan_ID"] == sel_id].iloc[0]
                 
-                # CARDS (Keeping your beautiful Midnight style)
+                # 2. BRANDED METRIC CARDS (Refined CSS for perfect spacing)
                 c1, c2, c3 = st.columns(3)
-                c1.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">✅ RECEIVED</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{float(loan_info['Amount_Paid']):,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-                c2.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">🚨 OUTSTANDING</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{float(loan_info['Balance']):,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-                c3.markdown(f"""<div style="background-color:#F0F8FF;padding:20px;border-radius:15px;border-left:10px solid #0A192F;"><p style="margin:0;font-size:11px;color:#0A192F;font-weight:bold;">📑 STATUS</p><h3 style="margin:0;color:#0A192F;font-size:18px;">{str(loan_info['Status']).upper()}</h3></div>""", unsafe_allow_html=True)
+                
+                # Logic values
+                rec_val = float(loan_info.get('Amount_Paid', 0))
+                out_val = float(loan_info.get('Balance', 0))
+                stat_val = str(loan_info.get('Status', 'Active')).upper()
+
+                card_style = "background-color:#F0F8FF; padding:20px; border-radius:15px; border-left:10px solid #0A192F; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"
+                text_style = "margin:0; color:#0A192F;"
+
+                c1.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">✅ RECEIVED</p><h3 style="{text_style} font-size:18px;">{rec_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                c2.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">🚨 OUTSTANDING</p><h3 style="{text_style} font-size:18px;">{out_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                c3.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">📑 STATUS</p><h3 style="{text_style} font-size:18px;">{stat_val}</h3></div>""", unsafe_allow_html=True)
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # --- THE COLOR LOGIC ENGINE ---
+                # 3. COLOR LOGIC FOR TABLE BADGES
                 def style_status(val):
-                    # Colors for different statuses
-                    if val == "Active": color = "#4A90E2"     # Baby Blue
-                    elif val == "Closed": color = "#2E7D32"   # Emerald Green
-                    elif val == "Overdue": color = "#FF4B4B"  # Hot Red
-                    elif "Rolled" in str(val): color = "#FFA500" # Orange
-                    else: color = "#666666"                   # Default Grey
+                    if val == "Active": color = "#4A90E2"      # Baby Blue
+                    elif val == "Closed": color = "#2E7D32"    # Emerald Green
+                    elif val == "Overdue": color = "#FF4B4B"   # Hot Red
+                    elif "Rolled" in str(val): color = "#FFA500"  # Orange
+                    else: color = "#666666"                    # Grey
                     return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
 
-                # Prepare safe columns
+                # 4. DATA PREP & DYNAMIC COLUMNS
                 show_cols = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
                 for d_col in ["Start_Date", "Start Date", "End_Date", "End Date"]:
-                    if d_col in active_view.columns: show_cols.append(d_col)
+                    if d_col in active_view.columns: 
+                        show_cols.append(d_col)
                 
                 final_table = active_view[show_cols].copy()
 
-                # Clean numeric formatting
                 for col in ["Principal", "Balance"]:
                     if col in final_table.columns:
                         final_table[col] = pd.to_numeric(final_table[col], errors='coerce').fillna(0)
 
-                # RENDER TABLE WITH COLORFUL STATUSES
+                # --- THE BIG FIX: Use .map instead of .applymap ---
                 st.dataframe(
                     final_table.style.format({
                         "Principal": "{:,.0f}",
                         "Balance": "{:,.0f}"
-                    }).applymap(style_status, subset=['Status']),
+                    }).map(style_status, subset=['Status']), 
                     use_container_width=True, 
                     hide_index=True
                 )
