@@ -1746,6 +1746,7 @@ def show_calendar():
     st.markdown("---")
 
     # 3. DAILY WORKLOAD METRICS (Zoe Branded Cards)
+    # These counts help you see what's happening at a glance
     due_today_df = active_loans[active_loans["End_Date"].dt.date == today.date()]
     upcoming_df = active_loans[
         (active_loans["End_Date"] > today) & 
@@ -1753,10 +1754,10 @@ def show_calendar():
     ]
     overdue_count = active_loans[active_loans["End_Date"] < today].shape[0]
 
-    # These three columns are the "starting point"
+    # Create the columns
     m1, m2, m3 = st.columns(3)
     
-    # FIX: These must line up perfectly under the 'm1, m2, m3' line
+    # FIX: These must all start at the EXACT same indentation level as the 'm1, m2, m3' line
     m1.markdown(f"""
     <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
         <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">DUE TODAY |</p>
@@ -1777,15 +1778,6 @@ def show_calendar():
         <p style="margin:0; font-size:18px; color:#D32F2F; font-weight:bold;">{overdue_count} Accounts</p>
     </div>
     """, unsafe_allow_html=True)
-
-        m2.markdown(f"""
-        <div style="background-color: #F0F8FF; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);">
-            <p style="margin:0; font-size:12px; color:#666; font-weight:bold;">PAYMENT DUE BY |</p>
-            <p style="margin:0; font-size:16px; color:#2B3F87; font-weight:bold;">{pd.to_datetime(r['End_Date']).strftime('%d %b %Y')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     # --- CALENDAR FOOTER: REVENUE PREVIEW ---
     st.markdown("---")
