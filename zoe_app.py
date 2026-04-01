@@ -1336,32 +1336,48 @@ def show_payments():
 
             b_save, b_del = st.columns(2)
 
-            if b_save.button("💾 Save Changes", use_container_width=True):
-                # Using direct Loans reference for global update
-                id_col = "Loan_ID" # Internal standardized name
+            if st.button("💾 Save Changes", use_container_width=True):
+                # Standardizing ID lookup
+                id_col = "Loan_ID" 
                 idx = loans_df[loans_df[id_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
                 
+                # Updating the main dataframe
                 loans_df.at[idx, 'Borrower'] = up_name
                 loans_df.at[idx, 'Principal'] = up_p
                 loans_df.at[idx, 'Status'] = up_status
                 loans_df.at[idx, 'End_Date'] = up_end.strftime('%Y-%m-%d')
                 loans_df.at[idx, 'Amount_Paid'] = up_paid
 
-                # Save with spaces restored
-                final_save_df = loans_df.copy()
-                final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
+                # --- THE "NO DUPLICATES" SYNC LOGIC ---
+                # Cleaning up payments and handling headers
+                save_payments = payments_df.copy() # Using current payments state
+                save_payments.columns = [c.replace("_", " ").strip() for c in save_payments.columns]
+                save_payments = save_payments.loc[:, ~save_payments.columns.duplicated()]
+                save_payments = save_payments.fillna("")
                 
-                if save_data("Loans", final_save_df):
-                    st.success(f"✅ Loan #{clean_id} updated!")
+                # Same cleaning for loans
+                save_loans = loans_df.copy()
+                save_loans.columns = [c.replace("_", " ").strip() for c in save_loans.columns]
+                save_loans = save_loans.loc[:, ~save_loans.columns.duplicated()]
+                save_loans = save_loans.fillna(0)
+
+                if save_data("Payments", save_payments) and save_data("Loans", save_loans):
+                    st.success("✅ Changes saved and headers cleaned!")
+                    st.cache_data.clear()
                     st.rerun()
 
-            if b_del.button("🗑️ Delete Permanently", use_container_width=True):
+            st.markdown("---") # Visual separator
+
+            if st.button("🗑️ Delete Permanently", use_container_width=True):
+                # Filter out the selected ID
                 new_df = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) != clean_id]
+                
                 final_save_df = new_df.copy()
                 final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
                 
                 if save_data("Loans", final_save_df):
                     st.warning(f"⚠️ Loan #{clean_id} deleted.")
+                    st.cache_data.clear()
                     st.rerun()
     
 # ==============================
