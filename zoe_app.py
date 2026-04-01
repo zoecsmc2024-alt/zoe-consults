@@ -359,68 +359,68 @@ def generate_ledger_pdf(loan_data, ledger_df):
 def apply_ui_theme():
     st.markdown("""
     <style>
-        /* 1. MAIN APP PADDING */
+        /* 1. THE BIG FIX: FORCE FULL SCREEN WIDTH */
+        /* This removes the narrow center-only layout */
         .block-container {
+            max-width: 100% !important;
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
-            padding-left: 3rem !important;
-            padding-right: 3rem !important;
+            padding-left: 5rem !important;  /* Space from sidebar */
+            padding-right: 5rem !important; /* Space from right edge */
         }
 
-        /* 2. FORCE MAIN BACKGROUND */
+        /* 2. MAIN APP BACKGROUND */
         .stApp {
             background-color: #F0F8FF !important;
         }
 
-        /* 3. SIDEBAR SPACING */
+        /* 3. SIDEBAR BRANDING */
         [data-testid="stSidebar"] {
             background-color: #2B3F87 !important;
-        }
-        
-        /* Add gap between sidebar logo/text and buttons */
-        [data-testid="stSidebarNav"] {
-            margin-top: 20px !important;
+            min-width: 250px !important; /* Makes sidebar slightly wider for elegance */
         }
 
-        /* 4. METRIC CARD SPACING & BREATHING ROOM */
+        /* 4. METRIC CARDS (Spaced out for the new wide look) */
         div[data-testid="stMetric"] {
             background-color: #FFFFFF !important;
             border: 1px solid #2B3F87 !important;
-            border-left: 5px solid #2B3F87 !important;
+            border-left: 10px solid #2B3F87 !important; /* Thicker accent for wide view */
             border-radius: 15px !important;
             box-shadow: 0 4px 12px rgba(43, 63, 135, 0.1) !important;
-            padding: 25px !important; /* Increased padding inside cards */
-            margin-bottom: 15px !important; /* Gap between cards if they stack */
+            padding: 25px !important;
         }
         
-        /* 5. SIDEBAR BUTTON SPACING (The 'Smooth' Look) */
+        /* 5. SIDEBAR BUTTON ELEGANCE */
         section[data-testid="stSidebar"] .stButton > button {
             background-color: transparent !important;
             color: #F0F8FF !important;
             border: 1px solid rgba(240, 248, 255, 0.1) !important;
             width: 100% !important;
             text-align: left !important;
-            padding: 10px 15px !important; /* Increased from 6px for better clickable area */
-            margin-bottom: 8px !important;  /* Added gap between buttons */
-            border-radius: 8px !important;
-            font-size: 14px !important;
+            padding: 12px 20px !important;
+            margin-bottom: 10px !important;
+            border-radius: 10px !important;
+            font-size: 15px !important;
             transition: all 0.2s ease !important;
         }
 
-        /* 6. SECTION HEADER SPACING */
-        h2, h3, h4 {
-            margin-top: 1.5rem !important;
-            margin-bottom: 1rem !important;
-            font-weight: 700 !important;
+        /* 6. TABLE & CHART WIDTHS */
+        /* This ensures charts stretch into the new space */
+        iframe {
+            width: 100% !important;
+        }
+        
+        .stTable, .stDataFrame {
+            width: 100% !important;
         }
 
-        /* 7. TABLE SPACING */
-        .stTable {
-            margin-top: 15px !important;
+        /* 7. TITLE SPACING */
+        h1, h2 {
+            margin-bottom: 2rem !important;
+            color: #2B3F87 !important;
         }
     </style>
     """, unsafe_allow_html=True)
-
 # Execute the UI theme application
 apply_ui_theme()
 # ==============================
