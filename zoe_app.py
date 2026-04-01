@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from twilio.rest import Client
 from fpdf import FPDF
-from xhtml2pdf import pisa
 from streamlit_calendar import calendar
 
 # --- TOP OF YOUR SCRIPT ---
