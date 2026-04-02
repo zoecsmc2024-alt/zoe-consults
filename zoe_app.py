@@ -1536,59 +1536,53 @@ def show_collateral():
         else:
             st.info("💡 No collateral registered yet.")
 # ==============================
-# 16. COLLECTIONS & OVERDUE TRACKER (Fully Refined)
+# 16. COLLECTIONS & OVERDUE TRACKER (The Master Engine)
 # ==============================
 def show_overdue_tracker():
-    """
-    Automated engine for identifying overdue loans and executing 
-    monthly interest compounding (rollovers).
-    """
     st.markdown("### 🚨 Loan Overdue & Rollover Tracker")
 
-    try:
-        # 1. --- THE AUTO-REFILL GATEKEEPER ---
-        loans_data = st.session_state.get("loans")
-        
-        if loans_data is None or loans_data.empty:
-            with st.spinner("🔄 Re-syncing with Google Sheets..."):
-                loans_data = get_cached_data("Loans") 
-                if loans_data is not None and not loans_data.empty:
-                    st.session_state.loans = loans_data
-                else:
-                    st.info("💡 No loan records found in the system.")
-                    return
+    # 1. --- THE AUTO-REFILL GATEKEEPER ---
+    if st.button("🔄 Refresh Data from Sheets", use_container_width=True):
+        with st.spinner("🧹 Clearing cache and re-syncing..."):
+            st.cache_data.clear() 
+            st.session_state.loans = get_cached_data("Loans")
+            st.session_state.ledger = get_cached_data("Ledger")
+            st.rerun()
 
-        # 2. --- PREP WORKING DATA ---
-        loans = loans_data.copy()
-        loans.columns = loans.columns.str.strip().str.replace(" ", "_")
-        
-        ledger = st.session_state.get("ledger", pd.DataFrame())
-        if not ledger.empty:
-            ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
+    loans_data = st.session_state.get("loans")
+    
+    if loans_data is None or loans_data.empty:
+        st.info("💡 No active loan records found. The system is currently clear!")
+        return
 
-        # 3. --- REQUIRED COLUMNS CHECK ---
-        required_cols = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
-        missing = [col for col in required_cols if col not in loans.columns]
+    # 2. --- PREP WORKING DATA ---
+    loans = loans_data.copy()
+    loans.columns = loans.columns.str.strip().str.replace(" ", "_")
+    
+    ledger = st.session_state.get("ledger", pd.DataFrame())
+    if not ledger.empty:
+        ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
 
-        if missing:
-            st.error(f"❌ Missing columns in Google Sheet: {missing}")
-            st.write("Current columns found:", list(loans.columns))
-            return
+    # 3. --- REQUIRED COLUMNS CHECK ---
+    required_cols = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
+    missing = [col for col in required_cols if col not in loans.columns]
+    if missing:
+        st.error(f"❌ Missing columns in Google Sheet: {missing}")
+        return
 
-        # 4. --- DATE PREP ---
-        loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
-        today = datetime.now()
+    # 4. --- DATE PREP ---
+    loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
+    today = datetime.now()
 
-        # 5. --- FILTER OVERDUE ACCOUNTS ---
-        overdue_df = loans[
-            (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
-            (loans['End_Date'] < today)
-        ].copy()
+    # 5. --- FILTER OVERDUE ACCOUNTS ---
+    overdue_df = loans[
+        (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
+        (loans['End_Date'] < today)
+    ].copy()
 
-        if overdue_df.empty:
-            st.success("✨ Excellent! All accounts are currently up to date.")
-            return
-
+    if overdue_df.empty:
+        st.success("✨ Excellent! All accounts are currently up to date.")
+    else:
         st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
 
         # 6. --- BRANDED DISPLAY TABLE (Blue Zoe Theme) ---
@@ -1624,84 +1618,74 @@ def show_overdue_tracker():
         </div>"""
         st.components.v1.html(branded_html, height=350, scrolling=True)
 
-        # 7. --- PREP LEDGER BALANCES ---
-        latest_ledger = pd.DataFrame()
-        if not ledger.empty and "Loan_ID" in ledger.columns:
-            ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-            latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
+    # 7. --- PREP LEDGER BALANCES ---
+    latest_ledger = pd.DataFrame()
+    if not ledger.empty and "Loan_ID" in ledger.columns:
+        ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
+        latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
-        # 8. --- ROLLOVER BUTTON (The History-Building Engine) ---
-        if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-            updated_df = loans.copy() 
-            new_rows_list = []
-            count = 0
-            
-            try: 
-                # CRITICAL CHANGE: We look at the latest cycle rows, not just overdue ones
-                # This allows you to roll over a "Pending" loan again immediately
-                targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
-                
-                if targets.empty:
-                    # Fallback to the overdue_df if no "Pending" rows are found
-                    targets = overdue_df.copy()
+    # 8. --- ROLLOVER BUTTON (The History-Building Engine) ---
+    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+        updated_df = loans.copy() 
+        new_rows_list = []
+        count = 0
+        
+        try: 
+            # Targets: Find active 'Pending' rows or Fallback to Overdue
+            targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
+            if targets.empty:
+                targets = overdue_df.copy()
 
-                for i, r in targets.iterrows():
-                    loan_id = str(r.get('Loan_ID')).replace(".0", "").strip()
+            for i, r in targets.iterrows():
+                # A. Identify and Archive the current row
+                if i in updated_df.index:
+                    updated_df.at[i, 'Status'] = "BCF - Rolled"
+
+                    # B. Calculate Values for New Cycle
+                    old_pri = float(r.get('Principal', 0))
+                    old_int = float(r.get('Interest', 0))
+                    new_principal_basis = old_pri + old_int
                     
-                    # A. Identify the current row to archive it
-                    # We use the index 'i' from the target dataframe
-                    if i in updated_df.index:
-                        # 1. ARCHIVE THE OLD ROW
-                        updated_df.at[i, 'Status'] = "BCF - Rolled"
+                    orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
+                    new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
+                    new_end = new_start + pd.DateOffset(months=1)
 
-                        # 2. CALCULATE NEW VALUES
-                        # We take current Principal + current Interest to be the NEW Principal
-                        old_pri = float(r.get('Principal', 0))
-                        old_int = float(r.get('Interest', 0))
-                        new_principal_basis = old_pri + old_int
-                        
-                        # Date Push
-                        orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
-                        new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
-                        new_end = new_start + pd.DateOffset(months=1)
+                    # C. Create the New Row
+                    new_row = r.copy()
+                    new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
+                    new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
+                    new_row['Principal'] = new_principal_basis
+                    new_row['Balance'] = new_principal_basis
+                    new_row['Amount_Paid'] = 0
+                    new_row['Interest'] = new_principal_basis * 0.03 
+                    new_row['Status'] = "Pending" 
+                    new_row['Balance_B/F'] = new_principal_basis 
+                    
+                    new_rows_list.append(new_row)
+                    count += 1
 
-                        # 3. CREATE THE NEW ROW (The next cycle)
-                        new_row = r.copy()
-                        new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
-                        new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
-                        new_row['Principal'] = new_principal_basis
-                        new_row['Balance'] = new_principal_basis
-                        new_row['Amount_Paid'] = 0
-                        # Ensure interest compounds on the new, larger principal
-                        new_row['Interest'] = new_principal_basis * 0.03 
-                        new_row['Status'] = "Pending" 
-                        new_row['Balance_B/F'] = new_principal_basis 
-                        
-                        new_rows_list.append(new_row)
-                        count += 1
+            # D. Append New Records
+            if new_rows_list:
+                new_entries_df = pd.DataFrame(new_rows_list)
+                updated_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
 
-                # 4. APPEND THE NEW RECORDS
-                if new_rows_list:
-                    new_entries_df = pd.DataFrame(new_rows_list)
-                    updated_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
+            # 9. --- CLEAN DATA FOR SAVING ---
+            money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F']
+            for m_col in money_cols:
+                if m_col in updated_df.columns:
+                    updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
 
-                # 9. --- CLEAN DATA ---
-                money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F']
-                for m_col in money_cols:
-                    if m_col in updated_df.columns:
-                        updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
+            # 10. --- FINAL SAVE & REFRESH ---
+            save_ready_df = updated_df.copy()
+            save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
+            
+            if save_data("Loans", save_ready_df):
+                st.success(f"✅ Compounding Successful! Added {count} new cycle rows.")
+                st.cache_data.clear() 
+                st.rerun()
 
-                # 10. --- SAVE & REFRESH ---
-                save_ready_df = updated_df.copy()
-                save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
-                
-                if save_data("Loans", save_ready_df):
-                    st.success(f"✅ Compounding Successful! Added {count} new cycle rows.")
-                    st.cache_data.clear() 
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"🚨 Rollover Error: {str(e)}")
+        except Exception as e:
+            st.error(f"🚨 Rollover Error: {str(e)}")
     except Exception as e:
         st.error(f"🚨 Unexpected Error in Tracker: {str(e)}")
 
