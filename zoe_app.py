@@ -1666,8 +1666,9 @@ def show_overdue_tracker():
                     id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
                     updated_df = combined_df.sort_values(by=[id_col, 'Start_Date'], ascending=[True, True])
 
-                # Clean and Save
-                save_ready_df = updated_df.copy()
+                # 6. --- THE CORRECTED SAVE BLOCK ---
+                # We use .fillna(0) to ensure Google Sheets doesn't crash on empty numbers
+                save_ready_df = updated_df.fillna(0).copy()
                 save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
                 
                 if save_data("Loans", save_ready_df):
