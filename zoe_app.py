@@ -1638,136 +1638,166 @@ def show_overdue_tracker():
         st.components.v1.html(branded_html, height=350, scrolling=True)
 
     # 7. --- PREP LEDGER BALANCES ---
-    latest_ledger = pd.DataFrame()
-    if not ledger.empty and "Loan_ID" in ledger.columns:
-        ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-        latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
+latest_ledger = pd.DataFrame()
 
-    # 8. --- ROLLOVER BUTTON (The Ultimate History-Building Engine) ---
-    st.markdown("---") 
-    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-        # We work on a fresh copy of the data
-        updated_df = loans.copy() 
-        new_rows_list = []
-        count = 0
-        
-        try: 
-            # FORCE NUMERIC: This stops the "stubborn" balance by making sure math actually happens
-            for col in ['Principal', 'Interest', 'Balance', 'Total_Repayable', 'Amount_Paid']:
+if not ledger.empty and "Loan_ID" in ledger.columns:
+    ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
+    latest_ledger = (
+        ledger.sort_values('Date')
+        .groupby("Loan_ID")
+        .tail(1)
+    )
+
+# 8. --- ROLLOVER BUTTON ---
+st.markdown("---") 
+
+if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+    updated_df = loans.copy()
+    new_rows_list = []
+    count = 0
+
+    try:
+        # --- FORCE NUMERIC (CRITICAL) ---
+        # This ensures Python treats these columns as numbers, not text
+        money_cols = ['Principal', 'Interest', 'Balance', 'Total_Repayable', 'Amount_Paid']
+        for col in money_cols:
+            if col in updated_df.columns:
+                updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce').fillna(0)
+
+        # --- SELECT TARGET LOANS ---
+        targets = updated_df[updated_df['Status'] == "Pending"].copy()
+
+        if targets.empty:
+            targets = overdue_df.copy()
+
+        if targets.empty:
+            st.info("No loans currently require a rollover cycle.")
+        else:
+            for i, r in targets.iterrows():
+                if i not in updated_df.index:
+                    continue
+
+                # --- MARK OLD ROW AS BCF ---
+                updated_df.at[i, 'Status'] = "BCF"
+
+                # =========================
+                # ✅ FIXED COMPOUNDING LOGIC
+                # =========================
+                # Math: New Principal = Old Balance
+                # New Interest = 3% of that New Principal
+                old_balance = float(r.get('Balance', 0))
+
+                new_basis = old_balance
+                new_month_interest = new_basis * 0.03
+                compounded_balance = new_basis + new_month_interest
+
+                # --- DATE HANDLING ---
+                orig_end_date = pd.to_datetime(r.get('End_Date'), errors='coerce')
+                new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
+                new_end = new_start + pd.DateOffset(months=1)
+
+                # --- CREATE NEW ROW ---
+                new_row = r.copy()
+                new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
+                new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
+
+                new_row['Principal'] = new_basis
+                new_row['Interest'] = new_month_interest
+                new_row['Total_Repayable'] = compounded_balance
+                new_row['Balance'] = compounded_balance
+
+                new_row['Amount_Paid'] = 0
+                new_row['Status'] = "Pending"
+                new_row['Balance_B/F'] = new_basis
+
+                new_rows_list.append(new_row)
+                count += 1
+
+            # --- APPEND NEW ROWS ---
+            if new_rows_list:
+                new_entries_df = pd.DataFrame(new_rows_list)
+                combined_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
+
+                id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
+                combined_df['Start_Date'] = pd.to_datetime(combined_df['Start_Date'], errors='coerce')
+
+                # Interleave sorting: Keeps Loan IDs together with dates in order
+                updated_df = combined_df.sort_values(
+                    by=[id_col, 'Start_Date'],
+                    ascending=[True, True]
+                )
+
+            # --- CLEAN AGAIN BEFORE SAVE ---
+            for col in money_cols + ['Balance_B/F']:
                 if col in updated_df.columns:
                     updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce').fillna(0)
 
-            # Define our rollover targets
-            targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
-            if targets.empty:
-                targets = overdue_df.copy()
+            # --- SAVE TO GOOGLE SHEETS ---
+            save_ready_df = updated_df.copy()
+            # Clean headers for Excel/Sheet compatibility
+            save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
 
-            if targets.empty:
-                st.info("No loans currently require a rollover cycle.")
-            else:
-                for i, r in targets.iterrows():
-                    if i in updated_df.index:
-                        # 1. Archive the old row as BCF
-                        updated_df.at[i, 'Status'] = "BCF"
+            if save_data("Loans", save_ready_df):
+                st.success(f"✅ Compounding Successful! Added {count} rows.")
 
-                        # 2. THE ULTIMATE MATH FIX (Forced calculation)
-                        old_pri = float(r.get('Principal', 0))
-                        old_int = float(r.get('Interest', 0))
-                        
-                        # Basis (e.g., 514,000)
-                        new_basis = old_pri + old_int
-                        # New month's interest (e.g., 15,420)
-                        new_month_interest = new_basis * 0.03
-                        # Final Compounded Balance (e.g., 529,420)
-                        compounded_balance = new_basis + new_month_interest
-                        
-                        # Date Math
-                        orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
-                        new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
-                        new_end = new_start + pd.DateOffset(months=1)
+                # --- REFRESH STATE ---
+                st.cache_data.clear()
+                st.session_state.loans = get_cached_data("Loans")
+                st.rerun()
 
-                        # 3. Create the New "Pending" Row
-                        new_row = r.copy()
-                        new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
-                        new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
-                        new_row['Principal'] = new_basis
-                        new_row['Interest'] = new_month_interest
-                        new_row['Total_Repayable'] = compounded_balance # The "Secret" fix
-                        new_row['Balance'] = compounded_balance # The "Visible" fix 🚀
-                        new_row['Amount_Paid'] = 0
-                        new_row['Status'] = "Pending" 
-                        new_row['Balance_B/F'] = new_basis 
-                        
-                        new_rows_list.append(new_row)
-                        count += 1
-
-                # 4. Append and Sort by ID and Date
-                if new_rows_list:
-                    new_entries_df = pd.DataFrame(new_rows_list)
-                    combined_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
-                    id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
-                    updated_df = combined_df.sort_values(by=[id_col, 'Start_Date'], ascending=[True, True])
-
-                # 5. Clean Money Columns for Google Sheets
-                money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F', 'Total_Repayable']
-                for m_col in money_cols:
-                    if m_col in updated_df.columns:
-                        updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
-
-                # 6. Save back to Sheets
-                save_ready_df = updated_df.copy()
-                save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
-                
-                if save_data("Loans", save_ready_df):
-                    st.success(f"✅ Compounding Successful! Added {count} rows.")
-                    # Clear cache and reset session state to show the new numbers immediately
-                    st.cache_data.clear() 
-                    st.session_state.loans = get_cached_data("Loans")
-                    st.rerun()
-        except Exception as e:
-            st.error(f"🚨 Rollover Error: {str(e)}")
-
-    # 9. --- COLOR STYLING, FORMATTING & COLUMN REORDERING ---
-    def style_status_colors(s):
-        if s == "BCF": return "background-color: #FFA500; color: white;" # Orange
-        if s == "Pending": return "background-color: #D32F2F; color: white;" # Red
-        if s == "Closed": return "background-color: #2E7D32; color: white;" # Green
-        return ""
-
-    st.markdown("### 🏦 All Loan Records")
-    
-    try:
-        # Pull fresh data from session state for the table display
-        if st.session_state.get("loans") is not None:
-            display_df = st.session_state.loans.copy()
-        else:
-            display_df = loans.copy()
-            
-        display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
-
-        # Push Status to the end
-        if 'Status' in display_df.columns:
-            cols = [c for c in display_df.columns if c != 'Status'] + ['Status']
-            display_df = display_df[cols]
-
-        # Professional Formatting (Commas & No Decimals)
-        fmt_dict = {
-            "Principal": "{:,.0f}", 
-            "Balance": "{:,.0f}", 
-            "Interest": "{:,.0f}",
-            "Total_Repayable": "{:,.0f}",
-            "Amount_Paid": "{:,.0f}",
-            "Balance_B/F": "{:,.0f}"
-        }
-        actual_fmt = {k: v for k, v in fmt_dict.items() if k in display_df.columns}
-
-        # Render the styled table
-        styled_df = display_df.style.map(style_status_colors, subset=['Status']).format(actual_fmt)
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
-        
     except Exception as e:
-        st.error(f"Display Error: {str(e)}")
-        st.dataframe(loans, use_container_width=True, hide_index=True)
+        st.error(f"🚨 Rollover Error: {str(e)}")
+
+
+# 9. --- TABLE DISPLAY ---
+def style_status_colors(s):
+    if s == "BCF":
+        return "background-color: #FFA500; color: white;"
+    if s == "Pending":
+        return "background-color: #D32F2F; color: white;"
+    if s == "Closed":
+        return "background-color: #2E7D32; color: white;"
+    return ""
+
+st.markdown("### 🏦 All Loan Records")
+
+try:
+    if st.session_state.get("loans") is not None:
+        display_df = st.session_state.loans.copy()
+    else:
+        display_df = loans.copy()
+
+    # --- CLEAN COLUMN NAMES ---
+    display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
+
+    # --- MOVE STATUS TO END (FOR CLEAN LOOK) ---
+    if 'Status' in display_df.columns:
+        cols = [c for c in display_df.columns if c != 'Status'] + ['Status']
+        display_df = display_df[cols]
+
+    # --- FORMAT NUMBERS (COMMAS & NO DECIMALS) ---
+    fmt_dict = {
+        "Principal": "{:,.0f}",
+        "Balance": "{:,.0f}",
+        "Interest": "{:,.0f}",
+        "Total_Repayable": "{:,.0f}",
+        "Amount_Paid": "{:,.0f}",
+        "Balance_B/F": "{:,.0f}"
+    }
+
+    actual_fmt = {k: v for k, v in fmt_dict.items() if k in display_df.columns}
+
+    styled_df = (
+        display_df.style
+        .map(style_status_colors, subset=['Status'])
+        .format(actual_fmt)
+    )
+
+    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
+except Exception as e:
+    st.error(f"Display Error: {str(e)}")
+    st.dataframe(loans, use_container_width=True, hide_index=True)
             
 
 
