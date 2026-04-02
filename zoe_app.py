@@ -1638,18 +1638,26 @@ def show_overdue_tracker():
         st.components.v1.html(branded_html, height=350, scrolling=True)
 
     # 7. --- PREP LEDGER BALANCES ---
-latest_ledger = pd.DataFrame()
+    # Ensure Section 7 is indented exactly like the lines above it!
+    
+    # We pull a fresh reference to ledger here to be 100% safe
+    ledger = st.session_state.get("ledger", pd.DataFrame())
+    latest_ledger = pd.DataFrame()
 
-if not ledger.empty and "Loan_ID" in ledger.columns:
-    ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
-    ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-    latest_ledger = (
-        ledger.sort_values('Date')
-        .groupby("Loan_ID")
-        .tail(1)
-    )
+    if not ledger.empty:
+        # Clean headers to ensure "Loan_ID" is found
+        ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
+        
+        if "Loan_ID" in ledger.columns:
+            ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
+            latest_ledger = (
+                ledger.sort_values('Date')
+                .groupby("Loan_ID")
+                .tail(1)
+            )
 
-# 8. --- ROLLOVER BUTTON ---
+    # 8. --- ROLLOVER BUTTON ---
+    # (Keep your Rollover Button code here, also indented!)
 st.markdown("---") 
 
 if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
