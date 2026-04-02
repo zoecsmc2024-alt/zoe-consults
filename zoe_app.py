@@ -1632,82 +1632,73 @@ def show_overdue_tracker():
 
         # 8. --- ROLLOVER BUTTON (The History-Building Engine) ---
         if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-            # 1. Start with the existing data
             updated_df = loans.copy() 
             new_rows_list = []
             count = 0
             
             try: 
-                for i, r in overdue_df.iterrows():
+                # CRITICAL CHANGE: We look at the latest cycle rows, not just overdue ones
+                # This allows you to roll over a "Pending" loan again immediately
+                targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
+                
+                if targets.empty:
+                    # Fallback to the overdue_df if no "Pending" rows are found
+                    targets = overdue_df.copy()
+
+                for i, r in targets.iterrows():
                     loan_id = str(r.get('Loan_ID')).replace(".0", "").strip()
                     
-                    # A. Identify the current row in the main dataframe
-                    main_idx_list = updated_df[updated_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip() == loan_id].index
-                    
-                    if not main_idx_list.empty:
-                        main_idx = main_idx_list[0]
-                        
-                        # B. ARCHIVE THE OLD ROW (Status Update)
-                        # This keeps the old record as "BCF - Rolled"
-                        updated_df.at[main_idx, 'Status'] = "BCF - Rolled"
+                    # A. Identify the current row to archive it
+                    # We use the index 'i' from the target dataframe
+                    if i in updated_df.index:
+                        # 1. ARCHIVE THE OLD ROW
+                        updated_df.at[i, 'Status'] = "BCF - Rolled"
 
-                        # C. CALCULATE VALUES FOR THE NEW CYCLE
-                        # We take the previous (Principal + Interest) to be the NEW Principal
+                        # 2. CALCULATE NEW VALUES
+                        # We take current Principal + current Interest to be the NEW Principal
                         old_pri = float(r.get('Principal', 0))
                         old_int = float(r.get('Interest', 0))
                         new_principal_basis = old_pri + old_int
                         
-                        # Date Push: New Start is Old End, New End is +1 Month
+                        # Date Push
                         orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
-                        if pd.isna(orig_end_date):
-                            new_start = datetime.now()
-                        else:
-                            new_start = orig_end_date
-                        
+                        new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
                         new_end = new_start + pd.DateOffset(months=1)
 
-                        # D. CREATE THE NEW ROW (The "Next Month" record)
-                        new_row = r.copy() # Copy all details (Borrower, Phone, etc.)
+                        # 3. CREATE THE NEW ROW (The next cycle)
+                        new_row = r.copy()
                         new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
                         new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
                         new_row['Principal'] = new_principal_basis
                         new_row['Balance'] = new_principal_basis
                         new_row['Amount_Paid'] = 0
-                        # Recalculate new month's interest (e.g., 3%)
+                        # Ensure interest compounds on the new, larger principal
                         new_row['Interest'] = new_principal_basis * 0.03 
                         new_row['Status'] = "Pending" 
-                        new_row['Balance_B/F'] = new_principal_basis # Carry over the trend
+                        new_row['Balance_B/F'] = new_principal_basis 
                         
                         new_rows_list.append(new_row)
                         count += 1
 
-                # 2. APPEND THE NEW RECORDS TO THE DATAFRAME
+                # 4. APPEND THE NEW RECORDS
                 if new_rows_list:
                     new_entries_df = pd.DataFrame(new_rows_list)
                     updated_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
 
-                # 9. --- CLEAN DATA FOR SAVING ---
+                # 9. --- CLEAN DATA ---
                 money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F']
                 for m_col in money_cols:
                     if m_col in updated_df.columns:
                         updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
 
-                # Ensure dates are clean strings for Google Sheets
-                date_cols = ['End_Date', 'Start_Date']
-                for d_col in date_cols:
-                    if d_col in updated_df.columns:
-                        updated_df[d_col] = pd.to_datetime(updated_df[d_col]).dt.strftime('%Y-%m-%d')
-
-                # 10. --- FINAL SAVE & REFRESH ---
+                # 10. --- SAVE & REFRESH ---
                 save_ready_df = updated_df.copy()
                 save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
                 
                 if save_data("Loans", save_ready_df):
-                    st.success(f"✅ Successfully rolled over {count} loans! Added {count} new cycle rows.")
+                    st.success(f"✅ Compounding Successful! Added {count} new cycle rows.")
                     st.cache_data.clear() 
                     st.rerun()
-                else:
-                    st.error("❌ Failed to save new rows to Google Sheets.")
 
             except Exception as e:
                 st.error(f"🚨 Rollover Error: {str(e)}")
