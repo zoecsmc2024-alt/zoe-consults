@@ -992,10 +992,19 @@ def show_loans():
                 # 2. BRANDED METRIC CARDS (Restored Peach/Navy Blend)
                 c1, c2, c3 = st.columns(3)
                 
-                # Logic values
-                rec_val = float(loan_info.get('Amount_Paid', 0))
-                out_val = float(loan_info.get('Balance', 0))
-                stat_val = str(loan_info.get('Status', 'Active')).upper()
+                # --- THE FIX: ENSURE WE GRAB THE LATEST ROLLED-OVER RECORD ---
+                # We filter for the selected ID and sort by Start_Date to get the newest entry
+                loan_history = active_view[active_view["Loan_ID"] == sel_id]
+                
+                if not loan_history.empty:
+                    # .iloc[-1] grabs the very last record (the current cycle)
+                    latest_info = loan_history.sort_values("Start_Date").iloc[-1]
+                    
+                    rec_val = float(latest_info.get('Amount_Paid', 0))
+                    out_val = float(latest_info.get('Balance', 0))
+                    stat_val = str(latest_info.get('Status', 'Active')).upper()
+                else:
+                    rec_val, out_val, stat_val = 0, 0, "N/A"
 
                 # Using that warm Peachish/Alice background for cards
                 card_style = "background-color:#FFF9F5; padding:20px; border-radius:15px; border-left:10px solid #0A192F; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"
