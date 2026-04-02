@@ -1208,29 +1208,49 @@ def show_payments():
             selected_option = st.selectbox("Select Loan to Credit", loan_options, key="payment_selector_unique")
             
             # Safe Parsing of the ID from selection string
+            # --- THE FIX: SAFE PARSING & LATEST RECORD TARGETING ---
             try:
-                raw_id = selected_option.split(" - ")[0].replace("ID: ", "")
-                selected_id_str = str(raw_id).strip()
-                loan = active_loans[active_loans["Loan_ID"] == selected_id_str].iloc[0]
+                raw_id = selected_option.split(" - ")[0].replace("ID: ", "").strip()
+                
+                # Filter all records for this ID
+                loan_history = active_loans[active_loans["Loan_ID"] == raw_id]
+                
+                if not loan_history.empty:
+                    # ✅ FIX: Sort by Start_Date and take the LAST record (.iloc[-1])
+                    # This ensures we pick the Rolled-over/Pending row, not the old Closed one
+                    loan = loan_history.sort_values("Start_Date").iloc[-1]
+                else:
+                    st.error("Target loan record not found.")
+                    st.stop()
+                    
             except Exception as e:
                 st.error(f"❌ Error parsing Loan ID: {e}")
                 st.stop()
 
-            # 2. Financial Calculations
+            # 2. Financial Calculations (Targeting the Current Cycle)
+            # Ensure we are working with numbers
             total_rep = float(loan.get("Total_Repayable", 0))
+            paid_so_far = float(loan.get("Amount_Paid", 0))
+            
+            # If Total_Repayable is missing, reconstruct it (P + I)
             if total_rep == 0:
                 total_rep = float(loan.get("Principal", 0)) + float(loan.get("Interest", 0))
 
-            paid_so_far = pd.to_numeric(loan.get("Amount_Paid", 0), errors='coerce') or 0.0
+            # Outstanding reflects the REAL current debt (e.g., 529,420)
             outstanding = total_rep - paid_so_far
 
-            # --- STYLED CARDS ---
+            # --- STYLED CARDS (Now showing the Correct Rolled Balance) ---
             c1, c2, c3 = st.columns(3)
             status_val = str(loan.get('Status', 'Active')).strip()
-            status_color = "#2E7D32" if status_val == "Active" else "#FF4B4B"
+            
+            # Color logic: Red for Pending/Overdue, Green for Active
+            status_color = "#2E7D32" if status_val == "Active" else "#D32F2F"
             
             c1.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #2B3F87; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">CLIENT</p><h3 style="margin:0; color:#2B3F87; font-size:18px;">{loan['Borrower']}</h3></div>""", unsafe_allow_html=True)
-            c2.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">BALANCE DUE</p><h3 style="margin:0; color:#FF4B4B; font-size:18px;">{outstanding:,.0f} <span style="font-size:12px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+            
+            # This card will now show 529,420 instead of the old balance
+            c2.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid #FF4B4B; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">BALANCE DUE</p><h3 style="margin:0; color:#FF4B4B; font-size:18px;">{max(0, outstanding):,.0f} <span style="font-size:12px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+            
             c3.markdown(f"""<div style="background-color: #ffffff; padding: 20px; border-radius: 15px; border-left: 5px solid {status_color}; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"><p style="margin:0; font-size:12px; color:#666; font-weight:bold;">STATUS</p><h3 style="margin:0; color:{status_color}; text-transform:uppercase; font-size:18px;">{status_val}</h3></div>""", unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
