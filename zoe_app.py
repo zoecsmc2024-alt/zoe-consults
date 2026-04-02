@@ -1265,18 +1265,28 @@ def show_payments():
                 if st.form_submit_button("✅ Post Payment", use_container_width=True):
                     if pay_amount > 0:
                         try:
-                            # 1. Standardize the Loans ID lookup
+                            # --- 1. TARGET THE LATEST RECORD (THE FIX) ---
+                            # We use 'raw_id' (which we defined in the selection logic above)
+                            # and find the LATEST date for that ID to avoid hitting the January row
                             loans_df['Loan_ID'] = loans_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip()
-                            search_id = str(selected_id_str).strip()
-                            idx = loans_df[loans_df["Loan_ID"] == search_id].index[0]
+                            
+                            # Filter for the ID and take the most recent Start_Date
+                            target_rows = loans_df[loans_df["Loan_ID"] == raw_id]
+                            
+                            if target_rows.empty:
+                                st.error(f"🚨 Could not find Loan ID: {raw_id}")
+                                st.stop()
+                            
+                            # Get the index of the latest record (the current cycle)
+                            idx = target_rows.sort_values("Start_Date").index[-1]
 
-                            # 2. MATCH YOUR SHEET HEADERS EXACTLY (The Fix!)
+                            # --- 2. MATCH YOUR SHEET HEADERS EXACTLY ---
                             p_id_col = "Payment ID"
                             last_p_id = pd.to_numeric(payments_df[p_id_col], errors='coerce').fillna(0).max() if not payments_df.empty else 0
                             
                             new_payment = pd.DataFrame([{
                                 "Payment ID": int(last_p_id + 1),
-                                "Loan ID": search_id,
+                                "Loan ID": raw_id, # Updated to raw_id
                                 "Borrower": loan["Borrower"],
                                 "Amount": float(pay_amount),
                                 "Date": pay_date.strftime("%Y-%m-%d"),
@@ -1284,13 +1294,16 @@ def show_payments():
                                 "Recorded By": st.session_state.get("user", "Zoe (Admin)")
                             }])
 
-                            # 3. Update Loan Balance
-                            new_total_paid = float(paid_so_far) + float(pay_amount)
+                            # --- 3. Update Loan Balance on the CORRECT row ---
+                            # We use float(loan.get("Amount_Paid", 0)) from the record we inspected
+                            new_total_paid = float(loan.get("Amount_Paid", 0)) + float(pay_amount)
                             loans_df.at[idx, "Amount_Paid"] = new_total_paid
+                            
+                            # Check if cleared (using a 10 UGX buffer for rounding)
                             if new_total_paid >= (total_rep - 10):
                                 loans_df.at[idx, "Status"] = "Closed"
 
-                            # 4. STRICT SYNC (Ensures no new columns are created)
+                            # --- 4. STRICT SYNC ---
                             save_payments = pd.concat([payments_df, new_payment], ignore_index=True)
                             expected_cols = ["Payment ID", "Loan ID", "Borrower", "Amount", "Date", "Method", "Recorded By"]
                             save_payments = save_payments[expected_cols].fillna("") 
@@ -1298,9 +1311,12 @@ def show_payments():
                             save_loans = loans_df.copy()
                             save_loans.columns = [c.replace("_", " ") for c in save_loans.columns]
                             
+                            # Save both sheets (Loans and Payments)
                             if save_data("Payments", save_payments) and save_data("Loans", save_loans.fillna(0)):
                                 st.success("✅ Payment recorded successfully!")
                                 st.cache_data.clear()
+                                # Important: Update session state so the metric cards change immediately
+                                st.session_state.loans = get_cached_data("Loans")
                                 st.rerun()
                                 
                         except Exception as e:
