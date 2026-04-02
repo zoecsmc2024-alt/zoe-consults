@@ -1728,8 +1728,10 @@ def show_overdue_tracker():
     st.markdown("### 🏦 All Loan Records")
     
     try:
-        # Pull fresh data for the table display
-        display_df = loans.copy()
+        # Pull fresh data for the table display to ensure math updates show
+        # Using session_state ensures we see the POST-ROLLOVER numbers
+        display_df = st.session_state.loans.copy()
+        display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
 
         # Reordering: Status to the end
         if 'Status' in display_df.columns:
@@ -1753,6 +1755,7 @@ def show_overdue_tracker():
         
     except Exception as e:
         st.error(f"Display Error: {str(e)}")
+        # Fallback to the original loans object if session_state is moody
         st.dataframe(loans, use_container_width=True, hide_index=True)
             
 
