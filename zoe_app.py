@@ -1630,77 +1630,87 @@ def show_overdue_tracker():
             ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
             latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
-        # 8. --- ROLLOVER BUTTON (The Engine with BCF Trend) ---
+        # 8. --- ROLLOVER BUTTON (The History-Building Engine) ---
         if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-            # We initialize outside the try block so it's always associated with a value
+            # 1. Start with the existing data
             updated_df = loans.copy() 
+            new_rows_list = []
             count = 0
             
             try: 
                 for i, r in overdue_df.iterrows():
-                    # Standardize ID lookup
                     loan_id = str(r.get('Loan_ID')).replace(".0", "").strip()
                     
-                    # Find matching row in main update dataframe
+                    # A. Identify the current row in the main dataframe
                     main_idx_list = updated_df[updated_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip() == loan_id].index
                     
                     if not main_idx_list.empty:
                         main_idx = main_idx_list[0]
                         
-                        # --- TREND LOGIC: Capture Balance Brought Forward (BCF) ---
-                        current_pri = float(r.get('Principal', 0))
-                        current_int = float(r.get('Interest', 0))
-                        
-                        # This is the "Trend" amount we want to keep visible
-                        bcf_amount = current_pri + current_int 
-                        
-                        # --- MATH LOGIC: Compounding ---
-                        # The old total debt becomes the NEW starting Principal
-                        final_amt = bcf_amount
+                        # B. ARCHIVE THE OLD ROW (Status Update)
+                        # This keeps the old record as "BCF - Rolled"
+                        updated_df.at[main_idx, 'Status'] = "BCF - Rolled"
 
-                        # B. Push Due Date forward
+                        # C. CALCULATE VALUES FOR THE NEW CYCLE
+                        # We take the previous (Principal + Interest) to be the NEW Principal
+                        old_pri = float(r.get('Principal', 0))
+                        old_int = float(r.get('Interest', 0))
+                        new_principal_basis = old_pri + old_int
+                        
+                        # Date Push: New Start is Old End, New End is +1 Month
                         orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
                         if pd.isna(orig_end_date):
-                            new_due_date = datetime.now() + timedelta(days=30)
+                            new_start = datetime.now()
                         else:
-                            new_due_date = orig_end_date + pd.DateOffset(months=1)
-
-                        # C. UPDATE THE DATAFRAME (Including the new BCF column)
-                        updated_df.at[main_idx, 'Balance_B/F'] = bcf_amount # Trend column
-                        updated_df.at[main_idx, 'Principal'] = final_amt
-                        updated_df.at[main_idx, 'Balance'] = final_amt
-                        updated_df.at[main_idx, 'Amount_Paid'] = 0
-                        updated_df.at[main_idx, 'End_Date'] = new_due_date
-                        updated_df.at[main_idx, 'Status'] = "BCF - Rolled" # Status updated for trend
-                        updated_df.at[main_idx, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
+                            new_start = orig_end_date
                         
+                        new_end = new_start + pd.DateOffset(months=1)
+
+                        # D. CREATE THE NEW ROW (The "Next Month" record)
+                        new_row = r.copy() # Copy all details (Borrower, Phone, etc.)
+                        new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
+                        new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
+                        new_row['Principal'] = new_principal_basis
+                        new_row['Balance'] = new_principal_basis
+                        new_row['Amount_Paid'] = 0
+                        # Recalculate new month's interest (e.g., 3%)
+                        new_row['Interest'] = new_principal_basis * 0.03 
+                        new_row['Status'] = "Pending" 
+                        new_row['Balance_B/F'] = new_principal_basis # Carry over the trend
+                        
+                        new_rows_list.append(new_row)
                         count += 1
 
+                # 2. APPEND THE NEW RECORDS TO THE DATAFRAME
+                if new_rows_list:
+                    new_entries_df = pd.DataFrame(new_rows_list)
+                    updated_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
+
                 # 9. --- CLEAN DATA FOR SAVING ---
-                # Added 'Balance_B/F' to the money cleaning list
                 money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F']
                 for m_col in money_cols:
                     if m_col in updated_df.columns:
                         updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
 
-                if 'End_Date' in updated_df.columns:
-                    updated_df['End_Date'] = pd.to_datetime(updated_df['End_Date']).dt.strftime('%Y-%m-%d')
+                # Ensure dates are clean strings for Google Sheets
+                date_cols = ['End_Date', 'Start_Date']
+                for d_col in date_cols:
+                    if d_col in updated_df.columns:
+                        updated_df[d_col] = pd.to_datetime(updated_df[d_col]).dt.strftime('%Y-%m-%d')
 
                 # 10. --- FINAL SAVE & REFRESH ---
                 save_ready_df = updated_df.copy()
-                # Restore spaces for Google Sheets headers (handles "Balance B/F")
                 save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
                 
                 if save_data("Loans", save_ready_df):
-                    st.success(f"✅ Successfully rolled over {count} loans with BCF trends!")
+                    st.success(f"✅ Successfully rolled over {count} loans! Added {count} new cycle rows.")
                     st.cache_data.clear() 
                     st.rerun()
                 else:
-                    st.error("❌ Failed to save to Google Sheets.")
+                    st.error("❌ Failed to save new rows to Google Sheets.")
 
             except Exception as e:
                 st.error(f"🚨 Rollover Error: {str(e)}")
-
     except Exception as e:
         st.error(f"🚨 Unexpected Error in Tracker: {str(e)}")
 
