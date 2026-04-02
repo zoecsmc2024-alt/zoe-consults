@@ -2561,6 +2561,15 @@ def show_ledger():
     if not payments_df.empty:
         payments_df.columns = payments_df.columns.str.strip().str.replace(" ", "_")
 
+    # --- NEW VALIDITY CHECK (FIXES GHOST DATA) ---
+    # Create a set of IDs that actually exist in the Loans sheet
+    valid_loan_ids = set(loans_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False).tolist())
+    
+    if not payments_df.empty:
+        # Filter the payments so we only see ones belonging to existing loans
+        payments_df['Loan_ID_Clean'] = payments_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False)
+        payments_df = payments_df[payments_df['Loan_ID_Clean'].isin(valid_loan_ids)].copy()
+
     # 2. SELECTION LOGIC
     # Ensure ID is string for matching logic
     loans_df['Loan_ID'] = loans_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
@@ -2629,7 +2638,6 @@ def show_ledger():
 
     # Render interactive audit table
     st.dataframe(pd.DataFrame(ledger_data).style.format({"Debit": "{:,.0f}", "Credit": "{:,.0f}", "Balance": "{:,.0f}"}), use_container_width=True, hide_index=True)
-
     # 5. PRINTABLE STATEMENT SECTION
     st.markdown("---")
     if st.button("✨ Preview Consolidated Statement", use_container_width=True):
