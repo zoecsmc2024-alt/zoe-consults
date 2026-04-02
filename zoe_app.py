@@ -1130,50 +1130,83 @@ def show_loans():
                             st.rerun()
 
     # ==============================
-    # TAB: MANAGE/EDIT (Where Delete Lives)
+    # TAB: MANAGE/EDIT (Restored Edit + Delete)
     # ==============================
     with tab_manage:
         if loans_df.empty:
-            st.info("No loans available to edit.")
+            st.info("No loans available to manage.")
         else:
-            # --- THE FIX: CREATE A LIST OF NAMES + IDS ---
-            # 1. Prepare the display string for the selectbox
+            # 1. Selection with Names
             loans_df['display_name'] = loans_df.apply(
                 lambda x: f"ID: {str(x['Loan_ID']).replace('.0', '')} - {x['Borrower']}", 
                 axis=1
             )
             
-            # 2. Show the selectbox with Names and IDs
             selected_display = st.selectbox(
-                "Select Loan to Manage", 
+                "Select Loan to Manage/Edit", 
                 loans_df['display_name'].unique(), 
-                key="edit_sel_loan_v2"
+                key="edit_sel_loan_v3"
             )
             
-            # 3. Extract the clean ID from the selection string (e.g., "1")
             clean_id = selected_display.split(" - ")[0].replace("ID: ", "").strip()
             
-            # --- DELETE BUTTON (Strategically placed for safety) ---
+            # 2. FETCH THE DATA FOR THE FORM
+            # We grab the specific row to pre-fill the edit form
+            loan_to_edit = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) == clean_id].iloc[0]
+
+            # 3. --- THE RESTORED EDIT FORM ---
+            st.markdown(f"#### 🛠️ Edit Loan #{clean_id}")
+            with st.form("edit_loan_form"):
+                col1, col2 = st.columns(2)
+                
+                new_borrower = col1.text_input("Borrower Name", value=loan_to_edit['Borrower'])
+                new_principal = col1.number_input("Principal (UGX)", value=float(loan_to_edit['Principal']))
+                new_interest = col1.number_input("Interest (UGX)", value=float(loan_to_edit['Interest']))
+                
+                new_status = col2.selectbox("Status", ["Active", "Pending", "Closed", "Overdue", "BCF"], 
+                                            index=["Active", "Pending", "Closed", "Overdue", "BCF"].index(loan_to_edit['Status']) if loan_to_edit['Status'] in ["Active", "Pending", "Closed", "Overdue", "BCF"] else 0)
+                new_start = col2.text_input("Start Date (YYYY-MM-DD)", value=str(loan_to_edit['Start_Date']))
+                new_end = col2.text_input("End Date (YYYY-MM-DD)", value=str(loan_to_edit['End_Date']))
+
+                if st.form_submit_button("💾 Save Changes", use_container_width=True):
+                    # Update the dataframe
+                    idx = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
+                    
+                    loans_df.at[idx, 'Borrower'] = new_borrower
+                    loans_df.at[idx, 'Principal'] = new_principal
+                    loans_df.at[idx, 'Interest'] = new_interest
+                    loans_df.at[idx, 'Status'] = new_status
+                    loans_df.at[idx, 'Start_Date'] = new_start
+                    loans_df.at[idx, 'End_Date'] = new_end
+                    
+                    # Recalculate Total and Balance for this row
+                    new_total = new_principal + new_interest
+                    loans_df.at[idx, 'Total_Repayable'] = new_total
+                    loans_df.at[idx, 'Balance'] = new_total - float(loan_to_edit['Amount_Paid'])
+
+                    # Save to Sheets
+                    save_df = loans_df.drop(columns=['display_name'], errors='ignore').copy()
+                    save_df.columns = [c.replace("_", " ") for c in save_df.columns]
+                    
+                    if save_data("Loans", save_df):
+                        st.success(f"✅ Loan #{clean_id} updated successfully!")
+                        st.cache_data.clear()
+                        st.session_state.loans = get_cached_data("Loans")
+                        st.rerun()
+
+            # 4. --- DELETE BUTTON (At the bottom) ---
             st.markdown("---")
-            st.error(f"⚠️ Warning: You are managing Loan #{clean_id} ({selected_display.split(' - ')[1]})")
-            
+            st.warning(f"⚠️ Dangerous Area: Manage Loan #{clean_id}")
             if st.button("🗑️ Delete Permanently", use_container_width=True, key="del_loan_btn"):
-                id_check_col = "Loan_ID" if "Loan_ID" in loans_df.columns else "Loan ID"
+                new_df = loans_df[loans_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False) != clean_id]
                 
-                # Filter out the selected ID
-                # We ensure both are strings to match perfectly
-                new_df = loans_df[loans_df[id_check_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
-                
-                # Restore spaces for Google Sheets save and drop our temporary display column
                 final_save_df = new_df.drop(columns=['display_name'], errors='ignore').copy()
                 final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
                 
                 if save_data("Loans", final_save_df):
-                    st.warning(f"⚠️ Loan #{clean_id} has been permanently deleted.")
-                    # Clear session state so the change reflects everywhere
-                    st.session_state.loans = new_df.drop(columns=['display_name'], errors='ignore')
+                    st.warning(f"⚠️ Loan #{clean_id} deleted.")
+                    st.session_state.loans = final_save_df
                     st.rerun()
-
     # ==============================
     # TAB: ACTIONS
     # ==============================
