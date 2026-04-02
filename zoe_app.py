@@ -945,8 +945,17 @@ def show_loans():
     """
     st.markdown("<h2 style='color: #0A192F;'>💵 Loans Management</h2>", unsafe_allow_html=True)
     
-    # 1. LOAD & NORMALIZE DATA
-    loans_df = get_cached_data("Loans")
+    # 1. LOAD & NORMALIZE DATA (The Sync Fix)
+    # --- THE FIX: ALWAYS CHECK SESSION STATE FIRST ---
+    if "loans" in st.session_state and not st.session_state.loans.empty:
+        loans_df = st.session_state.loans.copy()
+    else:
+        loans_df = get_cached_data("Loans")
+        # Initialize session state if it's the first run
+        if loans_df is not None:
+            st.session_state.loans = loans_df.copy()
+
+    # Standard loading for Borrowers
     borrowers_df = get_cached_data("Borrowers")
     
     if borrowers_df is not None and not borrowers_df.empty:
@@ -955,9 +964,11 @@ def show_loans():
     else:
         active_borrowers = pd.DataFrame()
     
+    # Ensure loans_df is valid
     if loans_df is None or loans_df.empty:
         loans_df = pd.DataFrame(columns=["Loan_ID", "Borrower", "Principal", "Interest", "Total_Repayable", "Amount_Paid", "Balance", "Status", "Start_Date", "End_Date"])
     
+    # Normalize headers
     loans_df.columns = [str(col).strip().replace(" ", "_") for col in loans_df.columns]
 
     # Clean numeric columns for math and comma formatting
