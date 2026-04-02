@@ -2323,8 +2323,17 @@ def show_payroll():
                         "Advance_DRS": f_adv, "Other_Deductions": f_other, "Net_Pay": calc['net'],
                         "Date": datetime.now().strftime("%Y-%m-%d")
                     }])
+                    # --- THE CORRECTED SAVE LOGIC (Payroll Fix) ---
+                    # 1. Combine the old data with the new record
                     final_save_df = pd.concat([df, new_row], ignore_index=True)
+                    
+                    # 2. CRITICAL: Replace all NaN/Blanks with 0 to stop the JSON error
+                    final_save_df = final_save_df.fillna(0)
+                    
+                    # 3. Restore spaces for Google Sheets headers
                     final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
+                    
+                    # 4. Save to Google Sheets
                     if save_data("Payroll", final_save_df):
                         st.success(f"✅ Payroll for {name} saved successfully!")
                         st.rerun()
