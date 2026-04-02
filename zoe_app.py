@@ -1687,8 +1687,7 @@ def show_overdue_tracker():
         except Exception as e:
             st.error(f"🚨 Rollover Error: {str(e)}")
             
-except Exception as e:
-    st.error(f"🚨 Unexpected Error in Tracker: {str(e)}")
+
 
 # ==============================
 # 17. ACTIVITY CALENDAR PAGE
