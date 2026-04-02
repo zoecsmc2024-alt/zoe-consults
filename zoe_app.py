@@ -1663,11 +1663,11 @@ def show_overdue_tracker():
                         old_pri = float(r.get('Principal', 0))
                         old_int = float(r.get('Interest', 0))
                         
-                        # New Basis = 514,000
+                        # New Basis = 514,000 (Current principal + Current interest)
                         new_basis = old_pri + old_int
                         # New Interest = 15,420 (3% of 514k)
                         new_month_interest = new_basis * 0.03
-                        # New Balance = 529,420 🚀
+                        # New Balance = 529,420 🚀 (New basis + New month's interest)
                         compounded_balance = new_basis + new_month_interest
                         
                         # Date Math
@@ -1711,12 +1711,24 @@ def show_overdue_tracker():
         except Exception as e:
             st.error(f"🚨 Rollover Error: {str(e)}")
 
-    # --- STYLE FUNCTION (Keep this at the bottom level) ---
-    def style_status(val):
-        if val == "BCF": return "background-color: #FFA500; color: white;" 
-        if val == "Pending": return "background-color: #D32F2F; color: white;" 
-        if val == "Closed": return "background-color: #2E7D32; color: white;" 
+    # 9. --- COLOR STYLING LOGIC (Applied to displays) ---
+    def style_status_colors(s):
+        if s == "BCF": return "background-color: #FFA500; color: white;" # Orange
+        if s == "Pending": return "background-color: #D32F2F; color: white;" # Red
+        if s == "Closed": return "background-color: #2E7D32; color: white;" # Green
         return ""
+
+    # Display the final table with colors applied
+    st.markdown("### 🏦 All Loan Records")
+    st.dataframe(
+        loans.style.applymap(style_status_colors, subset=['Status']).format({
+            "Principal": "{:,.0f}", 
+            "Balance": "{:,.0f}", 
+            "Interest": "{:,.0f}"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
             
 
 
@@ -1724,7 +1736,7 @@ def show_overdue_tracker():
 # 17. ACTIVITY CALENDAR PAGE
 # ==============================
 def show_calendar():
-    st.markdown("## 🗓️ Loan Activity Calendar")
+    
     st.markdown("<h2 style='color: #2B3F87;'>📅 Activity Calendar</h2>", unsafe_allow_html=True)
 
     loans_df = get_cached_data("Loans")
