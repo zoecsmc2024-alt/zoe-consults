@@ -1630,38 +1630,55 @@ def show_overdue_tracker():
             ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
             latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
-        # 8. --- ROLLOVER BUTTON (The Engine) ---
+        # 8. --- ROLLOVER BUTTON (The Engine with BCF Trend) ---
         if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+            # We initialize outside the try block so it's always associated with a value
             updated_df = loans.copy() 
             count = 0
             
             try: 
                 for i, r in overdue_df.iterrows():
+                    # Standardize ID lookup
                     loan_id = str(r.get('Loan_ID')).replace(".0", "").strip()
+                    
+                    # Find matching row in main update dataframe
                     main_idx_list = updated_df[updated_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).str.strip() == loan_id].index
                     
                     if not main_idx_list.empty:
                         main_idx = main_idx_list[0]
+                        
+                        # --- TREND LOGIC: Capture Balance Brought Forward (BCF) ---
                         current_pri = float(r.get('Principal', 0))
                         current_int = float(r.get('Interest', 0))
-                        final_amt = current_pri + current_int
+                        
+                        # This is the "Trend" amount we want to keep visible
+                        bcf_amount = current_pri + current_int 
+                        
+                        # --- MATH LOGIC: Compounding ---
+                        # The old total debt becomes the NEW starting Principal
+                        final_amt = bcf_amount
 
+                        # B. Push Due Date forward
                         orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
                         if pd.isna(orig_end_date):
                             new_due_date = datetime.now() + timedelta(days=30)
                         else:
                             new_due_date = orig_end_date + pd.DateOffset(months=1)
 
+                        # C. UPDATE THE DATAFRAME (Including the new BCF column)
+                        updated_df.at[main_idx, 'Balance_B/F'] = bcf_amount # Trend column
                         updated_df.at[main_idx, 'Principal'] = final_amt
                         updated_df.at[main_idx, 'Balance'] = final_amt
                         updated_df.at[main_idx, 'Amount_Paid'] = 0
                         updated_df.at[main_idx, 'End_Date'] = new_due_date
-                        updated_df.at[main_idx, 'Status'] = "Rolled/Overdue"
+                        updated_df.at[main_idx, 'Status'] = "BCF - Rolled" # Status updated for trend
                         updated_df.at[main_idx, 'Rollover_Date'] = datetime.now().strftime('%Y-%m-%d')
+                        
                         count += 1
 
                 # 9. --- CLEAN DATA FOR SAVING ---
-                money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest']
+                # Added 'Balance_B/F' to the money cleaning list
+                money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F']
                 for m_col in money_cols:
                     if m_col in updated_df.columns:
                         updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
@@ -1671,10 +1688,11 @@ def show_overdue_tracker():
 
                 # 10. --- FINAL SAVE & REFRESH ---
                 save_ready_df = updated_df.copy()
+                # Restore spaces for Google Sheets headers (handles "Balance B/F")
                 save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
                 
                 if save_data("Loans", save_ready_df):
-                    st.success(f"✅ Successfully rolled over {count} loans!")
+                    st.success(f"✅ Successfully rolled over {count} loans with BCF trends!")
                     st.cache_data.clear() 
                     st.rerun()
                 else:
