@@ -979,7 +979,20 @@ def show_loans():
 
     # Auto-Calc Balance
     loans_df["Balance"] = loans_df["Total_Repayable"] - loans_df["Amount_Paid"]
-    
+
+    # ==============================
+    # ✅ AUTO-CLOSE ENGINE (NEW FIX)
+    # ==============================
+    if not loans_df.empty:
+        # Clip ensures balance never goes negative
+        loans_df["Balance"] = loans_df["Balance"].clip(lower=0)
+        closed_mask = loans_df["Balance"] <= 0
+
+        # If balance is 0, force status to Closed and cleanup figures
+        loans_df.loc[closed_mask, "Status"] = "Closed"
+        loans_df.loc[closed_mask, "Balance"] = 0
+        loans_df.loc[closed_mask, "Total_Repayable"] = loans_df.loc[closed_mask, "Amount_Paid"]
+
     tab_view, tab_add, tab_manage, tab_actions = st.tabs(["📑 Portfolio View", "➕ New Loan", "🛠️ Manage/Edit", "⚙️ Actions"])
 
     # ==============================
@@ -988,9 +1001,9 @@ def show_loans():
     with tab_view:
         if not loans_df.empty:
             display_df = loans_df.copy()
+            # Handle Loan ID formatting
             display_df["Loan_ID"] = display_df["Loan_ID"].astype(str).str.replace(".0", "", regex=False)
             
-            # Show all records (Persistence for Christine!)
             active_view = display_df.copy()
 
             if active_view.empty:
@@ -998,12 +1011,12 @@ def show_loans():
             else:
                 # 1. SELECT LOAN FOR INSPECTION CARDS
                 sel_id = st.selectbox("🔍 Select Loan to Inspect", active_view["Loan_ID"].unique(), key="inspect_sel_v5")
-                loan_info = active_view[active_view["Loan_ID"] == sel_id].iloc[0]
                 
                 # 2. BRANDED METRIC CARDS (Restored Peach/Navy Blend)
                 c1, c2, c3 = st.columns(3)
                 
                 # --- THE FIX: ENSURE WE GRAB THE LATEST ROLLED-OVER RECORD ---
+                # We filter for the selected ID and sort by Start_Date to get the newest entry
                 loan_history = active_view[active_view["Loan_ID"] == sel_id]
                 
                 if not loan_history.empty:
@@ -1012,59 +1025,48 @@ def show_loans():
                     
                     rec_val = float(latest_info.get('Amount_Paid', 0))
                     out_val = float(latest_info.get('Balance', 0))
-                    
-                    # ✅ NEW LOGIC: AUTO-CLOSE IF BALANCE IS CLEARED
-                    if out_val <= 0:
-                        stat_val = "CLOSED"
-                        out_val = 0  # Force display to 0 to look professional
-                    else:
-                        stat_val = str(latest_info.get('Status', 'Active')).upper()
+                    stat_val = str(latest_info.get('Status', 'Active')).upper()
+
+                    # Safety check for display
+                    if stat_val == "CLOSED":
+                        out_val = 0
                 else:
                     rec_val, out_val, stat_val = 0, 0, "N/A"
 
-                # Using that warm Peachish/Alice background for cards
                 card_style = "background-color:#FFF9F5; padding:20px; border-radius:15px; border-left:10px solid #0A192F; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);"
                 text_style = "margin:0; color:#0A192F;"
 
                 c1.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">✅ RECEIVED</p><h3 style="{text_style} font-size:18px;">{rec_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-                
-                # Outstanding will now show 0 if the rolled balance is paid
                 c2.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">🚨 OUTSTANDING</p><h3 style="{text_style} font-size:18px;">{out_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
-                
-                # Status will now show CLOSED if the balance is paid
                 c3.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">📑 STATUS</p><h3 style="{text_style} font-size:18px;">{stat_val}</h3></div>""", unsafe_allow_html=True)
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # --- 3. THE LUXE ROW & BADGE STYLING (UPDATED COLORS) ---
+                # --- 3. THE LUXE ROW & BADGE STYLING ---
                 def style_loan_table(row):
                     bg_color = "#FFF9F5" 
                     
                     status = str(row["Status"])
-                    # Standardized Zoe Consults Status Colors
-                    if status == "Active": s_color = "#4A90E2"      # Baby Blue
-                    elif status == "Closed": s_color = "#2E7D32"    # Emerald Green
-                    elif status == "Overdue": s_color = "#D32F2F"   # Hot Red
-                    elif status == "Pending": s_color = "#D32F2F"   # Hot Red (Matches Overdue)
-                    elif status == "BCF": s_color = "#FFA500"       # Orange
-                    elif "Rolled" in status: s_color = "#FFA500"    # Orange
+                    if status == "Active": s_color = "#4A90E2"
+                    elif status == "Closed": s_color = "#2E7D32"
+                    elif status == "Overdue": s_color = "#D32F2F"
+                    elif status == "Pending": s_color = "#D32F2F"
+                    elif status == "BCF": s_color = "#FFA500"
+                    elif "Rolled" in status: s_color = "#FFA500"
                     else: s_color = "#666666"
 
                     styles = [f'background-color: {bg_color}; color: #0A192F;'] * len(row)
-                    # Status is now at the END, so we use -1 for the index
+                    # Status is at the end of show_cols
                     styles[-1] = f'background-color: {s_color}; color: white; font-weight: bold; border-radius: 5px;'
                     return styles
 
-                # 4. PREP DATA & REORDER COLUMNS (STATUS TO THE END)
-                # First, gather standard columns
+                # 4. PREP DATA
                 base_cols = ["Loan_ID", "Borrower", "Principal", "Balance"]
                 date_cols = []
                 for d_col in ["Start_Date", "Start Date", "End_Date", "End Date"]:
                     if d_col in active_view.columns: date_cols.append(d_col)
                 
-                # REORDER: [IDs, Names, Money, Dates] + [Status at the very end]
                 show_cols = base_cols + date_cols + ["Status"]
-                
                 final_table = active_view[show_cols].copy()
 
                 for col in ["Principal", "Balance"]:
@@ -1080,8 +1082,9 @@ def show_loans():
                     use_container_width=True, 
                     hide_index=True
                 )
+
     # ==============================
-    # TAB: NEW LOAN (Standardized)
+    # TAB: NEW LOAN (UNCHANGED)
     # ==============================
     with tab_add:
         if active_borrowers.empty:
@@ -1118,7 +1121,7 @@ def show_loans():
                         }])
                         
                         updated_df = pd.concat([loans_df, new_loan], ignore_index=True).fillna(0)
-                        # Restore spaces for Google Sheets save
+
                         final_save = updated_df.copy()
                         final_save.columns = [c.replace("_", " ") for c in final_save.columns]
                         
@@ -1126,82 +1129,22 @@ def show_loans():
                             st.success(f"✅ Loan #{new_id} issued to {selected_borrower}!")
                             st.rerun()
 
-    # (Keep Manage/Edit and Actions tabs exactly as they were...)
-    # ... (Keep Manage/Edit and Actions tabs exactly as they were) ...
     # ==============================
-    # TAB: MANAGE / EDIT LOANS (Safety Fix)
+    # TAB: MANAGE/EDIT (Where Delete Lives)
     # ==============================
     with tab_manage:
-        st.markdown("### 🛠️ Modify Loan Agreement")
-        m_df = loans_df.copy()
-        
-        if m_df.empty:
-            st.info("ℹ️ No loans available to edit.")
+        if loans_df.empty:
+            st.info("No loans available to edit.")
         else:
-            m_df['Loan_ID'] = m_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False)
-            m_options = [f"ID: {r['Loan_ID']} | {r['Borrower']}" for _, r in m_df.iterrows()]
+            # Selection for editing
+            edit_id_list = loans_df["Loan_ID"].astype(str).unique()
+            clean_id = st.selectbox("Select Loan ID to Manage", edit_id_list, key="edit_sel_loan")
             
-            selected_m = st.selectbox("🔍 Select Loan to Manage", m_options, key="manage_sel_box_v3")
-            
-            # Parsing ID safely
-            import re
-            match = re.search(r'ID:\s*(\d+)', str(selected_m))
-            clean_id = match.group(1) if match else "0"
-            
-            loan_row = m_df[m_df["Loan_ID"] == clean_id].iloc[0]
-
-            # --- THE FORM START ---
-            with st.form("edit_loan_form_luxe"):
-                c1, c2 = st.columns(2)
-                up_name = c1.text_input("Borrower Name", value=str(loan_row.get('Borrower', '')))
-                up_p = c1.number_input("Principal", value=float(loan_row.get('Principal', 0)))
-                up_paid = c1.number_input("Amount Paid", value=float(loan_row.get('Amount_Paid', 0)))
-                
-                status_list = ["Active", "Overdue", "Rolled/Overdue", "Closed", "Defaulted"]
-                curr_s = str(loan_row.get('Status', 'Active')).strip()
-                up_status = c2.selectbox("Status", status_list, index=status_list.index(curr_s) if curr_s in status_list else 0)
-                
-                # --- DATE SAFETY FIX (Prevents ValueError) ---
-                try:
-                    # Try to parse the date from the sheet
-                    raw_date = loan_row.get('End_Date')
-                    if pd.isna(raw_date) or raw_date == "":
-                        current_end = datetime.now().date()
-                    else:
-                        current_end = pd.to_datetime(raw_date).date()
-                except:
-                    # Fallback to today if it fails
-                    current_end = datetime.now().date()
-                
-                up_end = c2.date_input("End Date", value=current_end)
-
-                # --- SUBMIT BUTTONS MUST BE INSIDE THE FORM ---
-                b_save = st.form_submit_button("💾 Save Changes", use_container_width=True)
-
-                if b_save:
-                    # Logic to find the row index in the original loans_df
-                    # (Standardizing ID column check)
-                    id_check_col = "Loan_ID" if "Loan_ID" in loans_df.columns else "Loan ID"
-                    idx = loans_df[loans_df[id_check_col].astype(str).str.replace(".0", "", regex=False) == clean_id].index[0]
-                    
-                    loans_df.at[idx, 'Borrower'] = up_name
-                    loans_df.at[idx, 'Principal'] = up_p
-                    loans_df.at[idx, 'Amount_Paid'] = up_paid
-                    loans_df.at[idx, 'Status'] = up_status
-                    loans_df.at[idx, 'End_Date'] = up_end.strftime('%Y-%m-%d')
-                    
-                    # Restore spaces for Google Sheets save
-                    final_save_df = loans_df.copy()
-                    final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
-                    
-                    if save_data("Loans", final_save_df):
-                        st.success("✅ Updated Successfully!")
-                        st.rerun()
-
-            # --- DELETE BUTTON (Outside the Edit Form for safety) ---
+            # --- DELETE BUTTON (Strategically placed for safety) ---
             st.markdown("---")
             if st.button("🗑️ Delete Permanently", use_container_width=True, key="del_loan_btn"):
                 id_check_col = "Loan_ID" if "Loan_ID" in loans_df.columns else "Loan ID"
+                # Filter out the selected ID
                 new_df = loans_df[loans_df[id_check_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
                 
                 # Restore spaces for Google Sheets save
@@ -1211,6 +1154,10 @@ def show_loans():
                 if save_data("Loans", final_save_df):
                     st.warning(f"⚠️ Loan #{clean_id} deleted.")
                     st.rerun()
+
+    # ==============================
+    # TAB: ACTIONS
+    # ==============================
     with tab_actions:
         st.info("⚙️ Loan Settlements and Rollover actions will appear here in the next update.")
             # ==============================
