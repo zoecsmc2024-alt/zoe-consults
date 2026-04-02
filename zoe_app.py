@@ -1586,230 +1586,127 @@ def show_overdue_tracker():
         ].copy()
 
     # 2. --- PREP WORKING DATA ---
-    # (Your remaining code follows here, all indented 4 spaces from the left)
-    loans = loans_data.copy()
-    loans.columns = loans.columns.str.strip().str.replace(" ", "_")
-    
-    ledger = st.session_state.get("ledger", pd.DataFrame())
-    if not ledger.empty:
-        ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
-
-    # 3. --- REQUIRED COLUMNS CHECK ---
-    required_cols = ["End_Date", "Status", "Loan_ID", "Borrower", "Principal", "Interest"]
-    missing = [col for col in required_cols if col not in loans.columns]
-    if missing:
-        st.error(f"❌ Missing columns in Google Sheet: {missing}")
+    if loans.empty:
+        st.info("💡 No active loan records found. The system is currently clear!")
         return
 
-    # 4. --- DATE PREP ---
-    loans['End_Date'] = pd.to_datetime(loans['End_Date'], errors='coerce')
-    today = datetime.now()
-
-    # 5. --- FILTER OVERDUE ACCOUNTS ---
-    overdue_df = loans[
-        (loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) &
-        (loans['End_Date'] < today)
-    ].copy()
-
-    if overdue_df.empty:
-        st.success("✨ Excellent! All accounts are currently up to date.")
-    else:
-        st.warning(f"Found {len(overdue_df)} accounts requiring monthly rollover.")
-
-        # 6. --- BRANDED DISPLAY TABLE (Blue Zoe Theme) ---
-        rows_html = ""
-        for i, r in overdue_df.iterrows():
-            p_val = float(r.get('Principal', 0))
-            i_val = float(r.get('Interest', 0))
-            preview_total = p_val + i_val
-            
-            rows_html += f"""
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding:10px;"><b>#{r['Loan_ID']}</b></td>
-                <td style="padding:10px;">{r['Borrower']}</td>
-                <td style="padding:10px; text-align:right;">{p_val:,.0f}</td>
-                <td style="padding:10px; text-align:right; color:#D32F2F;">{i_val:,.0f}</td>
-                <td style="padding:10px; text-align:right; font-weight:bold; color:#2B3F87;">{preview_total:,.0f}</td>
-                <td style="padding:10px; text-align:center; color:#666;">{pd.to_datetime(r['End_Date']).strftime('%d %b %y')}</td>
-            </tr>"""
-
-        branded_html = f"""
-        <div style="border:2px solid #4A90E2; border-radius:10px; overflow:hidden; font-family:sans-serif; font-size:13px; background:white;">
-            <table style="width:100%; border-collapse:collapse;">
-                <tr style="background:#4A90E2; color:white; text-align:left;">
-                    <th style="padding:12px;">ID</th>
-                    <th style="padding:12px;">Borrower</th>
-                    <th style="padding:12px; text-align:right;">Old Principal</th>
-                    <th style="padding:12px; text-align:right;">+ Interest</th>
-                    <th style="padding:12px; text-align:right;">New Principal (P+I)</th>
-                    <th style="padding:12px; text-align:center;">Missed Date</th>
-                </tr>
-                {rows_html}
-            </table>
-        </div>"""
-        st.components.v1.html(branded_html, height=350, scrolling=True)
+    loans_work = loans.copy()
+    loans_work.columns = loans_work.columns.str.strip().str.replace(" ", "_")
 
     # 7. --- PREP LEDGER BALANCES ---
-    # THE CORRECTED LINE: Pull ledger from session state so it's defined
-    ledger = st.session_state.get("ledger", pd.DataFrame()) 
     latest_ledger = pd.DataFrame()
-
     if not ledger.empty:
-        # Clean headers to ensure "Loan_ID" is found
-        ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
+        ledger_work = ledger.copy()
+        ledger_work.columns = ledger_work.columns.str.strip().str.replace(" ", "_")
+        if "Loan_ID" in ledger_work.columns:
+            ledger_work['Date'] = pd.to_datetime(ledger_work.get('Date'), errors='coerce')
+            latest_ledger = ledger_work.sort_values('Date').groupby("Loan_ID").tail(1)
+
+    # 8. --- ROLLOVER BUTTON (The History-Building Engine) ---
+    st.markdown("---") 
+    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+        updated_df = loans_work.copy() 
+        new_rows_list = []
+        count = 0
         
-        if "Loan_ID" in ledger.columns:
-            ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-            latest_ledger = (
-                ledger.sort_values('Date')
-                .groupby("Loan_ID")
-                .tail(1)
-            )
-
-# 8. --- ROLLOVER BUTTON (Using Your Exact Logic) ---
-st.markdown("---") 
-
-if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-    # Fix: Pulling loans directly to ensure it is not empty
-    updated_df = loans.copy()
-    updated_df.columns = updated_df.columns.str.strip().str.replace(" ", "_")
-    new_rows_list = []
-    count = 0
-
-    try:
-        # --- FORCE NUMERIC (CRITICAL) ---
-        money_cols = ['Principal', 'Interest', 'Balance', 'Total_Repayable', 'Amount_Paid']
-        for col in money_cols:
-            if col in updated_df.columns:
-                updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce').fillna(0)
-
-        # --- SELECT TARGET LOANS ---
-        targets = updated_df[updated_df['Status'] == "Pending"].copy()
-
-        if targets.empty:
-            targets = overdue_df.copy()
-
-        if targets.empty:
-            st.info("No loans currently require a rollover cycle.")
-        else:
-            for i, r in targets.iterrows():
-                if i not in updated_df.index:
-                    continue
-
-                # --- MARK OLD ROW AS BCF ---
-                updated_df.at[i, 'Status'] = "BCF"
-
-                # =========================
-                # ✅ FIXED COMPOUNDING LOGIC
-                # =========================
-                old_balance = float(r.get('Balance', 0))
-
-                new_basis = old_balance
-                new_month_interest = new_basis * 0.03
-                compounded_balance = new_basis + new_month_interest
-
-                # --- DATE HANDLING ---
-                orig_end_date = pd.to_datetime(r.get('End_Date'), errors='coerce')
-                new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
-                new_end = new_start + pd.DateOffset(months=1)
-
-                # --- CREATE NEW ROW ---
-                new_row = r.copy()
-                new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
-                new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
-
-                new_row['Principal'] = new_basis
-                new_row['Interest'] = new_month_interest
-                new_row['Total_Repayable'] = compounded_balance
-                new_row['Balance'] = compounded_balance
-
-                new_row['Amount_Paid'] = 0
-                new_row['Status'] = "Pending"
-                new_row['Balance_B/F'] = new_basis
-
-                new_rows_list.append(new_row)
-                count += 1
-
-            # --- APPEND NEW ROWS ---
-            if new_rows_list:
-                new_entries_df = pd.DataFrame(new_rows_list)
-                combined_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
-
-                id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
-                combined_df['Start_Date'] = pd.to_datetime(combined_df['Start_Date'], errors='coerce')
-
-                # Interleave sorting
-                updated_df = combined_df.sort_values(
-                    by=[id_col, 'Start_Date'],
-                    ascending=[True, True]
-                )
-
-            # --- CLEAN AGAIN BEFORE SAVE ---
-            for col in money_cols + ['Balance_B/F']:
+        try: 
+            # FORCE NUMERIC: This kills the "stubborn balance" issue
+            money_cols = ['Principal', 'Interest', 'Balance', 'Total_Repayable', 'Amount_Paid']
+            for col in money_cols:
                 if col in updated_df.columns:
                     updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce').fillna(0)
 
-            # --- SAVE TO GOOGLE SHEETS ---
-            save_ready_df = updated_df.copy()
-            save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
+            # Targets: Find active 'Pending' rows or Fallback to Overdue
+            targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
+            if targets.empty:
+                targets = overdue_df.copy()
 
-            if save_data("Loans", save_ready_df):
-                st.success(f"✅ Compounding Successful! Added {count} rows.")
-                st.cache_data.clear()
-                st.session_state.loans = get_cached_data("Loans")
-                st.rerun()
+            if targets.empty:
+                st.info("No loans currently require a rollover cycle.")
+            else:
+                for i, r in targets.iterrows():
+                    if i in updated_df.index:
+                        # 1. Archive the old row
+                        updated_df.at[i, 'Status'] = "BCF"
 
+                        # 2. THE ULTIMATE MATH FIX
+                        old_p = float(r.get('Principal', 0))
+                        old_i = float(r.get('Interest', 0))
+                        
+                        # New Basis = 514,000 (Old P + Old I)
+                        new_basis = old_p + old_i
+                        # New Interest = 15,420 (3% of 514k)
+                        new_month_interest = new_basis * 0.03
+                        # Final Balance = 529,420
+                        compounded_balance = new_basis + new_month_interest
+                        
+                        # Date Math
+                        orig_end = pd.to_datetime(r['End_Date'], errors='coerce')
+                        new_start = orig_end if pd.notna(orig_end) else datetime.now()
+                        new_end = new_start + pd.DateOffset(months=1)
+
+                        # 3. Create New Cycle Row
+                        new_row = r.copy()
+                        new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
+                        new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
+                        new_row['Principal'] = new_basis
+                        new_row['Interest'] = new_month_interest
+                        new_row['Balance'] = compounded_balance 
+                        new_row['Total_Repayable'] = compounded_balance
+                        new_row['Amount_Paid'] = 0
+                        new_row['Status'] = "Pending" 
+                        new_row['Balance_B/F'] = new_basis 
+                        
+                        new_rows_list.append(new_row)
+                        count += 1
+
+                if new_rows_list:
+                    new_entries_df = pd.DataFrame(new_rows_list)
+                    combined_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
+                    id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
+                    updated_df = combined_df.sort_values(by=[id_col, 'Start_Date'], ascending=[True, True])
+
+                # Clean and Save
+                save_ready_df = updated_df.copy()
+                save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
+                
+                if save_data("Loans", save_ready_df):
+                    st.success(f"✅ Compounding Successful! Added {count} rows.")
+                    st.cache_data.clear() 
+                    st.session_state.loans = get_cached_data("Loans")
+                    st.rerun()
+        except Exception as e:
+            st.error(f"🚨 Rollover Error: {str(e)}")
+
+    # 9. --- TABLE DISPLAY (Branded & Formatted) ---
+    def style_status_colors(s):
+        if s == "BCF": return "background-color: #FFA500; color: white;" # Orange
+        if s == "Pending": return "background-color: #D32F2F; color: white;" # Red
+        if s == "Closed": return "background-color: #2E7D32; color: white;" # Green
+        return ""
+
+    st.markdown("### 🏦 All Loan Records")
+    
+    try:
+        display_df = st.session_state.get("loans", loans).copy()
+        display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
+
+        # Push Status to the end for Luxe view
+        if 'Status' in display_df.columns:
+            cols = [c for c in display_df.columns if c != 'Status'] + ['Status']
+            display_df = display_df[cols]
+
+        fmt_dict = {
+            "Principal": "{:,.0f}", "Balance": "{:,.0f}", "Interest": "{:,.0f}",
+            "Total_Repayable": "{:,.0f}", "Amount_Paid": "{:,.0f}", "Balance_B/F": "{:,.0f}"
+        }
+        actual_fmt = {k: v for k, v in fmt_dict.items() if k in display_df.columns}
+
+        styled_df = display_df.style.map(style_status_colors, subset=['Status']).format(actual_fmt)
+        st.dataframe(styled_df, use_container_width=True, hide_index=True)
     except Exception as e:
-        st.error(f"🚨 Rollover Error: {str(e)}")
-
-
-# 9. --- TABLE DISPLAY ---
-def style_status_colors(s):
-    if s == "BCF":
-        return "background-color: #FFA500; color: white;"
-    if s == "Pending":
-        return "background-color: #D32F2F; color: white;"
-    if s == "Closed":
-        return "background-color: #2E7D32; color: white;"
-    return ""
-
-st.markdown("### 🏦 All Loan Records")
-
-try:
-    display_df = st.session_state.get("loans", pd.DataFrame()).copy()
-    if display_df.empty:
-        display_df = loans.copy()
-
-    # --- CLEAN COLUMN NAMES ---
-    display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
-
-    # --- MOVE STATUS TO END ---
-    if 'Status' in display_df.columns:
-        cols = [c for c in display_df.columns if c != 'Status'] + ['Status']
-        display_df = display_df[cols]
-
-    # --- FORMAT NUMBERS ---
-    fmt_dict = {
-        "Principal": "{:,.0f}",
-        "Balance": "{:,.0f}",
-        "Interest": "{:,.0f}",
-        "Total_Repayable": "{:,.0f}",
-        "Amount_Paid": "{:,.0f}",
-        "Balance_B/F": "{:,.0f}"
-    }
-    actual_fmt = {k: v for k, v in fmt_dict.items() if k in display_df.columns}
-
-    styled_df = (
-        display_df.style
-        .map(style_status_colors, subset=['Status'])
-        .format(actual_fmt)
-    )
-
-    st.dataframe(styled_df, use_container_width=True, hide_index=True)
-
-except Exception as e:
-    st.error(f"Display Error: {str(e)}")
-    st.dataframe(loans, use_container_width=True, hide_index=True)
+        st.error(f"Display Error: {str(e)}")
+        st.dataframe(loans, use_container_width=True, hide_index=True)
             
 
 
