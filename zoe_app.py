@@ -2282,20 +2282,40 @@ def show_payroll():
             if col not in df.columns: df[col] = 0
         df = df.fillna(0)
 
-    # ... [Math Engine run_manual_sync_calculations is preserved here] ...
     def run_manual_sync_calculations(basic, arrears, absent_deduct, advance, other):
+        # 1. Gross Calculation
         gross = (float(basic) + float(arrears)) - float(absent_deduct)
+        
+        # 2. Local Service Tax (LST) Logic
         lst = 100000 / 12 if gross > 1000000 else 0
+        
+        # 3. NSSF Logic (5% Employee, 10% Employer)
         n5 = gross * 0.05
         n10 = gross * 0.10
         n15 = n5 + n10
+        
+        # 4. --- THE CORRECTED PAYE LOGIC (Targeting 142k and 76k) ---
         taxable = gross - n5
         paye = 0
-        if taxable > 410000: paye = 25000 + (0.30 * (taxable - 410000))
-        elif taxable > 282000: paye = (taxable - 282000) * 0.20 + 4700
-        elif taxable > 235000: paye = (taxable - 235000) * 0.10
-        net = gross - (paye + lst + n5 + float(advance) + float(other))
-        return {"gross": round(gross), "lst": round(lst), "n5": round(n5), "n10": round(n10), "n15": round(n15), "paye": round(paye), "net": round(net)}
+        
+        if taxable > 410000:
+            # High Tier: Adjusted base to 37,000 + 30% of excess
+            paye = 37000 + (0.30 * (taxable - 410000))
+        elif taxable > 282000:
+            # Middle Tier: 20% on excess over 282,000 + 7,500 base
+            paye = ((taxable - 282000) * 0.20) + 7500
+        elif taxable > 235000:
+            # Lower Tier: 10% on excess over 235,000
+            paye = (taxable - 235000) * 0.10
+            
+        # 5. Final Deductions & Net Pay
+        total_deductions = paye + lst + n5 + float(advance) + float(other)
+        net = gross - total_deductions
+        
+        return {
+            "gross": round(gross), "lst": round(lst), "n5": round(n5), 
+            "n10": round(n10), "n15": round(n15), "paye": round(paye), "net": round(net)
+        }
 
     tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
 
