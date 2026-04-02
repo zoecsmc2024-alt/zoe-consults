@@ -1136,23 +1136,42 @@ def show_loans():
         if loans_df.empty:
             st.info("No loans available to edit.")
         else:
-            # Selection for editing
-            edit_id_list = loans_df["Loan_ID"].astype(str).unique()
-            clean_id = st.selectbox("Select Loan ID to Manage", edit_id_list, key="edit_sel_loan")
+            # --- THE FIX: CREATE A LIST OF NAMES + IDS ---
+            # 1. Prepare the display string for the selectbox
+            loans_df['display_name'] = loans_df.apply(
+                lambda x: f"ID: {str(x['Loan_ID']).replace('.0', '')} - {x['Borrower']}", 
+                axis=1
+            )
+            
+            # 2. Show the selectbox with Names and IDs
+            selected_display = st.selectbox(
+                "Select Loan to Manage", 
+                loans_df['display_name'].unique(), 
+                key="edit_sel_loan_v2"
+            )
+            
+            # 3. Extract the clean ID from the selection string (e.g., "1")
+            clean_id = selected_display.split(" - ")[0].replace("ID: ", "").strip()
             
             # --- DELETE BUTTON (Strategically placed for safety) ---
             st.markdown("---")
+            st.error(f"⚠️ Warning: You are managing Loan #{clean_id} ({selected_display.split(' - ')[1]})")
+            
             if st.button("🗑️ Delete Permanently", use_container_width=True, key="del_loan_btn"):
                 id_check_col = "Loan_ID" if "Loan_ID" in loans_df.columns else "Loan ID"
+                
                 # Filter out the selected ID
+                # We ensure both are strings to match perfectly
                 new_df = loans_df[loans_df[id_check_col].astype(str).str.replace(".0", "", regex=False) != clean_id]
                 
-                # Restore spaces for Google Sheets save
-                final_save_df = new_df.copy()
+                # Restore spaces for Google Sheets save and drop our temporary display column
+                final_save_df = new_df.drop(columns=['display_name'], errors='ignore').copy()
                 final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
                 
                 if save_data("Loans", final_save_df):
-                    st.warning(f"⚠️ Loan #{clean_id} deleted.")
+                    st.warning(f"⚠️ Loan #{clean_id} has been permanently deleted.")
+                    # Clear session state so the change reflects everywhere
+                    st.session_state.loans = new_df.drop(columns=['display_name'], errors='ignore')
                     st.rerun()
 
     # ==============================
