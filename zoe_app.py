@@ -2558,22 +2558,24 @@ def show_ledger():
     payments_df = get_cached_data("Payments")
 
     if loans_df is None or loans_df.empty:
-        st.info("No loan records found to generate a ledger.")
+        st.info("💡 Your system is clear! No active loans found to generate a statement.")
         return
 
-    # Normalize headers immediately for internal logic
+    # Normalize headers
     loans_df.columns = loans_df.columns.str.strip().str.replace(" ", "_")
     if not payments_df.empty:
         payments_df.columns = payments_df.columns.str.strip().str.replace(" ", "_")
 
-    # --- NEW VALIDITY CHECK (FIXES GHOST DATA) ---
-    # Create a set of IDs that actually exist in the Loans sheet
-    valid_loan_ids = set(loans_df['Loan_ID'].fillna("0").astype(str).str.replace(".0", "", regex=False).tolist())
+    # --- THE CRITICAL FIX: VALIDITY CHECK ---
+    # We only care about payments for loans that ACTUALLY exist in loans_df
+    active_ids = set(loans_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False).tolist())
     
     if not payments_df.empty:
-        # Filter the payments so we only see ones belonging to existing loans
+        # Clean the Payment IDs to match the Loan IDs
         payments_df['Loan_ID_Clean'] = payments_df['Loan_ID'].astype(str).str.replace(".0", "", regex=False)
-        payments_df = payments_df[payments_df['Loan_ID_Clean'].isin(valid_loan_ids)].copy()
+        
+        # WE ONLY KEEP PAYMENTS BELONGING TO ACTIVE LOANS
+        payments_df = payments_df[payments_df['Loan_ID_Clean'].isin(active_ids)].copy()
 
     # 2. SELECTION LOGIC
     # Ensure ID is string for matching logic
