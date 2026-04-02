@@ -993,7 +993,6 @@ def show_loans():
                 c1, c2, c3 = st.columns(3)
                 
                 # --- THE FIX: ENSURE WE GRAB THE LATEST ROLLED-OVER RECORD ---
-                # We filter for the selected ID and sort by Start_Date to get the newest entry
                 loan_history = active_view[active_view["Loan_ID"] == sel_id]
                 
                 if not loan_history.empty:
@@ -1002,7 +1001,13 @@ def show_loans():
                     
                     rec_val = float(latest_info.get('Amount_Paid', 0))
                     out_val = float(latest_info.get('Balance', 0))
-                    stat_val = str(latest_info.get('Status', 'Active')).upper()
+                    
+                    # ✅ NEW LOGIC: AUTO-CLOSE IF BALANCE IS CLEARED
+                    if out_val <= 0:
+                        stat_val = "CLOSED"
+                        out_val = 0  # Force display to 0 to look professional
+                    else:
+                        stat_val = str(latest_info.get('Status', 'Active')).upper()
                 else:
                     rec_val, out_val, stat_val = 0, 0, "N/A"
 
@@ -1011,7 +1016,11 @@ def show_loans():
                 text_style = "margin:0; color:#0A192F;"
 
                 c1.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">✅ RECEIVED</p><h3 style="{text_style} font-size:18px;">{rec_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                
+                # Outstanding will now show 0 if the rolled balance is paid
                 c2.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">🚨 OUTSTANDING</p><h3 style="{text_style} font-size:18px;">{out_val:,.0f} <span style="font-size:10px;">UGX</span></h3></div>""", unsafe_allow_html=True)
+                
+                # Status will now show CLOSED if the balance is paid
                 c3.markdown(f"""<div style="{card_style}"><p style="{text_style} font-size:11px; font-weight:bold;">📑 STATUS</p><h3 style="{text_style} font-size:18px;">{stat_val}</h3></div>""", unsafe_allow_html=True)
 
                 st.markdown("<br>", unsafe_allow_html=True)
