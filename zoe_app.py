@@ -1663,11 +1663,11 @@ def show_overdue_tracker():
                         old_pri = float(r.get('Principal', 0))
                         old_int = float(r.get('Interest', 0))
                         
-                        # New Basis = 514,000 (Current principal + Current interest)
+                        # New Basis = Current principal + Current interest
                         new_basis = old_pri + old_int
-                        # New Interest = 15,420 (3% of 514k)
+                        # New Interest = 3% of new basis
                         new_month_interest = new_basis * 0.03
-                        # New Balance = 529,420 🚀 (New basis + New month's interest)
+                        # New Balance = New basis + New month's interest
                         compounded_balance = new_basis + new_month_interest
                         
                         # Date Math
@@ -1696,7 +1696,7 @@ def show_overdue_tracker():
                     updated_df = combined_df.sort_values(by=[id_col, 'Start_Date'], ascending=[True, True])
 
                 # Clean and Save
-                money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F']
+                money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F', 'Total_Repayable']
                 for m_col in money_cols:
                     if m_col in updated_df.columns:
                         updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
@@ -1711,7 +1711,7 @@ def show_overdue_tracker():
         except Exception as e:
             st.error(f"🚨 Rollover Error: {str(e)}")
 
-    # 9. --- COLOR STYLING LOGIC (The Modern Version) ---
+    # 9. --- COLOR STYLING & FORMATTING (The Modern Version) ---
     def style_status_colors(s):
         if s == "BCF": return "background-color: #FFA500; color: white;" # Orange
         if s == "Pending": return "background-color: #D32F2F; color: white;" # Red
@@ -1720,17 +1720,26 @@ def show_overdue_tracker():
 
     st.markdown("### 🏦 All Loan Records")
     
-    # We wrap this in a try/except so even if styling fails, the table still shows
     try:
-        # Use .map() instead of .applymap() for modern Pandas compatibility
-        styled_df = loans.style.map(style_status_colors, subset=['Status']).format({
+        # Define columns that need rounding and commas
+        fmt_dict = {
             "Principal": "{:,.0f}", 
             "Balance": "{:,.0f}", 
-            "Interest": "{:,.0f}"
-        })
+            "Interest": "{:,.0f}",
+            "Total_Repayable": "{:,.0f}",
+            "Amount_Paid": "{:,.0f}",
+            "Balance_B/F": "{:,.0f}"
+        }
+        # Filter fmt_dict to only include columns that actually exist in the dataframe
+        actual_fmt = {k: v for k, v in fmt_dict.items() if k in loans.columns}
+
+        # Apply styling and formatting
+        # WE USE loans.copy() or updated_df for display
+        styled_df = loans.style.map(style_status_colors, subset=['Status']).format(actual_fmt)
+        
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
-    except Exception:
-        # Fallback to a plain table if the styling engine has an issue
+    except Exception as e:
+        st.error(f"Display Error: {str(e)}")
         st.dataframe(loans, use_container_width=True, hide_index=True)
             
 
