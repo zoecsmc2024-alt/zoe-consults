@@ -1568,13 +1568,25 @@ def show_overdue_tracker():
             st.session_state.ledger = get_cached_data("Ledger")
             st.rerun()
 
-    loans_data = st.session_state.get("loans")
-    
-    if loans_data is None or loans_data.empty:
-        st.info("💡 No active loan records found. The system is currently clear!")
-        return
+    # --- STEP 1: LOAD ALL NECESSARY DATA UPFRONT (INDENTED) ---
+    # This ensures "loans" and "ledger" exist before Section 7 & 8 run
+    loans = st.session_state.get("loans", pd.DataFrame())
+    ledger = st.session_state.get("ledger", pd.DataFrame())
+    today = datetime.now()
+
+    # We pre-calculate overdue_df so it's ready for the button click
+    overdue_df = pd.DataFrame()
+    if not loans.empty:
+        temp_loans = loans.copy()
+        temp_loans.columns = temp_loans.columns.str.strip().str.replace(" ", "_")
+        temp_loans['End_Date'] = pd.to_datetime(temp_loans['End_Date'], errors='coerce')
+        overdue_df = temp_loans[
+            (temp_loans['Status'].isin(["Active", "Overdue", "Rolled/Overdue"])) & 
+            (temp_loans['End_Date'] < today)
+        ].copy()
 
     # 2. --- PREP WORKING DATA ---
+    # (Your remaining code follows here, all indented 4 spaces from the left)
     loans = loans_data.copy()
     loans.columns = loans.columns.str.strip().str.replace(" ", "_")
     
@@ -1638,29 +1650,23 @@ def show_overdue_tracker():
         st.components.v1.html(branded_html, height=350, scrolling=True)
 
     # 7. --- PREP LEDGER BALANCES ---
-    # Ensure Section 7 is indented exactly like the lines above it!
-    
-    # We pull a fresh reference to ledger here to be 100% safe
-    ledger = st.session_state.get("ledger", pd.DataFrame())
-    latest_ledger = pd.DataFrame()
+latest_ledger = pd.DataFrame()
 
-    if not ledger.empty:
-        # Clean headers to ensure "Loan_ID" is found
-        ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
-        
-        if "Loan_ID" in ledger.columns:
-            ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-            latest_ledger = (
-                ledger.sort_values('Date')
-                .groupby("Loan_ID")
-                .tail(1)
-            )
+if not ledger.empty and "Loan_ID" in ledger.columns:
+    # Clean headers for ledger
+    ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
+    ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
+    latest_ledger = (
+        ledger.sort_values('Date')
+        .groupby("Loan_ID")
+        .tail(1)
+    )
 
-    # 8. --- ROLLOVER BUTTON ---
-    # (Keep your Rollover Button code here, also indented!)
+# 8. --- ROLLOVER BUTTON (Using Your Exact Logic) ---
 st.markdown("---") 
 
 if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+    # Fix: Pulling loans directly to ensure it is not empty
     updated_df = loans.copy()
     updated_df.columns = updated_df.columns.str.strip().str.replace(" ", "_")
     new_rows_list = []
