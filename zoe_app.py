@@ -890,16 +890,31 @@ def show_borrowers():
                     e_addr = st.text_input("Physical Address", value=str(b_data.get('Address', '')))
                     
                     if st.form_submit_button("💾 Save Updated Profile", use_container_width=True):
+                        # Update basic fields
                         df.at[borrower_idx, 'Name'] = e_name
-                        df.at[borrower_idx, 'Phone'] = e_phone
+                        
+                        # --- THE FIX FOR LINE 894 (Properly Indented) ---
+                        try:
+                            # 1. Ensure the index exists before trying to save
+                            if borrower_idx in df.index:
+                                # 2. Use .loc instead of .at (more forgiving with data types)
+                                df.loc[borrower_idx, 'Phone'] = str(e_phone).strip()
+                            else:
+                                st.error(f"❌ Could not find borrower with index {borrower_idx}")
+                        except Exception as e:
+                            st.error(f"🚨 Error updating phone: {str(e)}")
+
+                        # Update remaining fields
                         df.at[borrower_idx, 'National_ID'] = e_nid
                         df.at[borrower_idx, 'Email'] = e_email
                         df.at[borrower_idx, 'Next_of_Kin'] = e_kin
                         df.at[borrower_idx, 'Status'] = e_status
                         df.at[borrower_idx, 'Address'] = e_addr
                         
+                        # Save the entire updated dataframe back to Sheets
                         if save_data("Borrowers", df):
                             st.success(f"✅ {e_name}'s profile has been updated!")
+                            st.cache_data.clear() # Clear cache to show new data immediately
                             st.rerun()
 
             # --- 2. DELETE ACTION SECTION ---
