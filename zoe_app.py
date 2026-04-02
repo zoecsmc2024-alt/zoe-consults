@@ -1643,14 +1643,21 @@ def show_overdue_tracker():
         ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
         latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
-    # 8. --- ROLLOVER BUTTON (The History-Building Engine) ---
+    # 8. --- ROLLOVER BUTTON (The Ultimate History-Building Engine) ---
     st.markdown("---") 
     if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+        # We work on a fresh copy of the data
         updated_df = loans.copy() 
         new_rows_list = []
         count = 0
         
         try: 
+            # FORCE NUMERIC: This stops the "stubborn" balance by making sure math actually happens
+            for col in ['Principal', 'Interest', 'Balance', 'Total_Repayable', 'Amount_Paid']:
+                if col in updated_df.columns:
+                    updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce').fillna(0)
+
+            # Define our rollover targets
             targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
             if targets.empty:
                 targets = overdue_df.copy()
@@ -1660,18 +1667,18 @@ def show_overdue_tracker():
             else:
                 for i, r in targets.iterrows():
                     if i in updated_df.index:
-                        # Archive the old row
+                        # 1. Archive the old row as BCF
                         updated_df.at[i, 'Status'] = "BCF"
 
-                        # --- THE ULTIMATE MATH FIX ---
+                        # 2. THE ULTIMATE MATH FIX (Forced calculation)
                         old_pri = float(r.get('Principal', 0))
                         old_int = float(r.get('Interest', 0))
                         
-                        # Basis for this month (e.g., 514,000)
+                        # Basis (e.g., 514,000)
                         new_basis = old_pri + old_int
-                        # Interest for this month (e.g., 15,420)
+                        # New month's interest (e.g., 15,420)
                         new_month_interest = new_basis * 0.03
-                        # Total Balance for this month (e.g., 529,420)
+                        # Final Compounded Balance (e.g., 529,420)
                         compounded_balance = new_basis + new_month_interest
                         
                         # Date Math
@@ -1679,14 +1686,14 @@ def show_overdue_tracker():
                         new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
                         new_end = new_start + pd.DateOffset(months=1)
 
-                        # Create New Row (Cloning all borrower details)
+                        # 3. Create the New "Pending" Row
                         new_row = r.copy()
                         new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
                         new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
                         new_row['Principal'] = new_basis
                         new_row['Interest'] = new_month_interest
-                        new_row['Total_Repayable'] = compounded_balance # Syncing Total column
-                        new_row['Balance'] = compounded_balance # The display fix! 🚀
+                        new_row['Total_Repayable'] = compounded_balance # The "Secret" fix
+                        new_row['Balance'] = compounded_balance # The "Visible" fix 🚀
                         new_row['Amount_Paid'] = 0
                         new_row['Status'] = "Pending" 
                         new_row['Balance_B/F'] = new_basis 
@@ -1694,24 +1701,26 @@ def show_overdue_tracker():
                         new_rows_list.append(new_row)
                         count += 1
 
+                # 4. Append and Sort by ID and Date
                 if new_rows_list:
                     new_entries_df = pd.DataFrame(new_rows_list)
                     combined_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
                     id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
                     updated_df = combined_df.sort_values(by=[id_col, 'Start_Date'], ascending=[True, True])
 
-                # Clean and Save
+                # 5. Clean Money Columns for Google Sheets
                 money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F', 'Total_Repayable']
                 for m_col in money_cols:
                     if m_col in updated_df.columns:
                         updated_df[m_col] = pd.to_numeric(updated_df[m_col], errors='coerce').fillna(0)
 
+                # 6. Save back to Sheets
                 save_ready_df = updated_df.copy()
                 save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
                 
                 if save_data("Loans", save_ready_df):
                     st.success(f"✅ Compounding Successful! Added {count} rows.")
-                    # CRITICAL: Clear cache and force a hard reset of the local dataframe
+                    # Clear cache and reset session state to show the new numbers immediately
                     st.cache_data.clear() 
                     st.session_state.loans = get_cached_data("Loans")
                     st.rerun()
@@ -1728,17 +1737,20 @@ def show_overdue_tracker():
     st.markdown("### 🏦 All Loan Records")
     
     try:
-        # Pull fresh data for the table display to ensure math updates show
-        # Using session_state ensures we see the POST-ROLLOVER numbers
-        display_df = st.session_state.loans.copy()
+        # Pull fresh data from session state for the table display
+        if st.session_state.get("loans") is not None:
+            display_df = st.session_state.loans.copy()
+        else:
+            display_df = loans.copy()
+            
         display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
 
-        # Reordering: Status to the end
+        # Push Status to the end
         if 'Status' in display_df.columns:
             cols = [c for c in display_df.columns if c != 'Status'] + ['Status']
             display_df = display_df[cols]
 
-        # Formatting dictionary
+        # Professional Formatting (Commas & No Decimals)
         fmt_dict = {
             "Principal": "{:,.0f}", 
             "Balance": "{:,.0f}", 
@@ -1749,13 +1761,12 @@ def show_overdue_tracker():
         }
         actual_fmt = {k: v for k, v in fmt_dict.items() if k in display_df.columns}
 
-        # Render styled table
+        # Render the styled table
         styled_df = display_df.style.map(style_status_colors, subset=['Status']).format(actual_fmt)
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
         
     except Exception as e:
         st.error(f"Display Error: {str(e)}")
-        # Fallback to the original loans object if session_state is moody
         st.dataframe(loans, use_container_width=True, hide_index=True)
             
 
