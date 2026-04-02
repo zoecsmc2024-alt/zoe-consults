@@ -2265,7 +2265,7 @@ def show_payroll():
 
     st.markdown("<h2 style='color: #4A90E2;'>🧾 Payroll Management</h2>", unsafe_allow_html=True)
 
-    # 1. SYNC COLUMNS TO MATCH REQUIREMENTS
+    # 1. SYNC COLUMNS
     df = get_cached_data("Payroll")
     required_columns = [
         "Payroll_ID", "Employee", "TIN", "Designation", "Mob_No", "Account_No", "NSSF_No",
@@ -2277,74 +2277,42 @@ def show_payroll():
     if df.empty:
         df = pd.DataFrame(columns=required_columns)
     else:
-        # Standardize headers and fill missing data
         df.columns = df.columns.str.strip().str.replace(" ", "_")
         for col in required_columns:
             if col not in df.columns: df[col] = 0
         df = df.fillna(0)
 
-    # 2. THE EXACT MATH ENGINE
+    # ... [Math Engine run_manual_sync_calculations is preserved here] ...
     def run_manual_sync_calculations(basic, arrears, absent_deduct, advance, other):
-        # Gross Calculation
         gross = (float(basic) + float(arrears)) - float(absent_deduct)
-        
-        # Local Service Tax (LST) Logic
         lst = 100000 / 12 if gross > 1000000 else 0
-        
-        # NSSF Logic (5% Employee, 10% Employer)
         n5 = gross * 0.05
         n10 = gross * 0.10
         n15 = n5 + n10
-        
-        # PAYE Tiered Logic
         taxable = gross - n5
         paye = 0
-        if taxable > 410000: 
-            paye = 25000 + (0.30 * (taxable - 410000))
-        elif taxable > 282000: 
-            paye = (taxable - 282000) * 0.20 + 4700
-        elif taxable > 235000: 
-            paye = (taxable - 235000) * 0.10
-            
-        total_deductions = paye + lst + n5 + float(advance) + float(other)
-        net = gross - total_deductions
-        
-        return {
-            "gross": round(gross), "lst": round(lst), "n5": round(n5), 
-            "n10": round(n10), "n15": round(n15), "paye": round(paye), "net": round(net)
-        }
+        if taxable > 410000: paye = 25000 + (0.30 * (taxable - 410000))
+        elif taxable > 282000: paye = (taxable - 282000) * 0.20 + 4700
+        elif taxable > 235000: paye = (taxable - 235000) * 0.10
+        net = gross - (paye + lst + n5 + float(advance) + float(other))
+        return {"gross": round(gross), "lst": round(lst), "n5": round(n5), "n10": round(n10), "n15": round(n15), "paye": round(paye), "net": round(net)}
 
     tab_process, tab_logs = st.tabs(["➕ Process Salary", "📜 Payroll History"])
 
-    # --- TAB 1: PROCESS SALARY ---
     with tab_process:
+        # ... [Your existing Form Code is preserved here] ...
         with st.form("new_payroll_form", clear_on_submit=True):
             st.markdown("<h4 style='color: #2B3F87;'>👤 Employee Details</h4>", unsafe_allow_html=True)
             name = st.text_input("Employee Name")
-            c1, c2, c3 = st.columns(3)
-            f_tin = c1.text_input("TIN")
-            f_desig = c2.text_input("Designation")
-            f_mob = c3.text_input("Mob No.")
-            
-            c4, c5 = st.columns(2)
-            f_acc = c4.text_input("Account No.")
-            f_nssf_no = c5.text_input("NSSF No.")
-            
-            st.write("---")
-            st.markdown("<h4 style='color: #2B3F87;'>💰 Earnings & Deductions</h4>", unsafe_allow_html=True)
-            c6, c7, c8 = st.columns(3)
-            f_arrears = c6.number_input("ARREARS", min_value=0.0)
-            f_basic = c7.number_input("SALARY (Basic)", min_value=0.0)
-            f_absent = c8.number_input("Absenteeism Deduction", min_value=0.0)
-            
-            c9, c10 = st.columns(2)
-            f_adv = c9.number_input("S.DRS / ADVANCE", min_value=0.0)
-            f_other = c10.number_input("Other Deductions", min_value=0.0)
+            c1, c2, c3 = st.columns(3); f_tin = c1.text_input("TIN"); f_desig = c2.text_input("Designation"); f_mob = c3.text_input("Mob No.")
+            c4, c5 = st.columns(2); f_acc = c4.text_input("Account No."); f_nssf_no = c5.text_input("NSSF No.")
+            st.write("---"); st.markdown("<h4 style='color: #2B3F87;'>💰 Earnings & Deductions</h4>", unsafe_allow_html=True)
+            c6, c7, c8 = st.columns(3); f_arrears = c6.number_input("ARREARS", min_value=0.0); f_basic = c7.number_input("SALARY (Basic)", min_value=0.0); f_absent = c8.number_input("Absenteeism Deduction", min_value=0.0)
+            c9, c10 = st.columns(2); f_adv = c9.number_input("S.DRS / ADVANCE", min_value=0.0); f_other = c10.number_input("Other Deductions", min_value=0.0)
 
             if st.form_submit_button("💳 Confirm & Release Payment", use_container_width=True):
                 if name and f_basic > 0:
                     calc = run_manual_sync_calculations(f_basic, f_arrears, f_absent, f_adv, f_other)
-                    
                     new_row = pd.DataFrame([{
                         "Payroll_ID": int(df["Payroll_ID"].max() + 1) if not df.empty else 1,
                         "Employee": name, "TIN": f_tin, "Designation": f_desig, "Mob_No": f_mob,
@@ -2355,16 +2323,12 @@ def show_payroll():
                         "Advance_DRS": f_adv, "Other_Deductions": f_other, "Net_Pay": calc['net'],
                         "Date": datetime.now().strftime("%Y-%m-%d")
                     }])
-                    
-                    # Restore spaces for Google Sheets
                     final_save_df = pd.concat([df, new_row], ignore_index=True)
                     final_save_df.columns = [c.replace("_", " ") for c in final_save_df.columns]
-                    
                     if save_data("Payroll", final_save_df):
                         st.success(f"✅ Payroll for {name} saved successfully!")
                         st.rerun()
 
-    # --- TAB 2: HISTORY & PRINTING ---
     with tab_logs:
         if not df.empty:
             p_col1, p_col2 = st.columns([4, 1])
@@ -2374,28 +2338,48 @@ def show_payroll():
                 try: return f"{int(float(x)):,}" 
                 except: return "0"
 
+            # --- CALCULATE PAYROLL TOTALS ---
+            t_arrears = df['Arrears'].sum()
+            t_basic = df['Basic_Salary'].sum()
+            t_gross = df['Gross_Salary'].sum()
+            t_paye = df['PAYE'].sum()
+            t_n5 = df['NSSF_5'].sum()
+            t_net = df['Net_Pay'].sum()
+            t_n10 = df['NSSF_10'].sum()
+            t_n15 = df['NSSF_15'].sum()
+
             rows_html = ""
             for i, r in df.iterrows():
-                n5 = float(r.get('NSSF_5', 0))
-                n10 = float(r.get('NSSF_10', 0))
-                n15_total = n5 + n10
                 rows_html += f"""
                     <tr>
-                        <td style='text-align:center; border:1px solid #ddd; padding: 15px 10px;'>{i+1}</td>
-                        <td style='border:1px solid #ddd; padding: 15px 10px;'>
+                        <td style='text-align:center; border:1px solid #ddd; padding: 10px;'>{i+1}</td>
+                        <td style='border:1px solid #ddd; padding: 10px;'>
                             <div style="font-weight:bold; font-size:12px;">{r['Employee']}</div>
                             <div style="font-size:10px; color:#555;">{r.get('Designation', '-')}</div>
-                            <div style="font-size:10px; color:#2B3F87; margin-top:4px;"><b>A/C:</b> {r.get('Account_No', '-')}</div>
                         </td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Arrears'])}</td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['Basic_Salary'])}</td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(r['PAYE'])}</td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px;'>{fm(n5)}</td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#E3F2FD; font-weight:bold; color:#2B3F87;'>{fm(r['Net_Pay'])}</td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4;'>{fm(n10)}</td>
-                        <td style='text-align:right; border:1px solid #ddd; padding: 15px 10px; background:#FFF9C4; font-weight:bold;'>{fm(n15_total)}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px;'>{fm(r['Arrears'])}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px;'>{fm(r['Basic_Salary'])}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px; font-weight:bold;'>{fm(r['Gross_Salary'])}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px;'>{fm(r['PAYE'])}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px;'>{fm(r['NSSF_5'])}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px; background:#E3F2FD; font-weight:bold;'>{fm(r['Net_Pay'])}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px; background:#FFF9C4;'>{fm(r['NSSF_10'])}</td>
+                        <td style='text-align:right; border:1px solid #ddd; padding: 10px; background:#FFF9C4; font-weight:bold;'>{fm(r['NSSF_15'])}</td>
                     </tr>"""
+
+            # --- ADD THE TOTALS ROW TO THE HTML ---
+            rows_html += f"""
+                <tr style="background:#2B3F87; color:white; font-weight:bold;">
+                    <td colspan="2" style="text-align:center; padding:12px; border:1px solid #ddd;">GRAND TOTALS</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_arrears)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_basic)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_gross)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_paye)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_n5)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_net)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_n10)}</td>
+                    <td style='text-align:right; border:1px solid #ddd; padding: 12px;'>{fm(t_n15)}</td>
+                </tr>"""
 
             printable_html = f"""
             <html>
@@ -2428,12 +2412,11 @@ def show_payroll():
             </body>
             </html>
             """
-
             if p_col2.button("📥 Print PDF", key="print_payroll_trigger"):
-                # Injects the print script only when requested
                 st.components.v1.html(printable_html + "<script>window.print();</script>", height=0)
 
             st.components.v1.html(printable_html, height=600, scrolling=True)
+            # ... [Rest of your CSV and Modify/Delete code is preserved] ...
 
             csv_text = df.to_csv(index=False).encode('utf-8')
             st.download_button("📄 Download CSV Backup", data=csv_text, file_name="Payroll_Zoe.csv", mime="text/csv")
