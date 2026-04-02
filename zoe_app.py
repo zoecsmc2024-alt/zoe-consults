@@ -1650,17 +1650,21 @@ def show_overdue_tracker():
         st.components.v1.html(branded_html, height=350, scrolling=True)
 
     # 7. --- PREP LEDGER BALANCES ---
-latest_ledger = pd.DataFrame()
+    # THE CORRECTED LINE: Pull ledger from session state so it's defined
+    ledger = st.session_state.get("ledger", pd.DataFrame()) 
+    latest_ledger = pd.DataFrame()
 
-if not ledger.empty and "Loan_ID" in ledger.columns:
-    # Clean headers for ledger
-    ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
-    ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
-    latest_ledger = (
-        ledger.sort_values('Date')
-        .groupby("Loan_ID")
-        .tail(1)
-    )
+    if not ledger.empty:
+        # Clean headers to ensure "Loan_ID" is found
+        ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
+        
+        if "Loan_ID" in ledger.columns:
+            ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
+            latest_ledger = (
+                ledger.sort_values('Date')
+                .groupby("Loan_ID")
+                .tail(1)
+            )
 
 # 8. --- ROLLOVER BUTTON (Using Your Exact Logic) ---
 st.markdown("---") 
