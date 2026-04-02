@@ -1641,6 +1641,7 @@ def show_overdue_tracker():
 latest_ledger = pd.DataFrame()
 
 if not ledger.empty and "Loan_ID" in ledger.columns:
+    ledger.columns = ledger.columns.str.strip().str.replace(" ", "_")
     ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
     latest_ledger = (
         ledger.sort_values('Date')
@@ -1653,12 +1654,12 @@ st.markdown("---")
 
 if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
     updated_df = loans.copy()
+    updated_df.columns = updated_df.columns.str.strip().str.replace(" ", "_")
     new_rows_list = []
     count = 0
 
     try:
         # --- FORCE NUMERIC (CRITICAL) ---
-        # This ensures Python treats these columns as numbers, not text
         money_cols = ['Principal', 'Interest', 'Balance', 'Total_Repayable', 'Amount_Paid']
         for col in money_cols:
             if col in updated_df.columns:
@@ -1683,8 +1684,6 @@ if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width
                 # =========================
                 # ✅ FIXED COMPOUNDING LOGIC
                 # =========================
-                # Math: New Principal = Old Balance
-                # New Interest = 3% of that New Principal
                 old_balance = float(r.get('Balance', 0))
 
                 new_basis = old_balance
@@ -1721,7 +1720,7 @@ if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width
                 id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
                 combined_df['Start_Date'] = pd.to_datetime(combined_df['Start_Date'], errors='coerce')
 
-                # Interleave sorting: Keeps Loan IDs together with dates in order
+                # Interleave sorting
                 updated_df = combined_df.sort_values(
                     by=[id_col, 'Start_Date'],
                     ascending=[True, True]
@@ -1734,13 +1733,10 @@ if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width
 
             # --- SAVE TO GOOGLE SHEETS ---
             save_ready_df = updated_df.copy()
-            # Clean headers for Excel/Sheet compatibility
             save_ready_df.columns = [col.replace("_", " ") for col in save_ready_df.columns]
 
             if save_data("Loans", save_ready_df):
                 st.success(f"✅ Compounding Successful! Added {count} rows.")
-
-                # --- REFRESH STATE ---
                 st.cache_data.clear()
                 st.session_state.loans = get_cached_data("Loans")
                 st.rerun()
@@ -1762,20 +1758,19 @@ def style_status_colors(s):
 st.markdown("### 🏦 All Loan Records")
 
 try:
-    if st.session_state.get("loans") is not None:
-        display_df = st.session_state.loans.copy()
-    else:
+    display_df = st.session_state.get("loans", pd.DataFrame()).copy()
+    if display_df.empty:
         display_df = loans.copy()
 
     # --- CLEAN COLUMN NAMES ---
     display_df.columns = display_df.columns.str.strip().str.replace(" ", "_")
 
-    # --- MOVE STATUS TO END (FOR CLEAN LOOK) ---
+    # --- MOVE STATUS TO END ---
     if 'Status' in display_df.columns:
         cols = [c for c in display_df.columns if c != 'Status'] + ['Status']
         display_df = display_df[cols]
 
-    # --- FORMAT NUMBERS (COMMAS & NO DECIMALS) ---
+    # --- FORMAT NUMBERS ---
     fmt_dict = {
         "Principal": "{:,.0f}",
         "Balance": "{:,.0f}",
@@ -1784,7 +1779,6 @@ try:
         "Amount_Paid": "{:,.0f}",
         "Balance_B/F": "{:,.0f}"
     }
-
     actual_fmt = {k: v for k, v in fmt_dict.items() if k in display_df.columns}
 
     styled_df = (
