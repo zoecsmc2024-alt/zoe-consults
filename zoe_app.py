@@ -2289,26 +2289,23 @@ def show_payroll():
         # 2. Local Service Tax (LST) Logic
         lst = 100000 / 12 if gross > 1000000 else 0
         
-        # 3. NSSF Logic (5% Employee, 10% Employer)
+        # 3. NSSF Logic (Calculated but NOT subtracted from tax base)
         n5 = gross * 0.05
         n10 = gross * 0.10
         n15 = n5 + n10
         
-        # 4. --- THE CORRECTED PAYE LOGIC (Targeting 142k and 76k) ---
-        taxable = gross - n5
+        # 4. --- THE EXCEL MATCHING PAYE LOGIC ---
+        # Based on your sheet: Tax = 25,000 + (30% * (Gross - 410,000))
         paye = 0
-        
-        if taxable > 410000:
-            # High Tier: Adjusted base to 37,000 + 30% of excess
-            paye = 37000 + (0.30 * (taxable - 410000))
-        elif taxable > 282000:
-            # Middle Tier: 20% on excess over 282,000 + 7,500 base
-            paye = ((taxable - 282000) * 0.20) + 7500
-        elif taxable > 235000:
-            # Lower Tier: 10% on excess over 235,000
-            paye = (taxable - 235000) * 0.10
+        if gross > 410000:
+            excess = gross - 410000
+            paye = 25000 + (0.30 * excess)
+        elif gross > 235000:
+            # Lower tier fallback
+            paye = (gross - 235000) * 0.10
             
         # 5. Final Deductions & Net Pay
+        # Deductions = PAYE + LST + NSSF(5%) + Advance + Other
         total_deductions = paye + lst + n5 + float(advance) + float(other)
         net = gross - total_deductions
         
