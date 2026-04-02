@@ -1711,24 +1711,27 @@ def show_overdue_tracker():
         except Exception as e:
             st.error(f"🚨 Rollover Error: {str(e)}")
 
-    # 9. --- COLOR STYLING LOGIC (Applied to displays) ---
+    # 9. --- COLOR STYLING LOGIC (The Modern Version) ---
     def style_status_colors(s):
         if s == "BCF": return "background-color: #FFA500; color: white;" # Orange
         if s == "Pending": return "background-color: #D32F2F; color: white;" # Red
         if s == "Closed": return "background-color: #2E7D32; color: white;" # Green
         return ""
 
-    # Display the final table with colors applied
     st.markdown("### 🏦 All Loan Records")
-    st.dataframe(
-        loans.style.applymap(style_status_colors, subset=['Status']).format({
+    
+    # We wrap this in a try/except so even if styling fails, the table still shows
+    try:
+        # Use .map() instead of .applymap() for modern Pandas compatibility
+        styled_df = loans.style.map(style_status_colors, subset=['Status']).format({
             "Principal": "{:,.0f}", 
             "Balance": "{:,.0f}", 
             "Interest": "{:,.0f}"
-        }),
-        use_container_width=True,
-        hide_index=True
-    )
+        })
+        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+    except Exception:
+        # Fallback to a plain table if the styling engine has an issue
+        st.dataframe(loans, use_container_width=True, hide_index=True)
             
 
 
