@@ -1624,64 +1624,68 @@ def show_overdue_tracker():
         ledger['Date'] = pd.to_datetime(ledger.get('Date'), errors='coerce')
         latest_ledger = ledger.sort_values('Date').groupby("Loan_ID").tail(1)
 
-    # ======================================================
-    # 8. --- ROLLOVER BUTTON (OUTSIDE ALL IF-BLOCKS) ---
-    # ======================================================
-    st.markdown("---") # Visual separator
-    
-    # We create the button here so it's always on the page
-    if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
-        updated_df = loans.copy() 
-        new_rows_list = []
-        count = 0
-        
-        try: 
-            # Look for active 'Pending' rows first
-            targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
+    # 8. --- ROLLOVER BUTTON (The History-Building Engine) ---
+        st.markdown("---") 
+        if st.button("🔄 Execute Monthly Rollover (Compound All)", use_container_width=True):
+            updated_df = loans.copy() 
+            new_rows_list = []
+            count = 0
             
-            # If no Pending rows, use the Overdue rows found in Step 5
-            if targets.empty:
-                targets = overdue_df.copy()
+            try: 
+                # Targets: Find active 'Pending' rows or Fallback to Overdue
+                targets = updated_df[updated_df['Status'] == "Pending"].copy() if not updated_df.empty else pd.DataFrame()
+                
+                if targets.empty:
+                    targets = overdue_df.copy()
 
-            if targets.empty:
-                st.info("No loans currently require a rollover cycle.")
-            else:
-                for i, r in targets.iterrows():
-                    # A. Identify and Archive the current row
-                    if i in updated_df.index:
-                        updated_df.at[i, 'Status'] = "BCF"
+                if targets.empty:
+                    st.info("No loans currently require a rollover cycle.")
+                else:
+                    for i, r in targets.iterrows():
+                        if i in updated_df.index:
+                            # 1. ARCHIVE THE OLD ROW
+                            updated_df.at[i, 'Status'] = "BCF"
 
-                        # B. Calculate Values for New Cycle
-                        old_pri = float(r.get('Principal', 0))
-                        old_int = float(r.get('Interest', 0))
-                        new_principal_basis = old_pri + old_int
+                            # 2. CALCULATE NEW VALUES
+                            old_pri = float(r.get('Principal', 0))
+                            old_int = float(r.get('Interest', 0))
+                            
+                            # The New Principal is the total debt from the previous month
+                            new_principal_basis = old_pri + old_int
+                            
+                            # Calculate the NEW month's interest (3%)
+                            new_interest = new_principal_basis * 0.03
+                            
+                            # --- THE FIX: Balance must be Principal + Interest ---
+                            new_total_balance = new_principal_basis + new_interest
+                            
+                            # Date Push
+                            orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
+                            new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
+                            new_end = new_start + pd.DateOffset(months=1)
+
+                            # 3. CREATE THE NEW ROW
+                            new_row = r.copy()
+                            new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
+                            new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
+                            new_row['Principal'] = new_principal_basis
+                            new_row['Interest'] = new_interest
+                            new_row['Balance'] = new_total_balance # Now it increases! 🚀
+                            new_row['Amount_Paid'] = 0
+                            new_row['Status'] = "Pending" 
+                            new_row['Balance_B/F'] = new_principal_basis 
+                            
+                            new_rows_list.append(new_row)
+                            count += 1
+
+                    # 4. APPEND AND SORT
+                    if new_rows_list:
+                        new_entries_df = pd.DataFrame(new_rows_list)
+                        combined_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
                         
-                        orig_end_date = pd.to_datetime(r['End_Date'], errors='coerce')
-                        new_start = orig_end_date if pd.notna(orig_end_date) else datetime.now()
-                        new_end = new_start + pd.DateOffset(months=1)
-
-                        # C. Create the New Row
-                        new_row = r.copy()
-                        new_row['Start_Date'] = new_start.strftime('%Y-%m-%d')
-                        new_row['End_Date'] = new_end.strftime('%Y-%m-%d')
-                        new_row['Principal'] = new_principal_basis
-                        new_row['Balance'] = new_principal_basis
-                        new_row['Amount_Paid'] = 0
-                        new_row['Interest'] = new_principal_basis * 0.03 
-                        new_row['Status'] = "Pending" 
-                        new_row['Balance_B/F'] = new_principal_basis 
-                        
-                        new_rows_list.append(new_row)
-                        count += 1
-
-                # D. Append and Sort
-                if new_rows_list:
-                    new_entries_df = pd.DataFrame(new_rows_list)
-                    combined_df = pd.concat([updated_df, new_entries_df], ignore_index=True)
-                    
-                    id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
-                    combined_df = combined_df.sort_values(by=[id_col, 'Start_Date'], ascending=[True, True])
-                    updated_df = combined_df
+                        id_col = 'Loan_ID' if 'Loan_ID' in combined_df.columns else 'Loan ID'
+                        combined_df = combined_df.sort_values(by=[id_col, 'Start_Date'], ascending=[True, True])
+                        updated_df = combined_df
 
                 # 9. --- CLEAN DATA ---
                 money_cols = ['Principal', 'Balance', 'Amount_Paid', 'Interest', 'Balance_B/F']
@@ -1698,8 +1702,16 @@ def show_overdue_tracker():
                     st.cache_data.clear() 
                     st.rerun()
 
-        except Exception as e:
-            st.error(f"🚨 Rollover Error: {str(e)}")
+            except Exception as e:
+                st.error(f"🚨 Rollover Error: {str(e)}")
+
+    # --- THE COLOR FIX: Ensure your display table uses these colors ---
+    # Update this in your main table display code (usually where st.dataframe or your HTML table is)
+    def style_status(val):
+        if val == "BCF": return "background-color: #FFA500; color: white;" # Orange
+        if val == "Pending": return "background-color: #D32F2F; color: white;" # Red
+        if val == "Closed": return "background-color: #2E7D32; color: white;" # Green
+        return ""
             
 
 
