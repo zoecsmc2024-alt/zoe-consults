@@ -1007,30 +1007,34 @@ def show_loans():
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # --- 3. THE LUXE ROW & BADGE STYLING ---
+                # --- 3. THE LUXE ROW & BADGE STYLING (UPDATED COLORS) ---
                 def style_loan_table(row):
-                    # Default row color (Peachish-White)
                     bg_color = "#FFF9F5" 
                     
-                    # Logic for the Status column Badges
-                    status = row["Status"]
+                    status = str(row["Status"])
+                    # Standardized Zoe Consults Status Colors
                     if status == "Active": s_color = "#4A90E2"      # Baby Blue
                     elif status == "Closed": s_color = "#2E7D32"    # Emerald Green
-                    elif status == "Overdue": s_color = "#FF4B4B"   # Hot Red
-                    elif "Rolled" in str(status): s_color = "#FFA500" # Orange
+                    elif status == "Overdue": s_color = "#D32F2F"   # Hot Red
+                    elif status == "Pending": s_color = "#D32F2F"   # Hot Red (Matches Overdue)
+                    elif status == "BCF": s_color = "#FFA500"       # Orange
+                    elif "Rolled" in status: s_color = "#FFA500"    # Orange
                     else: s_color = "#666666"
 
-                    # Build the styles
                     styles = [f'background-color: {bg_color}; color: #0A192F;'] * len(row)
-                    # Overwrite the Status column with a Badge look
-                    status_idx = row.index.get_loc("Status")
-                    styles[status_idx] = f'background-color: {s_color}; color: white; font-weight: bold; border-radius: 5px;'
+                    # Status is now at the END, so we use -1 for the index
+                    styles[-1] = f'background-color: {s_color}; color: white; font-weight: bold; border-radius: 5px;'
                     return styles
 
-                # 4. PREP DATA
-                show_cols = ["Loan_ID", "Borrower", "Principal", "Balance", "Status"]
+                # 4. PREP DATA & REORDER COLUMNS (STATUS TO THE END)
+                # First, gather standard columns
+                base_cols = ["Loan_ID", "Borrower", "Principal", "Balance"]
+                date_cols = []
                 for d_col in ["Start_Date", "Start Date", "End_Date", "End Date"]:
-                    if d_col in active_view.columns: show_cols.append(d_col)
+                    if d_col in active_view.columns: date_cols.append(d_col)
+                
+                # REORDER: [IDs, Names, Money, Dates] + [Status at the very end]
+                show_cols = base_cols + date_cols + ["Status"]
                 
                 final_table = active_view[show_cols].copy()
 
@@ -1043,7 +1047,7 @@ def show_loans():
                     final_table.style.format({
                         "Principal": "{:,.0f}",
                         "Balance": "{:,.0f}"
-                    }).apply(style_loan_table, axis=1), # Apply peach rows & status badges
+                    }).apply(style_loan_table, axis=1), 
                     use_container_width=True, 
                     hide_index=True
                 )
